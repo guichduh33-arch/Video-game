@@ -6,7 +6,7 @@
 <title>Miles Morales: Brooklyn Nights</title>
 <style>
   html, body { margin: 0; height: 100%; background: #05060f; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; }
-  canvas { display: block; cursor: crosshair; }
+  canvas { display: block; cursor: crosshair; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 </style>
 </head>
 <body>
@@ -31,6 +31,20 @@ function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 10139
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 let W = 0, H = 0, DPR = 1, VS = 1, VW = 0, VH = 0;
+
+// ---------- Touch controls (iPad / phone) ----------
+const TOUCH_DEVICE = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+const touch = { ui: TOUCH_DEVICE, stick: null, web: null, held: {}, btns: [], hintT: 12 };
+function layoutButtons() {
+  const r = clamp(Math.min(W, H) * 0.07, 28, 52);
+  const m = r * 0.6, bx = W - m - r * 1.2, by = H - m - r * 1.2;
+  touch.btns = [
+    { key: 'KeyW', label: 'JUMP', x: bx, y: by, r: r * 1.2, color: '#ffffff' },
+    { key: 'KeyJ', label: 'PUNCH', x: bx - r * 2.9, y: by + r * 0.2, r, color: '#ff4d5a' },
+    { key: 'KeyK', label: 'VENOM', x: bx - r * 2.3, y: by - r * 2.4, r, color: '#ffd23f' },
+    { key: 'KeyL', label: 'CAMO', x: bx + r * 0.2, y: by - r * 2.9, r, color: '#9fe8ff' },
+  ];
+}
 function resize() {
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth; H = window.innerHeight;
@@ -38,6 +52,7 @@ function resize() {
   canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
   VS = clamp(Math.min(W / 1280, H / 720), 0.55, 1.35);
   VW = W / VS; VH = H / VS;
+  layoutButtons();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -55,6 +70,7 @@ const CRIMES_TO_WIN = 8;
 const keys = {}, pressed = {};
 const mouse = { x: 0, y: 0, down: false, used: false, lastMove: -1e9 };
 window.addEventListener('keydown', e => {
+  touch.ui = false;
   if (!keys[e.code]) pressed[e.code] = true;
   keys[e.code] = true;
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
@@ -69,6 +85,48 @@ canvas.addEventListener('mousedown', e => {
 });
 window.addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
+function touchPos(t) { const r = canvas.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; }
+function hitBtn(x, y) { for (const b of touch.btns) if (Math.hypot(x - b.x, y - b.y) < b.r * 1.35) return b; return null; }
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault(); AudioSys.ensure(); touch.ui = true;
+  for (const t of e.changedTouches) {
+    const [x, y] = touchPos(t);
+    if (G.state !== 'play') { pressed.Mouse = true; continue; }
+    const b = hitBtn(x, y);
+    if (b) { pressed[b.key] = true; b.held = true; touch.held[t.identifier] = b; continue; }
+    if (x < W * 0.4 && !touch.stick) { touch.stick = { id: t.identifier, ox: x, oy: y, x, y }; continue; }
+    if (!touch.web) {
+      touch.web = { id: t.identifier, x, y };
+      mouse.x = x; mouse.y = y; mouse.used = true; mouse.lastMove = performance.now();
+      mouse.down = true; pressed.Mouse = true;
+    }
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const [x, y] = touchPos(t);
+    if (touch.stick && t.identifier === touch.stick.id) { touch.stick.x = x; touch.stick.y = y; }
+    else if (touch.web && t.identifier === touch.web.id) { touch.web.x = x; touch.web.y = y; mouse.x = x; mouse.y = y; mouse.lastMove = performance.now(); }
+  }
+}, { passive: false });
+function touchEnd(e) {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (touch.stick && t.identifier === touch.stick.id) touch.stick = null;
+    if (touch.web && t.identifier === touch.web.id) { touch.web = null; mouse.down = false; }
+    const b = touch.held[t.identifier];
+    if (b) { b.held = false; delete touch.held[t.identifier]; }
+  }
+}
+canvas.addEventListener('touchend', touchEnd, { passive: false });
+canvas.addEventListener('touchcancel', touchEnd, { passive: false });
+function applyTouchInput() {
+  if (!touch.ui) return;
+  const s = touch.stick, dx = s ? s.x - s.ox : 0, dy = s ? s.y - s.oy : 0;
+  keys.ArrowLeft = dx < -14; keys.ArrowRight = dx > 14;
+  keys.ArrowUp = dy < -28; keys.ArrowDown = dy > 28;
+}
 const isDown = (...codes) => codes.some(c => keys[c]);
 const wasPressed = (...codes) => codes.some(c => pressed[c]);
 
@@ -202,7 +260,9 @@ try { G.best = +localStorage.getItem('mm_best') || 0; G.bestTime = +localStorage
 function reset() {
   enemies.length = 0; bullets.length = 0; particles.length = 0; texts.length = 0; arcs.length = 0;
   Object.assign(G, { time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 1.2, shake: 0, paused: false, flash: 0 });
-  const start = buildings.find(b => b.x > 300 && b.w >= 300 && b.h >= 380) || buildings[2];
+  touch.hintT = 12;
+  // spawn on a tall, wide roof whose neighbour is attached and lower: a runway, not a pit
+  const start = buildings.find((b, i) => { const n = buildings[i + 1]; return b.x > 300 && b.w >= 250 && b.h >= 380 && n && n.x === b.x + b.w && n.y >= b.y; }) || buildings[2];
   Object.assign(player, {
     x: start.x + start.w / 2, y: start.y - player.h / 2 - 1, vx: 0, vy: 0, facing: 1,
     hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, swinging: false, anchor: null, alive: true,
@@ -1012,14 +1072,54 @@ function drawHUD() {
   }
 
   // hints
-  if (G.hintT > 0 && G.state === 'play') {
+  if (G.hintT > 0 && G.state === 'play' && !touch.ui) {
     ctx.globalAlpha = clamp(G.hintT, 0, 1);
     ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 330, H - 60, 660, 40);
     ctx.fillStyle = '#fff'; ctx.font = '13px system-ui, sans-serif';
     ctx.fillText('A/D move  ·  W jump (double jump)  ·  hold SPACE / click to web-swing (aim with mouse)  ·  J punch  ·  K venom strike  ·  L camouflage', W / 2, H - 35);
     ctx.globalAlpha = 1;
   }
+  if (touch.ui && G.state === 'play') drawTouchUI();
   ctx.restore();
+}
+
+function drawTouchUI() {
+  const p = player;
+  // floating stick
+  const s = touch.stick;
+  if (s) {
+    const dx = s.x - s.ox, dy = s.y - s.oy, d = Math.hypot(dx, dy), k = d > 44 ? 44 / d : 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.ox, s.oy, 48, 0, TAU); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(s.ox + dx * k, s.oy + dy * k, 24, 0, TAU); ctx.fill();
+  } else {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]);
+    ctx.beginPath(); ctx.arc(W * 0.14, H - Math.min(H * 0.22, 150), 48, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = 'bold 11px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('MOVE', W * 0.14, H - Math.min(H * 0.22, 150) + 4);
+  }
+  // web aim marker
+  if (touch.web && p.swinging && p.anchor) { /* the web line itself shows the aim */ }
+  // buttons
+  for (const b of touch.btns) {
+    let ready = true, label = b.label;
+    if (b.key === 'KeyK') { ready = p.venom >= 50; }
+    if (b.key === 'KeyL') { ready = !p.camo && p.camoCd <= 0; if (p.camoCd > 0) label = Math.ceil(p.camoCd) + 's'; if (p.camo) label = 'ON'; }
+    ctx.globalAlpha = b.held ? 0.85 : ready ? 0.45 : 0.2;
+    ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
+    ctx.globalAlpha = b.held ? 1 : 0.8;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.round(b.r * 0.34)}px system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(label, b.x, b.y + b.r * 0.12);
+    ctx.globalAlpha = 1;
+  }
+  if (touch.hintT > 0) {
+    touch.hintT -= 1 / 60;
+    ctx.globalAlpha = clamp(touch.hintT, 0, 1);
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 200, 100, 400, 50);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.fillText('Touch and HOLD the sky to web-swing toward your finger', W / 2, 121);
+    ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Drag on the left to move  ·  push into walls to climb', W / 2, 141);
+    ctx.globalAlpha = 1;
+  }
 }
 
 function overlay(title, sub, lines, color = '#e0202a') {
@@ -1043,6 +1143,7 @@ function frame(now) {
   let dt = (now - last) / 1000; last = now;
   if (dt > 1 / 30) dt = 1 / 30;
 
+  applyTouchInput();
   // state transitions
   if (G.state === 'title') { if (wasPressed('Enter', 'Mouse', 'Space')) { AudioSys.ensure(); reset(); G.state = 'play'; } }
   else if (G.state === 'play') {
@@ -1086,7 +1187,18 @@ function frame(now) {
 
   if (G.state === 'play') drawHUD();
   if (G.state === 'play' && G.paused) overlay('PAUSED', 'Press P or Esc to resume', []);
-  if (G.state === 'title') overlay('MILES MORALES', 'BROOKLYN NIGHTS', [
+  if (G.state === 'title' && touch.ui) overlay('MILES MORALES', 'BROOKLYN NIGHTS', [
+    'Tap to start',
+    '',
+    'Drag on the left side of the screen to move, push into walls to climb',
+    'Touch and hold the sky to web-swing toward your finger, let go to release',
+    'JUMP also launches you off a web (double jump in the air)',
+    'PUNCH thugs  ·  VENOM shocks everyone around you  ·  CAMO for stealth takedowns',
+    '',
+    `Stop ${CRIMES_TO_WIN} rooftop crimes as fast as you can. Landscape works best.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
+    'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
+  ]);
+  else if (G.state === 'title') overlay('MILES MORALES', 'BROOKLYN NIGHTS', [
     'Press ENTER or click to start',
     '',
     'A / D  move     W  jump (double jump, launch off webs)',
@@ -1097,8 +1209,8 @@ function frame(now) {
     `Stop ${CRIMES_TO_WIN} rooftop crimes as fast as you can.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
     'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
   ]);
-  if (G.state === 'win') overlay('BROOKLYN IS SAFE', `${G.score.toLocaleString()} pts  ·  ${fmtTime(G.time)}`, ['Press ENTER to swing again', G.best ? `Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''], '#7dffa6');
-  if (G.state === 'dead') overlay('KNOCKED OUT', `${G.score.toLocaleString()} pts  ·  ${G.crimes} crimes stopped`, ['Press ENTER or R to get back up', 'Tip: keep moving. Swing in, punch, swing out. Venom Strike clears a crowd.']);
+  if (G.state === 'win') overlay('BROOKLYN IS SAFE', `${G.score.toLocaleString()} pts  ·  ${fmtTime(G.time)}`, [touch.ui ? 'Tap to swing again' : 'Press ENTER to swing again', G.best ? `Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''], '#7dffa6');
+  if (G.state === 'dead') overlay('KNOCKED OUT', `${G.score.toLocaleString()} pts  ·  ${G.crimes} crimes stopped`, [touch.ui ? 'Tap to get back up' : 'Press ENTER or R to get back up', 'Tip: keep moving. Swing in, punch, swing out. Venom Strike clears a crowd.']);
 
   for (const k in pressed) pressed[k] = false;
   requestAnimationFrame(frame);
