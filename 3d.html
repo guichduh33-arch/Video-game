@@ -1340,17 +1340,68 @@ const EMAT = {
   gun: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.6 }),
   flash: new THREE.MeshBasicMaterial({ color: 0xffffff }),
 };
+// enemies are built on the hero rig in street clothes: hoodie or jacket, jeans, sneakers, a real face, hair or a hat, and a weapon
+const SKIN_TONES = [0xf1c9a5, 0xe6b48f, 0xd49a6a, 0xb57b50, 0x8d5a3a, 0x6b4128, 0x4a2d1c];
+const TOP_COLORS = ['#2b2b30', '#3a3f55', '#5a2a2a', '#2e4a3a', '#4a3a2a', '#1f2a3f', '#6b6b70', '#3b2a4a', '#7a2a2a', '#2a2a2a'];
+const JEANS_COLORS = [0x2c3a5a, 0x1e1e24, 0x3b3b3b, 0x4a5a7a, 0x2a2a30];
+const HAIR_COLORS = [0x1a1210, 0x3a2418, 0x5a3a20, 0x101010, 0x8a6a40];
+const enemyMats = { gun: new THREE.MeshStandardMaterial({ color: 0x1b1b1f, roughness: 0.4, metalness: 0.7 }), wood: new THREE.MeshStandardMaterial({ color: 0x7a4a2a, roughness: 0.8 }), eye: new THREE.MeshStandardMaterial({ color: 0x151515, roughness: 0.3 }), white: new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.5 }), mouth: new THREE.MeshStandardMaterial({ color: 0x5a2a28, roughness: 0.8 }) };
+function faceAndHair(g, head, skin, cloth, style) {
+  // hide the hero's lenses and rims (the extruded shapes on the head)
+  head.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ExtrudeGeometry') o.visible = false; });
+  // eyes: white with a dark pupil, brows, a mouth
+  for (const sx of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 6), enemyMats.white); w.scale.set(1.3, 0.8, 0.5); headProp(head, w, sx * 0.13, 0.04, 0.34);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), enemyMats.eye); headProp(head, pu, sx * 0.13, 0.04, 0.365);
+    const br = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.02, 0.02), enemyMats.eye); headProp(head, br, sx * 0.13, 0.12, 0.35); br.rotation.z = sx * -0.25;
+  }
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.018, 0.02), enemyMats.mouth); headProp(head, mouth, 0, -0.14, 0.355);
+  if (style === 'mask') { // ski mask: dark cloth over the whole head, eyes showing through
+    head.material = cloth; const slit = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.09, 0.02), skin); headProp(head, slit, 0, 0.04, 0.33); mouth.visible = false;
+  } else if (style === 'beanie') {
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 10, 0, TAU, 0, Math.PI * 0.55), cloth); headProp(head, b, 0, 0.06, 0); b.scale.set(1.02, 1.0, 1.02);
+    const band = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.05, 6, 20), cloth); headProp(head, band, 0, 0.12, 0); band.rotation.x = Math.PI / 2;
+  } else if (style === 'cap') {
+    const crown = new THREE.Mesh(new THREE.SphereGeometry(0.39, 16, 10, 0, TAU, 0, Math.PI * 0.5), cloth); headProp(head, crown, 0, 0.08, 0);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.26), cloth); headProp(head, brim, 0, 0.2, 0.42); brim.rotation.x = 0.15;
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 8, 0, TAU, Math.PI * 0.45, Math.PI * 0.2), new THREE.MeshStandardMaterial({ color: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)], roughness: 1 })); headProp(head, hair, 0, 0.02, -0.02); hair.scale.set(1.02, 1.02, 1.02);
+  } else { // hair: short crop, fade, or longer
+    const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)], roughness: 1 });
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.39, 16, 10, 0, TAU, 0, Math.PI * (0.42 + Math.random() * 0.2)), hairMat); headProp(head, hair, 0, 0.04, -0.03); hair.scale.set(1.02, 0.95 + Math.random() * 0.2, 1.02);
+    if (Math.random() < 0.4) { const beard = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8, 0, TAU, Math.PI * 0.55, Math.PI * 0.3), hairMat); headProp(head, beard, 0, -0.08, 0.1); beard.scale.set(1.05, 1, 1.05); }
+  }
+}
 function makeEnemyMesh(type) {
-  const g = new THREE.Group(), mat = EMAT[type];
-  g.add(box(1.0, 1.2, 0.6, mat, 0, 1.6, 0));
-  const symb = type === 'symb';
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 10), symb ? mat : EMAT.skin); head.position.y = 2.5; g.add(head);
-  if (symb) { for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), VMAT_EYE); e.scale.set(1, 0.5, 0.3); e.position.set(sx * 0.15, 0.08, 0.32); e.rotation.z = sx * -0.5; head.add(e); } }
-  else { const cap = box(0.8, 0.2, 0.8, mat, 0, 2.8, 0); g.add(cap); }
-  const al = makeLimb(1, 0.26, mat, symb ? mat : EMAT.skin), ar = makeLimb(1, 0.26, mat, symb ? mat : EMAT.skin); al.position.set(-0.65, 2.05, 0); ar.position.set(0.65, 2.05, 0); g.add(al, ar);
-  const ll = makeLimb(1, 0.3, EMAT.gun, EMAT.gun), lr = makeLimb(1, 0.3, EMAT.gun, EMAT.gun); ll.position.set(-0.25, 1.0, 0); lr.position.set(0.25, 1.0, 0); g.add(ll, lr);
-  if (type === 'gunner') { const gun = box(0.2, 0.2, 1.1, EMAT.gun, 0, -0.9, 0.5); ar.add(gun); }
-  g.parts = { al, ar, ll, lr, head }; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+  const r = Math.random;
+  let g;
+  if (type === 'symb') {
+    const skin = phys(0x0a0a12, { roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.5 });
+    g = buildSuit({ black: skin, red: skin, web: skin, webShoulder: skin, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: skin, swoosh: skin, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: VMAT_EYE }, (g, body, head) => {
+      head.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ExtrudeGeometry') o.visible = false; });
+      for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), VMAT_EYE); e.scale.set(1.1, 0.45, 0.3); headProp(head, e, sx * 0.15, 0.08, 0.33); e.rotation.z = sx * -0.5; }
+      for (let i = 0; i < 3; i++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.7, 5), skin); t.geometry.translate(0, 0.35, 0); const piv = new THREE.Group(); piv.position.set(-0.2 + i * 0.2, 2.0, -0.25); piv.rotation.x = -1.7; piv.rotation.z = (i - 1) * 0.5; piv.add(t); body.add(piv); }
+    });
+  } else {
+    const skin = phys(SKIN_TONES[Math.floor(r() * SKIN_TONES.length)], { roughness: 0.75, clearcoat: 0 });
+    const topHex = TOP_COLORS[Math.floor(r() * TOP_COLORS.length)];
+    const top = new THREE.MeshStandardMaterial({ map: fabricTex(topHex, true), color: 0xffffff, roughness: 1 });
+    const jeans = new THREE.MeshStandardMaterial({ map: fabricTex('#' + JEANS_COLORS[Math.floor(r() * JEANS_COLORS.length)].toString(16).padStart(6, '0'), true), color: 0xffffff, roughness: 1 });
+    const hooded = r() < 0.55, shoeAcc = phys(new THREE.Color().setHSL(r(), 0.6, 0.45).getHex()), dark = phys(0x1a1a1e);
+    g = buildSuit({ black: top, red: skin, web: skin, webShoulder: top, hoodie: hooded ? top : NONE_MAT, hoodieIn: hooded ? dark : NONE_MAT, string: hooded ? MAT.laces : NONE_MAT, sole: enemyMats.white, swoosh: shoeAcc, laces: MAT.laces, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: NONE_MAT }, (g, body, head) => {
+      for (const leg of [g.parts.legL, g.parts.legR]) leg.traverse(o => { if (o.isMesh && o.material === top) o.material = jeans; });
+      const style = r() < 0.2 ? 'mask' : r() < 0.45 ? 'beanie' : r() < 0.7 ? 'cap' : 'hair';
+      faceAndHair(g, head, skin, type === 'gunner' ? dark : top, style);
+      // bulk them up a touch compared to the teenage hero
+      body.scale.set(1.12, 1.0, 1.12);
+      // weapons: gunners carry a pistol in the right hand, some thugs a bat or a crowbar
+      const hand = g.parts.armR.tip;
+      if (type === 'gunner') { const gun = new THREE.Group(); const grip = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.05), enemyMats.gun); grip.position.set(0, -0.04, 0.02); const slide = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.3), enemyMats.gun); slide.position.set(0, -0.14, 0.12); gun.add(grip, slide); gun.rotation.x = -Math.PI / 2; gun.position.set(0, -0.1, 0.03); hand.add(gun); }
+      else if (r() < 0.45) { const bat = r() < 0.5; const w = new THREE.Mesh(bat ? new THREE.CylinderGeometry(0.05, 0.03, 0.95, 8) : new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), bat ? enemyMats.wood : enemyMats.gun); w.position.set(0, -0.35, 0.05); w.rotation.x = 0.35; hand.add(w); if (!bat) { const hook = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.022, 6, 10, Math.PI), enemyMats.gun); hook.position.set(0, -0.75, 0.2); hook.rotation.y = Math.PI / 2; hand.add(hook); } }
+    });
+  }
+  g.traverse(o => { if (o.isPointLight) o.intensity = 0; });
+  g.parts.al = g.parts.armL; g.parts.ar = g.parts.armR; g.parts.ll = g.parts.legL; g.parts.lr = g.parts.legR;
+  return g;
 }
 function spawnEnemy(type, x, z, roof) {
   const mesh = makeEnemyMesh(type); mesh.position.set(x, roof.h, z); scene.add(mesh);
@@ -1407,9 +1458,13 @@ function updateEnemies(dt) {
     // animate
     const p = m.parts, sw = moving ? Math.sin(e.animT * 10) * 0.7 : Math.sin(e.animT * 2) * 0.08;
     p.ll.rotation.x = sw; p.lr.rotation.x = -sw;
-    if (e.attackT > 0) { p.ar.rotation.x = -2.2 + (0.5 - e.attackT) * 3; p.al.rotation.x = -0.6; }
-    else if (e.type === 'gunner' && e.alert) { p.ar.rotation.x = -1.5; p.al.rotation.x = -1.3; }
-    else { p.ar.rotation.x = -sw * 0.8; p.al.rotation.x = sw * 0.8; }
+    p.ll.joint.rotation.x = moving ? Math.max(0, sw) * 1.5 + 0.1 : 0.05; p.lr.joint.rotation.x = moving ? Math.max(0, -sw) * 1.5 + 0.1 : 0.05;
+    p.body.rotation.x = moving ? 0.15 : (e.alert ? 0.08 : 0);
+    if (e.attackT > 0) { const k = 0.5 - e.attackT; p.ar.rotation.x = -2.2 + k * 3; p.ar.joint.rotation.x = -1.2 + k * 2; p.al.rotation.x = -0.6; p.al.joint.rotation.x = -1.4; }
+    else if (e.type === 'gunner' && e.alert) { p.ar.rotation.x = -1.5; p.ar.joint.rotation.x = 0; p.al.rotation.x = -1.3; p.al.joint.rotation.x = -0.9; p.al.rotation.z = 0.5; }
+    else if (e.alert && e.type !== 'gunner') { p.ar.rotation.x = -0.9 + sw * 0.3; p.al.rotation.x = -0.9 - sw * 0.3; p.ar.joint.rotation.x = p.al.joint.rotation.x = -1.6; p.al.rotation.z = 0.15; }
+    else { p.ar.rotation.x = -sw * 0.8; p.al.rotation.x = sw * 0.8; p.ar.joint.rotation.x = p.al.joint.rotation.x = -0.35; p.al.rotation.z = 0.1; }
+    p.head.rotation.y = e.alert ? 0 : Math.sin(e.animT * 0.7) * 0.4;
     if (e.webbed > 0) m.rotation.z = Math.sin(e.animT * 14) * 0.05; else if (e.stun > 0) m.rotation.z = Math.sin(e.stun * 30) * 0.15; else m.rotation.z = 0;
     m.traverse(o => { if (!o.isMesh || o.material === cocoonMat || o.material === cocoonWireMat) return; if (o.userData.base === undefined) o.userData.base = o.material; o.material = e.flash > 0 ? EMAT.flash : o.userData.base; });
   }

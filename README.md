@@ -185,7 +185,11 @@ spawns symbiote-possessed goons who are fast and can see you in camo.
 
 ## Goal
 
-Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. Reach
+Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. In 3D the
+criminals are built on the same jointed rig as the heroes: street clothes (hoodies,
+jackets, jeans, sneakers), real faces with varied skin tones, hair, beanies, caps or ski
+masks, bats and crowbars for thugs and pistols for gunners, with knees and elbows that
+bend as they run, square up and swing. Reach
 each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino and Venom). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
