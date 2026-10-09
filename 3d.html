@@ -1062,7 +1062,22 @@ function headProp(head, mesh, x, y, z) { mesh.position.set(x, y, z); mesh.positi
 function logoPlane(mat, size, y, z, back = false) { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat); m.position.set(0, y, z); if (back) m.rotation.y = Math.PI; else m.rotation.x = -0.12; return m; }
 const spiderMat = (color, back = false) => new THREE.MeshStandardMaterial({ map: tintSpiderTex(color, back), transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide });
 const SUIT_DEFS = {
-  spiderverse: { name: 'MILES · SPIDER-VERSE', perk: 'Camouflage and stealth takedowns', build: () => hero },
+  spiderverse: { name: 'MILES · SPIDER-VERSE', perk: 'Camouflage and stealth takedowns', build: () => {
+    // the Across the Spider-Verse game suit: navy halftone body, orange-red comic spider, thin red side stripes, red fingertips and soles, big white lenses with orange rims
+    const halftone = (base, dot) => { const t = canvasTex(256, 256, (g, w, h) => { g.fillStyle = base; g.fillRect(0, 0, w, h); g.fillStyle = dot; for (let y = 0; y < h; y += 6) for (let x = 0; x < w; x += 6) { g.beginPath(); g.arc(x + (y / 6 % 2) * 3, y, 1.3, 0, TAU); g.fill(); } }); t.repeat.set(1, 1); return t; };
+    const navy = phys(0xffffff, { map: halftone('#0b0e2a', '#1a2048'), roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.4 }), red = phys(0xff3a1c, { roughness: 0.55, emissive: 0x3a0a00 }), white = MAT.lens;
+    return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: navy, swoosh: red, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body, head) => {
+      head.scale.multiplyScalar(0.86);
+      body.add(logoPlane(spiderMat('#ff3a1c', true), 0.62, 1.9, 0.31)); body.add(logoPlane(spiderMat('#ff3a1c', true), 0.95, 1.82, -0.27, true));
+      for (const sx of [-1, 1]) {
+        // flank stripe: three short segments that follow the chest, abdomen and hip curves
+        for (const [x, y, len, rz] of [[0.405, 1.92, 0.34, 0], [0.3, 1.62, 0.3, sx * 0.3], [0.25, 1.33, 0.3, sx * -0.15]]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, len, 0.06), red); st.position.set(sx * x, y, 0.02); st.rotation.z = rz; body.add(st); }
+        const leg = sx < 0 ? g.parts.legL : g.parts.legR;
+        const up = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.55, 0.06), red); up.position.set(sx * 0.135, -0.3, 0.01); leg.add(up);
+        const lo = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.42, 0.06), red); lo.position.set(sx * 0.12, -0.28, 0.01); leg.joint.add(lo);
+      }
+    });
+  } },
   symbiote: { name: 'VENOM SYMBIOTE', perk: 'Double punch damage, longer reach, no camouflage', build: () => {
     const skin = phys(0x0a0a12, { roughness: 0.22, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.5 }), white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.4, emissive: 0x3a3a3a });
     return buildSuit({ black: skin, red: white, web: skin, webShoulder: skin, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: skin, swoosh: skin, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body) => {
@@ -1106,6 +1121,7 @@ const SUIT_DEFS = {
     }); } },
 };
 const SUIT_ORDER = ['spiderverse', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
+scene.remove(hero); hero = SUIT_DEFS.spiderverse.build(); scene.add(hero);
 const SUITS = { spiderverse: hero };
 let SUIT = 'spiderverse';
 function setSuit(name) {
@@ -2880,7 +2896,7 @@ for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name]
 WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
 applyLevel(PERF.level);
 renderer.compile(scene, camera);
-if (new URLSearchParams(location.search).get('hero') !== 'classic') loadRig(); // ?hero=classic keeps the hand-built Miles
+if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned body is opt-in: ?hero=mocap
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);

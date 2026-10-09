@@ -109,10 +109,10 @@ time are saved separately from the first game.
 
 ## The hero model
 
-Miles is a motion-captured character wearing the Across the Spider-Verse suit from the
+Miles is the hand-built lanky-teen model wearing the Across the Spider-Verse suit from the
 Spider-Man games (navy halftone body, red-orange comic spider, thin red side stripes, red
-fingertips and soles, big white lenses). Add `?hero=classic` to the URL for the earlier
-hand-built hoodie model. The skinned hero is the Mixamo "X Bot" rig (67 bones, from the
+fingertips, big white lenses with orange rims). Add `?hero=mocap` to the URL for the
+experimental skinned version: a motion-captured character the Mixamo "X Bot" rig (67 bones, from the
 three.js examples, `models/xbot.glb`) dressed by a procedural suit shader. The shader paints
 the suit straight onto the body in bind space: head webbing, teardrop lenses with rims, the
 chest and back spiders with spray-paint flecks, red fingertips and sneakers with white soles,
