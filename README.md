@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Two versions live in this repo:
+Three games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -17,6 +17,95 @@ Two versions live in this repo:
   8th crime the Rhino shows up for a boss fight, and Venom after him. The city is rendered with real-time
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
+- `spiderman2.html` – **Spider-Man 2: Brooklyn Nights**, the sequel. Two playable
+  Spider-Men, a bigger two-borough city split by the East River, web wings, wind
+  tunnels, slingshot pads, parrying, Kraven's hunters and a three-boss campaign
+  (the Lizard, Kraven, Venom). See [Spider-Man 2](#spider-man-2-brooklyn-nights) below.
+
+## Spider-Man 2: Brooklyn Nights
+
+Open `spiderman2.html`. It is built on the 3D engine, so everything from Brooklyn
+Nights 3D (swinging, wall-crawling, web shots, the comic look, the radio, the PWA)
+carries over. What is new:
+
+### Two Spider-Men
+
+You start as **Peter Parker** with **Miles Morales** swinging beside you as your AI
+partner. Press `Tab` (SWAP on touch) at any moment to trade places: the partner's
+body becomes the one you drive and your old hero drops into the partner role. Each
+hero keeps his own health, his own power meter and his own suits, and the benched
+hero slowly heals, so swapping out when you are low is a real tactic.
+
+| Hero | Power (`K`, costs 50) | Extras | Suits (`N` / `B`) |
+| --- | --- | --- | --- |
+| Peter | **Spider-Arms**: four mechanical arms unfold from his back and hammer everything in front of him. In the black suit this becomes **Symbiote Surge**: hits everything around him and heals him | Black suit: double punch damage, longer reach, every hit heals | Advanced Suit 2.0, Black Suit (story unlock), Classic (triple jump), Spider-Noir |
+| Miles | **Venom Strike**: shocks everything nearby. After Act II it evolves into **chain lightning** with a much bigger radius | Camouflage (`L`) and stealth takedowns | Upgraded Suit, Spider-Verse hoodie, Spider-Man 2099 (fast talons), Spider-Punk (cheap strikes) |
+
+The radio (`T`) now talks to whichever hero you are not playing. Peter and Miles each
+have their own scripted lines and voices; opened from its claude.ai artifact link the
+partner answers with a real language model, in character, with the live game state.
+
+### The city
+
+Manhattan (west, towers up to 160 m, the **Oscorp** tower marked by a green beam) and
+Brooklyn / Queens (east, low-rise, more parks and shops) sit on either side of the
+**East River**. Two suspension bridges with real towers and cables cross it; you can
+land on the decks, climb the towers and web to them. Fall in the water and you are
+bounced straight back out on a web. Crimes usually break out across the river from
+where you are, so you will cross it a lot.
+
+### Getting around
+
+- **Web Wings**: hold `C` (WINGS on touch) in the air. Look down to dive and build
+  speed, look up to trade speed for height, steer with the stick or the camera. Press
+  jump to flick out of the glide.
+- **Wind tunnels**: the glowing streams of air over the river, over an avenue on each
+  shore and along both bridges. Glide into one and it pushes you along at 46 m/s.
+- **Slingshot pads**: ten yellow rings on rooftops. Stand on one and press `Space` to
+  be fired in the direction the camera faces. Hold `C` at the top for a huge glide.
+
+### Combat
+
+- **Parry**: `Q` (PARRY on touch). When the spider-sense ring over your head flashes
+  **yellow**, a parry stops the hit, stuns the attacker and builds power. When it
+  flashes **red** the attack cannot be parried: move or jump.
+- **Kraven's hunters** (Act II): armoured, spears, four hits to drop, and they close
+  the distance with a leaping stab. Parry the leap.
+- Symbiote thugs (Act III) see through camouflage.
+
+### The campaign
+
+Eight crimes and three bosses, with act titles and story beats between them:
+
+1. **Act I: Something in the River.** Three street crimes, then **the Lizard**. Parry
+   his lunge (yellow). Jump the tail sweep (red). At half health he bolts to another
+   roof: follow the beacon. Beating him puts the symbiote on Peter: he gets the
+   **black suit** and Symbiote Surge.
+2. **Act II: The Hunt.** Three hunter crimes, then **Kraven the Hunter**. Parry the
+   spear thrust, dodge the thrown spear and the charge (red). He vanishes and strikes
+   from behind: when the ring goes red, move. He calls hunters at 60% and 30%. After
+   the fight Peter tears the symbiote off and Miles' venom evolves.
+3. **Act III: We Are Venom.** Two symbiote nests, then **Venom** on the roof of Oscorp
+   tower. He sees through camo and your spider-sense is silent; a Venom Strike or a
+   Symbiote Surge shocks him and doubles every hit.
+
+### Spider-Man 2 controls
+
+| Action | Keys |
+| --- | --- |
+| Move / look / jump / swing / wall-crawl / punch / web shot | as in Brooklyn Nights 3D |
+| Web Wings | hold `C` in the air (look down to dive, up to climb) |
+| Slingshot | stand on a yellow pad, `Space` |
+| Swap Peter / Miles | `Tab` |
+| Parry | `Q` when the spider-sense ring flashes yellow |
+| Hero power | `K` (Peter: Spider-Arms / Symbiote Surge, Miles: Venom Strike) |
+| Camouflage | `L` (Miles only) |
+| Suits | `N` / `B` (each hero has his own list) |
+| Radio your partner | `T` (`Y` or 🎤 to speak), `G` benches him |
+| Comic / realistic, fullscreen, pause | `V`, `F`, `Esc` |
+
+Touch adds WINGS, PARRY and SWAP buttons next to the existing ones. Best score and
+time are saved separately from the first game.
 
 ## Install as an app
 
@@ -24,8 +113,9 @@ The 3D game is a Progressive Web App. Once the folder is served over HTTPS (GitH
 Pages, Vercel, Netlify or any static host), it installs like a native app and runs
 fullscreen and offline:
 
-- **Android / Chrome / Edge**: open `3d.html`, press the INSTALL APP button on the
-  title screen (or the install icon in the address bar).
+- **Android / Chrome / Edge**: open `3d.html` (or `spiderman2.html` for the sequel),
+  press the INSTALL APP button on the title screen (or the install icon in the
+  address bar).
 - **iPhone / iPad**: open it in Safari, tap Share, then "Add to Home Screen".
 - **Desktop Chrome / Edge**: same INSTALL APP button; it opens in its own window.
 
@@ -38,7 +128,7 @@ pick the branch and the root folder, save, then open
 
 ## Play
 
-Open `index.html` (2D) or `3d.html` (3D) in any modern browser.
+Open `index.html` (2D), `3d.html` (3D) or `spiderman2.html` (the sequel) in any modern browser.
 
 The 3D version loads Three.js from a CDN, so it needs an internet connection the
 first time it opens. Everything else (city, hero, enemies, sound) is generated in code.
@@ -200,6 +290,11 @@ are saved in the browser.
   enemies, rendering and HUD.
 - `3d.html` – the whole 3D game: Three.js scene, procedural city grid, capsule-vs-box
   physics, pendulum web-swinging, wall-crawling, enemy AI, DOM HUD and touch controls.
+- `spiderman2.html` – the sequel, same engine: two-borough city with the river and
+  bridges, two heroes and the swap, web wings and wind tunnels, slingshots, parry,
+  hunters, the Lizard / Kraven / Venom fights and the act structure.
+- `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two 3D
+  games; `sw.js` caches both for offline play.
 
 ## Ideas for next steps
 
@@ -210,6 +305,6 @@ are saved in the browser.
 
 ## Disclaimer
 
-This is a non-commercial fan tribute. Miles Morales and Spider-Man are trademarks of
-Marvel. This project is not affiliated with or endorsed by Marvel, Sony or Insomniac
+This is a non-commercial fan tribute. Spider-Man, Peter Parker, Miles Morales, the
+Lizard, Kraven, Venom and related characters are trademarks of Marvel. This project is not affiliated with or endorsed by Marvel, Sony or Insomniac
 Games, and it must not be sold or distributed commercially.
