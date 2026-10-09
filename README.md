@@ -70,6 +70,14 @@ full-screen experience.
 | Camouflage | `L` or `Shift` (6 seconds, enemies lose you; punching from camo is a one-hit stealth takedown) |
 | Pause | `P` or `Esc` |
 
+### Spider-Gwen, your AI partner (3D only)
+
+Gwen swings with you from the start. She follows behind Miles, leaps roof to roof on her
+own webs, catches up by dropping in from above if she falls far behind, and runs into
+every crime to punch thugs and gunners. Her knockouts count toward clearing the crime,
+she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
+her or bring her back, or open `3d.html?partner=off` to play solo.
+
 ### Spider-Verse look (3D only)
 
 The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines
@@ -99,6 +107,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Pause | `Esc` or `P` |
 | Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen |
 | Comic / realistic look | `V` |
+| Gwen on / off | `G` |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
