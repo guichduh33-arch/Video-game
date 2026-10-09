@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Miles Morales: Brooklyn Nights 3D</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b0b14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Miles 3D">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <style>
   html, body { margin: 0; height: 100%; background: #d4e6f7; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
   canvas { display: block; touch-action: none; -webkit-user-select: none; user-select: none; }
@@ -77,7 +85,8 @@
     <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
   </div>
-  <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button></div>
+  <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
+  <p id="installHint" class="hidden" style="opacity:.7;margin-top:14px"></p>
 </div>
 <div id="fsBtn" title="Fullscreen (F)">⛶</div>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
@@ -1524,6 +1533,15 @@ for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEve
   if (G.state === 'play' && !G.paused && !TOUCH) setTimeout(() => renderer.domElement.requestPointerLock?.(), 150);
 });
 if (TOUCH) document.body.classList.add('touch');
+// ---------- App install (PWA) ----------
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+let installPrompt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; $('installBtn').classList.remove('hidden'); });
+$('installBtn').addEventListener('click', async () => { if (!installPrompt) return; installPrompt.prompt(); const r = await installPrompt.userChoice; if (r.outcome === 'accepted') $('installBtn').classList.add('hidden'); installPrompt = null; });
+addEventListener('appinstalled', () => { $('installBtn').classList.add('hidden'); $('installHint').classList.add('hidden'); });
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+if (IOS && !STANDALONE && location.protocol.startsWith('http')) { $('installHint').textContent = 'Install as an app: tap Share, then "Add to Home Screen".'; $('installHint').classList.remove('hidden'); }
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { }); }); }
 $('overlay').addEventListener('touchstart', () => AudioSys.ensure(), { passive: true });
 
 // ---------- Main loop ----------

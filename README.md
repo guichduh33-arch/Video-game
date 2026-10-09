@@ -18,6 +18,24 @@ Two versions live in this repo:
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
 
+## Install as an app
+
+The 3D game is a Progressive Web App. Once the folder is served over HTTPS (GitHub
+Pages, Vercel, Netlify or any static host), it installs like a native app and runs
+fullscreen and offline:
+
+- **Android / Chrome / Edge**: open `3d.html`, press the INSTALL APP button on the
+  title screen (or the install icon in the address bar).
+- **iPhone / iPad**: open it in Safari, tap Share, then "Add to Home Screen".
+- **Desktop Chrome / Edge**: same INSTALL APP button; it opens in its own window.
+
+The app files are `manifest.webmanifest`, `sw.js` (service worker, caches the game and
+the Three.js library for offline play) and the `icons/` folder.
+
+To host it on GitHub Pages: repository Settings → Pages → Source "Deploy from a branch",
+pick the branch and the root folder, save, then open
+`https://<user>.github.io/<repo>/3d.html`.
+
 ## Play
 
 Open `index.html` (2D) or `3d.html` (3D) in any modern browser.
