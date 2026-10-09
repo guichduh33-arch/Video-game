@@ -78,6 +78,16 @@ every crime to punch thugs and gunners. Her knockouts count toward clearing the 
 she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
+### Talking to Gwen
+
+Press `T` (or the 💬 button under the fullscreen button) to open Gwen's radio and type to
+her. The game pauses while the radio is open; `Esc` closes it. When the game is opened
+from its claude.ai artifact link, Gwen answers with a real language model (the page asks
+you once to allow it, and it uses your own Claude usage): she stays in character, knows
+the live game state and gives tips about the real controls. Everywhere else (GitHub
+Pages, the installed app, a local file) she falls back to a scripted radio with canned
+lines about tips, bosses, your score and her band.
+
 ### Spider-Verse look (3D only)
 
 The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines
@@ -108,6 +118,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen |
 | Comic / realistic look | `V` |
 | Gwen on / off | `G` |
+| Talk to Gwen | `T` or the 💬 button |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
