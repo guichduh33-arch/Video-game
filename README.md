@@ -134,6 +134,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Web-swing (hold) | Left mouse button or `Shift`. Webs attach to the nearest tower ahead of the camera; hold `W` to pump, press `Space` mid-swing to launch |
 | Wall-crawl | Run into a wall and keep pushing: `W`/`S` climb up or down, `A`/`D` shuffle sideways, `Space` kicks off the wall |
 | Punch | `J` or right mouse button (lunges at the closest thug in front of you) |
+| Web shot | `E` (SHOOT on touch). Fires a web at the nearest thug in front of the camera and wraps him in a cocoon for five seconds; webbed thugs cannot move or shoot, and any hit on one is an instant takedown |
 | Venom Strike | `K` (needs 50 venom; hits everything within a few metres) |
 | Camouflage | `L` (6 seconds; punching from camo is a one-hit stealth takedown) |
 | Pause | `Esc` or `P` |
