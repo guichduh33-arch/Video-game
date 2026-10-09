@@ -2234,7 +2234,7 @@ const RIG_SCALE = 1.6; // 1.8 m model -> the game's 2.9-unit hero
 const RIG_BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'];
 const RIG_CTRL = ['Spine', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftHand', 'RightHand'];
 const SUIT_PALETTES = {
-  spiderverse: { base: '#141420', accent: '#d8102a', lens: '#f4f4f4', rim: '#d8102a', spider: '#e0162c', shoe: '#d8102a', sole: '#f0f0f0', toe: '#f0f0f0', headWeb: 1, classic: 0, spiderScale: 1.0, spray: 1, gloss: 0.15, roughness: 0.72 },
+  spiderverse: { base: '#0b0e2a', accent: '#ff3a1c', lens: '#f6f6f8', rim: '#ff4a26', spider: '#ff3a1c', shoe: '#0b0e2a', sole: '#ff3a1c', toe: '#0b0e2a', headWeb: 0, classic: 0, spiderScale: 1.15, spray: 0, stripes: 1, halftone: 1, gloss: 0.25, roughness: 0.6 },
   symbiote: { base: '#07070c', accent: '#07070c', lens: '#f4f4f4', rim: '#07070c', spider: '#f4f4f4', shoe: '#07070c', sole: '#07070c', toe: '#07070c', headWeb: 0, classic: 0, spiderScale: 1.9, spray: 0, gloss: 1.0, roughness: 0.22 },
   classic: { base: '#1f3fa6', accent: '#c0141e', lens: '#f4f4f4', rim: '#111111', spider: '#101010', shoe: '#c0141e', sole: '#c0141e', toe: '#c0141e', headWeb: 1, classic: 1, spiderScale: 0.9, spray: 0, gloss: 0.2, roughness: 0.65 },
   m2099: { base: '#0e1a4d', accent: '#d01020', lens: '#d01020', rim: '#0e1a4d', spider: '#d01020', shoe: '#0e1a4d', sole: '#d01020', toe: '#0e1a4d', headWeb: 0, classic: 0, spiderScale: 2.0, spray: 0, gloss: 0.4, roughness: 0.5 },
@@ -2243,8 +2243,8 @@ const SUIT_PALETTES = {
   gwen: { base: '#f2f3f8', accent: '#e0287a', lens: '#f4f4f4', rim: '#e0287a', spider: '#f4f4f4', shoe: '#2fc7c0', sole: '#f2f3f8', toe: '#f2f3f8', headWeb: 0, classic: 2, spiderScale: 1.0, spray: 0, gloss: 0.1, roughness: 0.75 },
 };
 const SUIT_GLSL = `
-uniform vec3 uBase, uAccent, uLens, uRim, uSpider, uShoe, uSole, uToe; uniform float uHeadWeb, uClassic, uSpiderScale, uSpray, uDebug;
-varying vec3 vBind;
+uniform vec3 uBase, uAccent, uLens, uRim, uSpider, uShoe, uSole, uToe; uniform float uHeadWeb, uClassic, uSpiderScale, uSpray, uDebug, uStripes, uHalftone;
+varying vec3 vBind; varying vec3 vBindN;
 float sdSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float lm(float v, float w) { return step(1.0 - w, abs(fract(v) * 2.0 - 1.0)); }
@@ -2259,7 +2259,13 @@ float spiderMask(vec2 p, float s) {
   return m;
 }
 vec3 suitColor() {
-  vec3 p = vBind; vec3 col = uBase;
+  vec3 p = vBind; vec3 col = uBase; vec3 nb = normalize(vBindN);
+  if (uHalftone > 0.5) { vec2 g = fract(vec2(p.x + p.z * 0.7, p.y) * 110.0) - 0.5; float dot = 1.0 - smoothstep(0.22, 0.32, length(g)); col = mix(col, col * 1.9 + vec3(0.03), dot * 0.35); }
+  if (uStripes > 0.5) { // red stripes along the outer sides: torso flanks down the hips and the outside of each leg
+    float side = nb.x * sign(p.x); bool torso = p.y > 1.02 && p.y < 1.4 && abs(p.x) < 0.27; bool leg = p.y > 0.12 && p.y < 0.98 && abs(p.x) < 0.22;
+    float band = (1.0 - smoothstep(0.03, 0.07, abs(side - 0.955))) * ((torso || leg) ? 1.0 : 0.0); col = mix(col, uAccent, band);
+    // thin red outline along the front of the shins and along the lower spider outline on the back
+    if (leg && abs(nb.z) > 0.93 && p.z > 0.0 && p.y < 0.5) col = mix(col, uAccent, 1.0 - smoothstep(0.0, 0.015, abs(abs(p.x) - 0.075 - (0.5 - p.y) * 0.05))); }
   if (uDebug > 0.5) return vec3(fract(p.y), fract(abs(p.x) * 2.0), step(0.0, p.z));
   // classic Peter: red webbed regions over blue (head, chest band, forearms, boots); gwen: white body with black arms/legs
   if (uClassic > 0.5 && uClassic < 1.5) {
@@ -2276,7 +2282,7 @@ vec3 suitColor() {
       for (int i = 0; i < 2; i++) { float s = i == 0 ? -1.0 : 1.0;
         vec2 e = vec2(d.x - s * 0.047, d.y - 0.012); float a = s * 0.55; vec2 u = vec2(e.x * cos(a) + e.y * sin(a), -e.x * sin(a) + e.y * cos(a));
         float tear = 1.0 + 0.35 * clamp(-s * u.x / 0.046, -1.0, 1.0);
-        float rim = length(u / vec2(0.058 * tear, 0.036)); float lens = length(u / vec2(0.046 * tear, 0.026));
+        float rim = length(u / vec2(0.064 * tear, 0.04)); float lens = length(u / vec2(0.052 * tear, 0.03));
         if (rim < 1.0) col = uRim; if (lens < 1.0) col = uLens; }
     }
   }
@@ -2292,18 +2298,18 @@ vec3 suitColor() {
   return col;
 }`;
 function makeSuitMaterial(bindMat) {
-  const u = { uBindMat: { value: bindMat }, uBase: { value: new THREE.Color() }, uAccent: { value: new THREE.Color() }, uLens: { value: new THREE.Color() }, uRim: { value: new THREE.Color() }, uSpider: { value: new THREE.Color() }, uShoe: { value: new THREE.Color() }, uSole: { value: new THREE.Color() }, uToe: { value: new THREE.Color() }, uHeadWeb: { value: 1 }, uClassic: { value: 0 }, uSpiderScale: { value: 1 }, uSpray: { value: 1 }, uDebug: { value: 0 } };
+  const u = { uBindMat: { value: bindMat }, uBase: { value: new THREE.Color() }, uAccent: { value: new THREE.Color() }, uLens: { value: new THREE.Color() }, uRim: { value: new THREE.Color() }, uSpider: { value: new THREE.Color() }, uShoe: { value: new THREE.Color() }, uSole: { value: new THREE.Color() }, uToe: { value: new THREE.Color() }, uHeadWeb: { value: 1 }, uClassic: { value: 0 }, uSpiderScale: { value: 1 }, uSpray: { value: 1 }, uDebug: { value: 0 }, uStripes: { value: 0 }, uHalftone: { value: 0 } };
   const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0.0, clearcoat: 0.15, clearcoatRoughness: 0.5, sheen: 0.5, sheenRoughness: 0.7, sheenColor: new THREE.Color(0x4a4a66), envMapIntensity: 0.8 });
   m.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, u);
-    sh.vertexShader = 'uniform mat4 uBindMat; varying vec3 vBind;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBind = position;');
+    sh.vertexShader = 'uniform mat4 uBindMat; varying vec3 vBind; varying vec3 vBindN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBind = position; vBindN = normal;');
     sh.fragmentShader = SUIT_GLSL + '\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = suitColor();');
   };
   m.customProgramCacheKey = () => 'suit-v1';
   m.userData.u = u; return m;
 }
 function applyPalette(mats, pal) {
-  for (const m of mats) { const u = m.userData.u; u.uBase.value.set(pal.base); u.uAccent.value.set(pal.accent); u.uLens.value.set(pal.lens); u.uRim.value.set(pal.rim); u.uSpider.value.set(pal.spider); u.uShoe.value.set(pal.shoe); u.uSole.value.set(pal.sole); u.uToe.value.set(pal.toe); u.uHeadWeb.value = pal.headWeb; u.uClassic.value = pal.classic; u.uSpiderScale.value = pal.spiderScale; u.uSpray.value = pal.spray; m.clearcoat = pal.gloss; m.roughness = pal.roughness; m.clearcoatRoughness = pal.gloss > 0.5 ? 0.12 : 0.5; m.envMapIntensity = 0.6 + pal.gloss; }
+  for (const m of mats) { const u = m.userData.u; u.uBase.value.set(pal.base); u.uAccent.value.set(pal.accent); u.uLens.value.set(pal.lens); u.uRim.value.set(pal.rim); u.uSpider.value.set(pal.spider); u.uShoe.value.set(pal.shoe); u.uSole.value.set(pal.sole); u.uToe.value.set(pal.toe); u.uHeadWeb.value = pal.headWeb; u.uClassic.value = pal.classic; u.uSpiderScale.value = pal.spiderScale; u.uSpray.value = pal.spray; u.uStripes.value = pal.stripes || 0; u.uHalftone.value = pal.halftone || 0; m.clearcoat = pal.gloss; m.roughness = pal.roughness; m.clearcoatRoughness = pal.gloss > 0.5 ? 0.12 : 0.5; m.envMapIntensity = 0.6 + pal.gloss; }
 }
 function loadRig() {
   const RIG_URLS = ['models/xbot.glb', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb'];
@@ -2669,7 +2675,7 @@ for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name]
 WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
 applyLevel(PERF.level);
 renderer.compile(scene, camera);
-if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned mocap hero is opt-in: ?hero=mocap
+if (new URLSearchParams(location.search).get('hero') !== 'classic') loadRig(); // ?hero=classic keeps the hand-built Miles
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
