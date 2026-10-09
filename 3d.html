@@ -2395,8 +2395,8 @@ function animateRig(dt) {
   let d = P.facing - hero.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); hero.rotation.y += d * Math.min(1, dt * 14);
   if (!P.alive) { hero.rotation.x = lerp(hero.rotation.x, -Math.PI / 2 * 0.95, Math.min(1, dt * 3)); R.mixer.update(dt * 0.2); return; }
   const climbingNow = P.onWall && !P.onGround && !P.swinging && P.climbT > 0;
-  hero.rotation.x = lerp(hero.rotation.x, climbingNow ? -0.55 : 0, Math.min(1, dt * 8));
-  hero.position.x += climbingNow ? P.onWall.nx * 0.35 : 0; hero.position.z += climbingNow ? P.onWall.nz * 0.35 : 0; // keep the chest off the wall
+  hero.rotation.x = lerp(hero.rotation.x, climbingNow ? -0.3 : 0, Math.min(1, dt * 8)); // upright and parallel to the wall, chest leaning in
+  if (climbingNow) { hero.position.x += P.onWall.nx * 0.22; hero.position.z += P.onWall.nz * 0.22; } // hug the wall; the bent limbs reach it
   const sp = Math.hypot(P.vel.x, P.vel.z);
   const climbing = P.onWall && !P.onGround && !P.swinging && P.climbT > 0;
   const grounded = P.onGround && !P.swinging && !climbing;
@@ -2428,8 +2428,9 @@ function animateRig(dt) {
     let pose = RIG_POSES.fall;
     if (climbing) {
       const c = Math.sin(P.pos.y * 2.4), s2 = Math.cos(P.pos.y * 2.4); // one full cycle per ~2.6 units climbed
-      pose = { LeftArm: E(0.35 - c * 0.45, 0.15, 1.35), RightArm: E(0.35 + c * 0.45, -0.15, -1.35), LeftForeArm: E(0, -0.9 - s2 * 0.3, 0), RightForeArm: E(0, 0.9 - s2 * 0.3, 0),
-        LeftUpLeg: E(-0.9 + c * 0.5, 0, 0.25), RightUpLeg: E(-0.9 - c * 0.5, 0, -0.25), LeftLeg: E(1.3 - c * 0.4, 0, 0), RightLeg: E(1.3 + c * 0.4, 0, 0), Spine: E(0.45, c * 0.08, 0), Head: E(-0.75, 0, 0), LeftHand: E(0.4, 0, 0), RightHand: E(0.4, 0, 0) };
+      // spider crawl: arms spread wide and up, legs frog-bent out to the sides, hands and feet pressed to the wall, alternating reach
+      pose = { LeftArm: E(-0.1 - c * 0.5, -0.35, 0.95), RightArm: E(-0.1 + c * 0.5, 0.35, -0.95), LeftForeArm: E(0, -0.75 - s2 * 0.25, -0.35), RightForeArm: E(0, 0.75 - s2 * 0.25, 0.35),
+        LeftUpLeg: E(-0.55 + c * 0.4, 0.6, 0.75), RightUpLeg: E(-0.55 - c * 0.4, -0.6, -0.75), LeftLeg: E(1.25 - c * 0.35, 0, 0), RightLeg: E(1.25 + c * 0.35, 0, 0), Spine: E(0.15, c * 0.1, 0), Head: E(-0.95, 0, 0), LeftHand: E(-0.5, 0, 0.3), RightHand: E(-0.5, 0, -0.3) };
     } else if (P.swinging) pose = RIG_POSES.swingBody;
     const k = Math.min(1, dt * 9);
     for (const n of RIG_CTRL) { const t = pose[n]; if (t) R.pose[n].slerp(t, k); }
