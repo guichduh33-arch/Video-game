@@ -1068,7 +1068,9 @@ const SUIT_DEFS = {
     const navy = phys(0x0b0e2a, { roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.4 }), red = phys(0xff3a1c, { roughness: 0.55, emissive: 0x3a0a00 }), white = MAT.lens;
     return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: navy, swoosh: red, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body, head) => {
       // a real head shape instead of a ball: narrower skull, longer in the back, a jaw and chin; lenses moved to match
-      head.scale.set(0.62, 0.78, 0.72); head.position.y = 2.66;
+      head.scale.set(0.57, 0.72, 0.66); head.position.y = 2.63;
+          body.children[0].scale.multiply(new THREE.Vector3(1.14, 1.04, 1.08)); // broader chest, a V shape to the torso
+          for (const L of [g.parts.armL, g.parts.armR, g.parts.legL, g.parts.legR]) { L.joint.children[0].scale.set(0.95, 0.8, 0.95); L.children[0].scale.set(1.05, 1, 1.05); } // flatter joints, fuller limbs
       head.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ExtrudeGeometry') o.visible = false; });
       const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), navy); headProp(head, jaw, 0, -0.1, 0.04); jaw.scale.set(0.82 / head.scale.x * 0.62, 0.7 / head.scale.y * 0.62, 0.9 / head.scale.z * 0.62);
       const R = 0.38;
@@ -1080,11 +1082,18 @@ const SUIT_DEFS = {
       }
       body.add(logoPlane(atsvSpider('#ff3a1c', false), 0.64, 1.88, 0.31)); body.add(logoPlane(atsvSpider('#ff3a1c', true), 1.0, 1.8, -0.27, true));
       for (const sx of [-1, 1]) {
-        // flank stripe: three short segments that follow the chest, abdomen and hip curves
-        for (const [x, y, len, rz] of [[0.405, 1.92, 0.34, 0], [0.3, 1.62, 0.3, sx * 0.3], [0.25, 1.33, 0.3, sx * -0.15]]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.03, len, 0.06), red); st.position.set(sx * x, y, 0.02); st.rotation.z = rz; body.add(st); }
-        const leg = sx < 0 ? g.parts.legL : g.parts.legR;
-        const up = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.55, 0.06), red); up.position.set(sx * 0.135, -0.3, 0.01); leg.add(up);
-        const lo = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.42, 0.06), red); lo.position.set(sx * 0.12, -0.28, 0.01); leg.joint.add(lo);
+        // flank stripe: one thin line from the armpit down the side of the torso to the hip
+        for (const [x, y, len, rz] of [[0.405, 1.92, 0.34, 0], [0.3, 1.62, 0.3, sx * 0.3], [0.25, 1.33, 0.3, sx * -0.15]]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.022, len, 0.05), red); st.position.set(sx * x, y, 0.0); st.rotation.z = rz; body.add(st); }
+        const leg = sx < 0 ? g.parts.legL : g.parts.legR, arm = sx < 0 ? g.parts.armL : g.parts.armR;
+        // legs: a thin line on the outside of the thigh and the inside of the shin, on the side, not the front
+        const up = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.04), red); up.position.set(sx * 0.128, -0.3, -0.02); leg.add(up);
+        const lo = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.36, 0.04), red); lo.position.set(sx * -0.095, -0.3, -0.01); leg.joint.add(lo);
+        // arms: a thin line on the inside of the upper arm
+        const ar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 0.04), red); ar.position.set(sx * -0.1, -0.3, 0); arm.add(ar);
+        // feet: a slim suit foot, navy all over with only the sole red
+        const shoe = leg.tip; shoe.scale.set(0.82, 0.9, 0.9); shoe.children.forEach((m, i) => { if (m.isMesh) m.material = i === 0 ? red : navy; });
+        // shoulders: smaller, so the arm flows out of the torso instead of a ball sitting on it
+        for (const o of body.children) if (o.isMesh && Math.abs(Math.abs(o.position.x) - 0.5) < 0.01 && Math.abs(o.position.y - 2.18) < 0.01) o.scale.set(0.85, 0.75, 0.8);
       }
     });
   } },
