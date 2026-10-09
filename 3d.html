@@ -2306,7 +2306,8 @@ function applyPalette(mats, pal) {
   for (const m of mats) { const u = m.userData.u; u.uBase.value.set(pal.base); u.uAccent.value.set(pal.accent); u.uLens.value.set(pal.lens); u.uRim.value.set(pal.rim); u.uSpider.value.set(pal.spider); u.uShoe.value.set(pal.shoe); u.uSole.value.set(pal.sole); u.uToe.value.set(pal.toe); u.uHeadWeb.value = pal.headWeb; u.uClassic.value = pal.classic; u.uSpiderScale.value = pal.spiderScale; u.uSpray.value = pal.spray; m.clearcoat = pal.gloss; m.roughness = pal.roughness; m.clearcoatRoughness = pal.gloss > 0.5 ? 0.12 : 0.5; m.envMapIntensity = 0.6 + pal.gloss; }
 }
 function loadRig() {
-  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res, rej) => new GLTFLoader().load('models/xbot.glb', res, undefined, rej))).then(g => {
+  const RIG_URLS = ['models/xbot.glb', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb'];
+  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => { const L = new GLTFLoader(); const tryUrl = i => new Promise((res, rej) => L.load(RIG_URLS[i], res, undefined, e => i + 1 < RIG_URLS.length ? tryUrl(i + 1).then(res, rej) : rej(e))); return tryUrl(0); }).then(g => {
     const root = new THREE.Group(); const model = g.scene; root.add(model); model.updateMatrixWorld(true);
     const bind = {}; model.traverse(o => { if (o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; bind[o.name] = o.matrixWorld.clone(); } });
     const mats = [];
