@@ -228,8 +228,11 @@ switch between the comic look and the realistic one, or open `3d.html?look=real`
 
 The game watches its own frame time and steps the render load down (resolution, shadow
 size, anti-aliasing, then the comic post-process) when frames get slow, and back up when
-there is headroom, so it stays smooth on weaker machines. Desktop starts with soft
-shadows at full resolution, touch devices with smaller hard shadows. Add `?quality=low`
+there is headroom, so it stays smooth on weaker machines. Every device starts at a
+conservative level (native resolution, hard 1024 shadows, no anti-aliasing) and climbs
+after a few seconds of fast frames; the level it settles on is remembered for next time.
+Gwen, the Society crowd and the enemy outfits are built and their shaders compiled on the
+title screen, so starting play, spawning a crime or swapping suits never hitches. Add `?quality=low`
 to the URL to start with shadows off, or `?quality=high` to lock full detail and disable
 the auto-tuning.
 

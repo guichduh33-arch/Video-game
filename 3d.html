@@ -225,9 +225,9 @@ const AudioSys = (() => {
 // quality: 'high' (desktop) renders soft shadows at 2048, 'medium' (touch devices) smaller hard shadows, 'low' no shadows. Override with ?quality=low|medium|high
 const QUALITY = new URLSearchParams(location.search).get('quality') || (((navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window) ? 'medium' : 'high');
 const renderer = new THREE.WebGLRenderer({ antialias: QUALITY !== 'low', powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, QUALITY === 'high' ? 2 : 1.5));
+renderer.setPixelRatio(QUALITY === 'high' && new URLSearchParams(location.search).get('quality') ? Math.min(devicePixelRatio, 2) : 1);
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = QUALITY !== 'low'; renderer.shadowMap.type = QUALITY === 'high' ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+renderer.shadowMap.enabled = QUALITY !== 'low'; renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.prepend(renderer.domElement);
@@ -238,7 +238,7 @@ const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.3, 24
 scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x7a7466, 0.55));
 const SUN_DIR = V3(0.45, 0.8, 0.3).normalize();
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.6); sun.position.copy(SUN_DIR).multiplyScalar(400); scene.add(sun); scene.add(sun.target);
-sun.castShadow = QUALITY !== 'low'; sun.shadow.mapSize.set(QUALITY === 'high' ? 2048 : 1024, QUALITY === 'high' ? 2048 : 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6; sun.shadow.radius = 2;
+sun.castShadow = QUALITY !== 'low'; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6; sun.shadow.radius = 2;
 Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 10, far: 900 }); sun.shadow.camera.updateProjectionMatrix();
 const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120, 80, -160); scene.add(fill);
 // ---------- Spider-Verse comic post-process ----------
@@ -247,7 +247,7 @@ const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120,
 const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
 const post = (() => {
   const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
-  let samples = QUALITY === 'low' ? 0 : 4;
+  let samples = 0;
   const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, { depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType), depthBuffer: true, samples });
   let rt = makeRT(w, h);
   const mat = new THREE.ShaderMaterial({
@@ -457,7 +457,7 @@ function facadeMat(style, tint) {
 function tierMesh(x, y0, z, w, h, d, style, tint) {
   const geo = scaleBoxUV(new THREE.BoxGeometry(w, h, d), w, h, d);
   const mat = facadeMat(style, tint);
-  const mesh = shadowed(new THREE.Mesh(geo, [mat, mat, roofMat, roofMat, mat, mat])); mesh.position.set(x, y0 + h / 2, z); scene.add(mesh);
+  const mesh = shadowed(new THREE.Mesh(geo, [mat, mat, roofMat, roofMat, mat, mat])); mesh.position.set(x, y0 + h / 2, z); mesh.updateMatrix(); mesh.matrixAutoUpdate = false; scene.add(mesh);
   // parapet rim
   const rim = 0.7, rh = 0.9;
   for (const [px, pz, pw, pd] of [[0, d / 2 - rim / 2, w, rim], [0, -d / 2 + rim / 2, w, rim], [w / 2 - rim / 2, 0, rim, d - rim * 2], [-w / 2 + rim / 2, 0, rim, d - rim * 2]]) {
@@ -774,7 +774,7 @@ function mergeStatics() {
   for (const [mat, acc] of byMat) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(acc.nor, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(acc.uv, 2));
-    const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; scene.add(mesh); count++;
+    const mesh = new THREE.Mesh(geo, mat); mesh.castShadow = true; mesh.receiveShadow = true; mesh.frustumCulled = false; mesh.matrixAutoUpdate = false; scene.add(mesh); count++;
   }
   STATIC.length = 0; return count;
 }
@@ -1036,7 +1036,6 @@ function makeHero() {
   armL.position.set(-0.52, 2.18, 0); armR.position.set(0.52, 2.18, 0); body.add(armL, armR);
   const legL = makeHeroLimb(0.6, 0.58, 0.11, MAT.red, true), legR = makeHeroLimb(0.6, 0.58, 0.11, MAT.red, true);
   legL.position.set(-0.17, 1.18, 0); legR.position.set(0.17, 1.18, 0); body.add(legL, legR);
-  const glow = new THREE.PointLight(0xffe8d6, 3, 8, 1.6); glow.position.set(0.8, 3.6, 2.2); root.add(glow);
   root.parts = { body, armL, armR, legL, legR, head, torso };
   root.traverse(o => { if (o.isMesh) { o.userData.hero = true; o.castShadow = true; } });
   return root;
@@ -1045,9 +1044,12 @@ MAT.logo = new THREE.MeshStandardMaterial({ map: softTex(spiderTex(128)), transp
 MAT.logoBack = new THREE.MeshStandardMaterial({ map: softTex(spiderTex(128, true)), transparent: true, roughness: 0.5, emissive: 0xff2030, emissiveMap: softTex(spiderTex(128, true)), emissiveIntensity: 0.25, depthWrite: false, side: THREE.DoubleSide });
 MAT.spray = new THREE.MeshStandardMaterial({ map: softTex(sprayTex()), transparent: true, opacity: 0.45, roughness: 0.5, depthWrite: false });
 let hero = makeHero(); scene.add(hero);
+const heroGlow = new THREE.PointLight(0xffe8d6, 3, 8, 1.6); scene.add(heroGlow);
 // ---------- Suits: the whole Spider-Verse roster, built on the same rig with swapped palettes ----------
 const NONE_MAT = new THREE.MeshStandardMaterial({ transparent: true, opacity: 0, depthWrite: false });
 const phys = (color, o = {}) => new THREE.MeshPhysicalMaterial(Object.assign({ color, roughness: 0.7, clearcoat: 0.1, clearcoatRoughness: 0.5 }, o));
+const std = (color, o = {}) => { const m = new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.75 }, o)); return m; };
+function stripLights(g) { const ls = []; g.traverse(o => { if (o.isLight) ls.push(o); }); for (const l of ls) l.parent.remove(l); return g; }
 function buildSuit(palette, extras) {
   const saved = { ...MAT }; Object.assign(MAT, palette);
   const g = makeHero(); Object.assign(MAT, saved);
@@ -1426,9 +1428,9 @@ function faceAndHair(g, head, skin, cloth, style) {
   } else if (style === 'cap') {
     const crown = new THREE.Mesh(new THREE.SphereGeometry(0.39, 16, 10, 0, TAU, 0, Math.PI * 0.5), cloth); headProp(head, crown, 0, 0.08, 0);
     const brim = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.26), cloth); headProp(head, brim, 0, 0.2, 0.42); brim.rotation.x = 0.15;
-    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 8, 0, TAU, Math.PI * 0.45, Math.PI * 0.2), new THREE.MeshStandardMaterial({ color: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)], roughness: 1 })); headProp(head, hair, 0, 0.02, -0.02); hair.scale.set(1.02, 1.02, 1.02);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 8, 0, TAU, Math.PI * 0.45, Math.PI * 0.2), enemyMats.pool ? enemyMats.pool.hair[Math.floor(Math.random() * enemyMats.pool.hair.length)] : new THREE.MeshStandardMaterial({ color: 0x1a1210, roughness: 1 })); headProp(head, hair, 0, 0.02, -0.02); hair.scale.set(1.02, 1.02, 1.02);
   } else { // hair: short crop, fade, or longer
-    const hairMat = new THREE.MeshStandardMaterial({ color: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)], roughness: 1 });
+    const hairMat = enemyMats.pool ? enemyMats.pool.hair[Math.floor(Math.random() * enemyMats.pool.hair.length)] : new THREE.MeshStandardMaterial({ color: HAIR_COLORS[Math.floor(Math.random() * HAIR_COLORS.length)], roughness: 1 });
     const hair = new THREE.Mesh(new THREE.SphereGeometry(0.39, 16, 10, 0, TAU, 0, Math.PI * (0.42 + Math.random() * 0.2)), hairMat); headProp(head, hair, 0, 0.04, -0.03); hair.scale.set(1.02, 0.95 + Math.random() * 0.2, 1.02);
     if (Math.random() < 0.4) { const beard = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 8, 0, TAU, Math.PI * 0.55, Math.PI * 0.3), hairMat); headProp(head, beard, 0, -0.08, 0.1); beard.scale.set(1.05, 1, 1.05); }
   }
@@ -1437,18 +1439,24 @@ function makeEnemyMesh(type) {
   const r = Math.random;
   let g;
   if (type === 'symb') {
-    const skin = phys(0x0a0a12, { roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.5 });
+    const skin = std(0x0a0a12, { roughness: 0.25, metalness: 0.2, envMapIntensity: 1.5 });
     g = buildSuit({ black: skin, red: skin, web: skin, webShoulder: skin, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: skin, swoosh: skin, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: VMAT_EYE }, (g, body, head) => {
       head.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ExtrudeGeometry') o.visible = false; });
       for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), VMAT_EYE); e.scale.set(1.1, 0.45, 0.3); headProp(head, e, sx * 0.15, 0.08, 0.33); e.rotation.z = sx * -0.5; }
       for (let i = 0; i < 3; i++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.7, 5), skin); t.geometry.translate(0, 0.35, 0); const piv = new THREE.Group(); piv.position.set(-0.2 + i * 0.2, 2.0, -0.25); piv.rotation.x = -1.7; piv.rotation.z = (i - 1) * 0.5; piv.add(t); body.add(piv); }
     });
   } else {
-    const skin = phys(SKIN_TONES[Math.floor(r() * SKIN_TONES.length)], { roughness: 0.75, clearcoat: 0 });
-    const topHex = TOP_COLORS[Math.floor(r() * TOP_COLORS.length)];
-    const top = new THREE.MeshStandardMaterial({ map: fabricTex(topHex, true), color: 0xffffff, roughness: 1 });
-    const jeans = new THREE.MeshStandardMaterial({ map: fabricTex('#' + JEANS_COLORS[Math.floor(r() * JEANS_COLORS.length)].toString(16).padStart(6, '0'), true), color: 0xffffff, roughness: 1 });
-    const hooded = r() < 0.55, shoeAcc = phys(new THREE.Color().setHSL(r(), 0.6, 0.45).getHex()), dark = phys(0x1a1a1e);
+    // materials come from pools built once, so a crime spawn never generates textures or compiles shaders mid-fight
+    if (!enemyMats.pool) {
+      enemyMats.pool = {
+        skins: SKIN_TONES.map(c => std(c)), tops: TOP_COLORS.map(h => new THREE.MeshStandardMaterial({ map: fabricTex(h, true), color: 0xffffff, roughness: 1 })),
+        jeans: JEANS_COLORS.map(c => new THREE.MeshStandardMaterial({ map: fabricTex('#' + c.toString(16).padStart(6, '0'), true), color: 0xffffff, roughness: 1 })),
+        shoes: [0xd0302a, 0x2a5ad0, 0xf0f0f0, 0x202020, 0x30a050].map(c => std(c)), dark: std(0x1a1a1e), hair: HAIR_COLORS.map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 1 })),
+      };
+    }
+    const pool = enemyMats.pool, pick = a => a[Math.floor(r() * a.length)];
+    const skin = pick(pool.skins), top = pick(pool.tops), jeans = pick(pool.jeans);
+    const hooded = r() < 0.55, shoeAcc = pick(pool.shoes), dark = pool.dark;
     g = buildSuit({ black: top, red: skin, web: skin, webShoulder: top, hoodie: hooded ? top : NONE_MAT, hoodieIn: hooded ? dark : NONE_MAT, string: hooded ? MAT.laces : NONE_MAT, sole: enemyMats.white, swoosh: shoeAcc, laces: MAT.laces, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: NONE_MAT }, (g, body, head) => {
       for (const leg of [g.parts.legL, g.parts.legR]) leg.traverse(o => { if (o.isMesh && o.material === top) o.material = jeans; });
       const style = r() < 0.2 ? 'mask' : r() < 0.45 ? 'beanie' : r() < 0.7 ? 'cap' : 'hair';
@@ -1461,7 +1469,7 @@ function makeEnemyMesh(type) {
       else if (r() < 0.45) { const bat = r() < 0.5; const w = new THREE.Mesh(bat ? new THREE.CylinderGeometry(0.05, 0.03, 0.95, 8) : new THREE.CylinderGeometry(0.025, 0.025, 0.8, 6), bat ? enemyMats.wood : enemyMats.gun); w.position.set(0, -0.35, 0.05); w.rotation.x = 0.35; hand.add(w); if (!bat) { const hook = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.022, 6, 10, Math.PI), enemyMats.gun); hook.position.set(0, -0.75, 0.2); hook.rotation.y = Math.PI / 2; hand.add(hook); } }
     });
   }
-  g.traverse(o => { if (o.isPointLight) o.intensity = 0; });
+  stripLights(g);
   g.parts.al = g.parts.armL; g.parts.ar = g.parts.armR; g.parts.ll = g.parts.legL; g.parts.lr = g.parts.legR;
   return g;
 }
@@ -1912,7 +1920,7 @@ function makeGwen() { // build the hero rig with Gwen's palette: white suit, bla
   // black chest panel with a white spider, black upper arms (the suit's signature split)
   const chest = sph(0.3, GMAT.black, 0, 1.92, 0.06, 1.05, 0.9, 0.7); g.parts.body.add(chest);
   const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), GMAT.logo); logo.position.set(0, 1.9, 0.33); logo.rotation.x = -0.12; g.parts.body.add(logo);
-  g.traverse(o => { if (o.isPointLight) o.intensity = 1.5; });
+  stripLights(g);
   return g;
 }
 const SK = { on: (new URLSearchParams(location.search).get('partner') || 'on') !== 'off', mesh: null, pos: V3(), vel: V3(), radius: 0.5, onGround: false, onWall: null, state: 'idle', facing: 0, animT: 0, punchT: 0, punchCd: 0, anchor: V3(), webbing: false, stuckT: 0, prev: V3(), quipCd: 4, leapCd: 0, kos: 0, line: null, name: 'GWEN' };
@@ -2008,8 +2016,8 @@ function updateSidekick(dt) {
 const SOC = { hq: null, portal: null, npcs: [], beam: null, cd: 0, built: false, ring: null, disc: null, pad: null };
 const randSuit = () => { const r = () => Math.random();
   const h = r(), c1 = new THREE.Color().setHSL(h, 0.55 + r() * 0.3, 0.18 + r() * 0.25), c2 = new THREE.Color().setHSL((h + 0.35 + r() * 0.3) % 1, 0.7, 0.5 + r() * 0.2);
-  const base = phys(c1.getHex(), { map: fabricTex('#' + c1.getHexString(), true) }), acc = phys(c2.getHex());
-  const webbed = r() < 0.5 ? phys(c1.getHex(), { map: webTex(0.25, 0.3, 28, 9, true, '#' + c1.getHexString(), '#' + c2.getHexString()) }) : base;
+  const base = std(c1.getHex(), { map: fabricTex('#' + c1.getHexString(), true) }), acc = std(c2.getHex());
+  const webbed = r() < 0.5 ? std(c1.getHex(), { map: webTex(0.25, 0.3, 28, 9, true, '#' + c1.getHexString(), '#' + c2.getHexString()) }) : base;
   return buildSuit({ black: base, red: acc, web: webbed, webShoulder: r() < 0.5 ? acc : base, hoodie: r() < 0.3 ? new THREE.MeshStandardMaterial({ color: 0x222228, roughness: 1 }) : NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: acc, swoosh: base, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body) => { body.add(logoPlane(spiderMat('#' + c2.getHexString(), r() < 0.5), 0.6 + r() * 0.4, 1.88, 0.31)); }); };
 function buildSociety() {
   if (SOC.built) return; SOC.built = true;
@@ -2040,7 +2048,7 @@ function buildSociety() {
   // Spider-People: some wander, some perch on the parapet in a crouch and look out over the city
   const makers = [() => SUIT_DEFS.classic.build(), () => SUIT_DEFS.m2099.build(), () => SUIT_DEFS.punk.build(), () => SUIT_DEFS.noir.build(), () => makeGwen(), randSuit, randSuit, randSuit, randSuit, randSuit, randSuit, randSuit];
   makers.forEach((mk, i) => {
-    const g = mk(); g.traverse(o => { if (o.isPointLight) o.intensity = 0; if (o.isMesh && o.material === GMAT.none) o.visible = false; });
+    const g = mk(); stripLights(g); g.traverse(o => { if (o.isMesh && o.material === GMAT.none) o.visible = false; });
     const perch = i % 3 === 2;
     let x, z, yaw;
     if (perch) { const side = Math.floor(Math.random() * 4); const t = (Math.random() - 0.5) * 0.7; x = side < 2 ? b.x + t * b.w : b.x + (side === 2 ? 1 : -1) * (b.w / 2 - 0.9); z = side < 2 ? b.z + (side === 0 ? 1 : -1) * (b.d / 2 - 0.9) : b.z + t * b.d; yaw = side === 0 ? 0 : side === 1 ? Math.PI : side === 2 ? Math.PI / 2 : -Math.PI / 2; }
@@ -2213,7 +2221,7 @@ $('chat').addEventListener('mousedown', e => e.stopPropagation());
 
 // ---------- Hero animation ----------
 function animateHero(dt) {
-  const p = hero.parts; hero.position.copy(P.pos);
+  const p = hero.parts; hero.position.copy(P.pos); heroGlow.position.set(P.pos.x + 0.8, P.pos.y + 3.6, P.pos.z + 2.2);
   // smooth facing
   let d = P.facing - hero.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); hero.rotation.y += d * Math.min(1, dt * 14);
   const sp = Math.hypot(P.vel.x, P.vel.z), t = P.animT;
@@ -2277,32 +2285,39 @@ function animateHero(dt) {
 
 // ---------- Camera ----------
 // ---------- Auto quality: watch the frame time and step the render load down (or back up) to stay smooth ----------
-const PERF = { frame: 0, acc: 0, n: 0, lastCheck: 0, level: 0, post: true, auto: !new URLSearchParams(location.search).get('quality'), told: false, upT: 0 };
+const FORCED = new URLSearchParams(location.search).get('quality');
+// start conservative (level 3) and climb only when the frame time shows headroom; a forced ?quality=high starts at the top
+const PERF = { frame: 0, acc: 0, n: 0, lastCheck: 0, level: 3, post: true, auto: !FORCED, told: false, upT: 0 };
 const PERF_LEVELS = [
-  { pr: Math.min(devicePixelRatio, QUALITY === 'high' ? 2 : 1.5), shadow: QUALITY === 'high' ? 2048 : 1024, samples: 4 },
-  { pr: Math.min(devicePixelRatio, 1.5), shadow: QUALITY === 'high' ? 2048 : 1024, samples: 4 },
+  { pr: Math.min(devicePixelRatio, 2), shadow: 2048, soft: true, samples: 4 },
+  { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, soft: true, samples: 2 },
   { pr: Math.min(devicePixelRatio, 1.25), shadow: 1024, samples: 2 },
   { pr: 1, shadow: 1024, samples: 0 },
-  { pr: 0.85, shadow: 0, samples: 0 },
-  { pr: 0.7, shadow: 0, samples: 0, post: false },
+  { pr: 0.85, shadow: 512, samples: 0 },
+  { pr: 0.75, shadow: 0, samples: 0 },
+  { pr: 0.65, shadow: 0, samples: 0, post: false },
 ];
+try { const raw = localStorage.getItem('mm3d_perf_level'); const saved = raw === null ? NaN : +raw; if (!FORCED && saved >= 0 && saved < PERF_LEVELS.length) PERF.level = saved; } catch (e) { }
 function applyLevel(i) {
   const L = PERF_LEVELS[i]; PERF.level = i;
   renderer.setPixelRatio(L.pr); renderer.setSize(innerWidth, innerHeight);
   const wantShadow = L.shadow > 0 && QUALITY !== 'low';
   if (renderer.shadowMap.enabled !== wantShadow) { renderer.shadowMap.enabled = wantShadow; sun.castShadow = wantShadow; scene.traverse(o => { if (o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; else if (Array.isArray(o.material)) o.material.forEach(m => { m.needsUpdate = true; }); }); }
   if (wantShadow && sun.shadow.mapSize.x !== L.shadow) { sun.shadow.mapSize.set(L.shadow, L.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  const type = L.soft ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  if (renderer.shadowMap.type !== type) { renderer.shadowMap.type = type; scene.traverse(o => { if (o.material && !Array.isArray(o.material)) o.material.needsUpdate = true; else if (Array.isArray(o.material)) o.material.forEach(m => { m.needsUpdate = true; }); }); }
   PERF.post = L.post !== false; post.setSamples(L.samples);
+  try { localStorage.setItem('mm3d_perf_level', i); } catch (e) { }
 }
 function autoQuality(now) {
   const dt = now - PERF.lastFrame || 16; PERF.lastFrame = now;
   if (!PERF.auto || G.state !== 'play' || G.paused || CHAT.open) return;
   if (dt > 250) return; // a tab switch or a hitch, not a trend
   PERF.acc += dt; PERF.n++;
-  if (now - PERF.lastCheck < 2500 || PERF.n < 30) return;
+  if (now - PERF.lastCheck < 1500 || PERF.n < 20) return;
   const avg = PERF.acc / PERF.n; PERF.acc = 0; PERF.n = 0; PERF.lastCheck = now;
-  if (avg > 24 && PERF.level < PERF_LEVELS.length - 1) { applyLevel(PERF.level + 1); PERF.upT = 0; if (!PERF.told) { PERF.told = true; G.hint = 'Auto-tuning graphics to keep it smooth (add ?quality=high to the URL to force full detail)'; G.hintT = 4; } }
-  else if (avg < 12.5 && PERF.level > 0) { PERF.upT += 2.5; if (PERF.upT >= 10) { applyLevel(PERF.level - 1); PERF.upT = 0; } }
+  if (avg > 22 && PERF.level < PERF_LEVELS.length - 1) { applyLevel(Math.min(PERF_LEVELS.length - 1, PERF.level + (avg > 40 ? 2 : 1))); PERF.upT = 0; if (!PERF.told) { PERF.told = true; G.hint = 'Auto-tuning graphics to keep it smooth'; G.hintT = 3; } }
+  else if (avg < 13 && PERF.level > 0) { PERF.upT += 1.5; if (PERF.upT >= 9) { applyLevel(PERF.level - 1); PERF.upT = 0; } }
   else PERF.upT = 0;
 }
 const camSmooth = V3();
@@ -2382,7 +2397,7 @@ function startGame() {
   for (const t of texts) t.el.remove(); texts.length = 0;
   Object.assign(G, { state: 'play', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Gwen has your back · drag the right side to look · hold WEB in the air to swing' : 'Gwen has your back · hold the left mouse button in the air to web-swing · WASD to move' });
   if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; } boss.alive = false; boss.kind = 'rhino'; vfx.ring.visible = false; $('bossBar').classList.add('hidden');
-  beacon.visible = false; resetPlayer(); updateCamera(0, true); spawnSidekick(); buildSociety();
+  beacon.visible = false; resetPlayer(); updateCamera(0, true); spawnSidekick();
   try { const want = localStorage.getItem('mm3d_suit'); if (want && want !== SUIT) setSuit(want); } catch (e) { }
   $('overlay').classList.add('hidden');
   if (!TOUCH) renderer.domElement.requestPointerLock?.();
@@ -2448,6 +2463,18 @@ $('overlay').addEventListener('touchstart', () => AudioSys.ensure(), { passive: 
 
 // ---------- Main loop ----------
 genCity(); resetPlayer(); updateCamera(0, true);
+// build Gwen, the Society and the enemy material pool now, while the title screen is up, then compile every shader once
+spawnSidekick(); SK.mesh.visible = false; SK.line.visible = false;
+buildSociety();
+// shader warm-up: one of every enemy, boss and effect lives far below the city so renderer.compile sees their materials now, not mid-fight
+const WARM = new THREE.Group(); WARM.position.y = -600; scene.add(WARM);
+for (const t of ['thug', 'gunner', 'symb']) WARM.add(makeEnemyMesh(t));
+WARM.add(makeBossMesh(), makeVenomMesh());
+for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name].build(); WARM.add(SUITS[name]); }
+{ const c = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.3, 6, 12), cocoonMat), w = new THREE.Mesh(new THREE.CapsuleGeometry(0.76, 1.3, 3, 8), cocoonWireMat), f = new THREE.Mesh(webBallGeo, EMAT.flash), b = new THREE.Mesh(bulletGeo, bulletMat), r = new THREE.Mesh(new THREE.RingGeometry(1, 2, 8), VMAT.ring); WARM.add(c, w, f, b, r); }
+WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
+applyLevel(PERF.level);
+renderer.compile(scene, camera);
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
@@ -2477,7 +2504,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { renderer, scene, PERF, applyLevel, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { renderer, scene, PERF, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
