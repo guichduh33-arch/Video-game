@@ -71,7 +71,7 @@
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
   .tbtn { position: absolute; width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.4); font: 700 12px system-ui; color: #fff; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; pointer-events: auto; text-shadow: 0 1px 2px #000; }
   .tbtn.on { background: rgba(255,45,71,.55); }
-  #stick { position: absolute; left: 40px; bottom: 40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); pointer-events: auto; }
+  #stick { position: absolute; left: 40px; bottom: 40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); pointer-events: none; display: none; transform: translate(-50%, -50%); }
   #knob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.4); }
   #dmg { position: absolute; inset: 0; pointer-events: none; }
   .ft { position: absolute; font-weight: 900; font-size: 20px; text-shadow: 0 2px 6px #000; transform: translate(-50%,-50%); white-space: nowrap; }
@@ -848,14 +848,15 @@ if (TOUCH) {
     el.addEventListener('touchstart', on, { passive: false }); el.addEventListener('touchend', off); el.addEventListener('touchcancel', off);
   }
   const stick = $('stick'), knob = $('knob');
-  stick.addEventListener('touchstart', e => { e.preventDefault(); const t = e.changedTouches[0]; touch.stick = t.identifier; const r = stick.getBoundingClientRect(); touch.sx = r.left + r.width / 2; touch.sy = r.top + r.height / 2; }, { passive: false });
+  // floating stick: touch anywhere on the left half and the stick appears under your thumb
+  renderer.domElement.addEventListener('touchstart', e => { for (const t of e.changedTouches) if (t.clientX < innerWidth / 2 && touch.stick == null) { touch.stick = t.identifier; touch.sx = t.clientX; touch.sy = t.clientY; stick.style.left = t.clientX + 'px'; stick.style.top = t.clientY + 'px'; stick.style.bottom = 'auto'; stick.style.display = 'block'; } }, { passive: false });
   const moveStick = e => {
     for (const t of e.changedTouches) if (t.identifier === touch.stick) {
       let dx = t.clientX - touch.sx, dy = t.clientY - touch.sy; const l = Math.hypot(dx, dy); if (l > 50) { dx *= 50 / l; dy *= 50 / l; }
       touch.mx = dx / 50; touch.my = dy / 50; knob.style.transform = `translate(${dx}px,${dy}px)`;
     }
   };
-  const endStick = e => { for (const t of e.changedTouches) if (t.identifier === touch.stick) { touch.stick = null; touch.mx = touch.my = 0; knob.style.transform = ''; } };
+  const endStick = e => { for (const t of e.changedTouches) if (t.identifier === touch.stick) { touch.stick = null; touch.mx = touch.my = 0; knob.style.transform = ''; stick.style.display = 'none'; } };
   addEventListener('touchmove', moveStick, { passive: false }); addEventListener('touchend', endStick); addEventListener('touchcancel', endStick);
   renderer.domElement.addEventListener('touchstart', e => {
     for (const t of e.changedTouches) if (t.clientX > innerWidth / 2 && touch.lookId == null) { touch.lookId = t.identifier; touch.lx = t.clientX; touch.ly = t.clientY; }
@@ -2936,7 +2937,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { renderer, scene, PERF, RIG, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { renderer, scene, PERF, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>

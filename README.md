@@ -158,7 +158,7 @@ npx http-server . -p 8080
 
 ## Controls
 
-**Touch (iPad / phone):** drag on the left side of the screen to move, touch and hold
+**Touch (iPad / phone):** drag on the left side of the screen to move (in 3D a stick appears under your thumb), touch and hold
 the sky to web-swing toward your finger, and use the JUMP, PUNCH, VENOM and CAMO
 buttons on the right. Landscape works best. Add the page to your home screen for a
 full-screen experience.
