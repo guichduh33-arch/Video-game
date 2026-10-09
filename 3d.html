@@ -51,6 +51,12 @@
   #knob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.4); }
   #dmg { position: absolute; inset: 0; pointer-events: none; }
   .ft { position: absolute; font-weight: 900; font-size: 20px; text-shadow: 0 2px 6px #000; transform: translate(-50%,-50%); white-space: nowrap; }
+  body.comic .ft { font-family: Impact, 'Arial Black', system-ui; font-style: italic; letter-spacing: 1px; -webkit-text-stroke: 1.5px #000; text-shadow: 3px 3px 0 #000, -2px 0 0 #00e5ff, 2px 0 0 #ff2d47; transform: translate(-50%,-50%) rotate(-6deg); }
+  body.comic .ft.pow { font-size: 44px; color: #ffd23f; transform: translate(-50%,-50%) rotate(-10deg) scale(1.1); }
+  body.comic #overlay h1 { text-shadow: 4px 0 0 #00e5ff, -4px 0 0 #ff2d47, 0 6px 0 #1a0010; }
+  body.comic #overlay h2 { text-shadow: 2px 0 0 #00e5ff, -2px 0 0 #ff2d47; }
+  body.comic #score, body.comic #combo, body.comic #crime { font-family: Impact, 'Arial Black', system-ui; letter-spacing: 1px; -webkit-text-stroke: 1px #000; text-shadow: 3px 3px 0 #000; }
+  body.comic #combo { transform: rotate(-6deg); color: #ffd23f; }
 </style>
 </head>
 <body>
@@ -78,11 +84,11 @@
 </div>
 <div id="overlay">
   <h1>MILES MORALES</h1>
-  <h2>BROOKLYN NIGHTS 3D</h2>
+  <h2>ACROSS THE SPIDER-VERSE</h2>
   <div id="ovBody">
     <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino and Venom.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> to web-swing</p>
-    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen</p>
+    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
   </div>
   <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
@@ -175,7 +181,63 @@ const sun = new THREE.DirectionalLight(0xfff1d6, 2.6); sun.position.copy(SUN_DIR
 sun.castShadow = QUALITY !== 'low'; sun.shadow.mapSize.set(QUALITY === 'high' ? 2048 : 1024, QUALITY === 'high' ? 2048 : 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6; sun.shadow.radius = 2;
 Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 110, bottom: -110, near: 10, far: 900 }); sun.shadow.camera.updateProjectionMatrix();
 const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120, 80, -160); scene.add(fill);
-addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+// ---------- Spider-Verse comic post-process ----------
+// Renders the scene to a texture, then draws it through a shader that adds ink outlines (from depth),
+// Ben-Day halftone dots in the shadows, cel-stepped shading, misprint colour fringing, paper grain.
+const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
+const post = (() => {
+  const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
+  const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, { depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType), depthBuffer: true, samples: QUALITY === 'low' ? 0 : 4 });
+  let rt = makeRT(w, h);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { tDiffuse: { value: rt.texture }, tDepth: { value: rt.depthTexture }, resolution: { value: new THREE.Vector2(w, h) }, time: { value: 0 }, near: { value: camera.near }, far: { value: camera.far }, glitch: { value: 0 }, dotScale: { value: pr } },
+    vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+    fragmentShader: `
+      precision highp float; varying vec2 vUv;
+      uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 resolution; uniform float time, near, far, glitch, dotScale;
+      float viewZ(vec2 uv){ float z = texture2D(tDepth, uv).x; float nd = z * 2.0 - 1.0; return (2.0 * near * far) / (far + near - nd * (far - near)); }
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+      void main(){
+        vec2 px = 1.0 / resolution;
+        // misprint: red and blue plates slip outward from the centre, more when the screen shakes
+        vec2 d = (vUv - 0.5) * (0.0025 + glitch * 0.012);
+        vec3 col = vec3(texture2D(tDiffuse, vUv + d).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d).b);
+        // ink outlines from depth discontinuities (relative, so distant towers still get a line)
+        float z = viewZ(vUv);
+        float e = 0.0;
+        e = max(e, abs(viewZ(vUv + vec2(px.x, 0.0)) - z)); e = max(e, abs(viewZ(vUv - vec2(px.x, 0.0)) - z));
+        e = max(e, abs(viewZ(vUv + vec2(0.0, px.y)) - z)); e = max(e, abs(viewZ(vUv - vec2(0.0, px.y)) - z));
+        float edge = smoothstep(0.012, 0.03, e / z) * (1.0 - smoothstep(600.0, 1200.0, z));
+        // cel steps: quantise brightness into bands and blend toward it
+        float L = lum(col);
+        float bands = 5.0; float Lq = (floor(L * bands) + 0.5) / bands;
+        col *= mix(1.0, Lq / max(L, 0.001), 0.35);
+        // Ben-Day dots in the shadows: rotated screen-space grid, dot size grows as it gets darker
+        vec2 fc = gl_FragCoord.xy / dotScale; float a = 0.7854; mat2 R = mat2(cos(a), -sin(a), sin(a), cos(a));
+        vec2 g = R * fc / 7.0; vec2 cell = fract(g) - 0.5; float dist = length(cell);
+        float shade = 1.0 - smoothstep(0.06, 0.4, L);
+        float dot = 1.0 - smoothstep(shade * 0.5 - 0.06, shade * 0.5 + 0.06, dist);
+        col = mix(col, col * vec3(0.5, 0.45, 0.68), dot * 0.6 * step(0.03, shade));
+        // highlight dots: sparse light halftone in bright areas
+        vec2 g2 = R * fc / 5.0 + 0.5; vec2 c2 = fract(g2) - 0.5; float hi = smoothstep(0.8, 1.0, L) * (1.0 - smoothstep(0.1, 0.2, length(c2)));
+        col += hi * 0.12;
+        // ink, paper grain, light vignette
+        col = mix(col, vec3(0.05, 0.03, 0.09), edge * 0.9);
+        col *= (0.97 + 0.06 * hash(floor(fc / 2.0) + floor(time * 8.0))) * 1.08;
+        col *= 1.0 - 0.18 * pow(length(vUv - 0.5), 2.2);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+  const pscene = new THREE.Scene(); pscene.add(quad); const pcam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  return {
+    resize() { const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr); rt.dispose(); rt = makeRT(w, h); mat.uniforms.tDiffuse.value = rt.texture; mat.uniforms.tDepth.value = rt.depthTexture; mat.uniforms.resolution.value.set(w, h); mat.uniforms.dotScale.value = pr; },
+    render(t, glitch) { mat.uniforms.time.value = t; mat.uniforms.glitch.value = glitch; renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(pscene, pcam); },
+  };
+})();
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); post.resize(); });
 
 // ---------- Textures (generated on canvas) ----------
 const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
@@ -550,6 +612,7 @@ addEventListener('keydown', e => {
   if (!keys[e.code]) pressed[e.code] = true; keys[e.code] = true;
   if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
   if (e.code === 'KeyF') toggleFullscreen();
+  if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -820,7 +883,7 @@ function findAnchor() {
 function startSwing() {
   const a = findAnchor(); if (!a) return;
   P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
-  AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3);
+  AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3); if (LOOK.comic && Math.random() < 0.5) floatText(hero.position.clone().add(V3(0.8, 3.2, 0)), 'THWIP', '#fff', 22);
 }
 function stopSwing(boost) {
   if (!P.swinging) return;
@@ -921,8 +984,10 @@ function burst(pos, n, color, speed = 6, life = 0.5, grav = 20) {
     particles.push({ m, v: V3(rand(-1, 1), rand(-0.6, 1), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.4, 1.2)), life, max: life, grav });
   }
 }
-function floatText(pos, txt, color = '#fff', size = 20) {
-  const el = document.createElement('div'); el.className = 'ft'; el.textContent = txt; el.style.color = color; el.style.fontSize = size + 'px'; $('dmg').appendChild(el);
+const POW = ['POW!', 'BAM!', 'WHAM!', 'KRAK!', 'THWACK!', 'SMAK!'];
+function pow(pos) { if (LOOK.comic) floatText(pos.clone().add(V3(rand(-1, 1), 0.5, rand(-1, 1))), POW[Math.floor(Math.random() * POW.length)], '#ffd23f', 40, 'pow'); }
+function floatText(pos, txt, color = '#fff', size = 20, cls = '') {
+  const el = document.createElement('div'); el.className = 'ft ' + cls; el.textContent = txt; el.style.color = color; el.style.fontSize = size + 'px'; $('dmg').appendChild(el);
   texts.push({ el, pos: pos.clone(), life: 1.1, max: 1.1 });
 }
 function shake(v) { G.shake = Math.max(G.shake, v); }
@@ -951,7 +1016,7 @@ function hitEnemy(e, dmg, dir, label, stun = 0.45) {
   e.flash = 0.15; AudioSys.hit(); shake(0.25);
   burst(e.mesh.position.clone().add(V3(0, 1.6, 0)), 8, 0xffd23f, 7, 0.4);
   addCombo(100);
-  floatText(e.mesh.position.clone().add(V3(0, 3, 0)), label, '#ffd23f', 18);
+  floatText(e.mesh.position.clone().add(V3(0, 3, 0)), label, '#ffd23f', 18); pow(e.mesh.position.clone().add(V3(0, 2, 0)));
   P.venom = Math.min(100, P.venom + 12);
   if (e.hp <= 0) killEnemy(e);
 }
@@ -1209,7 +1274,7 @@ function hitBoss(dmg, label) {
   if (isVenom && label === 'VENOM STRIKE') { dealt = dmg * 2; if (!dazed) { boss.state = 'stunned'; boss.t = 2.6; boss.cd = 0.5; vfx.ring.visible = false; floatText(boss.mesh.position.clone().add(V3(0, 8, 0)), 'SYMBIOTE SHOCKED', '#ffd23f', 24); AudioSys.sense(); } }
   boss.hp -= dealt; boss.flash = 0.12; AudioSys.hit(); shake(dazed ? 0.35 : 0.15);
   const top = boss.mesh.position.clone().add(V3(0, 6.5, 0));
-  if (dealt > 0) { addCombo(150); P.venom = Math.min(100, P.venom + 10); burst(boss.mesh.position.clone().add(V3(0, 3.5, 0)), 8, dazed ? 0xffd23f : 0xaaaaaa, 7, 0.4); floatText(top, dazed ? label + ' x2' : label, dazed ? '#ffd23f' : '#ddd', dazed ? 22 : 16); }
+  if (dealt > 0) { addCombo(150); P.venom = Math.min(100, P.venom + 10); pow(boss.mesh.position.clone().add(V3(0, 4, 0))); burst(boss.mesh.position.clone().add(V3(0, 3.5, 0)), 8, dazed ? 0xffd23f : 0xaaaaaa, 7, 0.4); floatText(top, dazed ? label + ' x2' : label, dazed ? '#ffd23f' : '#ddd', dazed ? 22 : 16); }
   else { floatText(top, 'ARMORED', '#999', 16); const d = P.pos.clone().sub(boss.mesh.position); d.y = 0; d.normalize(); P.vel.x += d.x * 10; P.vel.z += d.z * 10; P.vel.y = 6; }
   if (isVenom) {
     const stage = boss.hp <= boss.maxHp * 0.3 ? 2 : boss.hp <= boss.maxHp * 0.6 ? 1 : 0;
@@ -1568,7 +1633,7 @@ function winGame() { AudioSys.win(); G.flash = 1; endGame(true); }
 function togglePause() {
   if (G.state !== 'play') return;
   G.paused = !G.paused;
-  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'BROOKLYN NIGHTS 3D', ['WASD move · Mouse look · Space jump · Hold left mouse / Shift web-swing', 'J punch · K Venom Strike · L camouflage · F fullscreen · Esc resume'], 'RESUME'); }
+  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'ACROSS THE SPIDER-VERSE', ['WASD move · Mouse look · Space jump · Hold left mouse / Shift web-swing', 'J punch · K Venom Strike · L camouflage · F fullscreen · V comic/real look · Esc resume'], 'RESUME'); }
   else { $('overlay').classList.add('hidden'); if (!TOUCH) renderer.domElement.requestPointerLock?.(); }
 }
 $('startBtn').addEventListener('click', () => { if (G.state === 'play' && G.paused) togglePause(); else startGame(); if (TOUCH && !isFullscreen()) toggleFullscreen(); });
@@ -1625,7 +1690,8 @@ function frame(now) {
   sun.position.copy(P.pos).addScaledVector(SUN_DIR, 400); sun.target.position.copy(P.pos);
   updateTraffic(dt);
   for (const k in pressed) pressed[k] = false;
-  renderer.render(scene, camera);
+  if (LOOK.comic) post.render(now / 1000, Math.min(1, G.shake + G.flash)); else renderer.render(scene, camera);
+  document.body.classList.toggle('comic', LOOK.comic);
 }
 requestAnimationFrame(frame);
 window.__game = { P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };

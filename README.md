@@ -70,6 +70,14 @@ full-screen experience.
 | Camouflage | `L` or `Shift` (6 seconds, enemies lose you; punching from camo is a one-hit stealth takedown) |
 | Pause | `P` or `Esc` |
 
+### Spider-Verse look (3D only)
+
+The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines
+drawn from depth, Ben-Day halftone dots in the shadows, cel-stepped shading, misprinted
+red and blue colour fringes that get worse when the screen shakes, paper grain, and
+comic onomatopoeia (POW!, KRAK!, THWIP) on hits and web shots. Press `V` in game to
+switch between the comic look and the realistic one, or open `3d.html?look=real`.
+
 ### 3D quality
 
 Desktop defaults to soft shadows at full resolution, touch devices to smaller hard
@@ -90,6 +98,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Camouflage | `L` (6 seconds; punching from camo is a one-hit stealth takedown) |
 | Pause | `Esc` or `P` |
 | Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen |
+| Comic / realistic look | `V` |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
