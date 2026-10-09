@@ -63,9 +63,12 @@ full-screen experience.
 | Venom Strike | `K` (needs 50 venom; hits everything within a few metres) |
 | Camouflage | `L` (6 seconds; punching from camo is a one-hit stealth takedown) |
 | Pause | `Esc` or `P` |
+| Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
+Tapping PLAY goes fullscreen where the browser allows it (iPhone Safari does not; add the
+page to your home screen there instead).
 
 ### The Rhino (3D only)
 

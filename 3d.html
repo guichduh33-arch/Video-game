@@ -21,6 +21,11 @@
   #bossBar { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); width: min(520px, 70vw); height: 16px; background: rgba(0,0,0,.6); border: 2px solid #ff2d47; border-radius: 4px; box-shadow: 0 0 14px rgba(255,45,71,.5); }
   #bossBar > i { display: block; height: 100%; background: linear-gradient(90deg,#ff2d47,#ff8a5a); transition: width .1s; }
   #bossBar > b { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); font-size: 11px; letter-spacing: 3px; text-shadow: 0 1px 2px #000; }
+  #fsBtn { position: fixed; right: 18px; bottom: 18px; width: 44px; height: 44px; border-radius: 10px; border: 2px solid rgba(255,255,255,.45); background: rgba(0,0,0,.45); color: #fff; font: 700 20px system-ui; display: flex; align-items: center; justify-content: center; cursor: pointer; pointer-events: auto; z-index: 5; text-shadow: 0 1px 2px #000; }
+  #fsBtn:active { transform: scale(.94); }
+  body.touch #fsBtn { right: 18px; bottom: auto; top: 90px; }
+  #overlay .row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  #overlay button.alt { background: rgba(255,255,255,.14); border: 2px solid rgba(255,255,255,.4); box-shadow: none; }
   #arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 26px solid #ff2d47; filter: drop-shadow(0 0 6px #ff2d47); display: none; }
   #hint { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); font-size: 14px; opacity: .85; text-shadow: 0 2px 6px #000; text-align: center; white-space: nowrap; }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
@@ -70,11 +75,12 @@
   <div id="ovBody">
     <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> to web-swing</p>
-    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause</p>
+    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
   </div>
-  <button id="startBtn">PLAY</button>
+  <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button></div>
 </div>
+<div id="fsBtn" title="Fullscreen (F)">⛶</div>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 <script type="module">
 import * as THREE from 'three';
@@ -288,6 +294,7 @@ addEventListener('keydown', e => {
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (!keys[e.code]) pressed[e.code] = true; keys[e.code] = true;
   if (e.code === 'Escape' || e.code === 'KeyP') togglePause();
+  if (e.code === 'KeyF') toggleFullscreen();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -1103,10 +1110,29 @@ function winGame() { AudioSys.win(); G.flash = 1; endGame(true); }
 function togglePause() {
   if (G.state !== 'play') return;
   G.paused = !G.paused;
-  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'BROOKLYN NIGHTS 3D', ['WASD move · Mouse look · Space jump · Hold left mouse / Shift web-swing', 'J punch · K Venom Strike · L camouflage · Esc resume'], 'RESUME'); }
+  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'BROOKLYN NIGHTS 3D', ['WASD move · Mouse look · Space jump · Hold left mouse / Shift web-swing', 'J punch · K Venom Strike · L camouflage · F fullscreen · Esc resume'], 'RESUME'); }
   else { $('overlay').classList.add('hidden'); if (!TOUCH) renderer.domElement.requestPointerLock?.(); }
 }
-$('startBtn').addEventListener('click', () => { if (G.state === 'play' && G.paused) togglePause(); else startGame(); });
+$('startBtn').addEventListener('click', () => { if (G.state === 'play' && G.paused) togglePause(); else startGame(); if (TOUCH && !isFullscreen()) toggleFullscreen(); });
+// ---------- Fullscreen ----------
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function toggleFullscreen() {
+  const el = document.documentElement;
+  try {
+    if (isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { });
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  } catch (e) { }
+}
+$('fsBtn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
+$('fsBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
+$('fsBtn2').addEventListener('click', () => toggleFullscreen());
+for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => {
+  const on = isFullscreen(); $('fsBtn').textContent = on ? '✕' : '⛶'; $('fsBtn2').textContent = on ? '✕ EXIT FULLSCREEN' : '⛶ FULLSCREEN';
+  // entering or leaving fullscreen drops pointer lock; grab it again while playing
+  if (G.state === 'play' && !G.paused && !TOUCH) setTimeout(() => renderer.domElement.requestPointerLock?.(), 150);
+});
+if (TOUCH) document.body.classList.add('touch');
 $('overlay').addEventListener('touchstart', () => AudioSys.ensure(), { passive: true });
 
 // ---------- Main loop ----------
