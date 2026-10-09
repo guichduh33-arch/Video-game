@@ -1873,19 +1873,30 @@ function togglePause() {
 $('startBtn').addEventListener('click', () => { if (G.state === 'play' && G.paused) togglePause(); else startGame(); if (TOUCH && !isFullscreen()) toggleFullscreen(); });
 // ---------- Fullscreen ----------
 const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+const FRAMED = (() => { try { return window.top !== window.self; } catch (e) { return true; } })();
+const FS_ALLOWED = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+function openOwnTab() { // framed hosts (the claude.ai viewer) block fullscreen: run the game in its own tab instead
+  const url = location.href.split('#')[0];
+  const w = window.open(url, '_blank');
+  if (w) { G.hint = 'Opened in its own tab. Press F there for true fullscreen'; G.hintT = 4; }
+  else { G.hint = 'Pop-up blocked. Use the viewer\'s open-in-new-tab option, then press F'; G.hintT = 5; }
+}
 function toggleFullscreen() {
   const el = document.documentElement;
+  if (isFullscreen()) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { } return; }
+  if (!FS_ALLOWED && FRAMED) { openOwnTab(); return; }
   try {
-    if (isFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    else if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { });
+    if (el.requestFullscreen) el.requestFullscreen({ navigationUI: 'hide' }).catch(() => { if (FRAMED) openOwnTab(); else { G.hint = 'Your browser refused fullscreen here'; G.hintT = 3; } });
     else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-  } catch (e) { }
+    else if (FRAMED) openOwnTab();
+  } catch (e) { if (FRAMED) openOwnTab(); }
 }
+if (!FS_ALLOWED && FRAMED) { $('fsBtn2').textContent = '⧉ OPEN FULL TAB'; $('fsBtn').textContent = '⧉'; $('fsBtn').title = 'Open in its own tab for true fullscreen'; const p = document.createElement('p'); p.style.opacity = '.7'; p.style.marginTop = '12px'; p.textContent = 'Fullscreen is blocked inside this viewer. OPEN FULL TAB runs the game in its own browser tab, where F gives real fullscreen.'; $('installHint').before(p); }
 $('fsBtn').addEventListener('click', e => { e.stopPropagation(); toggleFullscreen(); });
 $('fsBtn').addEventListener('touchstart', e => { e.stopPropagation(); }, { passive: true });
 $('fsBtn2').addEventListener('click', () => toggleFullscreen());
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => {
-  const on = isFullscreen(); $('fsBtn').textContent = on ? '✕' : '⛶'; $('fsBtn2').textContent = on ? '✕ EXIT FULLSCREEN' : '⛶ FULLSCREEN';
+  const on = isFullscreen(); $('fsBtn').textContent = on ? '✕' : (!FS_ALLOWED && FRAMED ? '⧉' : '⛶'); $('fsBtn2').textContent = on ? '✕ EXIT FULLSCREEN' : (!FS_ALLOWED && FRAMED ? '⧉ OPEN FULL TAB' : '⛶ FULLSCREEN');
   // entering or leaving fullscreen drops pointer lock; grab it again while playing
   if (G.state === 'play' && !G.paused && !TOUCH) setTimeout(() => renderer.domElement.requestPointerLock?.(), 150);
 });

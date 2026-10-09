@@ -115,7 +115,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Venom Strike | `K` (needs 50 venom; hits everything within a few metres) |
 | Camouflage | `L` (6 seconds; punching from camo is a one-hit stealth takedown) |
 | Pause | `Esc` or `P` |
-| Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen |
+| Fullscreen | `F`, the ⛶ button, or the FULLSCREEN button on the title screen. Inside a viewer that blocks fullscreen (the claude.ai artifact frame) the button reads OPEN FULL TAB and launches the game in its own tab, where `F` works |
 | Comic / realistic look | `V` |
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
