@@ -14,7 +14,7 @@ Three games live in this repo:
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
   city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
-  8th crime the Rhino shows up for a boss fight, and Venom after him. The city is rendered with real-time
+  8th crime the Rhino shows up for a boss fight, Venom after him, and the Prowler last. The city is rendered with real-time
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
 - `spiderman2.html` – **Spider-Man 2: Brooklyn Nights**, the sequel. Two playable
@@ -181,7 +181,7 @@ full-screen experience.
 Gwen swings with you from the start. She follows behind Miles, leaps roof to roof on her
 own webs, catches up by dropping in from above if she falls far behind, and runs into
 every crime to punch thugs and gunners. Her knockouts count toward clearing the crime,
-she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
+she chips in on all three bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
 ### Street life (3D only)
@@ -295,6 +295,20 @@ shocks the symbiote for a few seconds, which stops the regeneration and doubles 
 so build venom with punches, shock him, and pile on. At 60 and 30 percent health he
 spawns symbiote-possessed goons who are fast and can see you in camo.
 
+### The Prowler (3D only)
+
+Venom goes down and a third beacon lights up: the Prowler. He is fast and he cloaks.
+When he vanishes he circles round behind you for a claw ambush that hits for a fifth of
+your health, but two things give him away: his shadow still falls on the roof, and your
+spider-sense fires just before every strike, so move when it tingles. In the open he fires
+green gauntlet blasts from range and pounces across the roof, landing with a shockwave.
+Your web shot (`E`) is the answer: it aims at him while he is visible, snags him out of
+cloak if you aim close enough while he is invisible, and tangles him in a cocoon for three
+seconds during which every hit does double damage. A Venom Strike also knocks him out of
+cloak and stuns him, and any punch that connects while he is cloaked breaks it and
+counts double. At half health he gets faster, chains three claws and fires three blasts
+at once. Beating him finishes the game. Miles may recognise the voice.
+
 ## Goal
 
 Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. In 3D the
@@ -302,7 +316,7 @@ criminals are built on the same jointed rig as the heroes: street clothes (hoodi
 jackets, jeans, sneakers), real faces with varied skin tones, hair, beanies, caps or ski
 masks, bats and crowbars for thugs and pistols for gunners, with knees and elbows that
 bend as they run, square up and swing. Reach
-each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino and Venom). Score is
+each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino, Venom and the Prowler). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
 
