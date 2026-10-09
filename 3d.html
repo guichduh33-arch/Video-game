@@ -243,7 +243,7 @@ Object.assign(sun.shadow.camera, { left: -110, right: 110, top: 110, bottom: -11
 const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120, 80, -160); scene.add(fill);
 // ---------- Spider-Verse comic post-process ----------
 // Renders the scene to a texture, then draws it through a shader that adds ink outlines (from depth),
-// Ben-Day halftone dots in the shadows, cel-stepped shading, misprint colour fringing, paper grain.
+// cel-stepped shading, misprint colour fringing, paper grain (no halftone dots).
 const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
 const post = (() => {
   const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
@@ -274,15 +274,8 @@ const post = (() => {
         float L = lum(col);
         float bands = 5.0; float Lq = (floor(L * bands) + 0.5) / bands;
         col *= mix(1.0, Lq / max(L, 0.001), 0.35);
-        // Ben-Day dots in the shadows: rotated screen-space grid, dot size grows as it gets darker
-        vec2 fc = gl_FragCoord.xy / dotScale; float a = 0.7854; mat2 R = mat2(cos(a), -sin(a), sin(a), cos(a));
-        vec2 g = R * fc / 7.0; vec2 cell = fract(g) - 0.5; float dist = length(cell);
-        float shade = 1.0 - smoothstep(0.06, 0.4, L);
-        float dot = 1.0 - smoothstep(shade * 0.5 - 0.06, shade * 0.5 + 0.06, dist);
-        col = mix(col, col * vec3(0.5, 0.45, 0.68), dot * 0.6 * step(0.03, shade));
-        // highlight dots: sparse light halftone in bright areas
-        vec2 g2 = R * fc / 5.0 + 0.5; vec2 c2 = fract(g2) - 0.5; float hi = smoothstep(0.8, 1.0, L) * (1.0 - smoothstep(0.1, 0.2, length(c2)));
-        col += hi * 0.12;
+        // no halftone dots: the comic look keeps its ink lines, cel bands, misprint and grain only
+        vec2 fc = gl_FragCoord.xy / dotScale;
         // ink, paper grain, light vignette
         col = mix(col, vec3(0.05, 0.03, 0.09), edge * 0.9);
         col *= (0.97 + 0.06 * hash(floor(fc / 2.0) + floor(time * 8.0))) * 1.08;
