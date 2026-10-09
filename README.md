@@ -109,7 +109,8 @@ time are saved separately from the first game.
 
 ## The hero model
 
-Miles is a skinned, motion-captured character: the Mixamo "X Bot" rig (67 bones, from the
+By default Miles is the hand-built Spider-Verse model (hoodie, Jordans, jointed limbs).
+Add `?hero=mocap` to the URL for the experimental skinned version: a motion-captured character, the Mixamo "X Bot" rig (67 bones, from the
 three.js examples, `models/xbot.glb`) dressed by a procedural suit shader. The shader paints
 the suit straight onto the body in bind space: head webbing, teardrop lenses with rims, the
 chest and back spiders with spray-paint flecks, red fingertips and sneakers with white soles,

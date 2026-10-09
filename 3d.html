@@ -2669,7 +2669,7 @@ for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name]
 WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
 applyLevel(PERF.level);
 renderer.compile(scene, camera);
-loadRig();
+if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned mocap hero is opt-in: ?hero=mocap
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
