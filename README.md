@@ -13,7 +13,8 @@ Two versions live in this repo:
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
-  city block grid, wall-crawl real towers and fight on rooftops in 3D.
+  city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
+  8th crime the Rhino shows up for a boss fight.
 
 ## Play
 
@@ -66,10 +67,18 @@ full-screen experience.
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
 
+### The Rhino (3D only)
+
+After the eighth crime a boss beacon appears. The Rhino is armored: punches barely
+scratch him and his charge takes a quarter of your health. Bait a charge, get out of
+the way, and he slams into the roof edge and goes dazed for a few seconds. Everything
+you land while he is dazed does double damage. At half health he calls in backup.
+Venom Strikes and sneak attacks from camouflage hurt him even when he is not dazed.
+
 ## Goal
 
 Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. Reach
-each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win. Score is
+each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
 
@@ -82,7 +91,6 @@ are saved in the browser.
 
 ## Ideas for next steps
 
-- A boss fight at the end of the crime chain.
 - Gamepad support.
 - A proper soundtrack and more sound variety.
 - More enemy types (shield thugs, drones) and civilian rescues.

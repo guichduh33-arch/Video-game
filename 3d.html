@@ -18,6 +18,9 @@
   #score small { display: block; font-size: 12px; font-weight: 600; opacity: .8; letter-spacing: 1px; }
   #combo { position: absolute; right: 18px; top: 80px; font-weight: 900; font-size: 34px; color: #ffd23f; text-shadow: 0 2px 8px #000; opacity: 0; transition: opacity .2s; }
   #crime { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); font-weight: 700; letter-spacing: 2px; font-size: 14px; text-shadow: 0 2px 6px #000; }
+  #bossBar { position: absolute; left: 50%; top: 44px; transform: translateX(-50%); width: min(520px, 70vw); height: 16px; background: rgba(0,0,0,.6); border: 2px solid #ff2d47; border-radius: 4px; box-shadow: 0 0 14px rgba(255,45,71,.5); }
+  #bossBar > i { display: block; height: 100%; background: linear-gradient(90deg,#ff2d47,#ff8a5a); transition: width .1s; }
+  #bossBar > b { position: absolute; left: 50%; top: -1px; transform: translateX(-50%); font-size: 11px; letter-spacing: 3px; text-shadow: 0 1px 2px #000; }
   #arrow { position: absolute; left: 0; top: 0; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 26px solid #ff2d47; filter: drop-shadow(0 0 6px #ff2d47); display: none; }
   #hint { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); font-size: 14px; opacity: .85; text-shadow: 0 2px 6px #000; text-align: center; white-space: nowrap; }
   #flash { position: absolute; inset: 0; background: #fff; opacity: 0; }
@@ -46,6 +49,7 @@
   <div id="score">0<small>CRIMES 0 / 8 &nbsp;·&nbsp; <span id="time">0:00</span></small></div>
   <div id="combo"></div>
   <div id="crime"></div>
+  <div id="bossBar" class="hidden"><b>THE RHINO</b><i></i></div>
   <div id="arrow"></div>
   <div id="dmg"></div>
   <div id="hint"></div>
@@ -64,7 +68,7 @@
   <h1>MILES MORALES</h1>
   <h2>BROOKLYN NIGHTS 3D</h2>
   <div id="ovBody">
-    <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers and stop 8 rooftop crimes.</p>
+    <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> to web-swing</p>
     <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
@@ -518,6 +522,7 @@ function updatePlayer(dt) {
   let danger = false;
   for (const b of bullets) if (b.pos.distanceTo(P.pos) < 9) danger = true;
   for (const e of enemies) if (e.alive && e.attackT > 0.05 && e.attackT < 0.45) danger = true;
+  if (boss.alive && (boss.state === 'windup' || boss.state === 'swipe' || boss.state === 'throw')) danger = true;
   if (danger && P.senseT <= 0) { P.senseT = 0.35; AudioSys.sense(); }
 }
 
@@ -583,6 +588,17 @@ function punch() {
     if (dot < 0.3 && flat > 1.2) continue;
     if (flat < bestD) { bestD = flat; target = e; }
   }
+  if (boss.alive) {
+    const d = boss.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z);
+    const dot = (d.x * fx + d.z * fz) / (flat || 1);
+    if (flat < 5.5 && Math.abs(d.y) < 4.5 && (dot > 0.2 || flat < 3) && flat - 2 < bestD) {
+      P.facing = Math.atan2(d.x, d.z);
+      if (flat > 3.2) { P.pos.x += d.x / flat * (flat - 3); P.pos.z += d.z / flat * (flat - 3); }
+      const sneak = P.camo; if (P.camo) { P.camo = false; P.camoCd = 6; AudioSys.uncamo(); }
+      hitBoss(sneak ? 4 : 1, sneak ? 'SNEAK ATTACK' : ['JAB', 'HOOK', 'KICK', 'UPPERCUT'][G.combo % 4]);
+      return;
+    }
+  }
   if (target) {
     // lunge toward the target and face it
     const d = target.mesh.position.clone().sub(P.pos); P.facing = Math.atan2(d.x, d.z);
@@ -602,6 +618,7 @@ function venomStrike() {
     const d = e.mesh.position.clone().sub(P.pos); if (d.length() > 8) continue;
     const dir = V3(d.x, 0, d.z).normalize(); hitEnemy(e, 3, dir, 'VENOM STRIKE', 1.2); e.vel.y = 9; hits++;
   }
+  if (boss.alive && boss.mesh.position.distanceTo(P.pos) < 9) { hitBoss(3, 'VENOM STRIKE'); hits++; }
   if (P.camo) { P.camo = false; P.camoCd = 6; }
   if (hits === 0) floatText(c.clone().add(V3(0, 2, 0)), 'ZAP', '#ffd23f', 18);
   venomArc.show(c);
@@ -712,11 +729,13 @@ function fireBullet(e, toP) {
 }
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
-    const b = bullets[i]; b.life -= dt; b.pos.addScaledVector(b.vel, dt); b.mesh.position.copy(b.pos);
-    const hit = P.alive && b.pos.distanceTo(P.pos.clone().add(V3(0, 1.4, 0))) < 1.2;
+    const b = bullets[i]; b.life -= dt; if (b.grav) b.vel.y -= b.grav * dt; b.pos.addScaledVector(b.vel, dt); b.mesh.position.copy(b.pos); if (b.spin) { b.mesh.rotation.x += dt * 5; b.mesh.rotation.y += dt * 3; }
+    const hit = P.alive && b.pos.distanceTo(P.pos.clone().add(V3(0, 1.4, 0))) < (b.dmg ? 1.8 : 1.2);
     const wall = buildingAt(b.pos.x, b.pos.z) && groundHeight(b.pos.x, b.pos.z) > b.pos.y;
-    if (hit) { if (P.invulnT <= 0) takeDamage(8, null); else floatText(P.pos.clone().add(V3(0, 3, 0)), 'DODGE', '#8e6bff', 16); }
-    if (hit || wall || b.life <= 0 || b.pos.y < 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
+    if (hit) { if (P.invulnT <= 0) takeDamage(b.dmg || 8, b.dmg ? b.pos : null); else floatText(P.pos.clone().add(V3(0, 3, 0)), 'DODGE', '#8e6bff', 16); }
+    const floor = b.grav && b.pos.y <= groundHeight(b.pos.x, b.pos.z);
+    if (floor) burst(b.pos.clone(), 8, 0x777777, 5, 0.5);
+    if (hit || wall || floor || b.life <= 0 || b.pos.y < 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
   }
 }
 
@@ -741,14 +760,138 @@ function spawnCrime() {
   AudioSys.crime(); G.hint = 'Crime in progress — follow the red beacon'; G.hintT = 5;
 }
 function updateCrimes(dt) {
-  if (!G.crime) { G.crimeSpawnT -= dt; if (G.crimeSpawnT <= 0) spawnCrime(); return; }
+  if (!G.crime) { G.crimeSpawnT -= dt; if (G.crimeSpawnT <= 0) { if (G.crimes >= 8) spawnBoss(); else spawnCrime(); } return; }
   G.crime.t += dt; beacon.ring.scale.setScalar(1 + Math.sin(G.time * 5) * 0.15); beacon.rotation.y += dt;
+  if (G.crime.boss) {
+    if (!boss.alive) { G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); winGame(); }
+    return;
+  }
   if (!enemies.some(e => e.alive)) {
     G.crimes++; G.score += 1000; G.crime = null; beacon.visible = false; G.crimeSpawnT = 2.5;
     floatText(P.pos.clone().add(V3(0, 4, 0)), 'CRIME STOPPED +1000', '#3bffd0', 24);
     P.hp = Math.min(100, P.hp + 25);
-    if (G.crimes >= 8) winGame();
+    if (G.crimes >= 8) { G.crimeSpawnT = 3; G.hint = 'Something big is coming…'; G.hintT = 3; }
   }
+}
+
+// ---------- Boss: the Rhino ----------
+const BMAT = {
+  hide: new THREE.MeshStandardMaterial({ color: 0x8c8f99, roughness: 0.9 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x4a4c55, roughness: 0.9 }),
+  horn: new THREE.MeshStandardMaterial({ color: 0xe8e2c8, roughness: 0.5 }),
+  eye: new THREE.MeshBasicMaterial({ color: 0xff2020 }),
+  rage: new THREE.MeshStandardMaterial({ color: 0xb04040, roughness: 0.9, emissive: 0x801010, emissiveIntensity: 0.6 }),
+};
+function makeBossMesh() {
+  const g = new THREE.Group();
+  const torso = box(3.2, 2.8, 2.4, BMAT.hide, 0, 3.2, 0); g.add(torso);
+  g.add(box(2.4, 1.2, 2.0, BMAT.dark, 0, 1.4, 0)); // hips
+  const head = box(1.6, 1.4, 1.6, BMAT.hide, 0, 5.1, 0.6); g.add(head);
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.4, 8), BMAT.horn); horn.rotation.x = Math.PI / 2 - 0.3; horn.position.set(0, 5.2, 1.9); g.add(horn);
+  const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.7, 8), BMAT.horn); horn2.rotation.x = Math.PI / 2 - 0.3; horn2.position.set(0, 5.75, 1.5); g.add(horn2);
+  for (const sx of [-1, 1]) { const e = box(0.3, 0.2, 0.1, BMAT.eye, sx * 0.45, 5.3, 1.42); g.add(e); }
+  const al = makeLimb(2.6, 0.9, BMAT.hide, BMAT.dark), ar = makeLimb(2.6, 0.9, BMAT.hide, BMAT.dark); al.position.set(-2.0, 4.2, 0); ar.position.set(2.0, 4.2, 0); g.add(al, ar);
+  const ll = makeLimb(1.6, 0.9, BMAT.dark, BMAT.dark), lr = makeLimb(1.6, 0.9, BMAT.dark, BMAT.dark); ll.position.set(-0.8, 1.6, 0); lr.position.set(0.8, 1.6, 0); g.add(ll, lr);
+  g.parts = { torso, head, al, ar, ll, lr }; return g;
+}
+const boss = { alive: false, mesh: null, hp: 0, maxHp: 36, state: 'idle', t: 0, roof: null, facing: 0, dir: V3(), cd: 2, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, vel: V3() };
+function spawnBoss() {
+  const cands = buildings.filter(b => b.w >= 20 && b.d >= 20 && b.h >= 40 && Math.hypot(b.x - P.pos.x, b.z - P.pos.z) > 50 && Math.hypot(b.x - P.pos.x, b.z - P.pos.z) < 220);
+  const b = cands.sort((a, c) => (c.w * c.d) - (a.w * a.d))[0] || buildings.filter(b => b.w >= 16 && b.d >= 16).sort((a, c) => (c.w * c.d) - (a.w * a.d))[0];
+  if (boss.mesh) scene.remove(boss.mesh);
+  boss.mesh = makeBossMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
+  Object.assign(boss, { alive: true, hp: boss.maxHp, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, facing: 0 });
+  boss.mesh.rotation.set(0, 0, 0);
+  G.crime = { b, name: 'RHINO RAMPAGE', t: 0, boss: true };
+  beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
+  AudioSys.crime(); AudioSys.ko(); shake(0.8);
+  G.hint = 'THE RHINO is tearing up a rooftop. Dodge his charge, hit him while he is dazed'; G.hintT = 8;
+  $('bossBar').classList.remove('hidden');
+}
+function hitBoss(dmg, label) {
+  if (!boss.alive) return;
+  const dazed = boss.state === 'stunned';
+  const dealt = dazed ? dmg * 2 : (boss.state === 'charge' ? 0 : dmg);
+  boss.hp -= dealt; boss.flash = 0.12; AudioSys.hit(); shake(dazed ? 0.35 : 0.15);
+  const top = boss.mesh.position.clone().add(V3(0, 6.5, 0));
+  if (dealt > 0) { addCombo(150); P.venom = Math.min(100, P.venom + 10); burst(boss.mesh.position.clone().add(V3(0, 3.5, 0)), 8, dazed ? 0xffd23f : 0xaaaaaa, 7, 0.4); floatText(top, dazed ? label + ' x2' : label, dazed ? '#ffd23f' : '#ddd', dazed ? 22 : 16); }
+  else { floatText(top, 'ARMORED', '#999', 16); const d = P.pos.clone().sub(boss.mesh.position); d.y = 0; d.normalize(); P.vel.x += d.x * 10; P.vel.z += d.z * 10; P.vel.y = 6; }
+  if (!boss.spawnedHelp && boss.hp <= boss.maxHp / 2) { boss.spawnedHelp = true; for (let i = 0; i < 2; i++) spawnEnemy(i ? 'gunner' : 'thug', boss.roof.x + rand(-0.3, 0.3) * boss.roof.w, boss.roof.z + rand(-0.3, 0.3) * boss.roof.d, boss.roof); floatText(top, 'BACKUP ARRIVES', '#ff2d47', 20); AudioSys.crime(); }
+  if (boss.hp <= 0) { boss.hp = 0; boss.alive = false; boss.state = 'dead'; boss.deadT = 0; G.score += 5000; AudioSys.ko(); AudioSys.venom(); shake(1); G.flash = 0.6; floatText(top, 'RHINO DOWN +5000', '#3bffd0', 28); burst(boss.mesh.position.clone().add(V3(0, 3, 0)), 40, 0xff2d47, 12, 0.9); }
+}
+function bossThrow() {
+  const from = boss.mesh.position.clone().add(V3(0, 5, 0)), to = P.pos.clone().add(V3(0, 1.5, 0));
+  const dir = to.sub(from); const dist = dir.length(); dir.normalize();
+  const m = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), BMAT.dark); m.position.copy(from); scene.add(m);
+  const vel = dir.multiplyScalar(26); vel.y += dist * 0.25; // lob
+  bullets.push({ mesh: m, pos: from, vel, life: 3, dmg: 18, grav: 14, spin: true });
+  AudioSys.punch();
+}
+function updateBoss(dt) {
+  if (!boss.mesh) return;
+  const m = boss.mesh, p = m.parts;
+  boss.animT += dt; if (boss.flash > 0) boss.flash -= dt;
+  if (!boss.alive) {
+    boss.deadT += dt; m.rotation.x = Math.min(Math.PI / 2, boss.deadT * 2.5); m.position.y = Math.max(boss.roof.h, m.position.y);
+    if (boss.deadT > 2.5 && m.parent) { scene.remove(m); }
+    m.traverse(o => { if (o.isMesh && o.userData.base) o.material = o.userData.base; });
+    return;
+  }
+  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
+  let moving = false;
+  switch (boss.state) {
+    case 'idle':
+      if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 3) { m.position.x += toP.x / flat * 3.5 * dt; m.position.z += toP.z / flat * 3.5 * dt; moving = true; } }
+      if (seeP && boss.cd <= 0) {
+        if (flat < 3.5 && Math.abs(toP.y) < 3) { boss.state = 'swipe'; boss.t = 0.45; }
+        else if (flat > 14 && Math.random() < 0.4) { boss.state = 'throw'; boss.t = 0.6; }
+        else if (Math.abs(toP.y) < 6) { boss.state = 'windup'; boss.t = 0.9; AudioSys.hurt(); }
+        boss.cd = 1.2;
+      }
+      break;
+    case 'swipe':
+      if (boss.t <= 0) { if (flat < 4 && Math.abs(toP.y) < 3) takeDamage(15, m.position); boss.state = 'idle'; boss.cd = 1.0; }
+      break;
+    case 'throw':
+      boss.facing = Math.atan2(toP.x, toP.z);
+      if (boss.t <= 0) { bossThrow(); boss.state = 'idle'; boss.cd = 1.5; }
+      break;
+    case 'windup':
+      boss.facing = Math.atan2(toP.x, toP.z);
+      if (boss.t <= 0) { boss.state = 'charge'; boss.t = 1.4; boss.dir.set(Math.sin(boss.facing), 0, Math.cos(boss.facing)); AudioSys.venom(); }
+      break;
+    case 'charge': {
+      m.position.x += boss.dir.x * 30 * dt; m.position.z += boss.dir.z * 30 * dt; moving = true;
+      if (boss.animT % 0.1 < dt) burst(m.position.clone().add(V3(0, 0.3, 0)), 2, 0x777777, 4, 0.4);
+      if (flat < 2.8 && Math.abs(toP.y) < 3.5) { takeDamage(25, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; }
+      const r = boss.roof, ex = r.x + (r.w / 2 - 1.5) * Math.sign(boss.dir.x || 1), ez = r.z + (r.d / 2 - 1.5) * Math.sign(boss.dir.z || 1);
+      const hitEdge = (boss.dir.x > 0 && m.position.x >= ex) || (boss.dir.x < 0 && m.position.x <= ex) || (boss.dir.z > 0 && m.position.z >= ez) || (boss.dir.z < 0 && m.position.z <= ez);
+      if (hitEdge || boss.t <= 0) {
+        boss.state = 'stunned'; boss.t = hitEdge ? 3.2 : 1.6; boss.cd = 0.5;
+        if (hitEdge) { shake(1); AudioSys.land(); AudioSys.ko(); burst(m.position.clone().add(V3(0, 3, 0)), 30, 0xaaaaaa, 10, 0.8); floatText(m.position.clone().add(V3(0, 7, 0)), 'DAZED! HIT HIM', '#ffd23f', 24); }
+      }
+      break; }
+    case 'stunned':
+      if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; }
+      break;
+  }
+  const r = boss.roof;
+  m.position.x = clamp(m.position.x, r.x - r.w / 2 + 1.5, r.x + r.w / 2 - 1.5);
+  m.position.z = clamp(m.position.z, r.z - r.d / 2 + 1.5, r.z + r.d / 2 - 1.5);
+  m.position.y = r.h;
+  m.rotation.y = boss.facing;
+  // animation
+  const sw = moving ? Math.sin(boss.animT * (boss.state === 'charge' ? 16 : 7)) * 0.7 : Math.sin(boss.animT * 1.5) * 0.08;
+  p.ll.rotation.x = sw; p.lr.rotation.x = -sw;
+  if (boss.state === 'windup') { const k = 1 - boss.t / 0.9; p.torso.rotation.x = 0.5 * k; p.al.rotation.x = -0.8 - k; p.ar.rotation.x = -0.8 - k; p.head.rotation.x = 0.4 * k; }
+  else if (boss.state === 'charge') { p.torso.rotation.x = 0.6; p.al.rotation.x = -1.6 + sw; p.ar.rotation.x = -1.6 - sw; p.head.rotation.x = 0.3; }
+  else if (boss.state === 'stunned') { p.torso.rotation.x = -0.35 + Math.sin(boss.animT * 12) * 0.08; p.al.rotation.x = 0.6; p.ar.rotation.x = 0.6; p.head.rotation.x = -0.3; p.head.rotation.z = Math.sin(boss.animT * 6) * 0.25; }
+  else if (boss.state === 'swipe') { const k = 1 - boss.t / 0.45; p.ar.rotation.x = -2.5 + k * 3.5; p.al.rotation.x = -0.4; p.torso.rotation.x = 0.1; p.head.rotation.x = 0; p.head.rotation.z = 0; }
+  else if (boss.state === 'throw') { const k = 1 - boss.t / 0.6; p.ar.rotation.x = -3 + k * 2; p.al.rotation.x = -0.3; p.torso.rotation.x = 0; p.head.rotation.x = 0; p.head.rotation.z = 0; }
+  else { p.torso.rotation.x = lerp(p.torso.rotation.x, 0.05, dt * 6); p.al.rotation.x = -sw * 0.5; p.ar.rotation.x = sw * 0.5; p.head.rotation.x = 0; p.head.rotation.z = 0; }
+  const rage = boss.state === 'windup' || boss.state === 'charge';
+  m.traverse(o => { if (o.isMesh) { if (o.userData.base === undefined) o.userData.base = o.material; if (o.userData.base === BMAT.eye) return; o.material = boss.flash > 0 ? EMAT.flash : (rage && o.userData.base === BMAT.hide ? BMAT.rage : o.userData.base); } });
 }
 
 // ---------- Hero animation ----------
@@ -829,7 +972,8 @@ function updateHUD() {
   $('score').firstChild.textContent = G.score;
   $('score').querySelector('small').innerHTML = `CRIMES ${G.crimes} / 8 &nbsp;·&nbsp; ${fmtTime(G.time)}`;
   const cb = $('combo'); cb.style.opacity = G.combo > 1 ? 1 : 0; cb.textContent = G.combo > 1 ? `x${G.combo} COMBO` : ''; cb.style.fontSize = (30 + Math.min(G.combo, 10) * 1.5) + 'px';
-  $('crime').textContent = G.crime ? `⚠ ${G.crime.name} · ${enemies.filter(e => e.alive).length} LEFT` : (G.crimes < 8 ? 'PATROLLING…' : '');
+  $('crime').textContent = G.crime ? (G.crime.boss ? `⚠ ${G.crime.name}` + (boss.state === 'stunned' ? ' · DAZED' : '') : `⚠ ${G.crime.name} · ${enemies.filter(e => e.alive).length} LEFT`) : (G.crimes < 8 ? 'PATROLLING…' : '');
+  if (boss.mesh) $('bossBar').firstElementChild.nextElementSibling.style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
   $('crime').style.color = G.crime ? '#ff2d47' : '#9fb0ff';
   const h = $('hint'); h.textContent = G.hintT > 0 ? G.hint : ''; h.style.opacity = clamp(G.hintT, 0, 1) * 0.9;
   $('flash').style.opacity = G.flash; if (G.flash > 0) G.flash = Math.max(0, G.flash - 0.04);
@@ -863,6 +1007,7 @@ function startGame() {
   for (const p of particles) scene.remove(p.m); particles.length = 0;
   for (const t of texts) t.el.remove(); texts.length = 0;
   Object.assign(G, { state: 'play', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Drag the right side to look · hold WEB in the air to swing' : 'Hold the left mouse button in the air to web-swing · WASD to move' });
+  if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; } boss.alive = false; $('bossBar').classList.add('hidden');
   beacon.visible = false; resetPlayer(); updateCamera(0, true);
   $('overlay').classList.add('hidden');
   if (!TOUCH) renderer.domElement.requestPointerLock?.();
@@ -873,7 +1018,7 @@ function endGame(won) {
   const newBest = G.score > G.best;
   if (won) { if (newBest) G.best = G.score; if (!G.bestTime || G.time < G.bestTime) G.bestTime = G.time; try { localStorage.setItem('mm3d_best', G.best); localStorage.setItem('mm3d_best_time', G.bestTime); } catch (e) { } }
   else if (newBest) { G.best = G.score; try { localStorage.setItem('mm3d_best', G.best); } catch (e) { } }
-  setTimeout(() => overlay(won ? 'BROOKLYN IS SAFE' : 'KNOCKED OUT', won ? 'ALL 8 CRIMES STOPPED' : `${G.crimes} / 8 CRIMES STOPPED`,
+  setTimeout(() => overlay(won ? 'BROOKLYN IS SAFE' : 'KNOCKED OUT', won ? 'RHINO DOWN · ALL 8 CRIMES STOPPED' : `${G.crimes} / 8 CRIMES STOPPED${G.crimes >= 8 ? ' · THE RHINO WON' : ''}`,
     [`Score <b>${G.score}</b>${newBest ? ' · NEW BEST' : ''} · Time <b>${fmtTime(G.time)}</b>`, `Best score ${G.best}${G.bestTime ? ' · best time ' + fmtTime(G.bestTime) : ''}`], 'PLAY AGAIN'), won ? 1200 : 1800);
 }
 function winGame() { AudioSys.win(); G.flash = 1; endGame(true); }
@@ -896,7 +1041,7 @@ function frame(now) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateEnemies(dt); updateBullets(dt); updateCrimes(dt);
+    updatePlayer(dt); updateEnemies(dt); updateBoss(dt); updateBullets(dt); updateCrimes(dt);
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
     // idle: slow orbit on the title screen
@@ -909,7 +1054,7 @@ function frame(now) {
   renderer.render(scene, camera);
 }
 requestAnimationFrame(frame);
-window.__game = { P, G, look, enemies, buildings, camera, spawnCrime, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
