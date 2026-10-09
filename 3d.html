@@ -2393,7 +2393,7 @@ $('chat').addEventListener('mousedown', e => e.stopPropagation());
 // ---------- Skinned hero: Mixamo X Bot (67 bones, motion-capture idle/walk/run) dressed by a procedural suit shader ----------
 // Model space: metres, feet at y=0, faces +Z, T-pose with arms along X. Bones are in centimetres under a 0.01-scaled armature.
 const RIG = { ready: false, root: null, mixer: null, actions: {}, bones: {}, mats: [], uniforms: null, pose: {}, groundBlend: 1, hatGroup: null, state: 'idle', time: 0, failed: false };
-const RIG_SCALE = 1.6; // 1.8 m model -> the game's 2.9-unit hero
+const RIG_SCALE = 1.64; // 1.8 m model -> the game's 2.9-unit hero
 const RIG_BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'];
 const RIG_CTRL = ['Spine', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftHand', 'RightHand'];
 const SUIT_PALETTES = {
@@ -2481,22 +2481,25 @@ function reshapeMale(geo) {
   const sm = (a, b, v) => clamp((v - a) / (b - a), 0, 1);
   for (let i = 0; i < p.count; i++) {
     let x = p.getX(i), y = p.getY(i), z = p.getZ(i); const ax = Math.abs(x);
-    const torsoCol = ax < 0.26, armZone = ax >= 0.26;
-    // whole body a touch broader
-    x *= 1.05;
-    // chest: remove the bust entirely, keep a flat pec plane
-    if (y > 1.15 && y < 1.5 && torsoCol && z > 0.02) { const k = sm(1.15, 1.25, y) * (1 - sm(1.42, 1.5, y)); z = 0.02 + (z - 0.02) * (1 - 0.8 * k * (1 - sm(0.16, 0.24, ax))); }
-    // ribcage and shoulders: V shape, much wider up top
-    if (y > 1.18 && y < 1.56) { const k = sm(1.18, 1.32, y) * (1 - sm(1.5, 1.56, y)); if (torsoCol) x *= 1 + 0.2 * k * sm(0.04, 0.14, ax); }
-    // waist: no pinch at all
-    if (y > 0.98 && y < 1.2 && torsoCol) { const k = sm(0.98, 1.05, y) * (1 - sm(1.14, 1.2, y)); x *= 1 + 0.2 * k; z *= 1 + 0.08 * k; }
-    // hips and glutes: narrow and flat
-    if (y > 0.74 && y < 1.06) { const k = sm(0.74, 0.86, y) * (1 - sm(1.0, 1.06, y)); if (torsoCol) x *= 1 - 0.26 * k; if (z < -0.01) z = -0.01 + (z + 0.01) * (1 - 0.7 * k); if (z > 0.04) z = 0.04 + (z - 0.04) * (1 - 0.3 * k); }
-    // thighs: straighter, less flare
-    if (y > 0.4 && y < 0.95 && torsoCol) { const k = sm(0.4, 0.55, y) * (1 - sm(0.85, 0.95, y)); const cx = Math.sign(x) * 0.088; x = cx + (x - cx) * (1 - 0.22 * k); z *= 1 - 0.12 * k; }
-    // arms thicker, neck thicker
-    if (armZone && y > 1.3 && y < 1.55) { const k = sm(0.26, 0.4, ax); const cy = 1.438; y = cy + (y - cy) * (1 + 0.18 * k); z *= 1 + 0.18 * k; }
-    if (y > 1.47 && y < 1.6 && ax < 0.09 && Math.abs(z) < 0.11) { const k = sm(1.47, 1.5, y) * (1 - sm(1.57, 1.6, y)); x *= 1 + 0.25 * k; z *= 1 + 0.25 * k; }
+    const torsoCol = ax < 0.26, arm = ax >= 0.24 && y > 1.28 && y < 1.58;
+    x *= 1.06;
+    // chest: no bust, a deep barrel chest instead
+    if (y > 1.1 && y < 1.5 && torsoCol) { const k = sm(1.1, 1.22, y) * (1 - sm(1.42, 1.5, y)); if (z > 0.02) z = 0.02 + (z - 0.02) * (1 - 0.8 * k * (1 - sm(0.16, 0.24, ax))); z *= 1 + 0.14 * k; }
+    // ribcage, lats and shoulders: a wide V
+    if (y > 1.12 && y < 1.56 && torsoCol) { const k = sm(1.12, 1.32, y) * (1 - sm(1.5, 1.56, y)); x *= 1 + 0.34 * k * sm(0.03, 0.14, ax); }
+    // waist and belly: straight sides, thicker through
+    if (y > 0.96 && y < 1.2 && torsoCol) { const k = sm(0.96, 1.03, y) * (1 - sm(1.14, 1.2, y)); x *= 1 + 0.3 * k; if (z > 0.03) z = 0.03 + (z - 0.03) * (1 - 0.5 * k); else z *= 1 + 0.1 * k; } // flat stomach, no belly bulge
+    // hips and glutes: narrow and flat, squared off
+    if (y > 0.72 && y < 1.06) { const k = sm(0.72, 0.86, y) * (1 - sm(1.0, 1.06, y)); if (torsoCol) x *= 1 - 0.3 * k; if (z < -0.01) z = -0.01 + (z + 0.01) * (1 - 0.8 * k); if (z > 0.02) z = 0.02 + (z - 0.02) * (1 - 0.6 * k); }
+    // legs: straight, columnar, thicker calves
+    if (y > 0.12 && y < 0.95 && torsoCol) { const k = sm(0.12, 0.3, y) * (1 - sm(0.85, 0.95, y)); const cx = Math.sign(x) * 0.09; x = cx + (x - cx) * (1 - 0.18 * k + 0.12 * sm(0.3, 0.5, y) * (1 - sm(0.5, 0.65, y))); z *= 1 - 0.06 * k; }
+    // arms: much thicker, big forearms
+    if (arm) { const k = sm(0.24, 0.36, ax); const cy = 1.438; y = cy + (y - cy) * (1 + 0.38 * k); z *= 1 + 0.38 * k; }
+    // hands a touch bigger
+    if (ax > 0.7 && y > 1.3 && y < 1.55) { const cx = Math.sign(x) * 0.72; x = cx + (x - cx) * 1.12; const cy = 1.438; y = cy + (y - cy) * 1.12; }
+    // neck thick, jaw/skull a little broader
+    if (y > 1.47 && y < 1.6 && ax < 0.1 && Math.abs(z) < 0.12) { const k = sm(1.47, 1.5, y) * (1 - sm(1.57, 1.6, y)); x *= 1 + 0.35 * k; z *= 1 + 0.3 * k; }
+    if (y > 1.58 && ax < 0.16) { const k = sm(1.58, 1.64, y) * (1 - sm(1.72, 1.8, y)); x *= 1 + 0.08 * k; }
     p.setXYZ(i, x, y, z);
   }
   p.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingSphere();
@@ -2568,6 +2571,11 @@ function animateRig(dt) {
     R.actions.idle.setEffectiveWeight(idleW); R.actions.walk.setEffectiveWeight(walkW); R.actions.run.setEffectiveWeight(runW);
     R.actions.walk.setEffectiveTimeScale(clamp(sp / 2.2, 0.8, 1.7)); R.actions.run.setEffectiveTimeScale(clamp(sp / 6.5, 0.9, 1.8));
     R.mixer.update(dt);
+    { // the clips were captured with a swaying gait; cut the hip and spine roll and yaw so the walk reads male
+      const hq = b.Hips.quaternion, he = _e.setFromQuaternion(hq, 'YXZ'); he.y *= 0.3; he.z *= 0.25; hq.setFromEuler(he);
+      const sq = b.Spine.quaternion, se = _e.setFromQuaternion(sq, 'YXZ'); se.y *= 0.4; se.z *= 0.3; sq.setFromEuler(se);
+      b.Hips.position.x *= 0.3; // lateral hip shift
+    }
     R.groundBlend = Math.min(1, R.groundBlend + dt * 4);
     // ease from the last airborne pose into the mocap pose, and keep tracking it
     for (const n of RIG_CTRL) { if (R.groundBlend < 1) b[n].quaternion.slerp(R.pose[n], 1 - R.groundBlend); R.pose[n].copy(b[n].quaternion); }
