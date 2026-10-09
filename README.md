@@ -226,9 +226,12 @@ switch between the comic look and the realistic one, or open `3d.html?look=real`
 
 ### 3D quality
 
-Desktop defaults to soft shadows at full resolution, touch devices to smaller hard
-shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
-`?quality=high` to force the full look on a tablet.
+The game watches its own frame time and steps the render load down (resolution, shadow
+size, anti-aliasing, then the comic post-process) when frames get slow, and back up when
+there is headroom, so it stays smooth on weaker machines. Desktop starts with soft
+shadows at full resolution, touch devices with smaller hard shadows. Add `?quality=low`
+to the URL to start with shadows off, or `?quality=high` to lock full detail and disable
+the auto-tuning.
 
 ### 3D controls
 
