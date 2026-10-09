@@ -175,8 +175,33 @@ const AudioSys = (() => {
     const g = ac.createGain(); g.gain.value = vol;
     s.connect(f).connect(g).connect(ac.destination); s.start(t);
   }
+  let amb = null;
+  function ambient() { // looping city bed: filtered noise for wind and a low traffic rumble, sirens now and then
+    if (!ac || amb) return;
+    const n = ac.sampleRate * 4, buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+    const wind = ac.createBufferSource(); wind.buffer = buf; wind.loop = true;
+    const wf = ac.createBiquadFilter(); wf.type = 'bandpass'; wf.frequency.value = 500; wf.Q.value = 0.6;
+    const wg = ac.createGain(); wg.gain.value = 0.03; wind.connect(wf).connect(wg).connect(ac.destination); wind.start();
+    const rumble = ac.createBufferSource(); rumble.buffer = buf; rumble.loop = true;
+    const rf = ac.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 120;
+    const rg = ac.createGain(); rg.gain.value = 0.08; rumble.connect(rf).connect(rg).connect(ac.destination); rumble.start();
+    const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.13; lg.gain.value = 180; lfo.connect(lg).connect(wf.frequency); lfo.start();
+    amb = { wg, rg, wf };
+  }
+  function siren() { // distant two-tone siren drifting across the city
+    if (!ac) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), p = ac.createStereoPanner ? ac.createStereoPanner() : null;
+    o.type = 'triangle'; let f = 650;
+    for (let i = 0; i < 10; i++) { o.frequency.setValueAtTime(f, t + i * 0.55); o.frequency.linearRampToValueAtTime(f === 650 ? 880 : 650, t + i * 0.55 + 0.5); f = f === 650 ? 880 : 650; }
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.012, t + 1.2); g.gain.linearRampToValueAtTime(0.0001, t + 5.5);
+    if (p) { p.pan.setValueAtTime(Math.random() * 2 - 1, t); p.pan.linearRampToValueAtTime(Math.random() * 2 - 1, t + 5.5); o.connect(g).connect(p).connect(ac.destination); } else o.connect(g).connect(ac.destination);
+    o.start(t); o.stop(t + 5.6);
+  }
   return {
-    ensure,
+    ensure, ambient, siren,
+    setHeight(h) { if (!amb) return; const k = clamp(h / 120, 0, 1); amb.wg.gain.value = 0.02 + k * 0.07; amb.rg.gain.value = 0.09 * (1 - k * 0.8); amb.wf.frequency.value = 400 + k * 500; },
+    flutter() { for (let i = 0; i < 5; i++) noise(0.05, 0.05, 1800 + i * 300); tone({ f: 2400, f2: 1800, type: 'sine', dur: 0.08, vol: 0.02, delay: 0.05 }); },
     thwip() { tone({ f: 1000, f2: 250, type: 'square', dur: 0.09, vol: 0.07 }); noise(0.08, 0.07, 2500); },
     jump() { tone({ f: 280, f2: 620, type: 'triangle', dur: 0.12, vol: 0.09 }); },
     punch() { noise(0.07, 0.18, 600); tone({ f: 160, f2: 60, type: 'square', dur: 0.08, vol: 0.1 }); },
@@ -537,6 +562,7 @@ function genCity() {
     traffic.push({ mesh: car, s, along, dir, t: (r() - 0.5) * n * (BLOCK + STREET), speed: 9 + r() * 7 });
     scene.add(car);
   }
+  buildStreetLife(streetPos, r);
   // sky dome: pale horizon to deep blue zenith
   const skyTex = canvasTex(4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2d6ad0'); gr.addColorStop(0.45, '#6ea6ea'); gr.addColorStop(0.8, '#cfe2f5'); gr.addColorStop(1, '#e6ecf0'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
   const sky = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 16, 0, TAU, 0, Math.PI * 0.55), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
@@ -575,6 +601,86 @@ function carMesh(color) {
   const cab = shadowed(new THREE.Mesh(carCabGeo, glassMat)); cab.position.set(-0.3, 1.85, 0); g.add(cab);
   for (const [a, b] of [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]]) { const w = new THREE.Mesh(wheelGeo, darkMetalMat); w.position.set(a, 0.4, b); g.add(w); }
   return g;
+}
+// ---------- Street life: pedestrians who walk the sidewalks and scatter from fights, pigeons that burst off roofs ----------
+const peds = [], pigeons = [];
+let pedMesh = null, pigeonMesh = null;
+const PED_N = 160, PIGEON_N = 90;
+function buildStreetLife(streetPos, r) {
+  // pedestrians: a capsule body, a head, two legs, instanced with per-person colour
+  const geo = new THREE.BufferGeometry(); const parts = [];
+  const body = new THREE.CapsuleGeometry(0.28, 0.75, 3, 8); body.translate(0, 1.25, 0); parts.push(body);
+  const head = new THREE.SphereGeometry(0.19, 8, 8); head.translate(0, 1.95, 0); parts.push(head);
+  const lg = new THREE.CylinderGeometry(0.1, 0.09, 0.8, 6); const l1 = lg.clone(); l1.translate(-0.13, 0.4, 0); const l2 = lg.clone(); l2.translate(0.13, 0.4, 0); parts.push(l1, l2);
+  // merge by hand (no BufferGeometryUtils import): concatenate positions/normals/indices
+  let pos = [], nor = [], idx = [], base = 0;
+  for (const p of parts) { const pp = p.attributes.position.array, nn = p.attributes.normal.array, ii = p.index.array; for (let i = 0; i < pp.length; i++) { pos.push(pp[i]); nor.push(nn[i]); } for (let i = 0; i < ii.length; i++) idx.push(ii[i] + base); base += pp.length / 3; }
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); geo.setIndex(idx);
+  pedMesh = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.9 }), PED_N); pedMesh.castShadow = true; pedMesh.frustumCulled = false; scene.add(pedMesh);
+  const n = streetPos.length;
+  for (let i = 0; i < PED_N; i++) {
+    const s = streetPos[Math.floor(r() * n)], along = r() < 0.5, side = r() < 0.5 ? 1 : -1, lim = WORLD / 2 + 30;
+    const t = (r() - 0.5) * lim * 2;
+    const c = new THREE.Color().setHSL(r(), r() < 0.5 ? 0.15 : 0.6, 0.2 + r() * 0.4);
+    peds.push({ s, along, side, t, dir: r() < 0.5 ? 1 : -1, speed: 1.3 + r() * 1.0, phase: r() * TAU, flee: 0, scale: 0.85 + r() * 0.25 });
+    pedMesh.setColorAt(i, c);
+  }
+  if (pedMesh.instanceColor) pedMesh.instanceColor.needsUpdate = true;
+  // pigeons: flat little bodies with a flapping-wing illusion via scale; perched on random roofs, take off when disturbed
+  const pg = new THREE.ConeGeometry(0.14, 0.42, 5); pg.rotateX(Math.PI / 2);
+  pigeonMesh = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: 0x6f6f78, roughness: 0.9 }), PIGEON_N); pigeonMesh.frustumCulled = false; scene.add(pigeonMesh);
+  const roofs = buildings.filter(b => b.roofOk && b.h < 90);
+  for (let i = 0; i < PIGEON_N; i++) {
+    const b = roofs[Math.floor(r() * roofs.length)]; const home = V3(b.x + (r() - 0.5) * (b.w - 3), b.h, b.z + (r() - 0.5) * (b.d - 3));
+    pigeons.push({ home, pos: home.clone(), vel: V3(), state: 'perch', t: r() * 5, heading: r() * TAU, flap: r() * 10, b });
+    pigeonMesh.setColorAt(i, new THREE.Color().setHSL(0.65, 0.05 + r() * 0.1, 0.3 + r() * 0.3));
+  }
+}
+const _M = new THREE.Matrix4(), _Q = new THREE.Quaternion(), _S = V3(), _P = V3();
+function updateStreetLife(dt) {
+  if (!pedMesh) return;
+  const lim = WORLD / 2 + 30;
+  // which spots scare pedestrians: fights, bullets, the player landing hard
+  const scares = []; if (G.crime && G.crime.b.h < 2) scares.push(G.crime.b); for (const b of bullets) scares.push(b.pos);
+  if (P.pos.y < 2 && (P.punchT > 0 || P.landT > 0.2)) scares.push(P.pos);
+  peds.forEach((p, i) => {
+    let speed = p.speed;
+    const wx = p.along ? p.t : p.s - p.side * (STREET / 2 - 1.5), wz = p.along ? p.s + p.side * (STREET / 2 - 1.5) : p.t;
+    if (p.flee > 0) { p.flee -= dt; speed = 5.5; }
+    else for (const sc of scares) { if (Math.hypot(sc.x - wx, sc.z - wz) < 14) { p.flee = 3 + Math.random() * 2; p.dir = (p.along ? wx - sc.x : wz - sc.z) >= 0 ? 1 : -1; break; } }
+    p.t += p.dir * speed * dt; if (p.t > lim) p.t = -lim; if (p.t < -lim) p.t = lim;
+    p.phase += dt * speed * 4;
+    const bob = Math.abs(Math.sin(p.phase)) * 0.06;
+    const yaw = p.along ? (p.dir > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.dir > 0 ? 0 : Math.PI);
+    _P.set(p.along ? p.t : wx, 0.3 + bob, p.along ? wz : p.t); _Q.setFromAxisAngle(V3(0, 1, 0), yaw); _S.set(p.scale, p.scale * (1 + Math.sin(p.phase) * 0.02), p.scale);
+    pedMesh.setMatrixAt(i, _M.compose(_P, _Q, _S));
+  });
+  pedMesh.instanceMatrix.needsUpdate = true;
+  // pigeons
+  let fluttered = false;
+  pigeons.forEach((g, i) => {
+    g.t -= dt; g.flap += dt * 18;
+    const dP = Math.hypot(P.pos.x - g.pos.x, P.pos.z - g.pos.z), dy = Math.abs(P.pos.y - g.pos.y);
+    const dS = SK.mesh ? Math.hypot(SK.pos.x - g.pos.x, SK.pos.z - g.pos.z) : 99;
+    if (g.state === 'perch') {
+      if (g.t < -0.5 || (dP < 6 && dy < 4) || (dS < 4 && Math.abs(SK.pos.y - g.pos.y) < 4)) { g.state = 'fly'; g.t = 5 + Math.random() * 4; const a = Math.atan2(g.pos.x - P.pos.x, g.pos.z - P.pos.z) + (Math.random() - 0.5); g.vel.set(Math.sin(a) * 6, 4 + Math.random() * 3, Math.cos(a) * 6); fluttered = true; }
+      else if (g.t <= 0) { g.t = 2 + Math.random() * 5; g.heading += (Math.random() - 0.5) * 2; const nx = g.pos.x + Math.sin(g.heading) * 0.6, nz = g.pos.z + Math.cos(g.heading) * 0.6; if (Math.abs(nx - g.b.x) < g.b.w / 2 - 1 && Math.abs(nz - g.b.z) < g.b.d / 2 - 1) { g.pos.x = nx; g.pos.z = nz; } }
+    } else {
+      g.vel.y += (Math.sin(g.flap * 0.3) * 2 - (g.t < 2 ? 3 : 0.5)) * dt * 3;
+      g.pos.addScaledVector(g.vel, dt); g.vel.multiplyScalar(1 - 0.3 * dt); g.heading = Math.atan2(g.vel.x, g.vel.z);
+      const gh = groundHeight(g.pos.x, g.pos.z);
+      if (g.t <= 0 || (g.pos.y <= gh + 0.1 && g.vel.y < 0)) {
+        // land where we are if it is a roof, else go home
+        const b = buildingAt(g.pos.x, g.pos.z); if (b && b.roofOk && g.pos.y <= b.h + 2) { g.pos.y = b.h; g.b = b; g.state = 'perch'; g.t = 3; } else { g.pos.copy(g.home); g.b = buildingAt(g.home.x, g.home.z) || g.b; g.state = 'perch'; g.t = 3; }
+        g.vel.set(0, 0, 0);
+      }
+    }
+    const wing = g.state === 'fly' ? 1 + Math.sin(g.flap) * 0.8 : 1;
+    _P.set(g.pos.x, g.pos.y + 0.15, g.pos.z); _Q.setFromAxisAngle(V3(0, 1, 0), g.heading); _S.set(wing * 1.6, 0.6, 1);
+    pigeonMesh.setMatrixAt(i, _M.compose(_P, _Q, _S));
+  });
+  pigeonMesh.instanceMatrix.needsUpdate = true;
+  if (fluttered) AudioSys.flutter();
 }
 function updateTraffic(dt) {
   const lim = WORLD / 2 + 60;
@@ -1088,6 +1194,7 @@ function updatePlayer(dt) {
   if (P.pos.y <= gh + 0.02 && P.vel.y <= 0) {
     if (!ground && P.vel.y < -18) { shake(0.4); AudioSys.land(); burst(P.pos.clone(), 10, 0x888888, 5, 0.4); }
     if (!ground) P.landT = 0.25;
+    if (!ground && P.vel.y < -10) for (const g of pigeons) if (g.state === 'perch' && Math.hypot(g.pos.x - P.pos.x, g.pos.z - P.pos.z) < 12 && Math.abs(g.pos.y - P.pos.y) < 3) g.t = -1;
     P.pos.y = gh; P.vel.y = 0; P.onGround = true; if (P.swinging) stopSwing(false);
   } else P.onGround = false;
   if (P.pos.y > gh + 0.3) P.onGround = false;
@@ -1796,12 +1903,33 @@ function buildSociety() {
   const disc = new THREE.Mesh(new THREE.CircleGeometry(2.45, 40), new THREE.MeshBasicMaterial({ map: discTex, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
   const portal = new THREE.Group(); portal.add(ring, disc); portal.position.set(b.x, b.h + 2.9, b.z - b.d / 2 + 4); scene.add(portal); SOC.portal = portal; SOC.ring = ring; SOC.disc = disc;
   const pad = new THREE.Mesh(new THREE.RingGeometry(2.2, 3.0, 32), new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })); pad.rotation.x = -Math.PI / 2; pad.position.set(portal.position.x, b.h + 0.08, portal.position.z + 3.2); scene.add(pad); SOC.pad = pad;
+  // HQ structure: a glass pavilion with an orange steel frame, holo-screens, the Society emblem, landing lights
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4, metalness: 0.6, emissive: 0x5a2000, emissiveIntensity: 0.4 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xbfe6ff, roughness: 0.05, metalness: 0.1, transmission: 0.85, thickness: 0.5, transparent: true, opacity: 0.55, envMapIntensity: 1.5 });
+  const pav = new THREE.Group(); pav.position.set(b.x + b.w / 4, b.h, b.z + b.d / 4);
+  const pw = Math.min(10, b.w / 2.4), pd = Math.min(8, b.d / 2.4), ph = 4.2;
+  const walls = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), glass); walls.position.y = ph / 2; pav.add(walls);
+  const roof = shadowed(new THREE.Mesh(new THREE.BoxGeometry(pw + 0.8, 0.3, pd + 0.8), frameMat)); roof.position.y = ph + 0.15; pav.add(roof);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const post = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.3, ph, 0.3), frameMat)); post.position.set(sx * pw / 2, ph / 2, sz * pd / 2); pav.add(post); }
+  scene.add(pav);
+  // holo-screens: floating panels with a scrolling canvas of multiverse data
+  const holoTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = 'rgba(255,120,30,0.08)'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,170,80,0.6)'; g.lineWidth = 2; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(10, 20 + i * 18); g.lineTo(60 + Math.random() * 180, 20 + i * 18); g.stroke(); } g.strokeStyle = 'rgba(255,220,160,0.9)'; g.beginPath(); for (let x = 0; x <= w; x += 8) g.lineTo(x, 100 - Math.abs(Math.sin(x * 0.11)) * 40); g.stroke(); g.fillStyle = 'rgba(255,200,120,0.9)'; g.font = 'bold 14px monospace'; g.fillText('EARTH-1610 · CANON STABLE', 10, 118); }); holoTex.repeat.set(1, 1);
+  const holoMat = new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+  SOC.holos = [];
+  for (let i = 0; i < 3; i++) { const sc = new THREE.Mesh(new THREE.PlaneGeometry(4, 2), holoMat); sc.position.set(pav.position.x - pw / 2 - 1 - i * 0.2, b.h + 3 + i * 1.1, pav.position.z - pd / 2 + i * 2.2); sc.rotation.y = Math.PI / 2 + 0.4; scene.add(sc); SOC.holos.push(sc); }
+  // emblem: a big spider on the pavilion roof, and a ring of landing lights round the portal pad
+  const emblem = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), spiderMat('#ff8a2a', true)); emblem.rotation.x = -Math.PI / 2; emblem.position.set(pav.position.x, b.h + ph + 0.32, pav.position.z); scene.add(emblem);
+  SOC.lights = []; for (let i = 0; i < 10; i++) { const a = i / 10 * TAU; const l = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), new THREE.MeshBasicMaterial({ color: 0xffb060 })); l.position.set(pad.position.x + Math.cos(a) * 3.6, b.h + 0.25, pad.position.z + Math.sin(a) * 3.6); scene.add(l); SOC.lights.push(l); }
+  // Spider-People: some wander, some perch on the parapet in a crouch and look out over the city
   const makers = [() => SUIT_DEFS.classic.build(), () => SUIT_DEFS.m2099.build(), () => SUIT_DEFS.punk.build(), () => SUIT_DEFS.noir.build(), () => makeGwen(), randSuit, randSuit, randSuit, randSuit, randSuit, randSuit, randSuit];
-  makers.forEach(mk => {
+  makers.forEach((mk, i) => {
     const g = mk(); g.traverse(o => { if (o.isPointLight) o.intensity = 0; if (o.isMesh && o.material === GMAT.none) o.visible = false; });
-    const x = b.x + (Math.random() - 0.5) * (b.w - 8), z = b.z + (Math.random() - 0.5) * (b.d - 8);
-    g.position.set(x, b.h, z); g.rotation.y = Math.random() * TAU; scene.add(g);
-    SOC.npcs.push({ mesh: g, goal: V3(x, b.h, z), t: Math.random() * 6, animT: Math.random() * 10, moving: false });
+    const perch = i % 3 === 2;
+    let x, z, yaw;
+    if (perch) { const side = Math.floor(Math.random() * 4); const t = (Math.random() - 0.5) * 0.7; x = side < 2 ? b.x + t * b.w : b.x + (side === 2 ? 1 : -1) * (b.w / 2 - 0.9); z = side < 2 ? b.z + (side === 0 ? 1 : -1) * (b.d / 2 - 0.9) : b.z + t * b.d; yaw = side === 0 ? 0 : side === 1 ? Math.PI : side === 2 ? Math.PI / 2 : -Math.PI / 2; }
+    else { x = b.x + (Math.random() - 0.5) * (b.w - 8); z = b.z + (Math.random() - 0.5) * (b.d - 8); yaw = Math.random() * TAU; }
+    g.position.set(x, b.h + (perch ? 0.9 : 0), z); g.rotation.y = yaw; scene.add(g);
+    SOC.npcs.push({ mesh: g, goal: V3(x, b.h, z), t: Math.random() * 6, animT: Math.random() * 10, moving: false, perch });
   });
 }
 const SOC_LINES = ['Welcome to the Society, kid.', 'Canon event in progress. Don\'t touch anything.', 'Miguel says no portals without a watch. Ignore him.', 'Nice hoodie.', 'Which Earth are you from again?', 'The portal goes to the crime. Don\'t ask how.', 'We\'ve all lost an Uncle Ben. Hang in there.', 'Gwen talks about you. A lot.'];
@@ -1809,8 +1937,18 @@ function updateSociety(dt) {
   if (!SOC.built) return;
   const t = G.time; SOC.ring.rotation.z += dt * 0.6; SOC.disc.rotation.z -= dt * 1.4; SOC.disc.material.opacity = 0.75 + Math.sin(t * 5) * 0.2; SOC.pad.scale.setScalar(1 + Math.sin(t * 4) * 0.08);
   if (SOC.cd > 0) SOC.cd -= dt;
+  if (SOC.holos) SOC.holos.forEach((h, i) => { h.position.y += Math.sin(t * 1.3 + i) * 0.002; h.material.opacity = 0.7 + Math.sin(t * 7 + i * 2) * 0.12; });
+  if (SOC.lights) SOC.lights.forEach((l, i) => { l.material.color.setHSL(0.08, 1, 0.5 + 0.4 * (Math.sin(t * 6 - i * 0.6) > 0.6 ? 1 : 0)); });
   for (const n of SOC.npcs) {
     n.animT += dt; n.t -= dt;
+    if (n.perch) { // crouched on the parapet: knees up, hands on the ledge, head scanning the city
+      const p = n.mesh.parts, sway = Math.sin(n.animT * 1.4) * 0.05;
+      p.legL.rotation.x = -1.9; p.legR.rotation.x = -1.9; p.legL.joint.rotation.x = 2.4; p.legR.joint.rotation.x = 2.4;
+      p.armL.rotation.x = -0.9 + sway; p.armR.rotation.x = -0.9 - sway; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.4;
+      p.body.rotation.x = 0.5; p.head.rotation.y = Math.sin(n.animT * 0.5) * 0.7; p.head.rotation.x = -0.4;
+      const toP = P.pos.clone().sub(n.mesh.position); if (Math.hypot(toP.x, toP.z) < 6 && Math.random() < dt * 0.05) floatText(n.mesh.position.clone().add(V3(0, 2.6, 0)), SOC_LINES[Math.floor(Math.random() * SOC_LINES.length)], '#ffb070', 15);
+      continue;
+    }
     const dx = n.goal.x - n.mesh.position.x, dz = n.goal.z - n.mesh.position.z, d = Math.hypot(dx, dz);
     if (d > 0.4) { n.mesh.position.x += dx / d * 2.2 * dt; n.mesh.position.z += dz / d * 2.2 * dt; const want = Math.atan2(dx, dz); let f = want - n.mesh.rotation.y; f = Math.atan2(Math.sin(f), Math.cos(f)); n.mesh.rotation.y += f * Math.min(1, dt * 8); n.moving = true; }
     else { n.moving = false; if (n.t <= 0) { n.t = 2 + Math.random() * 5; const b = SOC.hq; n.goal.set(b.x + (Math.random() - 0.5) * (b.w - 8), b.h, b.z + (Math.random() - 0.5) * (b.d - 8)); } }
@@ -2083,7 +2221,7 @@ function overlay(title, sub, lines, btn) {
   $('ovBody').innerHTML = lines.map(l => `<p>${l}</p>`).join(''); $('startBtn').textContent = btn;
 }
 function startGame() {
-  AudioSys.ensure();
+  AudioSys.ensure(); AudioSys.ambient(); G.sirenT = 8 + Math.random() * 20;
   for (const e of enemies) scene.remove(e.mesh); enemies.length = 0;
   for (const b of bullets) scene.remove(b.mesh); bullets.length = 0;
   for (const w of webShots) scene.remove(w.mesh, w.line); webShots.length = 0;
@@ -2165,7 +2303,8 @@ function frame(now) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateSociety(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateSociety(dt); updateStreetLife(dt);
+    AudioSys.setHeight(P.pos.y); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
     // idle: slow orbit on the title screen
@@ -2182,7 +2321,7 @@ function frame(now) {
   document.body.classList.toggle('comic', LOOK.comic);
 }
 requestAnimationFrame(frame);
-window.__game = { P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>

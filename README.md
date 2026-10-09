@@ -78,12 +78,19 @@ every crime to punch thugs and gunners. Her knockouts count toward clearing the 
 she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
+### Street life (3D only)
+
+Brooklyn is populated: pedestrians walk the sidewalks and scatter when a fight breaks out
+on the street or a bullet flies past, pigeons perch on the low roofs and burst into the
+air when you or Gwen land near them, and the city has an ambient soundtrack of wind,
+traffic rumble and distant sirens that changes with your altitude.
+
 ### Spider-Society HQ (3D only)
 
 The tallest tower in the city is Spider-Society headquarters, marked by an orange beam.
 When no crime is active the on-screen arrow turns orange and points there. A dozen
 Spider-People from across the multiverse hang out on its roof, wander around, turn to
-face you and drop one-liners. Next to the glowing portal is an orange pad: step on it
+face you and drop one-liners. HQ has a glass pavilion with an orange steel frame and a spider emblem on its roof, floating holo-screens of multiverse data, and landing lights round the portal; some of the Spider-People crouch on the parapets scanning the city. Next to the glowing portal is an orange pad: step on it
 during a crime and the portal drops you (and Gwen) out of the sky right over the crime
 scene.
 
