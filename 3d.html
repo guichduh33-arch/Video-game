@@ -1241,9 +1241,10 @@ function updatePlayer(dt) {
     const tx = -P.onWall.nz, tz = P.onWall.nx, side = mv.x * tx + mv.z * tz;
     P.pos.x += tx * side * 5 * dt; P.pos.z += tz * side * 5 * dt;
     P.pos.y += P.vel.y * dt;
+    P.pos.x -= P.onWall.nx * 0.05; P.pos.z -= P.onWall.nz * 0.05; // stay pressed into the wall so contact holds every frame
     P.facing = Math.atan2(-P.onWall.nx, -P.onWall.nz);
     P.jumpsLeft = 1;
-    if (P.pos.y >= P.onWall.b.h) { P.pos.y = P.onWall.b.h + 0.05; P.pos.x += -P.onWall.nx * 1.2; P.pos.z += -P.onWall.nz * 1.2; P.vel.y = 4; }
+    if (P.pos.y >= P.onWall.b.h) { P.pos.y = P.onWall.b.h + 0.05; P.vel.set(-P.onWall.nx * 7, 6.5, -P.onWall.nz * 7); P.onWall = null; P.climbT = 0; AudioSys.jump(); burst(P.pos.clone(), 6, 0xcccccc, 3, 0.3); }
     if (inJump()) { P.vel.set(P.onWall.nx * 9, JUMP_V, P.onWall.nz * 9); P.pos.x += P.onWall.nx * 0.2; P.pos.z += P.onWall.nz * 0.2; AudioSys.jump(); P.jumpsLeft = 1; }
   } else {
     // --- run / air ---
@@ -2393,7 +2394,9 @@ function animateRig(dt) {
   hero.position.copy(P.pos); heroGlow.position.set(P.pos.x + 0.8, P.pos.y + 3.6, P.pos.z + 2.2);
   let d = P.facing - hero.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); hero.rotation.y += d * Math.min(1, dt * 14);
   if (!P.alive) { hero.rotation.x = lerp(hero.rotation.x, -Math.PI / 2 * 0.95, Math.min(1, dt * 3)); R.mixer.update(dt * 0.2); return; }
-  hero.rotation.x = 0;
+  const climbingNow = P.onWall && !P.onGround && !P.swinging && P.climbT > 0;
+  hero.rotation.x = lerp(hero.rotation.x, climbingNow ? -0.55 : 0, Math.min(1, dt * 8));
+  hero.position.x += climbingNow ? P.onWall.nx * 0.35 : 0; hero.position.z += climbingNow ? P.onWall.nz * 0.35 : 0; // keep the chest off the wall
   const sp = Math.hypot(P.vel.x, P.vel.z);
   const climbing = P.onWall && !P.onGround && !P.swinging && P.climbT > 0;
   const grounded = P.onGround && !P.swinging && !climbing;
@@ -2423,7 +2426,11 @@ function animateRig(dt) {
     // airborne: slerp the controlled bones toward a pose; the rest keep their last mocap values
     R.groundBlend = 0;
     let pose = RIG_POSES.fall;
-    if (climbing) pose = RIG_POSES.climb; else if (P.swinging) pose = RIG_POSES.swingBody;
+    if (climbing) {
+      const c = Math.sin(P.pos.y * 2.4), s2 = Math.cos(P.pos.y * 2.4); // one full cycle per ~2.6 units climbed
+      pose = { LeftArm: E(0.35 - c * 0.45, 0.15, 1.35), RightArm: E(0.35 + c * 0.45, -0.15, -1.35), LeftForeArm: E(0, -0.9 - s2 * 0.3, 0), RightForeArm: E(0, 0.9 - s2 * 0.3, 0),
+        LeftUpLeg: E(-0.9 + c * 0.5, 0, 0.25), RightUpLeg: E(-0.9 - c * 0.5, 0, -0.25), LeftLeg: E(1.3 - c * 0.4, 0, 0), RightLeg: E(1.3 + c * 0.4, 0, 0), Spine: E(0.45, c * 0.08, 0), Head: E(-0.75, 0, 0), LeftHand: E(0.4, 0, 0), RightHand: E(0.4, 0, 0) };
+    } else if (P.swinging) pose = RIG_POSES.swingBody;
     const k = Math.min(1, dt * 9);
     for (const n of RIG_CTRL) { const t = pose[n]; if (t) R.pose[n].slerp(t, k); }
     if (P.swinging) { R.pose.RightArm.slerp(aimQuat(b.RightArm, P.anchor, V3(-1, 0, 0)), k); R.pose.RightHand.slerp(E(0, 0, 0), k); }
