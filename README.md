@@ -78,6 +78,15 @@ every crime to punch thugs and gunners. Her knockouts count toward clearing the 
 she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
+### Spider-Society HQ (3D only)
+
+The tallest tower in the city is Spider-Society headquarters, marked by an orange beam.
+When no crime is active the on-screen arrow turns orange and points there. A dozen
+Spider-People from across the multiverse hang out on its roof, wander around, turn to
+face you and drop one-liners. Next to the glowing portal is an orange pad: step on it
+during a crime and the portal drops you (and Gwen) out of the sky right over the crime
+scene.
+
 ### Suits: the Spider-Verse roster (3D only)
 
 Press `N` to cycle forward and `B` to cycle back (SUIT button on touch). Each suit is a
