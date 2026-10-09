@@ -14,7 +14,9 @@ Two versions live in this repo:
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
   city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
-  8th crime the Rhino shows up for a boss fight.
+  8th crime the Rhino shows up for a boss fight. The city is rendered with real-time
+  sun shadows, sky reflections, textured facades with recessed windows, storefronts,
+  parapets, water towers, trees, street lamps, crosswalks and traffic.
 
 ## Play
 
@@ -49,6 +51,12 @@ full-screen experience.
 | Venom Strike | `K` (needs 50 venom, built by landing hits) |
 | Camouflage | `L` or `Shift` (6 seconds, enemies lose you; punching from camo is a one-hit stealth takedown) |
 | Pause | `P` or `Esc` |
+
+### 3D quality
+
+Desktop defaults to soft shadows at full resolution, touch devices to smaller hard
+shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
+`?quality=high` to force the full look on a tablet.
 
 ### 3D controls
 
