@@ -72,7 +72,7 @@
   <h1>MILES MORALES</h1>
   <h2>BROOKLYN NIGHTS 3D</h2>
   <div id="ovBody">
-    <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino.</p>
+    <p>Swing through a 3D Brooklyn, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino and Venom.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> to web-swing</p>
     <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
@@ -532,7 +532,7 @@ const keys = {}, pressed = {};
 const TOUCH = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
 const look = { yaw: 0, pitch: 0.25, dist: 7.5 };
 const mouse = { down: false, rdown: false, locked: false };
-const G = { state: 'title', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 0, shake: 0, best: 0, bestTime: 0, paused: false, flash: 0, hintT: 18, hint: '', fovBoost: 0 };
+const G = { state: 'title', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 0, shake: 0, best: 0, bestTime: 0, paused: false, flash: 0, hintT: 18, hint: '', fovBoost: 0 };
 try { G.best = +localStorage.getItem('mm3d_best') || 0; G.bestTime = +localStorage.getItem('mm3d_best_time') || 0; } catch (e) { }
 const isDown = (...c) => c.some(k => keys[k]);
 const wasPressed = (...c) => c.some(k => pressed[k]);
@@ -846,7 +846,7 @@ function updatePlayer(dt) {
   let danger = false;
   for (const b of bullets) if (b.pos.distanceTo(P.pos) < 9) danger = true;
   for (const e of enemies) if (e.alive && e.attackT > 0.05 && e.attackT < 0.45) danger = true;
-  if (boss.alive && (boss.state === 'windup' || boss.state === 'swipe' || boss.state === 'throw')) danger = true;
+  if (boss.alive && boss.kind === 'rhino' && (boss.state === 'windup' || boss.state === 'swipe' || boss.state === 'throw')) danger = true;
   if (danger && P.senseT <= 0) { P.senseT = 0.35; AudioSys.sense(); }
 }
 
@@ -963,9 +963,11 @@ function takeDamage(n, from) {
 }
 
 // ---------- Enemies ----------
+const VMAT_EYE = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, emissive: 0x666666 });
 const EMAT = {
   thug: new THREE.MeshStandardMaterial({ color: 0x2f6b3a, roughness: 0.8 }),
   gunner: new THREE.MeshStandardMaterial({ color: 0x5a3a8a, roughness: 0.8 }),
+  symb: new THREE.MeshPhysicalMaterial({ color: 0x0b0b12, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.2 }),
   skin: new THREE.MeshStandardMaterial({ color: 0xc9a07a, roughness: 0.8 }),
   gun: new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.6 }),
   flash: new THREE.MeshBasicMaterial({ color: 0xffffff }),
@@ -973,16 +975,18 @@ const EMAT = {
 function makeEnemyMesh(type) {
   const g = new THREE.Group(), mat = EMAT[type];
   g.add(box(1.0, 1.2, 0.6, mat, 0, 1.6, 0));
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 10), EMAT.skin); head.position.y = 2.5; g.add(head);
-  const cap = box(0.8, 0.2, 0.8, mat, 0, 2.8, 0); g.add(cap);
-  const al = makeLimb(1, 0.26, mat, EMAT.skin), ar = makeLimb(1, 0.26, mat, EMAT.skin); al.position.set(-0.65, 2.05, 0); ar.position.set(0.65, 2.05, 0); g.add(al, ar);
+  const symb = type === 'symb';
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 10), symb ? mat : EMAT.skin); head.position.y = 2.5; g.add(head);
+  if (symb) { for (const sx of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6), VMAT_EYE); e.scale.set(1, 0.5, 0.3); e.position.set(sx * 0.15, 0.08, 0.32); e.rotation.z = sx * -0.5; head.add(e); } }
+  else { const cap = box(0.8, 0.2, 0.8, mat, 0, 2.8, 0); g.add(cap); }
+  const al = makeLimb(1, 0.26, mat, symb ? mat : EMAT.skin), ar = makeLimb(1, 0.26, mat, symb ? mat : EMAT.skin); al.position.set(-0.65, 2.05, 0); ar.position.set(0.65, 2.05, 0); g.add(al, ar);
   const ll = makeLimb(1, 0.3, EMAT.gun, EMAT.gun), lr = makeLimb(1, 0.3, EMAT.gun, EMAT.gun); ll.position.set(-0.25, 1.0, 0); lr.position.set(0.25, 1.0, 0); g.add(ll, lr);
   if (type === 'gunner') { const gun = box(0.2, 0.2, 1.1, EMAT.gun, 0, -0.9, 0.5); ar.add(gun); }
   g.parts = { al, ar, ll, lr, head }; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
 }
 function spawnEnemy(type, x, z, roof) {
   const mesh = makeEnemyMesh(type); mesh.position.set(x, roof.h, z); scene.add(mesh);
-  enemies.push({ type, mesh, roof, hp: type === 'thug' ? 3 : 2, vel: V3(), alive: true, deadT: 0, stun: 0, alert: false, attackT: 0, attackCd: rand(0.5, 1.5), flash: 0, animT: rand(0, 6), facing: rand(0, TAU), wander: V3(x, 0, z), wanderT: 0 });
+  enemies.push({ type, mesh, roof, hp: type === 'gunner' ? 2 : 3, vel: V3(), alive: true, deadT: 0, stun: 0, alert: false, attackT: 0, attackCd: rand(0.5, 1.5), flash: 0, animT: rand(0, 6), facing: rand(0, TAU), wander: V3(x, 0, z), wanderT: 0 });
 }
 function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -995,7 +999,7 @@ function updateEnemies(dt) {
     e.animT += dt;
     for (const k of ['stun', 'attackCd', 'flash']) if (e[k] > 0) e[k] -= dt;
     const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
-    const canSee = P.alive && !P.camo && flat < 38 && Math.abs(toP.y) < 25;
+    const canSee = P.alive && (!P.camo || e.type === 'symb') && flat < 38 && Math.abs(toP.y) < 25;
     if (canSee) e.alert = true; else if (P.camo && flat > 6) e.alert = false;
     // knockback velocity
     m.position.x += e.vel.x * dt; m.position.z += e.vel.z * dt; m.position.y += e.vel.y * dt;
@@ -1005,9 +1009,9 @@ function updateEnemies(dt) {
     if (e.stun <= 0) {
       if (e.alert && P.alive) {
         e.facing = Math.atan2(toP.x, toP.z);
-        const want = e.type === 'thug' ? 1.7 : 12;
-        if (e.type === 'thug') {
-          if (flat > want) { m.position.x += toP.x / flat * 5.5 * dt; m.position.z += toP.z / flat * 5.5 * dt; moving = true; }
+        const melee = e.type !== 'gunner', want = melee ? 1.7 : 12, run = e.type === 'symb' ? 7.5 : 5.5;
+        if (melee) {
+          if (flat > want) { m.position.x += toP.x / flat * run * dt; m.position.z += toP.z / flat * run * dt; moving = true; }
           else if (e.attackCd <= 0 && Math.abs(toP.y) < 2.5) { e.attackT = 0.5; e.attackCd = 1.4; }
         } else {
           if (flat < want - 3) { m.position.x -= toP.x / flat * 3.5 * dt; m.position.z -= toP.z / flat * 3.5 * dt; moving = true; }
@@ -1024,7 +1028,7 @@ function updateEnemies(dt) {
     if (e.attackT > 0) {
       e.attackT -= dt;
       if (e.attackT <= 0) {
-        if (e.type === 'thug') { if (flat < 2.6 && Math.abs(toP.y) < 2.5) takeDamage(12, m.position); }
+        if (e.type !== 'gunner') { if (flat < 2.6 && Math.abs(toP.y) < 2.5) takeDamage(12, m.position); }
         else fireBullet(e, toP);
       }
     }
@@ -1084,10 +1088,14 @@ function spawnCrime() {
   AudioSys.crime(); G.hint = 'Crime in progress — follow the red beacon'; G.hintT = 5;
 }
 function updateCrimes(dt) {
-  if (!G.crime) { G.crimeSpawnT -= dt; if (G.crimeSpawnT <= 0) { if (G.crimes >= 8) spawnBoss(); else spawnCrime(); } return; }
+  if (!G.crime) { G.crimeSpawnT -= dt; if (G.crimeSpawnT <= 0) { if (G.crimes >= 8) spawnBoss(G.bossesBeaten >= 1 ? 'venom' : 'rhino'); else spawnCrime(); } return; }
   G.crime.t += dt; beacon.ring.scale.setScalar(1 + Math.sin(G.time * 5) * 0.15); beacon.rotation.y += dt;
   if (G.crime.boss) {
-    if (!boss.alive) { G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); winGame(); }
+    if (!boss.alive) {
+      G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); G.bossesBeaten++;
+      if (G.bossesBeaten >= 2) winGame();
+      else { G.crimeSpawnT = 5; G.hint = 'The Rhino is down… but something black is moving across the rooftops'; G.hintT = 5; P.hp = Math.min(100, P.hp + 40); }
+    }
     return;
   }
   if (!enemies.some(e => e.alive)) {
@@ -1118,30 +1126,37 @@ function makeBossMesh() {
   const ll = makeLimb(1.6, 0.9, BMAT.dark, BMAT.dark), lr = makeLimb(1.6, 0.9, BMAT.dark, BMAT.dark); ll.position.set(-0.8, 1.6, 0); lr.position.set(0.8, 1.6, 0); g.add(ll, lr);
   g.parts = { torso, head, al, ar, ll, lr }; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
 }
-const boss = { alive: false, mesh: null, hp: 0, maxHp: 36, state: 'idle', t: 0, roof: null, facing: 0, dir: V3(), cd: 2, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, vel: V3() };
-function spawnBoss() {
+const boss = { alive: false, mesh: null, hp: 0, maxHp: 36, state: 'idle', t: 0, roof: null, facing: 0, dir: V3(), cd: 2, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, vel: V3(), kind: 'rhino', name: 'THE RHINO', target: V3(), helpStage: 0 };
+function spawnBoss(kind = 'rhino') {
   const cands = buildings.filter(b => b.roofOk && b.w >= 20 && b.d >= 20 && b.h >= 40 && Math.hypot(b.x - P.pos.x, b.z - P.pos.z) > 50 && Math.hypot(b.x - P.pos.x, b.z - P.pos.z) < 220);
   const b = cands.sort((a, c) => (c.w * c.d) - (a.w * a.d))[0] || buildings.filter(b => b.roofOk && b.w >= 16 && b.d >= 16).sort((a, c) => (c.w * c.d) - (a.w * a.d))[0];
   if (boss.mesh) scene.remove(boss.mesh);
-  boss.mesh = makeBossMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
-  Object.assign(boss, { alive: true, hp: boss.maxHp, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, facing: 0 });
+  const venom = kind === 'venom';
+  boss.mesh = venom ? makeVenomMesh() : makeBossMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
+  Object.assign(boss, { kind, name: venom ? 'VENOM' : 'THE RHINO', maxHp: venom ? 44 : 36, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, facing: 0, helpStage: 0 });
+  boss.hp = boss.maxHp;
   boss.mesh.rotation.set(0, 0, 0);
-  G.crime = { b, name: 'RHINO RAMPAGE', t: 0, boss: true };
+  G.crime = { b, name: venom ? 'SYMBIOTE SIEGE' : 'RHINO RAMPAGE', t: 0, boss: true };
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
   AudioSys.crime(); AudioSys.ko(); shake(0.8);
-  G.hint = 'THE RHINO is tearing up a rooftop. Dodge his charge, hit him while he is dazed'; G.hintT = 8;
-  $('bossBar').classList.remove('hidden');
+  G.hint = venom ? 'VENOM. He sees through camo and your spider-sense is silent. Shock him with a Venom Strike, then hit hard' : 'THE RHINO is tearing up a rooftop. Dodge his charge, hit him while he is dazed'; G.hintT = 9;
+  $('bossBar').classList.remove('hidden'); $('bossBar').querySelector('b').textContent = boss.name;
 }
 function hitBoss(dmg, label) {
   if (!boss.alive) return;
-  const dazed = boss.state === 'stunned';
-  const dealt = dazed ? dmg * 2 : (boss.state === 'charge' ? 0 : dmg);
+  const dazed = boss.state === 'stunned', isVenom = boss.kind === 'venom';
+  let dealt = dazed ? dmg * 2 : (boss.state === 'charge' ? 0 : dmg);
+  if (isVenom && label === 'VENOM STRIKE') { dealt = dmg * 2; if (!dazed) { boss.state = 'stunned'; boss.t = 2.6; boss.cd = 0.5; vfx.ring.visible = false; floatText(boss.mesh.position.clone().add(V3(0, 8, 0)), 'SYMBIOTE SHOCKED', '#ffd23f', 24); AudioSys.sense(); } }
   boss.hp -= dealt; boss.flash = 0.12; AudioSys.hit(); shake(dazed ? 0.35 : 0.15);
   const top = boss.mesh.position.clone().add(V3(0, 6.5, 0));
   if (dealt > 0) { addCombo(150); P.venom = Math.min(100, P.venom + 10); burst(boss.mesh.position.clone().add(V3(0, 3.5, 0)), 8, dazed ? 0xffd23f : 0xaaaaaa, 7, 0.4); floatText(top, dazed ? label + ' x2' : label, dazed ? '#ffd23f' : '#ddd', dazed ? 22 : 16); }
   else { floatText(top, 'ARMORED', '#999', 16); const d = P.pos.clone().sub(boss.mesh.position); d.y = 0; d.normalize(); P.vel.x += d.x * 10; P.vel.z += d.z * 10; P.vel.y = 6; }
-  if (!boss.spawnedHelp && boss.hp <= boss.maxHp / 2) { boss.spawnedHelp = true; for (let i = 0; i < 2; i++) spawnEnemy(i ? 'gunner' : 'thug', boss.roof.x + rand(-0.3, 0.3) * boss.roof.w, boss.roof.z + rand(-0.3, 0.3) * boss.roof.d, boss.roof); floatText(top, 'BACKUP ARRIVES', '#ff2d47', 20); AudioSys.crime(); }
-  if (boss.hp <= 0) { boss.hp = 0; boss.alive = false; boss.state = 'dead'; boss.deadT = 0; G.score += 5000; AudioSys.ko(); AudioSys.venom(); shake(1); G.flash = 0.6; floatText(top, 'RHINO DOWN +5000', '#3bffd0', 28); burst(boss.mesh.position.clone().add(V3(0, 3, 0)), 40, 0xff2d47, 12, 0.9); }
+  if (isVenom) {
+    const stage = boss.hp <= boss.maxHp * 0.3 ? 2 : boss.hp <= boss.maxHp * 0.6 ? 1 : 0;
+    if (stage > boss.helpStage) { boss.helpStage = stage; for (let i = 0; i < 3; i++) spawnEnemy('symb', boss.roof.x + rand(-0.35, 0.35) * boss.roof.w, boss.roof.z + rand(-0.35, 0.35) * boss.roof.d, boss.roof); if (boss.state !== 'stunned') { boss.state = 'roar'; boss.t = 1.1; } shake(0.6); AudioSys.lose(); floatText(top, 'SYMBIOTE SPAWN', '#8e6bff', 22); }
+  }
+  else if (!boss.spawnedHelp && boss.hp <= boss.maxHp / 2) { boss.spawnedHelp = true; for (let i = 0; i < 2; i++) spawnEnemy(i ? 'gunner' : 'thug', boss.roof.x + rand(-0.3, 0.3) * boss.roof.w, boss.roof.z + rand(-0.3, 0.3) * boss.roof.d, boss.roof); floatText(top, 'BACKUP ARRIVES', '#ff2d47', 20); AudioSys.crime(); }
+  if (boss.hp <= 0) { boss.hp = 0; boss.alive = false; boss.state = 'dead'; boss.deadT = 0; G.score += isVenom ? 8000 : 5000; AudioSys.ko(); AudioSys.venom(); shake(1); G.flash = 0.6; vfx.ring.visible = false; floatText(top, (isVenom ? 'VENOM DOWN +8000' : 'RHINO DOWN +5000'), '#3bffd0', 28); burst(boss.mesh.position.clone().add(V3(0, 3, 0)), 40, isVenom ? 0x2a1040 : 0xff2d47, 12, 0.9); }
 }
 function bossThrow() {
   const from = boss.mesh.position.clone().add(V3(0, 5, 0)), to = P.pos.clone().add(V3(0, 1.5, 0));
@@ -1156,11 +1171,14 @@ function updateBoss(dt) {
   const m = boss.mesh, p = m.parts;
   boss.animT += dt; if (boss.flash > 0) boss.flash -= dt;
   if (!boss.alive) {
-    boss.deadT += dt; m.rotation.x = Math.min(Math.PI / 2, boss.deadT * 2.5); m.position.y = Math.max(boss.roof.h, m.position.y);
+    boss.deadT += dt;
+    if (boss.kind === 'venom') { const k = clamp(boss.deadT / 2, 0, 1); m.scale.set(1 + k * 0.6, Math.max(0.03, 1 - k), 1 + k * 0.6); m.position.y = boss.roof.h; if (boss.deadT < 1.5 && Math.random() < 0.4) burst(m.position.clone().add(V3(rand(-2, 2), 0.5, rand(-2, 2))), 2, 0x1a0a2a, 3, 0.6); }
+    else { m.rotation.x = Math.min(Math.PI / 2, boss.deadT * 2.5); m.position.y = Math.max(boss.roof.h, m.position.y); }
     if (boss.deadT > 2.5 && m.parent) { scene.remove(m); }
     m.traverse(o => { if (o.isMesh && o.userData.base) o.material = o.userData.base; });
     return;
   }
+  if (boss.kind === 'venom') { updateVenom(dt); return; }
   const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   let moving = false;
@@ -1216,6 +1234,133 @@ function updateBoss(dt) {
   else { p.torso.rotation.x = lerp(p.torso.rotation.x, 0.05, dt * 6); p.al.rotation.x = -sw * 0.5; p.ar.rotation.x = sw * 0.5; p.head.rotation.x = 0; p.head.rotation.z = 0; }
   const rage = boss.state === 'windup' || boss.state === 'charge';
   m.traverse(o => { if (o.isMesh) { if (o.userData.base === undefined) o.userData.base = o.material; if (o.userData.base === BMAT.eye) return; o.material = boss.flash > 0 ? EMAT.flash : (rage && o.userData.base === BMAT.hide ? BMAT.rage : o.userData.base); } });
+}
+
+// ---------- Boss 2: Venom ----------
+const VMAT = {
+  skin: new THREE.MeshPhysicalMaterial({ color: 0x0b0b12, roughness: 0.25, metalness: 0.1, clearcoat: 1, clearcoatRoughness: 0.15, envMapIntensity: 1.4 }),
+  white: new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.4, emissive: 0x444444 }),
+  mouth: new THREE.MeshStandardMaterial({ color: 0x5a0a14, roughness: 0.6 }),
+  tongue: new THREE.MeshPhysicalMaterial({ color: 0xc0203a, roughness: 0.35, clearcoat: 0.8 }),
+  tooth: new THREE.MeshStandardMaterial({ color: 0xf8f4e8, roughness: 0.3 }),
+  ring: new THREE.MeshBasicMaterial({ color: 0x1a0a2a, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
+};
+function whiteSpiderTex() { const t = spiderTex(128, true); const c = t.image, g = c.getContext('2d'); g.globalCompositeOperation = 'source-in'; g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, c.width, c.height); t.needsUpdate = true; return t; }
+function makeVenomMesh() {
+  const g = new THREE.Group();
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(1.25, 1.6, 6, 14), VMAT.skin); torso.position.y = 3.6; torso.scale.set(1.25, 1, 0.9); g.add(torso);
+  const hips = new THREE.Mesh(new THREE.CapsuleGeometry(0.9, 0.5, 4, 12), VMAT.skin); hips.position.y = 2.0; g.add(hips);
+  for (const sx of [-1, 1]) { const sh = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 10), VMAT.skin); sh.position.set(sx * 1.7, 4.7, 0); g.add(sh); }
+  const logoMat = new THREE.MeshStandardMaterial({ map: whiteSpiderTex(), transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide });
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), logoMat); logo.position.set(0, 3.9, 1.2); g.add(logo);
+  const logoB = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), logoMat); logoB.position.set(0, 3.9, -1.15); logoB.rotation.y = Math.PI; g.add(logoB);
+  // head with jagged eyes, jaw of teeth and a long tongue
+  const head = new THREE.Group(); head.position.set(0, 5.9, 0.3); g.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.85, 16, 12), VMAT.skin); skull.scale.set(1, 1.05, 1.1); head.add(skull);
+  for (const sx of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), VMAT.white); eye.scale.set(1.1, 0.5, 0.25); eye.position.set(sx * 0.42, 0.22, 0.72); eye.rotation.set(-0.1, sx * 0.35, sx * -0.55); head.add(eye); }
+  const jaw = new THREE.Group(); jaw.position.set(0, -0.25, 0.3); head.add(jaw);
+  const jawMesh = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.5, 0.9), VMAT.skin); jawMesh.position.set(0, -0.25, 0.1); jaw.add(jawMesh);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.6), VMAT.mouth); mouth.position.set(0, -0.05, 0.3); jaw.add(mouth);
+  for (let i = 0; i < 7; i++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.28, 5), VMAT.tooth); t.position.set(-0.45 + i * 0.15, 0.15, 0.62); t.rotation.x = Math.PI; head.add(t); const b = t.clone(); b.rotation.x = 0; b.position.y = -0.3; jaw.add(b); }
+  const tongue = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 1.6, 4, 8), VMAT.tongue); tongue.position.set(0, -0.9, 0.6); tongue.rotation.x = 0.5; jaw.add(tongue);
+  // long arms with white claws, thick legs
+  const al = makeLimb(2.9, 0.62, VMAT.skin, VMAT.skin), ar = makeLimb(2.9, 0.62, VMAT.skin, VMAT.skin); al.position.set(-1.9, 4.6, 0); ar.position.set(1.9, 4.6, 0); g.add(al, ar);
+  for (const arm of [al, ar]) for (let i = 0; i < 3; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.6, 5), VMAT.tooth); c.position.set(-0.2 + i * 0.2, -3.2, 0.1); c.rotation.x = Math.PI; arm.add(c); }
+  const ll = makeLimb(2.0, 0.7, VMAT.skin, VMAT.skin), lr = makeLimb(2.0, 0.7, VMAT.skin, VMAT.skin); ll.position.set(-0.7, 2.0, 0); lr.position.set(0.7, 2.0, 0); g.add(ll, lr);
+  // tendrils writhing from the back
+  const tendrils = [];
+  for (let i = 0; i < 6; i++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.16, 3.2 + Math.random() * 1.5, 6), VMAT.skin); t.geometry.translate(0, 1.6, 0); const piv = new THREE.Group(); piv.position.set(-1.2 + i * 0.5, 4.4 + (i % 2) * 0.5, -0.9); piv.rotation.x = -0.9 - Math.random() * 0.5; piv.rotation.z = (i - 2.5) * 0.35; piv.add(t); g.add(piv); tendrils.push(piv); }
+  g.parts = { torso, head, jaw, tongue, al, ar, ll, lr, tendrils }; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+// floor telegraph ring, tendril spikes and shockwave, pooled
+const vfx = (() => {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.6, 32), VMAT.ring); ring.rotation.x = -Math.PI / 2; ring.visible = false; scene.add(ring);
+  const wave = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.2, 40), new THREE.MeshBasicMaterial({ color: 0x3a1a5a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); wave.rotation.x = -Math.PI / 2; scene.add(wave);
+  const spikes = []; for (let i = 0; i < 6; i++) { const s = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1, 7), VMAT.skin); s.geometry.translate(0, 0.5, 0); s.visible = false; s.castShadow = true; scene.add(s); spikes.push(s); }
+  let spikeT = 0, waveT = 0, wavePos = V3();
+  return {
+    ring,
+    slam(c, y) { spikeT = 0.7; spikes.forEach((s, i) => { const a = i / 6 * TAU; s.position.set(c.x + Math.cos(a) * 2.2, y, c.z + Math.sin(a) * 2.2); s.rotation.set((Math.random() - 0.5) * 0.6, a, (Math.random() - 0.5) * 0.6); s.visible = true; }); },
+    shock(c, y) { waveT = 0.6; wavePos.set(c.x, y + 0.1, c.z); },
+    update(dt) {
+      if (spikeT > 0) { spikeT -= dt; const k = spikeT > 0.5 ? (0.7 - spikeT) / 0.2 : spikeT / 0.5; for (const s of spikes) s.scale.set(1, Math.max(0.01, k * 6), 1); if (spikeT <= 0) for (const s of spikes) s.visible = false; }
+      if (waveT > 0) { waveT -= dt; const k = 1 - waveT / 0.6; wave.position.copy(wavePos); wave.scale.setScalar(1 + k * 7); wave.material.opacity = (1 - k) * 0.7; } else wave.material.opacity = 0;
+    },
+  };
+})();
+function updateVenom(dt) {
+  const m = boss.mesh, p = m.parts;
+  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
+  const seeP = P.alive; // the symbiote senses you through camouflage
+  boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
+  if (boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + 0.5 * dt); // regenerates unless shocked
+  let moving = false;
+  switch (boss.state) {
+    case 'idle':
+      if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 3.2) { m.position.x += toP.x / flat * 4.5 * dt; m.position.z += toP.z / flat * 4.5 * dt; moving = true; } }
+      if (seeP && boss.cd <= 0) {
+        if (flat < 4.5 && Math.abs(toP.y) < 3.5) { boss.state = 'swipe'; boss.t = 0.4; }
+        else if (flat < 32 && Math.random() < 0.55) { boss.state = 'tendril'; boss.t = 1.0; boss.target = P.pos.clone(); vfx.ring.position.set(boss.target.x, boss.roof.h + 0.08, boss.target.z); vfx.ring.visible = true; AudioSys.camo(); }
+        else if (Math.abs(toP.y) < 40) { boss.state = 'crouch'; boss.t = 0.55; AudioSys.hurt(); }
+        boss.cd = 1.1;
+      }
+      break;
+    case 'swipe':
+      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) takeDamage(18, m.position); boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch(); }
+      break;
+    case 'tendril':
+      boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
+      vfx.ring.scale.setScalar(1 + Math.sin(boss.t * 25) * 0.08);
+      if (boss.t <= 0) {
+        vfx.ring.visible = false; vfx.slam(boss.target, boss.roof.h); shake(0.5); AudioSys.ko();
+        const d = Math.hypot(P.pos.x - boss.target.x, P.pos.z - boss.target.z);
+        if (d < 3.6 && Math.abs(P.pos.y - boss.roof.h) < 3) takeDamage(20, boss.target);
+        boss.state = 'idle'; boss.cd = 0.7;
+      }
+      break;
+    case 'crouch':
+      boss.facing = Math.atan2(toP.x, toP.z);
+      if (boss.t <= 0) { // leap at where you are now
+        const tx = clamp(P.pos.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(P.pos.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
+        const T = 0.9; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump();
+      }
+      break;
+    case 'leap':
+      m.position.x += boss.vel.x * dt; m.position.z += boss.vel.z * dt; m.position.y += boss.vel.y * dt; boss.vel.y -= GRAV * 0.75 * dt; moving = true;
+      if (m.position.y <= boss.roof.h && boss.vel.y < 0) {
+        m.position.y = boss.roof.h; vfx.shock(m.position, boss.roof.h); shake(0.9); AudioSys.land(); AudioSys.venom();
+        burst(m.position.clone().add(V3(0, 0.5, 0)), 24, 0x2a1040, 9, 0.6);
+        const d = Math.hypot(P.pos.x - m.position.x, P.pos.z - m.position.z);
+        if (d < 6.5 && Math.abs(P.pos.y - boss.roof.h) < 2.5) { takeDamage(22, m.position); P.vel.y = Math.max(P.vel.y, 8); }
+        boss.state = 'idle'; boss.cd = 1.0;
+      }
+      break;
+    case 'roar':
+      if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.6; }
+      break;
+    case 'stunned':
+      if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; }
+      break;
+  }
+  const r = boss.roof;
+  m.position.x = clamp(m.position.x, r.x - r.w / 2 + 1.5, r.x + r.w / 2 - 1.5);
+  m.position.z = clamp(m.position.z, r.z - r.d / 2 + 1.5, r.z + r.d / 2 - 1.5);
+  if (boss.state !== 'leap') m.position.y = r.h;
+  m.rotation.y = boss.facing;
+  // animation: lope, writhing tendrils, lolling tongue
+  const t = boss.animT, sw = moving ? Math.sin(t * 9) * 0.6 : Math.sin(t * 1.6) * 0.07;
+  p.ll.rotation.x = sw; p.lr.rotation.x = -sw;
+  p.tendrils.forEach((td, i) => { td.rotation.x = -0.9 - Math.sin(t * 2.2 + i) * 0.35; td.rotation.z = (i - 2.5) * 0.35 + Math.cos(t * 1.7 + i * 1.3) * 0.3; });
+  p.tongue.rotation.x = 0.5 + Math.sin(t * 5) * 0.25; p.tongue.rotation.z = Math.sin(t * 3.1) * 0.2;
+  p.jaw.rotation.x = 0.15 + Math.sin(t * 2.5) * 0.1;
+  if (boss.state === 'swipe') { const k = 1 - boss.t / 0.4; p.ar.rotation.x = -2.6 + k * 3.8; p.ar.rotation.z = -0.6; p.al.rotation.x = -0.6; p.torso.rotation.x = 0.2; p.jaw.rotation.x = 0.6; }
+  else if (boss.state === 'tendril') { const k = 1 - boss.t; p.al.rotation.x = -2.8; p.ar.rotation.x = -2.8; p.al.rotation.z = 0.5 - k * 0.5; p.ar.rotation.z = -0.5 + k * 0.5; p.torso.rotation.x = -0.15; p.tendrils.forEach((td, i) => { td.rotation.x = -2.2 - Math.sin(t * 14 + i) * 0.4; }); p.jaw.rotation.x = 0.5; }
+  else if (boss.state === 'crouch') { const k = 1 - boss.t / 0.55; p.torso.rotation.x = 0.5 * k; p.ll.rotation.x = -0.7 * k; p.lr.rotation.x = -0.7 * k; p.al.rotation.x = 0.6 * k; p.ar.rotation.x = 0.6 * k; p.al.rotation.z = 0.3; p.ar.rotation.z = -0.3; }
+  else if (boss.state === 'leap') { p.torso.rotation.x = 0.35; p.al.rotation.x = -2.9; p.ar.rotation.x = -2.9; p.al.rotation.z = 0.9; p.ar.rotation.z = -0.9; p.ll.rotation.x = -0.8; p.lr.rotation.x = 0.4; p.jaw.rotation.x = 0.8; }
+  else if (boss.state === 'stunned') { p.torso.rotation.x = -0.3 + Math.sin(t * 18) * 0.06; p.al.rotation.x = 0.8; p.ar.rotation.x = 0.8; p.al.rotation.z = 0.4; p.ar.rotation.z = -0.4; p.head.rotation.z = Math.sin(t * 9) * 0.3; p.jaw.rotation.x = 0.9; p.tendrils.forEach((td, i) => { td.rotation.x = -0.3 + Math.sin(t * 30 + i) * 0.15; }); }
+  else if (boss.state === 'roar') { p.torso.rotation.x = -0.35; p.al.rotation.x = -2.2; p.ar.rotation.x = -2.2; p.al.rotation.z = 1.1; p.ar.rotation.z = -1.1; p.jaw.rotation.x = 1.0; p.head.rotation.x = -0.4; }
+  else { p.torso.rotation.x = lerp(p.torso.rotation.x, 0.12, dt * 6); p.al.rotation.x = -0.5 - sw * 0.6; p.ar.rotation.x = -0.5 + sw * 0.6; p.al.rotation.z = 0.35; p.ar.rotation.z = -0.35; p.head.rotation.set(0.1, 0, 0); }
+  m.traverse(o => { if (o.isMesh) { if (o.userData.base === undefined) o.userData.base = o.material; if (o.userData.base === VMAT.white || o.userData.base === VMAT.tooth) return; o.material = boss.flash > 0 ? EMAT.flash : o.userData.base; } });
 }
 
 // ---------- Hero animation ----------
@@ -1337,8 +1482,8 @@ function startGame() {
   for (const b of bullets) scene.remove(b.mesh); bullets.length = 0;
   for (const p of particles) scene.remove(p.m); particles.length = 0;
   for (const t of texts) t.el.remove(); texts.length = 0;
-  Object.assign(G, { state: 'play', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Drag the right side to look · hold WEB in the air to swing' : 'Hold the left mouse button in the air to web-swing · WASD to move' });
-  if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; } boss.alive = false; $('bossBar').classList.add('hidden');
+  Object.assign(G, { state: 'play', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Drag the right side to look · hold WEB in the air to swing' : 'Hold the left mouse button in the air to web-swing · WASD to move' });
+  if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; } boss.alive = false; boss.kind = 'rhino'; vfx.ring.visible = false; $('bossBar').classList.add('hidden');
   beacon.visible = false; resetPlayer(); updateCamera(0, true);
   $('overlay').classList.add('hidden');
   if (!TOUCH) renderer.domElement.requestPointerLock?.();
@@ -1349,7 +1494,7 @@ function endGame(won) {
   const newBest = G.score > G.best;
   if (won) { if (newBest) G.best = G.score; if (!G.bestTime || G.time < G.bestTime) G.bestTime = G.time; try { localStorage.setItem('mm3d_best', G.best); localStorage.setItem('mm3d_best_time', G.bestTime); } catch (e) { } }
   else if (newBest) { G.best = G.score; try { localStorage.setItem('mm3d_best', G.best); } catch (e) { } }
-  setTimeout(() => overlay(won ? 'BROOKLYN IS SAFE' : 'KNOCKED OUT', won ? 'RHINO DOWN · ALL 8 CRIMES STOPPED' : `${G.crimes} / 8 CRIMES STOPPED${G.crimes >= 8 ? ' · THE RHINO WON' : ''}`,
+  setTimeout(() => overlay(won ? 'BROOKLYN IS SAFE' : 'KNOCKED OUT', won ? 'RHINO AND VENOM DOWN · ALL 8 CRIMES STOPPED' : `${G.crimes} / 8 CRIMES STOPPED${G.crimes >= 8 ? ' · ' + boss.name + ' WON' : ''}`,
     [`Score <b>${G.score}</b>${newBest ? ' · NEW BEST' : ''} · Time <b>${fmtTime(G.time)}</b>`, `Best score ${G.best}${G.bestTime ? ' · best time ' + fmtTime(G.bestTime) : ''}`], 'PLAY AGAIN'), won ? 1200 : 1800);
 }
 function winGame() { AudioSys.win(); G.flash = 1; endGame(true); }
@@ -1397,7 +1542,7 @@ function frame(now) {
     // idle: slow orbit on the title screen
     look.yaw += dt * 0.08; P.animT += dt;
   }
-  updateFx(dt); venomArc.update(dt); animateHero(dt);
+  updateFx(dt); venomArc.update(dt); vfx.update(dt); animateHero(dt);
   updateCamera(dt, false); updateHUD();
   for (const b of buildings) if (b.beacon) b.beacon.visible = Math.sin(now / 400 + b.x) > 0;
   for (const c of clouds) { c.position.x += c.userData.drift * dt; if (c.position.x > 1400) c.position.x = -1400; }

@@ -14,7 +14,7 @@ Two versions live in this repo:
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
   city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
-  8th crime the Rhino shows up for a boss fight. The city is rendered with real-time
+  8th crime the Rhino shows up for a boss fight, and Venom after him. The city is rendered with real-time
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
 
@@ -86,10 +86,20 @@ the way, and he slams into the roof edge and goes dazed for a few seconds. Every
 you land while he is dazed does double damage. At half health he calls in backup.
 Venom Strikes and sneak attacks from camouflage hurt him even when he is not dazed.
 
+### Venom (3D only)
+
+Beat the Rhino and a second beacon lights up: Venom. The symbiote sees straight through
+camouflage and your spider-sense stays silent, so watch him instead. He lashes tendrils at
+the spot you are standing (a dark ring marks it, move), leaps across the roof and lands
+with a shockwave, and claws anything within reach. He also regenerates. A Venom Strike
+shocks the symbiote for a few seconds, which stops the regeneration and doubles every hit,
+so build venom with punches, shock him, and pile on. At 60 and 30 percent health he
+spawns symbiote-possessed goons who are fast and can see you in camo.
+
 ## Goal
 
 Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. Reach
-each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino). Score is
+each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino and Venom). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
 
