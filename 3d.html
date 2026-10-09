@@ -1069,9 +1069,9 @@ const SUIT_DEFS = {
     const navy = phys(0xffffff, { map: halftone('#0b0e2a', '#1a2048'), roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.4 }), red = phys(0xff3a1c, { roughness: 0.55, emissive: 0x3a0a00 }), white = MAT.lens;
     return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: navy, swoosh: red, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body, head) => {
       // a real head shape instead of a ball: narrower skull, longer in the back, a jaw and chin; lenses moved to match
-      head.scale.set(0.72, 0.92, 0.84); head.position.y = 2.72;
+      head.scale.set(0.62, 0.78, 0.72); head.position.y = 2.66;
       head.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'ExtrudeGeometry') o.visible = false; });
-      const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), navy); jaw.scale.set(0.9, 0.78, 0.95); headProp(head, jaw, 0, -0.12, 0.05); jaw.scale.divide(head.scale).multiplyScalar(0.36 / 0.3 * 0.84);
+      const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), navy); headProp(head, jaw, 0, -0.1, 0.04); jaw.scale.set(0.82 / head.scale.x * 0.62, 0.7 / head.scale.y * 0.62, 0.9 / head.scale.z * 0.62);
       const R = 0.38;
       for (const sx of [-1, 1]) {
         const lensGeo = new THREE.ExtrudeGeometry(lensShape(0.74, sx), { depth: 0.004, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.003, bevelSegments: 2, curveSegments: 14 });
@@ -1155,7 +1155,7 @@ function setSuit(name) {
 }
 function toggleSuit(dir = 1) { const i = SUIT_ORDER.indexOf(SUIT); setSuit(SUIT_ORDER[(i + dir + SUIT_ORDER.length) % SUIT_ORDER.length]); G.hint = SUIT_DEFS[SUIT].name + ' — ' + SUIT_DEFS[SUIT].perk; G.hintT = 3.5; }
 const webLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web); webLine.frustumCulled = false; scene.add(webLine);
-const senseRing = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.8, 24), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); scene.add(senseRing);
+const senseRing = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.8, 24), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); senseRing.visible = false; scene.add(senseRing); // kept for the fallback hero only
 
 // ---------- Player state ----------
 const P = {
@@ -2645,8 +2645,8 @@ function animateRig(dt) {
   if (!hero.userData.mats) { hero.userData.mats = R.mats; hero.userData.op = 1; }
   if (Math.abs(hero.userData.op - op) > 0.003) { hero.userData.op = lerp(hero.userData.op, op, Math.min(1, dt * 8)); for (const m of R.mats) { m.transparent = true; m.opacity = hero.userData.op; } }
   else if (hero.userData.op !== op) { hero.userData.op = op; for (const m of R.mats) { m.opacity = op; m.transparent = op < 1; } }
-  senseRing.position.copy(P.pos).add(V3(0, 3.4, 0)); senseRing.lookAt(camera.position);
-  senseRing.material.opacity = P.senseT > 0 ? Math.min(1, P.senseT * 4) : 0; senseRing.scale.setScalar(1 + (0.35 - Math.max(0, P.senseT)) * 3);
+  // spider-sense: the lenses flash
+  MAT.lens.emissive.setHex(P.senseT > 0 ? 0xffd23f : 0x7a7a7a); MAT.lens.emissiveIntensity = P.senseT > 0 ? 1.5 : 1;
 }
 function heroHand() { return RIG.ready && hero === RIG.root ? RIG.bones.RightHand.getWorldPosition(V3()) : hero.parts.armR.tip.getWorldPosition(V3()); }
 
@@ -2710,9 +2710,8 @@ function animateHero(dt) {
   // web line
   webLine.visible = P.swinging;
   if (P.swinging) { const hand = p.armR.tip.getWorldPosition(V3()); webLine.geometry.setFromPoints([hand, P.anchor]); }
-  // spider-sense ring over the head
-  senseRing.position.copy(P.pos).add(V3(0, 3.4, 0)); senseRing.lookAt(camera.position);
-  senseRing.material.opacity = P.senseT > 0 ? Math.min(1, P.senseT * 4) : 0; senseRing.scale.setScalar(1 + (0.35 - Math.max(0, P.senseT)) * 3);
+  // spider-sense: the lenses flash yellow instead of a ring over the head
+  MAT.lens.emissive.setHex(P.senseT > 0 ? 0xffd23f : 0x7a7a7a); MAT.lens.emissiveIntensity = P.senseT > 0 ? 1.5 : 1;
 }
 
 // ---------- Camera ----------
