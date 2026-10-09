@@ -104,6 +104,12 @@ the live game state and gives tips about the real controls. Everywhere else (Git
 Pages, the installed app, a local file) she falls back to a scripted radio with canned
 lines about tips, bosses, your score and her band.
 
+Gwen also talks out loud: her replies and her in-game call-outs are spoken with the
+browser's speech voice (the 🔊 button in the radio mutes her). Hold the 🎤 button, or
+press `Y` while the radio is open, to speak to her instead of typing; the game listens
+with the browser's speech recognition (Chrome, Edge and Safari) and sends what you said.
+Some embedded viewers block the microphone; opening the game in its own tab fixes that.
+
 ### Spider-Verse look (3D only)
 
 The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines

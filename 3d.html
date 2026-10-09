@@ -40,6 +40,13 @@
   #chat header { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,.12); font-weight: 800; letter-spacing: 1px; color: #ff7ab8; }
   #chat header small { font-weight: 500; letter-spacing: 0; color: rgba(255,255,255,.55); margin-left: auto; font-size: 11px; }
   #chat header .x { cursor: pointer; opacity: .7; font-size: 18px; padding: 0 2px; }
+  #chat header .ic { cursor: pointer; font-size: 16px; padding: 0 6px; opacity: .55; }
+  #chat header .ic.on { opacity: 1; }
+  #chatNote { font-size: 11px; color: rgba(255,255,255,.6); padding: 6px 14px 0; display: none; }
+  #micBtn { font: 18px system-ui; width: 44px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; }
+  #micBtn.listening { background: #ff2d47; border-color: #ff2d47; animation: pulse 1s infinite; }
+  #micBtn.off { opacity: .35; cursor: default; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(255,45,71,.35); } }
   #chatLog { overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
   .msg { max-width: 85%; padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.35; white-space: pre-wrap; word-break: break-word; }
   .msg.me { align-self: flex-end; background: #ff2d47; color: #fff; border-bottom-right-radius: 4px; }
@@ -107,7 +114,7 @@
   <div id="ovBody">
     <p>Swing through a 3D Brooklyn with Spider-Gwen at your side, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino and Venom.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> to web-swing</p>
-    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen · <b>N</b> / <b>B</b> cycle Spider-Verse suits</p>
+    <p><b>J</b> / right mouse punch · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen (🎤 or <b>Y</b> to speak) · <b>N</b> / <b>B</b> cycle Spider-Verse suits</p>
     <p style="opacity:.6">Touch: left stick moves, drag right side to look, buttons for the rest.</p>
   </div>
   <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
@@ -116,9 +123,10 @@
 <div id="fsBtn" title="Fullscreen (F)">⛶</div>
 <div id="chatBtn" title="Talk to Gwen (T)">💬</div>
 <div id="chat">
-  <header>GWEN <small id="chatMode">radio</small><span class="x" id="chatClose">✕</span></header>
+  <header>GWEN <small id="chatMode">radio</small><span class="ic" id="voiceBtn" title="Gwen speaks out loud (toggle)">🔊</span><span class="x" id="chatClose">✕</span></header>
+  <div id="chatNote"></div>
   <div id="chatLog"></div>
-  <form id="chatForm" autocomplete="off"><input id="chatIn" maxlength="300" placeholder="Say something to Gwen…"><button id="chatSend" type="submit">SEND</button></form>
+  <form id="chatForm" autocomplete="off"><button id="micBtn" type="button" title="Hold to talk (or press Y)">🎤</button><input id="chatIn" maxlength="300" placeholder="Say something to Gwen…"><button id="chatSend" type="submit">SEND</button></form>
 </div>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 <script type="module">
@@ -1636,7 +1644,7 @@ function makeGwen() { // build the hero rig with Gwen's palette: white suit, bla
 }
 const SK = { on: (new URLSearchParams(location.search).get('partner') || 'on') !== 'off', mesh: null, pos: V3(), vel: V3(), radius: 0.5, onGround: false, onWall: null, state: 'idle', facing: 0, animT: 0, punchT: 0, punchCd: 0, anchor: V3(), webbing: false, stuckT: 0, prev: V3(), quipCd: 4, leapCd: 0, kos: 0, line: null, name: 'GWEN' };
 const QUIPS = { leap: ['Right behind you!', 'Keep up, Miles!', 'Race you there!'], ko: ['Got one!', 'Nice teamwork!', 'That one\'s mine!', 'Boom!'], boss: ['Hit him now!', 'Watch the charge!', 'I\'ve got your back!'], idle: ['So… what now?', 'Nice view.', 'Brooklyn\'s quiet. Too quiet.'] };
-function quip(kind) { if (SK.quipCd > 0 || !SK.mesh) return; SK.quipCd = 6; const q = QUIPS[kind]; floatText(SK.pos.clone().add(V3(0, 3.8, 0)), q[Math.floor(Math.random() * q.length)], '#ff7ab8', 17); }
+function quip(kind) { if (SK.quipCd > 0 || !SK.mesh) return; SK.quipCd = 6; const q = QUIPS[kind], line = q[Math.floor(Math.random() * q.length)]; floatText(SK.pos.clone().add(V3(0, 3.8, 0)), line, '#ff7ab8', 17); if (!CHAT.open && typeof gwenSay === 'function') gwenSay(line); }
 function spawnSidekick() {
   if (!SK.mesh) { SK.mesh = makeGwen(); SK.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web2 || (MAT.web2 = new THREE.LineBasicMaterial({ color: 0xffffff }))); SK.line.frustumCulled = false; scene.add(SK.mesh, SK.line); }
   SK.pos.copy(P.pos).add(V3(-Math.sin(P.facing) * 3 + 1.5, 0, -Math.cos(P.facing) * 3)); SK.vel.set(0, 0, 0); SK.onGround = true; SK.webbing = false; SK.state = 'idle'; SK.facing = P.facing; SK.kos = 0; SK.stuckT = 0; SK.prev.copy(SK.pos);
@@ -1760,6 +1768,7 @@ async function gwenBrain() {
   if (CHAT.sample !== undefined) return CHAT.sample;
   try { CHAT.sample = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('sample') : null; } catch (e) { CHAT.sample = null; }
   $('chatMode').textContent = CHAT.sample ? 'live' : 'radio';
+  if (!CHAT.sample) { $('chatNote').textContent = 'Scripted radio mode. For a real conversation open the game from its claude.ai link, inside the viewer, and allow it to use Claude when asked.'; $('chatNote').style.display = 'block'; }
   return CHAT.sample;
 }
 function addMsg(cls, text) { const el = document.createElement('div'); el.className = 'msg ' + cls; el.textContent = text; $('chatLog').appendChild(el); $('chatLog').scrollTop = 1e9; return el; }
@@ -1790,10 +1799,51 @@ async function sendChat(text) {
       reply = e && e.text ? e.text : scriptedGwen(text);
     }
   } else { await new Promise(r => setTimeout(r, 350 + Math.random() * 500)); reply = scriptedGwen(text); }
-  bubble.classList.remove('thinking'); bubble.textContent = reply; $('chatLog').scrollTop = 1e9;
+  bubble.classList.remove('thinking'); bubble.textContent = reply; $('chatLog').scrollTop = 1e9; gwenSay(reply);
   if (SK.mesh && SK.on) floatText(SK.pos.clone().add(V3(0, 3.8, 0)), reply.length > 48 ? reply.slice(0, 45) + '…' : reply, '#ff7ab8', 15);
   CHAT.busy = false; $('chatSend').disabled = false; $('chatIn').focus();
 }
+// --- voice: Gwen speaks (speech synthesis) and listens (speech recognition) ---
+const VOICE = { on: true, voice: null, rec: null, listening: false, supported: !!(window.SpeechRecognition || window.webkitSpeechRecognition), ttsOk: 'speechSynthesis' in window };
+try { VOICE.on = localStorage.getItem('mm3d_voice') !== 'off'; } catch (e) { }
+function pickVoice() {
+  if (!VOICE.ttsOk) return null;
+  const vs = speechSynthesis.getVoices(); if (!vs.length) return null;
+  const en = vs.filter(v => /^en/i.test(v.lang));
+  const pref = ['Samantha', 'Google UK English Female', 'Microsoft Aria', 'Microsoft Zira', 'Karen', 'Moira', 'Tessa', 'Allison', 'Ava', 'Google US English', 'Female'];
+  for (const p of pref) { const v = en.find(v => v.name.includes(p)); if (v) return v; }
+  return en[0] || vs[0];
+}
+if (VOICE.ttsOk) { speechSynthesis.onvoiceschanged = () => { VOICE.voice = pickVoice(); }; VOICE.voice = pickVoice(); }
+function gwenSay(text) {
+  if (!VOICE.on || !VOICE.ttsOk || !text) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text.replace(/[*_#`]/g, ''));
+    if (!VOICE.voice) VOICE.voice = pickVoice();
+    if (VOICE.voice) u.voice = VOICE.voice;
+    u.rate = 1.06; u.pitch = 1.15; u.volume = 1;
+    speechSynthesis.speak(u);
+  } catch (e) { }
+}
+function setVoice(on) { VOICE.on = on; $('voiceBtn').classList.toggle('on', on); $('voiceBtn').textContent = on ? '🔊' : '🔇'; try { localStorage.setItem('mm3d_voice', on ? 'on' : 'off'); } catch (e) { } if (!on && VOICE.ttsOk) speechSynthesis.cancel(); }
+setVoice(VOICE.on);
+$('voiceBtn').addEventListener('click', () => { setVoice(!VOICE.on); if (VOICE.on) gwenSay('Radio check. You hear me, Miles?'); });
+function startListening() {
+  if (!VOICE.supported || VOICE.listening || CHAT.busy) return;
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new R(); rec.lang = navigator.language || 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
+  VOICE.rec = rec; VOICE.listening = true; $('micBtn').classList.add('listening'); $('chatIn').placeholder = 'Listening…'; if (VOICE.ttsOk) speechSynthesis.cancel();
+  let finalText = '';
+  rec.onresult = ev => { let t = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { t += ev.results[i][0].transcript; if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; } $('chatIn').value = finalText || t; };
+  rec.onerror = ev => { stopListening(); const why = ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Microphone blocked here. Allow the mic for this page, or open the game in its own tab.' : ev.error === 'no-speech' ? 'Didn\'t catch that.' : 'Mic error: ' + ev.error; $('chatNote').textContent = why; $('chatNote').style.display = 'block'; };
+  rec.onend = () => { const was = VOICE.listening; stopListening(); const v = $('chatIn').value.trim(); if (was && v) { $('chatIn').value = ''; sendChat(v); } };
+  try { rec.start(); } catch (e) { stopListening(); }
+}
+function stopListening() { VOICE.listening = false; $('micBtn').classList.remove('listening'); $('chatIn').placeholder = 'Say something to Gwen…'; if (VOICE.rec) { try { VOICE.rec.stop(); } catch (e) { } } }
+if (!VOICE.supported) { $('micBtn').classList.add('off'); $('micBtn').title = 'Voice input is not supported in this browser'; }
+$('micBtn').addEventListener('click', () => { if (!VOICE.supported) { $('chatNote').textContent = 'This browser has no speech recognition. Chrome, Edge and Safari do.'; $('chatNote').style.display = 'block'; return; } VOICE.listening ? (VOICE.rec && VOICE.rec.stop()) : startListening(); });
+addEventListener('keydown', e => { if (CHAT.open && e.code === 'KeyY' && document.activeElement !== $('chatIn') && !e.repeat) { e.preventDefault(); $('micBtn').click(); } });
 $('chatBtn').addEventListener('click', e => { e.stopPropagation(); if (G.state !== 'play') return; CHAT.open ? closeChat() : openChat(); });
 $('chatBtn').addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
 $('chatClose').addEventListener('click', closeChat);
