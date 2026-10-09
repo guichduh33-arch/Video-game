@@ -78,6 +78,13 @@ every crime to punch thugs and gunners. Her knockouts count toward clearing the 
 she chips in on both bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
+### Suits (3D only)
+
+Press `N` (or the SUIT button on touch) to switch between the Spider-Verse hoodie suit and
+a Venom symbiote suit: glossy black with a white spider, white eyes and tendrils. The
+symbiote hits for double damage with a longer lunge, but it cannot camouflage. The choice
+is remembered between sessions.
+
 ### Talking to Gwen
 
 Press `T` (or the 💬 button under the fullscreen button) to open Gwen's radio and type to
@@ -119,6 +126,7 @@ shadows. Add `?quality=low` to the URL to turn shadows off on a slow machine, or
 | Comic / realistic look | `V` |
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
+| Symbiote suit | `N` |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
