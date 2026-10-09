@@ -107,6 +107,19 @@ Eight crimes and three bosses, with act titles and story beats between them:
 Touch adds WINGS, PARRY and SWAP buttons next to the existing ones. Best score and
 time are saved separately from the first game.
 
+## The hero model
+
+Miles is a skinned, motion-captured character: the Mixamo "X Bot" rig (67 bones, from the
+three.js examples, `models/xbot.glb`) dressed by a procedural suit shader. The shader paints
+the suit straight onto the body in bind space: head webbing, teardrop lenses with rims, the
+chest and back spiders with spray-paint flecks, red fingertips and sneakers with white soles,
+plus fabric grain. Idle, walk and run are motion-capture clips blended by speed; jumps, falls,
+web-swings (the arm aims at the web anchor), wall-crawls and punches pose the bones
+procedurally. Every suit in the roster is a palette for the same shader, with head props
+for Spider-Noir's fedora and Spider-Punk's mohawk. If the model fails to load the game falls
+back to the earlier procedural hero. Gwen, the Society crowd and the criminals still use the
+procedural rig.
+
 ## Install as an app
 
 The 3D game is a Progressive Web App. Once the folder is served over HTTPS (GitHub

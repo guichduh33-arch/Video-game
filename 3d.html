@@ -130,7 +130,7 @@
   <div id="chatLog"></div>
   <form id="chatForm" autocomplete="off"><button id="micBtn" type="button" title="Hold to talk (or press Y)">🎤</button><input id="chatIn" maxlength="300" placeholder="Say something to Gwen…"><button id="chatSend" type="submit">SEND</button></form>
 </div>
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
 'use strict';
@@ -1110,6 +1110,14 @@ const SUITS = { spiderverse: hero };
 let SUIT = 'spiderverse';
 function setSuit(name) {
   if (!SUIT_DEFS[name]) return;
+  if (RIG.ready && hero === RIG.root) { // skinned hero: a suit is a shader palette plus optional head props
+    if (SUIT === name) return;
+    SUIT = name; applyPalette(RIG.mats, SUIT_PALETTES[name] || SUIT_PALETTES.spiderverse); buildHat(name);
+    if (name === 'symbiote' && P.camo) { P.camo = false; P.camoCd = 2; }
+    burst(hero.position.clone().add(V3(0, 1.6, 0)), 30, name === 'symbiote' ? 0x1a0a2a : 0xffffff, 8, 0.6);
+    AudioSys.camo(); try { localStorage.setItem('mm3d_suit', name); } catch (e) { }
+    return;
+  }
   if (!SUITS[name]) SUITS[name] = SUIT_DEFS[name].build();
   const next = SUITS[name]; if (next === hero) { SUIT = name; return; }
   next.position.copy(hero.position); next.rotation.copy(hero.rotation);
@@ -1575,7 +1583,7 @@ function webEnemy(e) {
 function updateWebShots(dt) {
   for (let i = webShots.length - 1; i >= 0; i--) {
     const w = webShots[i]; w.life -= dt; w.pos.addScaledVector(w.vel, dt); w.mesh.position.copy(w.pos);
-    const hand = hero.parts.armR.tip.getWorldPosition(V3()); w.line.geometry.setFromPoints([hand, w.pos]);
+    const hand = heroHand(); w.line.geometry.setFromPoints([hand, w.pos]);
     let hit = null;
     for (const e of enemies) if (e.alive && e.webbed <= 0 && w.pos.distanceTo(e.mesh.position.clone().add(V3(0, 1.5, 0))) < 1.4) { hit = e; break; }
     if (hit) webEnemy(hit);
@@ -2219,8 +2227,193 @@ $('chatForm').addEventListener('submit', e => { e.preventDefault(); const v = $(
 $('chat').addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
 $('chat').addEventListener('mousedown', e => e.stopPropagation());
 
+// ---------- Skinned hero: Mixamo X Bot (67 bones, motion-capture idle/walk/run) dressed by a procedural suit shader ----------
+// Model space: metres, feet at y=0, faces +Z, T-pose with arms along X. Bones are in centimetres under a 0.01-scaled armature.
+const RIG = { ready: false, root: null, mixer: null, actions: {}, bones: {}, mats: [], uniforms: null, pose: {}, groundBlend: 1, hatGroup: null, state: 'idle', time: 0, failed: false };
+const RIG_SCALE = 1.6; // 1.8 m model -> the game's 2.9-unit hero
+const RIG_BONES = ['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head', 'LeftShoulder', 'RightShoulder', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftFoot', 'RightFoot'];
+const RIG_CTRL = ['Spine', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg', 'LeftHand', 'RightHand'];
+const SUIT_PALETTES = {
+  spiderverse: { base: '#141420', accent: '#d8102a', lens: '#f4f4f4', rim: '#d8102a', spider: '#e0162c', shoe: '#d8102a', sole: '#f0f0f0', toe: '#f0f0f0', headWeb: 1, classic: 0, spiderScale: 1.0, spray: 1, gloss: 0.15, roughness: 0.72 },
+  symbiote: { base: '#07070c', accent: '#07070c', lens: '#f4f4f4', rim: '#07070c', spider: '#f4f4f4', shoe: '#07070c', sole: '#07070c', toe: '#07070c', headWeb: 0, classic: 0, spiderScale: 1.9, spray: 0, gloss: 1.0, roughness: 0.22 },
+  classic: { base: '#1f3fa6', accent: '#c0141e', lens: '#f4f4f4', rim: '#111111', spider: '#101010', shoe: '#c0141e', sole: '#c0141e', toe: '#c0141e', headWeb: 1, classic: 1, spiderScale: 0.9, spray: 0, gloss: 0.2, roughness: 0.65 },
+  m2099: { base: '#0e1a4d', accent: '#d01020', lens: '#d01020', rim: '#0e1a4d', spider: '#d01020', shoe: '#0e1a4d', sole: '#d01020', toe: '#0e1a4d', headWeb: 0, classic: 0, spiderScale: 2.0, spray: 0, gloss: 0.4, roughness: 0.5 },
+  punk: { base: '#16235e', accent: '#cf2030', lens: '#f4f4f4', rim: '#f4f4f4', spider: '#f2f2f2', shoe: '#f2f2f2', sole: '#f2f2f2', toe: '#cf2030', headWeb: 0, classic: 0, spiderScale: 1.4, spray: 1, gloss: 0.1, roughness: 0.8 },
+  noir: { base: '#2a2a2e', accent: '#111114', lens: '#1d1d22', rim: '#4a4a52', spider: '#0a0a0a', shoe: '#111114', sole: '#111114', toe: '#111114', headWeb: 0, classic: 0, spiderScale: 0.9, spray: 0, gloss: 0.0, roughness: 0.9 },
+  gwen: { base: '#f2f3f8', accent: '#e0287a', lens: '#f4f4f4', rim: '#e0287a', spider: '#f4f4f4', shoe: '#2fc7c0', sole: '#f2f3f8', toe: '#f2f3f8', headWeb: 0, classic: 2, spiderScale: 1.0, spray: 0, gloss: 0.1, roughness: 0.75 },
+};
+const SUIT_GLSL = `
+uniform vec3 uBase, uAccent, uLens, uRim, uSpider, uShoe, uSole, uToe; uniform float uHeadWeb, uClassic, uSpiderScale, uSpray, uDebug;
+varying vec3 vBind;
+float sdSeg(vec2 p, vec2 a, vec2 b) { vec2 pa = p - a, ba = b - a; float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0); return length(pa - ba * h); }
+float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float lm(float v, float w) { return step(1.0 - w, abs(fract(v) * 2.0 - 1.0)); }
+float spiderMask(vec2 p, float s) {
+  p /= s; float m = 0.0; vec2 q = vec2(abs(p.x), p.y); float w = 0.0075;
+  m = max(m, step(length((p - vec2(0.0, -0.01)) / vec2(0.022, 0.05)), 1.0));
+  m = max(m, step(length((p - vec2(0.0, 0.062)) / vec2(0.016, 0.02)), 1.0));
+  m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.012, 0.045), vec2(0.06, 0.085)))); m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.06, 0.085), vec2(0.05, 0.13))));
+  m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.014, 0.03), vec2(0.075, 0.05)))); m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.075, 0.05), vec2(0.095, 0.1))));
+  m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.014, 0.01), vec2(0.075, -0.01)))); m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.075, -0.01), vec2(0.1, -0.055))));
+  m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.012, -0.01), vec2(0.06, -0.045)))); m = max(m, 1.0 - step(w, sdSeg(q, vec2(0.06, -0.045), vec2(0.045, -0.095))));
+  return m;
+}
+vec3 suitColor() {
+  vec3 p = vBind; vec3 col = uBase;
+  if (uDebug > 0.5) return vec3(fract(p.y), fract(abs(p.x) * 2.0), step(0.0, p.z));
+  // classic Peter: red webbed regions over blue (head, chest band, forearms, boots); gwen: white body with black arms/legs
+  if (uClassic > 0.5 && uClassic < 1.5) {
+    bool red = (p.y > 1.2 && p.y < 1.52 && abs(p.x) < 0.22) || (abs(p.x) > 0.43 && p.y > 1.3) || (p.y < 0.45);
+    if (red) { col = uAccent; float grid = max(lm(p.y * 38.0, 0.12), lm(atan(p.z, p.x) * 3.2, 0.12)); col = mix(col, col * 0.35, grid); }
+  }
+  if (uClassic > 1.5) { bool dark = (abs(p.x) > 0.25 && p.y > 1.3) || (p.y < 0.75 && p.y > 0.12); if (dark) col = vec3(0.09, 0.09, 0.11); if (p.y > 1.3 && p.y < 1.5 && abs(p.x) < 0.2 && p.z > 0.0) col = vec3(0.09, 0.09, 0.11); }
+  // head: webbing, lenses
+  vec3 H = vec3(0.0, 1.60, -0.01); vec3 d = p - H; float r = length(d);
+  if (r < 0.2) {
+    vec3 n = d / max(r, 1e-4); float theta = acos(clamp(n.z, -1.0, 1.0)); float phi = atan(n.y, n.x);
+    if (uHeadWeb > 0.5) { float lines = max(lm(phi * 18.0 / 6.2832, 0.09), lm(theta * 9.0 / 3.1416, 0.09)); lines *= 1.0 - smoothstep(2.3, 2.9, theta); col = mix(col, uClassic > 0.5 ? mix(uAccent, uAccent * 0.3, 1.0) : uAccent, lines * 0.9); if (uClassic > 0.5) col = mix(uAccent, uAccent * 0.3, lines); }
+    if (n.z > 0.25) {
+      for (int i = 0; i < 2; i++) { float s = i == 0 ? -1.0 : 1.0;
+        vec2 e = vec2(d.x - s * 0.047, d.y - 0.012); float a = s * 0.55; vec2 u = vec2(e.x * cos(a) + e.y * sin(a), -e.x * sin(a) + e.y * cos(a));
+        float tear = 1.0 + 0.35 * clamp(-s * u.x / 0.046, -1.0, 1.0);
+        float rim = length(u / vec2(0.058 * tear, 0.036)); float lens = length(u / vec2(0.046 * tear, 0.026));
+        if (rim < 1.0) col = uRim; if (lens < 1.0) col = uLens; }
+    }
+  }
+  // chest spider (front) and big back spider
+  if (p.z > 0.06 && p.y > 1.15 && p.y < 1.55) { vec2 q = vec2(p.x, p.y - 1.36); float m = spiderMask(q, uSpiderScale); if (m > 0.5) col = uSpider;
+    if (uSpray > 0.5) { float dots = step(0.985, hash21(floor(q * 180.0))) * step(length(q), 0.17); col = mix(col, uSpider, dots * 0.8); } }
+  if (p.z < -0.04 && p.y > 1.1 && p.y < 1.55) { vec2 q = vec2(-p.x, p.y - 1.33); float m = spiderMask(q, uSpiderScale * 1.5); if (m > 0.5) col = uSpider; }
+  // fingertips, shoes
+  if (abs(p.x) > 0.77 && p.y > 1.3 && p.y < 1.55) col = uAccent;
+  if (p.y < 0.13) { col = uShoe; if (p.z > 0.09 && p.y < 0.075) col = uToe; if (p.y < 0.028) col = uSole; }
+  // fabric grain
+  col *= 0.94 + 0.12 * hash21(floor(p.xy * 400.0 + p.zz * 97.0));
+  return col;
+}`;
+function makeSuitMaterial(bindMat) {
+  const u = { uBindMat: { value: bindMat }, uBase: { value: new THREE.Color() }, uAccent: { value: new THREE.Color() }, uLens: { value: new THREE.Color() }, uRim: { value: new THREE.Color() }, uSpider: { value: new THREE.Color() }, uShoe: { value: new THREE.Color() }, uSole: { value: new THREE.Color() }, uToe: { value: new THREE.Color() }, uHeadWeb: { value: 1 }, uClassic: { value: 0 }, uSpiderScale: { value: 1 }, uSpray: { value: 1 }, uDebug: { value: 0 } };
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0.0, clearcoat: 0.15, clearcoatRoughness: 0.5, sheen: 0.5, sheenRoughness: 0.7, sheenColor: new THREE.Color(0x4a4a66), envMapIntensity: 0.8 });
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, u);
+    sh.vertexShader = 'uniform mat4 uBindMat; varying vec3 vBind;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBind = position;');
+    sh.fragmentShader = SUIT_GLSL + '\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = suitColor();');
+  };
+  m.customProgramCacheKey = () => 'suit-v1';
+  m.userData.u = u; return m;
+}
+function applyPalette(mats, pal) {
+  for (const m of mats) { const u = m.userData.u; u.uBase.value.set(pal.base); u.uAccent.value.set(pal.accent); u.uLens.value.set(pal.lens); u.uRim.value.set(pal.rim); u.uSpider.value.set(pal.spider); u.uShoe.value.set(pal.shoe); u.uSole.value.set(pal.sole); u.uToe.value.set(pal.toe); u.uHeadWeb.value = pal.headWeb; u.uClassic.value = pal.classic; u.uSpiderScale.value = pal.spiderScale; u.uSpray.value = pal.spray; m.clearcoat = pal.gloss; m.roughness = pal.roughness; m.clearcoatRoughness = pal.gloss > 0.5 ? 0.12 : 0.5; m.envMapIntensity = 0.6 + pal.gloss; }
+}
+function loadRig() {
+  import('three/addons/loaders/GLTFLoader.js').then(({ GLTFLoader }) => new Promise((res, rej) => new GLTFLoader().load('models/xbot.glb', res, undefined, rej))).then(g => {
+    const root = new THREE.Group(); const model = g.scene; root.add(model); model.updateMatrixWorld(true);
+    const bind = {}; model.traverse(o => { if (o.isSkinnedMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; bind[o.name] = o.matrixWorld.clone(); } });
+    const mats = [];
+    model.traverse(o => { if (o.isSkinnedMesh) { const m = makeSuitMaterial(bind[o.name]); o.material = m; mats.push(m); } });
+    model.traverse(o => { if (o.isBone) { const n = o.name.replace(/^mixamorig:?/, ''); if (RIG_BONES.includes(n)) RIG.bones[n] = o; } });
+    root.scale.setScalar(RIG_SCALE);
+    const mixer = new THREE.AnimationMixer(model);
+    for (const name of ['idle', 'walk', 'run']) { const clip = THREE.AnimationClip.findByName(g.animations, name); const a = mixer.clipAction(clip); a.play(); a.setEffectiveWeight(name === 'idle' ? 1 : 0); RIG.actions[name] = a; }
+    for (const b of RIG_CTRL) RIG.pose[b] = RIG.bones[b].quaternion.clone();
+    // hat / hair props live in a 100x group under the head bone (bones are in cm)
+    const hat = new THREE.Group(); hat.scale.setScalar(100); RIG.bones.Head.add(hat); RIG.hatGroup = hat;
+    Object.assign(RIG, { root, mixer, mats, ready: true, model });
+    applyPalette(mats, SUIT_PALETTES[SUIT] || SUIT_PALETTES.spiderverse); buildHat(SUIT);
+    // swap the procedural hero for the rig
+    root.position.copy(hero.position); root.rotation.copy(hero.rotation); root.userData = {};
+    scene.remove(hero); hero = root; scene.add(root);
+    if (G.state !== 'play') renderer.compile(scene, camera);
+  }).catch(e => { RIG.failed = true; console.warn('skinned hero unavailable, keeping the procedural one', e); });
+}
+function buildHat(suit) {
+  const h = RIG.hatGroup; if (!h) return; while (h.children.length) h.remove(h.children[0]);
+  // head bone origin is the neck/head joint; the head centre is ~0.105 above it in model metres
+  if (suit === 'noir') {
+    const dark = new THREE.MeshStandardMaterial({ color: 0x111114, roughness: 0.9 }), band = new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.4, metalness: 0.6 });
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.095, 0.075, 18), dark); crown.position.set(0, 0.215, 0.0); h.add(crown);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.01, 24), dark); brim.position.set(0, 0.18, 0.01); brim.rotation.x = 0.08; h.add(brim);
+    const bd = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.097, 0.018, 18), band); bd.position.set(0, 0.19, 0); h.add(bd);
+  } else if (suit === 'punk') {
+    const navy = new THREE.MeshStandardMaterial({ color: 0x16235e, roughness: 0.9 }), stud = new THREE.MeshStandardMaterial({ color: 0xcfcfd6, roughness: 0.3, metalness: 0.8 });
+    for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.1 + (i % 3 === 1 ? 0.03 : 0), 6), navy); m.position.set(0, 0.19 + Math.cos((i - 2.5) * 0.3) * 0.025, -0.07 + i * 0.026); m.rotation.x = -0.5 + i * 0.18; h.add(m); }
+    for (const sx of [-1, 1]) { const s = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.04, 5), stud); s.position.set(sx * 0.06, -0.02, 0.0); s.rotation.z = sx * -1.2; h.add(s); }
+  }
+  h.traverse(o => { if (o.isMesh) o.castShadow = true; });
+}
+// --- animation ---
+const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _v1 = V3(), _v2 = V3();
+const E = (x, y, z) => new THREE.Quaternion().setFromEuler(_e.set(x, y, z, 'XYZ'));
+function aimQuat(bone, worldTarget, localAxis) { // rotation (in the bone's parent space) that points the bone's local axis at a world point
+  bone.getWorldPosition(_v1); _v2.copy(worldTarget).sub(_v1); bone.parent.getWorldQuaternion(_qp); _v2.applyQuaternion(_qp.invert()).normalize();
+  return new THREE.Quaternion().setFromUnitVectors(localAxis, _v2);
+}
+const RIG_POSES = {
+  fall: { LeftArm: E(0.2, -0.5, 0.35), RightArm: E(0.2, 0.5, -0.35), LeftForeArm: E(0, -0.6, 0), RightForeArm: E(0, 0.6, 0), LeftUpLeg: E(-0.45, 0, 0.1), RightUpLeg: E(-0.25, 0, -0.1), LeftLeg: E(0.9, 0, 0), RightLeg: E(0.6, 0, 0), Spine: E(0.15, 0, 0), Head: E(-0.15, 0, 0) },
+  climb: { LeftArm: E(0.3, 0, 1.25), RightArm: E(0.3, 0, -1.25), LeftForeArm: E(0, -1.0, 0), RightForeArm: E(0, 1.0, 0), LeftUpLeg: E(-1.0, 0, 0.2), RightUpLeg: E(-1.0, 0, -0.2), LeftLeg: E(1.4, 0, 0), RightLeg: E(1.4, 0, 0), Spine: E(0.55, 0, 0), Head: E(-0.5, 0, 0) },
+  swingBody: { LeftArm: E(0.5, 0.2, -1.1), LeftForeArm: E(0, -0.9, 0), RightForeArm: E(0, 0.15, 0), LeftUpLeg: E(-0.7, 0, 0.15), RightUpLeg: E(-0.35, 0, -0.15), LeftLeg: E(1.1, 0, 0), RightLeg: E(0.7, 0, 0), Spine: E(0.35, 0, 0), Head: E(-0.35, 0, 0) },
+  punchGuard: { LeftArm: E(0.9, -0.3, -0.9), LeftForeArm: E(0, -1.9, 0), Spine: E(0.12, 0.2, 0) },
+};
+function animateRig(dt) {
+  const R = RIG, b = R.bones; R.time += dt;
+  hero.position.copy(P.pos); heroGlow.position.set(P.pos.x + 0.8, P.pos.y + 3.6, P.pos.z + 2.2);
+  let d = P.facing - hero.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); hero.rotation.y += d * Math.min(1, dt * 14);
+  if (!P.alive) { hero.rotation.x = lerp(hero.rotation.x, -Math.PI / 2 * 0.95, Math.min(1, dt * 3)); R.mixer.update(dt * 0.2); return; }
+  hero.rotation.x = 0;
+  const sp = Math.hypot(P.vel.x, P.vel.z);
+  const climbing = P.onWall && !P.onGround && !P.swinging && P.climbT > 0;
+  const grounded = P.onGround && !P.swinging && !climbing;
+  // mocap on the ground: idle / walk / run blended by speed, sped up to match the hero's pace
+  if (grounded) {
+    const walkW = THREE.MathUtils.smoothstep(sp, 0.4, 2.5) * (1 - THREE.MathUtils.smoothstep(sp, 5, 8.5)), runW = THREE.MathUtils.smoothstep(sp, 5, 8.5), idleW = Math.max(0, 1 - walkW - runW);
+    R.actions.idle.setEffectiveWeight(idleW); R.actions.walk.setEffectiveWeight(walkW); R.actions.run.setEffectiveWeight(runW);
+    R.actions.walk.setEffectiveTimeScale(clamp(sp / 2.2, 0.8, 1.7)); R.actions.run.setEffectiveTimeScale(clamp(sp / 6.5, 0.9, 1.8));
+    R.mixer.update(dt);
+    R.groundBlend = Math.min(1, R.groundBlend + dt * 4);
+    // ease from the last airborne pose into the mocap pose, and keep tracking it
+    for (const n of RIG_CTRL) { if (R.groundBlend < 1) b[n].quaternion.slerp(R.pose[n], 1 - R.groundBlend); R.pose[n].copy(b[n].quaternion); }
+    // ground punch: arms override
+    if (P.punchT > 0) {
+      const k = P.punchT / 0.25, fx = Math.sin(P.facing), fz = Math.cos(P.facing);
+      const target = P.pos.clone().add(V3(fx * 3, 2.3 + (1 - k) * 0.2, fz * 3));
+      b.RightArm.quaternion.slerp(aimQuat(b.RightArm, target, V3(-1, 0, 0)), 0.8); b.RightForeArm.quaternion.slerp(E(0, 0.1 + k * 0.6, 0), 0.8);
+      b.LeftArm.quaternion.slerp(RIG_POSES.punchGuard.LeftArm, 0.6); b.LeftForeArm.quaternion.slerp(RIG_POSES.punchGuard.LeftForeArm, 0.6);
+      b.Spine.quaternion.multiply(E(0, 0, 0)); b.Spine.quaternion.slerp(E(0.1, -0.35 * (1 - k), 0), 0.5);
+      for (const n of ['RightArm', 'RightForeArm', 'LeftArm', 'LeftForeArm', 'Spine']) R.pose[n].copy(b[n].quaternion);
+    } else if (P.shootT > 0) { const fx = Math.sin(P.facing), fz = Math.cos(P.facing); b.RightArm.quaternion.copy(aimQuat(b.RightArm, P.pos.clone().add(V3(fx * 6, 2.8, fz * 6)), V3(-1, 0, 0))); b.RightForeArm.quaternion.identity(); }
+    // head follows the camera
+    const lookYaw = Math.atan2(Math.sin(look.yaw + Math.PI - hero.rotation.y), Math.cos(look.yaw + Math.PI - hero.rotation.y));
+    b.Head.quaternion.slerp(E(clamp(look.pitch * 0.5, -0.3, 0.35), clamp(lookYaw, -0.9, 0.9) * (G.headTrack === false ? 0 : 1), 0), 0.5);
+    R.state = 'ground';
+  } else {
+    // airborne: slerp the controlled bones toward a pose; the rest keep their last mocap values
+    R.groundBlend = 0;
+    let pose = RIG_POSES.fall;
+    if (climbing) pose = RIG_POSES.climb; else if (P.swinging) pose = RIG_POSES.swingBody;
+    const k = Math.min(1, dt * 9);
+    for (const n of RIG_CTRL) { const t = pose[n]; if (t) R.pose[n].slerp(t, k); }
+    if (P.swinging) { R.pose.RightArm.slerp(aimQuat(b.RightArm, P.anchor, V3(-1, 0, 0)), k); R.pose.RightHand.slerp(E(0, 0, 0), k); }
+    else if (!climbing) { const f = clamp(-P.vel.y / 25, 0, 1); R.pose.LeftArm.slerp(E(0.2 + f * 0.6, -0.5, 0.35 - f * 1.2), k); R.pose.RightArm.slerp(E(0.2 + f * 0.6, 0.5, -0.35 + f * 1.2), k); }
+    if (P.punchT > 0) { const fx = Math.sin(P.facing), fz = Math.cos(P.facing); R.pose.RightArm.slerp(aimQuat(b.RightArm, P.pos.clone().add(V3(fx * 3, 2.4, fz * 3)), V3(-1, 0, 0)), 0.7); R.pose.RightForeArm.slerp(E(0, 0.2, 0), 0.7); }
+    for (const n of RIG_CTRL) b[n].quaternion.copy(R.pose[n]);
+    R.state = climbing ? 'climb' : P.swinging ? 'swing' : 'air';
+  }
+  // the suit's tendrils, if any, and the web line from the right hand
+  webLine.visible = P.swinging;
+  if (P.swinging) webLine.geometry.setFromPoints([b.RightHand.getWorldPosition(V3()), P.anchor]);
+  // camo fade
+  const op = P.camo ? 0.22 : 1;
+  if (!hero.userData.mats) { hero.userData.mats = R.mats; hero.userData.op = 1; }
+  if (Math.abs(hero.userData.op - op) > 0.003) { hero.userData.op = lerp(hero.userData.op, op, Math.min(1, dt * 8)); for (const m of R.mats) { m.transparent = true; m.opacity = hero.userData.op; } }
+  else if (hero.userData.op !== op) { hero.userData.op = op; for (const m of R.mats) { m.opacity = op; m.transparent = op < 1; } }
+  senseRing.position.copy(P.pos).add(V3(0, 3.4, 0)); senseRing.lookAt(camera.position);
+  senseRing.material.opacity = P.senseT > 0 ? Math.min(1, P.senseT * 4) : 0; senseRing.scale.setScalar(1 + (0.35 - Math.max(0, P.senseT)) * 3);
+}
+function heroHand() { return RIG.ready && hero === RIG.root ? RIG.bones.RightHand.getWorldPosition(V3()) : hero.parts.armR.tip.getWorldPosition(V3()); }
+
 // ---------- Hero animation ----------
 function animateHero(dt) {
+  if (RIG.ready && hero === RIG.root) return animateRig(dt);
   const p = hero.parts; hero.position.copy(P.pos); heroGlow.position.set(P.pos.x + 0.8, P.pos.y + 3.6, P.pos.z + 2.2);
   // smooth facing
   let d = P.facing - hero.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); hero.rotation.y += d * Math.min(1, dt * 14);
@@ -2475,6 +2668,7 @@ for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name]
 WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
 applyLevel(PERF.level);
 renderer.compile(scene, camera);
+loadRig();
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
@@ -2504,7 +2698,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { renderer, scene, PERF, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { renderer, scene, PERF, RIG, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
