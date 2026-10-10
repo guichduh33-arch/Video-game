@@ -966,6 +966,29 @@ function lensPatchGeo(shape, R, ox, oy, rings = 6) {
   if (g.attributes.normal.getZ(0) < 0) { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } g.computeVertexNormals(); }
   g.userData.lens = true; return g;
 }
+// a toy web shooter strapped over the wrist: black body, a spoked drum with silver screws, a hex nut, silver zigzag strips,
+// a grey strap and a barrel with a glowing blue suction dart at the tip. Built in forearm space (wrist at y = 0, back of the wrist toward -z).
+const SHOOTER_MAT = { body: new THREE.MeshStandardMaterial({ color: 0x15161b, roughness: 0.55, metalness: 0.2 }), silver: new THREE.MeshStandardMaterial({ color: 0xd4d8de, roughness: 0.3, metalness: 0.9 }),
+  strap: new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.95 }), dart: new THREE.MeshPhysicalMaterial({ color: 0x4a5cff, roughness: 0.15, transmission: 0.35, thickness: 0.05, emissive: 0x2233ff, emissiveIntensity: 0.6, transparent: true, opacity: 0.9 }) };
+function makeWebShooter(sx) {
+  const g = new THREE.Group(), M = SHOOTER_MAT, box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  const strap = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 18), M.strap); strap.rotation.x = Math.PI / 2; g.add(strap);
+  box(0.11, 0.2, 0.05, M.body, 0, 0.0, -0.1); // main body over the back of the wrist
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 20), M.body); drum.rotation.x = Math.PI / 2; drum.position.set(0, 0.045, -0.135); drum.castShadow = true; g.add(drum);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 18), M.body); ring.position.set(0, 0.045, -0.152); g.add(ring);
+  for (let i = 0; i < 4; i++) { const sp = box(0.095, 0.007, 0.007, M.body, 0, 0.045, -0.153); sp.rotation.z = i * Math.PI / 4; }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.012, 8), M.silver); hub.rotation.x = Math.PI / 2; hub.position.set(0, 0.045, -0.158); g.add(hub);
+  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5 + 0.3, sc = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 8), M.silver); sc.rotation.x = Math.PI / 2; sc.position.set(Math.cos(a) * 0.042, 0.045 + Math.sin(a) * 0.042, -0.152); g.add(sc); }
+  const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.03, 6), M.body); nut.rotation.x = Math.PI / 2; nut.position.set(sx * -0.015, -0.055, -0.135); nut.castShadow = true; g.add(nut);
+  for (const [x, y] of [[0.035, -0.095], [-0.035, -0.02]]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 8), M.silver); sc.rotation.x = Math.PI / 2; sc.position.set(x, y, -0.127); g.add(sc); }
+  // silver zigzag strips along both edges of the body
+  for (const ex of [-1, 1]) for (const [y, rz] of [[0.075, 0.5], [0.03, -0.5], [-0.015, 0.5], [-0.06, -0.5]]) { const z = box(0.006, 0.055, 0.006, M.silver, ex * 0.058, y, -0.1); z.rotation.z = rz * ex; z.castShadow = false; }
+  // barrel over the back of the hand, with the blue suction dart loaded
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.12, 12), M.body); barrel.position.set(0, -0.15, -0.1); barrel.castShadow = true; g.add(barrel);
+  const dart = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.012, 0.03, 12), M.dart); dart.position.set(0, -0.225, -0.1); g.add(dart);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, -0.25, -0.1); g.add(muzzle); g.muzzle = muzzle;
+  return g;
+}
 function makeHand(sx) {
   const hand = new THREE.Group();
   hand.add(sph(0.075, MAT.black, 0, -0.03, 0, 1, 1.25, 0.6)); // palm
@@ -1100,6 +1123,7 @@ const SUIT_DEFS = {
         // legs: a thin line on the outside of the thigh and the inside of the shin, on the side, not the front
         const up = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.04), red); up.position.set(sx * 0.128, -0.3, -0.02); leg.add(up);
         const lo = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.36, 0.04), red); lo.position.set(sx * -0.095, -0.3, -0.01); leg.joint.add(lo);
+        const shooter = makeWebShooter(sx); shooter.position.y = -0.46; shooter.scale.setScalar(1.25); arm.joint.add(shooter); if (sx > 0) g.parts.shooterR = shooter; else g.parts.shooterL = shooter;
         // arms: a thin line on the inside of the upper arm
         const ar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 0.04), red); ar.position.set(sx * -0.1, -0.3, 0); arm.add(ar);
         // feet: a slim suit foot, navy all over with only the sole red
@@ -1603,7 +1627,7 @@ const cocoonMat = new THREE.MeshPhysicalMaterial({ color: 0xf6f6f6, roughness: 0
 const cocoonWireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5 });
 function shootWeb() {
   P.shootT = 0.3; P.shootCd = 1.1; AudioSys.thwip();
-  const from = hero.position.clone().add(V3(Math.sin(P.facing) * 0.4, 2.2, Math.cos(P.facing) * 0.4));
+  const from = hero.parts && hero.parts.shooterR ? hero.parts.shooterR.muzzle.getWorldPosition(V3()) : hero.position.clone().add(V3(Math.sin(P.facing) * 0.4, 2.2, Math.cos(P.facing) * 0.4));
   // aim: the nearest living, unwebbed enemy in front of the camera, else straight ahead
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
   let best = null, bd = 1e9;
