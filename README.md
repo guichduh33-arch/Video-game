@@ -14,7 +14,7 @@ Three games live in this repo:
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
   city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
-  8th crime the Rhino shows up for a boss fight, Venom after him, and the Prowler last. The city is rendered with real-time
+  8th crime the Rhino shows up for a boss fight, then Venom, the Spot, and the Prowler last. The city is rendered with real-time
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
 - `spiderman2.html` – **Spider-Man 2: Brooklyn Nights**, the sequel. Two playable
@@ -181,7 +181,7 @@ full-screen experience.
 Gwen swings with you from the start. She follows behind Miles, leaps roof to roof on her
 own webs, catches up by dropping in from above if she falls far behind, and runs into
 every crime to punch thugs and gunners. Her knockouts count toward clearing the crime,
-she chips in on all three bosses, and she calls out quips over her head. Press `G` to bench
+she chips in on all four bosses, and she calls out quips over her head. Press `G` to bench
 her or bring her back, or open `3d.html?partner=off` to play solo.
 
 ### Street life (3D only)
@@ -190,6 +190,16 @@ Brooklyn is populated: pedestrians walk the sidewalks and scatter when a fight b
 on the street or a bullet flies past, pigeons perch on the low roofs and burst into the
 air when you or Gwen land near them, and the city has an ambient soundtrack of wind,
 traffic rumble and distant sirens that changes with your altitude.
+
+### Soundtrack (3D only)
+
+The game has an original score, "Brooklyn Nights": a Spider-Verse-flavoured trap beat in
+D minor with an 808 kick and bass, half-time snare, hi-hats, a warm pad and a plucked hook
+with a dotted-eighth echo. Like every other sound in the game it is synthesized in code with
+Web Audio, sequenced in 16th-note steps, so there is no audio file to download. The track
+reacts to what is happening: on patrol it stays sparse, a crime doubles the hi-hats and opens
+up the pad, and a boss fight adds a sawtooth arpeggio and extra kicks. Press `M` (or the 🎵
+button) to turn it off; the choice is remembered.
 
 ### Spider-Society HQ (3D only)
 
@@ -271,6 +281,7 @@ the auto-tuning.
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
 | Cycle suits | `N` forward, `B` back |
+| Soundtrack on / off | `M` or the 🎵 button |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
@@ -295,9 +306,21 @@ shocks the symbiote for a few seconds, which stops the regeneration and doubles 
 so build venom with punches, shock him, and pile on. At 60 and 30 percent health he
 spawns symbiote-possessed goons who are fast and can see you in camo.
 
+### The Spot (3D only)
+
+Venom goes down and a third beacon lights up: the Spot, a white man made of portals. He
+blinks across the roof through holes in the floor and cannot be hurt while he is inside one
+(hits read GONE), so punching him often just sends him through the floor. His main attack
+opens a black portal under your feet: step off it before the fist comes up through it. When
+a fist is out, punch it and he is dragged through his own portal and dumped beside you,
+stunned for double damage. That is the way to win. He also hurls spot discs in a spread and
+swipes up close. A web shot (`E`) jams his portals for six seconds so he cannot blink away,
+and a Venom Strike stuns him. At half health he opens three portals at once and blinks far
+more often.
+
 ### The Prowler (3D only)
 
-Venom goes down and a third beacon lights up: the Prowler. He is fast and he cloaks.
+The Spot goes down and a fourth beacon lights up: the Prowler. He is fast and he cloaks.
 When he vanishes he circles round behind you for a claw ambush that hits for a fifth of
 your health, but two things give him away: his shadow still falls on the roof, and your
 spider-sense fires just before every strike, so move when it tingles. In the open he fires
@@ -316,7 +339,7 @@ criminals are built on the same jointed rig as the heroes: street clothes (hoodi
 jackets, jeans, sneakers), real faces with varied skin tones, hair, beanies, caps or ski
 masks, bats and crowbars for thugs and pistols for gunners, with knees and elbows that
 bend as they run, square up and swing. Reach
-each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino, Venom and the Prowler). Score is
+each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino, Venom, the Spot and the Prowler). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
 
@@ -335,7 +358,7 @@ are saved in the browser.
 ## Ideas for next steps
 
 - Gamepad support.
-- A proper soundtrack and more sound variety.
+- More sound variety.
 - More enemy types (shield thugs, drones) and civilian rescues.
 - Unlockable suits.
 
