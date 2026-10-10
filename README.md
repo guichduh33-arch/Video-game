@@ -289,6 +289,21 @@ the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air t
 Tapping PLAY goes fullscreen where the browser allows it (iPhone Safari does not; add the
 page to your home screen there instead).
 
+### Medkits (3D only)
+
+Miles can heal mid-patrol now. Medkits are red first-aid boxes with a glowing teal beam:
+
+- **Thug drops**: a KO'd thug sometimes leaves one behind. The chance rises as Miles
+  gets hurt (15% at high health, 35% below 70, 60% below 35). Street packs heal 25 and
+  fade after 45 seconds.
+- **Boss roofs**: every boss roof starts with a pack in each far corner. Roof packs heal
+  35, cure Scorpion's poison and never expire.
+- **Gwen's emergency drop**: during a boss fight, when Miles is under 40% and no roof
+  pack is left, Gwen drops a fresh one somewhere on the roof.
+
+Walk or land on a pack to grab it. A pack is left alone while Miles is at full health, so
+you can save it for later. Ask Gwen about health on the radio for a tip.
+
 ### The Rhino (3D only)
 
 After the eighth crime a boss beacon appears. The Rhino is armored: punches barely
