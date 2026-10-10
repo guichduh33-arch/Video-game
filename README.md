@@ -243,6 +243,26 @@ press `Y` while the radio is open, to speak to her instead of typing; the game l
 with the browser's speech recognition (Chrome, Edge and Safari) and sends what you said.
 Some embedded viewers block the microphone; opening the game in its own tab fixes that.
 
+**Gwen takes orders.** Anything you type or say on the radio is checked for an order
+first, and the game carries it out at once (in live mode she then confirms what she did
+in character; in scripted mode her reply is the outcome):
+
+| Say | Gwen does |
+| --- | --- |
+| `medkit`, `heal me`, `I'm hurt` | tosses a medkit at your feet (25 s cooldown) |
+| `come here`, `follow me`, `stay close` | sticks to you for 30 s, swinging over if she is far |
+| `attack`, `get him`, `help me` | hunts and hits everything in sight for 30 s, punching faster |
+| `stay back`, `hold`, `stop`, `let me handle it` | hangs back and stops fighting for 40 s |
+| `web him`, `tie him up` | webs the nearest thug, or tangles the boss the way your own web shot would |
+| `distract him`, `bait him`, `cover me` | dropkicks the boss and dazes him for a few seconds (24 s cooldown) |
+| `portal`, `take me to the crime` | opens a Spider-Society portal that drops you on the current crime (40 s cooldown) |
+| `music off` / `play the song` | mutes or unmutes the soundtrack |
+| `suit noir` (punk, 2099, symbiote, classic, hoodie) | changes your suit |
+| `comic look` / `realistic look` | switches the look |
+
+She tells you when an order cannot be done (no boss to distract, no crime to jump to, a
+cooldown still running, or she is benched with `G`).
+
 ### Spider-Verse look (3D only)
 
 The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines
