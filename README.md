@@ -143,6 +143,24 @@ To host it on GitHub Pages: repository Settings → Pages → Source "Deploy fro
 pick the branch and the root folder, save, then open
 `https://<user>.github.io/<repo>/3d.html`.
 
+## Play with no wifi
+
+Two ways to play without an internet connection:
+
+1. **The single offline file.** `offline/brooklyn-nights-offline.html` is the whole 3D
+   game in one file, with Three.js embedded, so it needs nothing from the web. Download
+   it (GitHub: open the file, press "Download raw file"), keep it anywhere on your
+   computer, phone or a USB stick, and open it in Chrome, Edge, Safari or Firefox. Your
+   best score, suit and settings are remembered in that browser. Gwen's radio runs in
+   scripted mode there, since the live conversation needs Claude. Rebuild it after
+   changing the game with `node scripts/build-offline.mjs`.
+2. **The installed app.** Once the game has been opened online from a hosted copy
+   (GitHub Pages or any static host) and installed, the service worker keeps the game and
+   Three.js cached, so the app launches and plays offline afterwards.
+
+The claude.ai artifact link always needs a connection, because that page is loaded from
+claude.ai each time.
+
 ## Play
 
 Open `index.html` (2D), `3d.html` (3D) or `spiderman2.html` (the sequel) in any modern browser.
