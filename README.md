@@ -14,7 +14,8 @@ Three games live in this repo:
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
   Three.js. Same hero, same moves, but you swing through a procedurally generated
   city block grid, wall-crawl real towers and fight on rooftops in 3D. After the
-  8th crime the Rhino shows up for a boss fight, then Venom, the Spot, and the Prowler last. The city is rendered with real-time
+  8th crime the Rhino shows up for a boss fight, then Venom, the Spot, and the Prowler. Beat him
+  and Act II opens: the Sinister Ten, ten more rogues in a random order. The city is rendered with real-time
   sun shadows, sky reflections, textured facades with recessed windows, storefronts,
   parapets, water towers, trees, street lamps, crosswalks and traffic.
 - `spiderman2.html` – **Spider-Man 2: Brooklyn Nights**, the sequel. Two playable
@@ -332,6 +333,31 @@ cloak and stuns him, and any punch that connects while he is cloaked breaks it a
 counts double. At half health he gets faster, chains three claws and fires three blasts
 at once. Beating him finishes the game. Miles may recognise the voice.
 
+### Act II: the Sinister Ten (3D only)
+
+Beat the Prowler and the win screen offers NEXT: THE SINISTER TEN. Your score and clock
+carry on, and ten more rogues come for you one at a time, in a random order, with a street
+crime between each. They all run on one shared boss engine, but each has a tell and a
+weakness. The hint when they arrive tells you which; Gwen will too.
+
+| Rogue | What he does | How to beat him |
+| --- | --- | --- |
+| Scorpion | Poison sting (health drains for a few seconds), tail slam, charge | Keep moving while poisoned. A tail slam that misses sticks in the roof: hit him then |
+| Electro | Lightning bolts, electric shockwaves, a charged blast | Venom Strikes heal him. Web him while he glows to short him out |
+| Sandman | Sand waves, a grab that throws you, turns to sand | Jump the waves. Nothing hurts him as sand, so wait for him to go solid. A Venom Strike glasses him |
+| Vulture | Circles out of reach, dive-bombs, drops bombs | Web him (`E`) and he is grounded for a few seconds |
+| Mysterio | Orb volleys, two illusion doubles; hits swap him with a double | Punch the fakes to pop them, keep track of the real one |
+| Shocker | Triple shockwaves and blasts that shove you toward the edge | Jump the waves. After three his gauntlets overheat: hit him then |
+| Green Goblin | Glider rams, pumpkin bombs that explode where they land | Web the glider and he eats the roof |
+| Doc Ock | Four tentacle slams around you, a grab and throw | Step off the rings. A slam that misses leaves the arms stuck for a moment |
+| Kingpin | Heavy punches, a charge, a ground pound, calls goons | Blocks anything from the front and turns slowly: get behind him, or hit him while he is dazed |
+| Carnage | Three-claw combos, leaps, spikes from the floor, regenerates, calls symbiotes | Only a Venom Strike stops the healing: shock him, then pile on |
+
+Every rogue can be webbed once in a while for a short stun, and any of them is stunned
+while dazed, grounded or stuck, so hits count double. Add `?boss=scorpion` (or `electro`,
+`sandman`, `vulture`, `mysterio`, `shocker`, `goblin`, `ock`, `kingpin`, `carnage`, or
+`rhino`, `venom`, `spot`, `prowler`) to the URL to open with that boss on the first beacon.
+
 ## Goal
 
 Crimes break out on rooftops, marked by a red beacon and an on-screen arrow. In 3D the
@@ -339,7 +365,8 @@ criminals are built on the same jointed rig as the heroes: street clothes (hoodi
 jackets, jeans, sneakers), real faces with varied skin tones, hair, beanies, caps or ski
 masks, bats and crowbars for thugs and pistols for gunners, with knees and elbows that
 bend as they run, square up and swing. Reach
-each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino, Venom, the Spot and the Prowler). Score is
+each one, knock out every thug and gunner, and repeat. Stop 8 crimes to win (in 3D, then beat the Rhino, Venom, the Spot and the Prowler, and
+optionally the Sinister Ten after them). Score is
 driven by combos, so string hits together without taking damage. Best score and time
 are saved in the browser.
 
