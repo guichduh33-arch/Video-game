@@ -191,6 +191,16 @@ on the street or a bullet flies past, pigeons perch on the low roofs and burst i
 air when you or Gwen land near them, and the city has an ambient soundtrack of wind,
 traffic rumble and distant sirens that changes with your altitude.
 
+### Soundtrack (3D only)
+
+The game has an original score, "Brooklyn Nights": a Spider-Verse-flavoured trap beat in
+D minor with an 808 kick and bass, half-time snare, hi-hats, a warm pad and a plucked hook
+with a dotted-eighth echo. Like every other sound in the game it is synthesized in code with
+Web Audio, sequenced in 16th-note steps, so there is no audio file to download. The track
+reacts to what is happening: on patrol it stays sparse, a crime doubles the hi-hats and opens
+up the pad, and a boss fight adds a sawtooth arpeggio and extra kicks. Press `M` (or the 🎵
+button) to turn it off; the choice is remembered.
+
 ### Spider-Society HQ (3D only)
 
 The tallest tower in the city is Spider-Society headquarters, marked by an orange beam.
@@ -271,6 +281,7 @@ the auto-tuning.
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
 | Cycle suits | `N` forward, `B` back |
+| Soundtrack on / off | `M` or the 🎵 button |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
@@ -335,7 +346,7 @@ are saved in the browser.
 ## Ideas for next steps
 
 - Gamepad support.
-- A proper soundtrack and more sound variety.
+- More sound variety.
 - More enemy types (shield thugs, drones) and civilian rescues.
 - Unlockable suits.
 
