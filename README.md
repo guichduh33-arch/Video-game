@@ -283,11 +283,20 @@ cooldown still running, or she is benched with `G`).
 
 ### Spider-Verse look (3D only)
 
-The 3D game renders in an "Across the Spider-Verse" comic style by default: ink outlines
-drawn from depth, Ben-Day halftone dots in the shadows, cel-stepped shading, misprinted
-red and blue colour fringes that get worse when the screen shakes, paper grain, and
-comic onomatopoeia (POW!, KRAK!, THWIP) on hits and web shots. Press `V` in game to
-switch between the comic look and the realistic one, or open `3d.html?look=real`.
+The 3D game has two looks. Press `V` in game to switch, or ask Gwen on the radio.
+
+**Realistic (default)**: late-afternoon light with a lower, warmer sun and long soft
+shadows, a hazy horizon under a deep blue sky, cool fill light from the sky, and a
+realistic post pass: screen-space ambient occlusion (creases, building bases, under roof
+props and around people are darkened), a soft glow on the brightest spots, a filmic
+colour grade with warm lights and cool shadows, film grain and a vignette. Buildings
+cast a contact shadow onto the pavement, streets have lane edge lines, trees are
+smooth-shaded.
+
+**Spider-Verse comic** (`3d.html?look=comic`): ink outlines drawn from depth,
+cel-stepped shading, misprinted red and blue colour fringes that get worse when the
+screen shakes, paper grain, flat-shaded trees, a brighter noon sky, and comic
+onomatopoeia (POW!, KRAK!, THWIP) on hits and web shots.
 
 ### 3D quality
 

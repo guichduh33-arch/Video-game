@@ -352,7 +352,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd4e6f7);
 scene.fog = new THREE.Fog(0xd4e6f7, 180, 820);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.3, 2400);
-scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x7a7466, 0.55));
+const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x7a7466, 0.55); scene.add(hemi);
 const SUN_DIR = V3(0.45, 0.8, 0.3).normalize();
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.6); sun.position.copy(SUN_DIR).multiplyScalar(400); scene.add(sun); scene.add(sun.target);
 sun.castShadow = QUALITY !== 'low'; sun.shadow.mapSize.set(1024, 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6; sun.shadow.radius = 2;
@@ -361,28 +361,31 @@ const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120,
 // ---------- Spider-Verse comic post-process ----------
 // Renders the scene to a texture, then draws it through a shader that adds ink outlines (from depth),
 // cel-stepped shading, misprint colour fringing, paper grain (no halftone dots).
-const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
+// the realistic look is the default; ?look=comic (or V in game) switches to the Spider-Verse comic look
+const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'real') === 'comic' };
 const post = (() => {
   const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
   let samples = 0;
   const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, { depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType), depthBuffer: true, samples });
   let rt = makeRT(w, h);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { tDiffuse: { value: rt.texture }, tDepth: { value: rt.depthTexture }, resolution: { value: new THREE.Vector2(w, h) }, time: { value: 0 }, near: { value: camera.near }, far: { value: camera.far }, glitch: { value: 0 }, dotScale: { value: pr } },
+    uniforms: { tDiffuse: { value: rt.texture }, tDepth: { value: rt.depthTexture }, resolution: { value: new THREE.Vector2(w, h) }, time: { value: 0 }, near: { value: camera.near }, far: { value: camera.far }, glitch: { value: 0 }, dotScale: { value: pr }, mode: { value: 1 } },
     vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
     fragmentShader: `
       precision highp float; varying vec2 vUv;
-      uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 resolution; uniform float time, near, far, glitch, dotScale;
+      uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 resolution; uniform float time, near, far, glitch, dotScale, mode;
       float viewZ(vec2 uv){ float z = texture2D(tDepth, uv).x; float nd = z * 2.0 - 1.0; return (2.0 * near * far) / (far + near - nd * (far - near)); }
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
       void main(){
         vec2 px = 1.0 / resolution;
+        float z = viewZ(vUv);
+        vec3 col;
+        if (mode < 0.5) {
         // misprint: red and blue plates slip outward from the centre, more when the screen shakes
         vec2 d = (vUv - 0.5) * (0.0025 + glitch * 0.012);
-        vec3 col = vec3(texture2D(tDiffuse, vUv + d).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d).b);
+        col = vec3(texture2D(tDiffuse, vUv + d).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d).b);
         // ink outlines from depth discontinuities (relative, so distant towers still get a line)
-        float z = viewZ(vUv);
         float e = 0.0;
         e = max(e, abs(viewZ(vUv + vec2(px.x, 0.0)) - z)); e = max(e, abs(viewZ(vUv - vec2(px.x, 0.0)) - z));
         e = max(e, abs(viewZ(vUv + vec2(0.0, px.y)) - z)); e = max(e, abs(viewZ(vUv - vec2(0.0, px.y)) - z));
@@ -391,13 +394,39 @@ const post = (() => {
         float L = lum(col);
         float bands = 5.0; float Lq = (floor(L * bands) + 0.5) / bands;
         col *= mix(1.0, Lq / max(L, 0.001), 0.35);
-        // no halftone dots: the comic look keeps its ink lines, cel bands, misprint and grain only
-        vec2 fc = gl_FragCoord.xy / dotScale;
         // ink, paper grain, light vignette
         col = mix(col, vec3(0.05, 0.03, 0.09), edge * 0.9);
         col *= 1.08;
         col *= 1.0 - 0.18 * pow(length(vUv - 0.5), 2.2);
+        } else {
+        // ---- realistic: screen-space ambient occlusion, soft glow, filmic grade, grain, vignette ----
+        col = texture2D(tDiffuse, vUv).rgb;
+        // AO from the depth buffer: 8 taps on a jittered ring; a neighbour that is nearer by a small margin occludes.
+        // Darkens creases, building bases, under roof props and around people, which flat lighting leaves floating.
+        float rad = clamp(260.0 / (z + 6.0), 2.5, 16.0) * dotScale;
+        float a0 = hash(gl_FragCoord.xy) * 6.2831; float occ = 0.0;
+        for (int i = 0; i < 8; i++) {
+          float ang = a0 + float(i) * 0.7854; float rr = rad * (0.35 + 0.65 * float(i) / 7.0);
+          float zi = viewZ(vUv + vec2(cos(ang), sin(ang)) * rr * px); float dz = (z - zi) / z;
+          occ += smoothstep(0.004, 0.03, dz) * (1.0 - smoothstep(0.08, 0.25, dz));
+        }
+        occ = occ / 8.0 * (1.0 - smoothstep(350.0, 800.0, z));
+        col *= 1.0 - occ * 0.75;
+        // glow: the brightest parts (sun, lit glass, flashes) bleed a little
+        vec3 bl = vec3(0.0);
+        for (int i = 0; i < 8; i++) { float ang = float(i) * 0.7854; bl += texture2D(tDiffuse, vUv + vec2(cos(ang), sin(ang)) * 6.0 * dotScale * px).rgb; }
+        bl /= 8.0; col += bl * smoothstep(0.9, 1.6, lum(bl)) * 0.25;
+        // grade: a touch more saturation, gentle contrast, warm lights and cool shadows
+        float L = lum(col);
+        col = mix(vec3(L), col, 1.12);
+        col = mix(col, col * col * (3.0 - 2.0 * col), 0.45);
+        col += vec3(0.03, 0.01, -0.04) * smoothstep(0.35, 1.2, L) + vec3(-0.02, -0.01, 0.03) * (1.0 - smoothstep(0.0, 0.4, L));
+        col += (hash(gl_FragCoord.xy + fract(time) * 100.0) - 0.5) * 0.018;
+        col *= 1.0 - 0.3 * pow(length(vUv - 0.5), 2.4);
+        }
         gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
       }`,
     depthTest: false, depthWrite: false,
   });
@@ -406,7 +435,7 @@ const post = (() => {
   return {
     resize() { const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr); rt.dispose(); rt = makeRT(w, h); mat.uniforms.tDiffuse.value = rt.texture; mat.uniforms.tDepth.value = rt.depthTexture; mat.uniforms.resolution.value.set(w, h); mat.uniforms.dotScale.value = pr; },
     setSamples(n) { samples = n; this.resize(); },
-    render(t, glitch) { mat.uniforms.time.value = t; mat.uniforms.glitch.value = glitch; renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(pscene, pcam); },
+    render(t, glitch) { mat.uniforms.time.value = t; mat.uniforms.glitch.value = glitch; mat.uniforms.mode.value = LOOK.comic ? 0 : 1; renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(pscene, pcam); },
   };
 })();
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); post.resize(); });
@@ -522,6 +551,37 @@ const sidewalkTex = canvasTex(256, 256, (g, w, h) => {
 const grassTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#5a7a3a'; g.fillRect(0, 0, w, h); for (let i = 0; i < 9000; i++) { const v = Math.random(); g.fillStyle = `rgb(${70 + v * 50},${110 + v * 50},${40 + v * 30})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 3); } });
 const dashTex = canvasTex(64, 8, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#e2c93a'; g.fillRect(0, 2, 36, 4); });
 const stripeTex = canvasTex(128, 48, (g, w, h) => { g.clearRect(0, 0, w, h); g.fillStyle = '#e8e8e8'; for (let x = 4; x < w; x += 20) g.fillRect(x, 0, 12, h); });
+
+// ---------- Looks: realistic (default) and Spider-Verse comic ----------
+// Each look is a lighting preset: fog and sky, hemisphere and sun colour, sun height, exposure, cloud density, tree shading.
+// Realistic is late-afternoon light: a lower, warmer sun with long soft shadows, a hazy warm horizon under a deep blue
+// zenith, cool fill from the sky, plus the realistic post pass (ambient occlusion, glow, filmic grade) in `post`.
+const LOOKS = {
+  comic: { fog: [0xd4e6f7, 180, 820], hemi: [0xbfd9ff, 0x7a7466, 0.55], sun: [0xfff1d6, 2.6, [0.45, 0.8, 0.3]], fill: 0.35, exposure: 1.05, sky: ['#2d6ad0', '#6ea6ea', '#cfe2f5', '#e6ecf0'], cloud: 0.92, flat: true },
+  real: { fog: [0xd2d6d8, 130, 950], hemi: [0xb4c4dc, 0x5b564f, 0.42], sun: [0xffd6a6, 3.4, [0.55, 0.52, 0.38]], fill: 0.2, exposure: 0.95, sky: ['#245399', '#6d97d2', '#bfc8d2', '#e6dccb'], cloud: 0.85, flat: false },
+};
+const SKY = { mesh: null, sun: null, glow: null, cloudMat: null, tex: {}, canopy: null };
+const skyTexFor = stops => canvasTex(4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); [0, 0.45, 0.8, 1].forEach((p, i) => gr.addColorStop(p, stops[i])); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+const FOOT = []; // ground-floor footprints, for the contact shadows
+const haloTex = (() => { // alpha: 1 inside the footprint, fading out over the outer quarter
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), img = g.createImageData(128, 128);
+  for (let y = 0; y < 128; y++) for (let x = 0; x < 128; x++) { const dx = Math.max(0, Math.abs(x - 63.5) - 40), dy = Math.max(0, Math.abs(y - 63.5) - 40); const d = Math.hypot(dx, dy) / 24; const a = 1 - Math.min(1, d); const i = (y * 128 + x) * 4; img.data[i] = img.data[i + 1] = img.data[i + 2] = 0; img.data[i + 3] = Math.round(a * a * 255); }
+  g.putImageData(img, 0, 0); const t = new THREE.CanvasTexture(c); return t;
+})();
+function applyLook() {
+  const L = LOOKS[LOOK.comic ? 'comic' : 'real'];
+  scene.background.setHex(L.fog[0]); scene.fog.color.setHex(L.fog[0]); scene.fog.near = L.fog[1]; scene.fog.far = L.fog[2];
+  hemi.color.setHex(L.hemi[0]); hemi.groundColor.setHex(L.hemi[1]); hemi.intensity = L.hemi[2];
+  sun.color.setHex(L.sun[0]); sun.intensity = L.sun[1]; SUN_DIR.set(L.sun[2][0], L.sun[2][1], L.sun[2][2]).normalize(); fill.intensity = L.fill;
+  renderer.toneMappingExposure = L.exposure;
+  if (SKY.mesh) {
+    const key = LOOK.comic ? 'comic' : 'real'; SKY.tex[key] = SKY.tex[key] || skyTexFor(L.sky);
+    SKY.mesh.material.map = SKY.tex[key]; SKY.mesh.material.needsUpdate = true;
+    SKY.sun.position.copy(SUN_DIR).multiplyScalar(1900); SKY.glow.position.copy(SKY.sun.position); SKY.cloudMat.opacity = L.cloud;
+  }
+  if (SKY.canopy && SKY.canopy.material.flatShading !== L.flat) { SKY.canopy.material.flatShading = L.flat; SKY.canopy.material.needsUpdate = true; }
+  document.body.classList.toggle('comic', LOOK.comic);
+}
 
 // ---------- City ----------
 const buildings = []; // { x, z, w, d, h, mesh, roofOk }  (x,z = centre)
@@ -644,6 +704,16 @@ function genCity() {
   for (const sx of streetPos) for (const sz of streetPos) for (const [dx, dz, rot] of [[0, STREET / 2 + 2.5, 0], [0, -STREET / 2 - 2.5, 0], [STREET / 2 + 2.5, 0, Math.PI / 2], [-STREET / 2 - 2.5, 0, Math.PI / 2]])
     cw.setMatrixAt(ci++, M.compose(V3(sx + dx, 0.04, sz + dz), Q.setFromAxisAngle(V3(0, 1, 0), rot), SV));
   cw.renderOrder = 1; scene.add(cw);
+  // solid white edge lines along every street, a lane's width in from the kerb
+  const edgeGeo = new THREE.PlaneGeometry(n * (BLOCK + STREET) + STREET, 0.16); edgeGeo.rotateX(-Math.PI / 2);
+  const edges = new THREE.InstancedMesh(edgeGeo, new THREE.MeshBasicMaterial({ color: 0xe8e6e0, transparent: true, opacity: 0.55, depthWrite: false }), (n + 1) * 4); let ei = 0;
+  for (const s of streetPos) for (const o of [-6.9, 6.9]) { edges.setMatrixAt(ei++, M.compose(V3(0, 0.03, s + o), Q.identity(), SV)); edges.setMatrixAt(ei++, M.compose(V3(s + o, 0.03, 0), Q.setFromAxisAngle(V3(0, 1, 0), Math.PI / 2), SV)); }
+  edges.renderOrder = 1; scene.add(edges);
+  // contact shadow under every building: a soft dark halo on the pavement around the footprint, so the blocks sit on the ground instead of floating on it
+  const haloGeo = new THREE.PlaneGeometry(1, 1); haloGeo.rotateX(-Math.PI / 2);
+  const halo = new THREE.InstancedMesh(haloGeo, new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false, color: 0x000000, opacity: 0.65 }), FOOT.length); let hi = 0;
+  for (const f of FOOT) halo.setMatrixAt(hi++, M.compose(V3(f.x, 0.34, f.z), Q.identity(), V3(f.w + 9, 1, f.d + 9)));
+  halo.renderOrder = 2; scene.add(halo);
   // trees (instanced trunk + canopy)
   const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 2.6, 7), woodMat, trees.length);
   const canopyGeo = new THREE.IcosahedronGeometry(1.9, 2); canopyGeo.scale(1, 1.15, 1);
@@ -653,7 +723,7 @@ function genCity() {
     canopy.setMatrixAt(i, M.compose(V3(t.x, 2.6 * t.s + 1.4 * t.s + 0.3, t.z), Q.setFromAxisAngle(V3(0, 1, 0), t.a), V3(t.s, t.s, t.s)));
     canopy.setColorAt(i, new THREE.Color().setHSL(0.25 + r() * 0.08, 0.45, 0.3 + r() * 0.12));
   });
-  shadowed(trunk); shadowed(canopy); scene.add(trunk, canopy);
+  shadowed(trunk); shadowed(canopy); scene.add(trunk, canopy); SKY.canopy = canopy;
   // street lamps
   const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 7, 6), darkMetalMat, lamps.length);
   const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2, 0.14, 0.14), darkMetalMat, lamps.length);
@@ -681,20 +751,21 @@ function genCity() {
   buildStreetLife(streetPos, r);
   buildGrid(); G.mergedDraws = mergeStatics();
   // sky dome: pale horizon to deep blue zenith
-  const skyTex = canvasTex(4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#2d6ad0'); gr.addColorStop(0.45, '#6ea6ea'); gr.addColorStop(0.8, '#cfe2f5'); gr.addColorStop(1, '#e6ecf0'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+  const skyTex = skyTexFor(LOOKS.comic.sky); SKY.tex.comic = skyTex;
   const sky = new THREE.Mesh(new THREE.SphereGeometry(2000, 24, 16, 0, TAU, 0, Math.PI * 0.55), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide, fog: false, depthWrite: false }));
-  sky.renderOrder = -10; scene.add(sky);
+  sky.renderOrder = -10; scene.add(sky); SKY.mesh = sky;
   const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(40, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfff6d8, fog: false }));
-  sunMesh.position.set(900, 1500, 600); scene.add(sunMesh);
+  sunMesh.position.copy(SUN_DIR).multiplyScalar(1900); scene.add(sunMesh); SKY.sun = sunMesh;
   const glowTex = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,245,210,0.9)'); gr.addColorStop(0.4, 'rgba(255,235,180,0.35)'); gr.addColorStop(1, 'rgba(255,235,180,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
-  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false })); sunGlow.scale.set(420, 420, 1); sunGlow.position.copy(sunMesh.position); scene.add(sunGlow);
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, fog: false })); sunGlow.scale.set(420, 420, 1); sunGlow.position.copy(sunMesh.position); scene.add(sunGlow); SKY.glow = sunGlow;
   const cloudTex = canvasTex(128, 64, (g, w, h) => { for (let i = 0; i < 9; i++) { const x = 20 + r() * 88, y = 24 + r() * 24, rad = 12 + r() * 14; const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); } });
-  const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.92 });
+  const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.92 }); SKY.cloudMat = cloudMat;
   for (let i = 0; i < 34; i++) { const c = new THREE.Sprite(cloudMat); const sc = 140 + r() * 220; c.scale.set(sc, sc * 0.45, 1); c.position.set((r() - 0.5) * 2600, 260 + r() * 160, (r() - 0.5) * 2600); c.userData.drift = 1.5 + r() * 2; scene.add(c); clouds.push(c); }
   // image-based lighting from the sky so glass and the suit pick up reflections
   const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene();
   envScene.add(sky.clone()); const envGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshBasicMaterial({ color: 0x6b6a66 })); envGround.rotation.x = -Math.PI / 2; envGround.position.y = -2; envScene.add(envGround);
   scene.environment = pmrem.fromScene(envScene, 0.04, 1, 5000).texture; pmrem.dispose();
+  applyLook();
 }
 const carBodyGeo = new THREE.BoxGeometry(4.3, 1.1, 1.9), carCabGeo = new THREE.BoxGeometry(2.3, 0.75, 1.7), wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 10);
 wheelGeo.rotateX(Math.PI / 2);
@@ -829,6 +900,7 @@ function addBuilding(x, z, w, d, h, r) {
     const mesh = tierMesh(x, y0, z, cw, th, cd, style, tint);
     const b = { x, z, w: cw, d: cd, h: y0 + th, mesh, roofOk: t === tiers - 1 || false };
     buildings.push(b);
+    if (t === 0) FOOT.push({ x, z, w: cw, d: cd });
     if (t === 0 && !setback) {
       // ground-floor storefronts wrap the base of street-level buildings
       const sf = STOREFRONTS[Math.floor(r() * STOREFRONTS.length)];
@@ -929,7 +1001,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyN' && G.state === 'play') toggleSuit(1);
   if (e.code === 'KeyB' && G.state === 'play') toggleSuit(-1);
   if (e.code === 'KeyM') toggleMusic();
-  if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
+  if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; applyLook(); G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -3065,7 +3137,7 @@ function gwenOrder(text) {
   else if (kind === 'come') { SK.order = { kind: 'follow', t: 30 }; if (SK.pos.distanceTo(P.pos) > 14) sidekickDrop(); r.line = 'On my way.'; say('Coming!'); }
   else if (kind === 'music') { const off = /stop|kill|mute|cut|pause|shut|\boff\b|\bdown\b/i.test(t); if (MUSIC.on === !off) r.line = off ? 'It\'s already off.' : 'It\'s already playing. Listen harder.'; else { toggleMusic(); r.line = off ? 'Cutting the beat.' : 'Dropping the beat.'; } }
   else if (kind === 'suit') { const w = SUIT_WORDS.find(([k]) => t.toLowerCase().includes(k)); if (!w) { r.ok = false; r.line = 'Which suit? Noir, punk, 2099, symbiote, classic or the hoodie.'; } else if (w[1] === SUIT) r.line = 'You\'re already wearing it, Miles.'; else { setSuit(w[1]); try { localStorage.setItem('mm3d_suit', w[1]); } catch (e) { } r.line = `${SUIT_DEFS[w[1]].name.split(' · ').pop().toLowerCase().replace(/^\w/, c => c.toUpperCase())}. Nice choice.`; } }
-  else if (kind === 'comic') { const real = /real/i.test(t); if (LOOK.comic === !real) r.line = real ? 'Already looks real to me.' : 'It\'s already a comic, Miles.'; else { LOOK.comic = !LOOK.comic; r.line = LOOK.comic ? 'Comic look on. Looks right, doesn\'t it?' : 'Realistic look on. Moody.'; } }
+  else if (kind === 'comic') { const real = /real/i.test(t); if (LOOK.comic === !real) r.line = real ? 'Already looks real to me.' : 'It\'s already a comic, Miles.'; else { LOOK.comic = !LOOK.comic; applyLook(); r.line = LOOK.comic ? 'Comic look on. Looks right, doesn\'t it?' : 'Realistic look on. Moody.'; } }
   ORD.order = r; return r;
 }
 
@@ -3715,12 +3787,12 @@ function frame(now) {
   for (const k in pressed) pressed[k] = false;
   // shadows refresh every other frame: half the shadow cost, no visible lag at the speeds the sun moves
   if (renderer.shadowMap.enabled) { PERF.frame++; renderer.shadowMap.needsUpdate = PERF.frame % 2 === 0; }
-  if (LOOK.comic && PERF.post) post.render(now / 1000, Math.min(1, G.shake + G.flash)); else renderer.render(scene, camera);
+  if (PERF.post) post.render(now / 1000, Math.min(1, G.shake + G.flash)); else renderer.render(scene, camera);
   autoQuality(now);
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { renderer, scene, PERF, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { renderer, scene, PERF, LOOK, applyLook, post, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
