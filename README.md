@@ -336,6 +336,20 @@ the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air t
 Tapping PLAY goes fullscreen where the browser allows it (iPhone Safari does not; add the
 page to your home screen there instead).
 
+### Miles' home (3D only)
+
+The Morales brownstone stands on its own lot a couple of blocks from where you start: four
+floors of brown stone with a stoop up to the blue door (number 1610), a bay window, a
+cornice, a fire escape down the side, Miles' lit bedroom window with posters on the top
+floor, a roof hatch and water tank, a HOME sign over the roof, and Jeff's NYPD patrol
+car parked at the kerb.
+
+Stand on the roof hatch (the blue ring) for three seconds to **rest**: full health,
+poison cured, 30 venom back, and a line from Rio or Jeff through the window. Resting
+has a 45 second cooldown, and the hatch is a safe spot: crimes never land on this roof.
+A blue HUD arrow points home when Miles is hurt and no crime is running, or when you
+tell Gwen "take me home".
+
 ### Medkits (3D only)
 
 Miles can heal mid-patrol now. Medkits are red first-aid boxes with a glowing teal beam:
