@@ -51,6 +51,24 @@ button.go:hover{filter:brightness(1.08)}
 #tHold{right:44px;bottom:150px;font-size:12px;font-weight:700;letter-spacing:1px}
 @media (pointer:coarse){#touch{display:block}#help{display:none}}
 #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none}
+#credits{font-size:14px;color:#ffe066;font-variant-numeric:tabular-nums;margin-top:2px}
+#hangarBtn{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);display:none;font:inherit;font-size:15px;font-weight:700;letter-spacing:2px;padding:10px 26px;border:1px solid #ffe06688;border-radius:999px;color:#ffe066;background:#0b0f2acc;backdrop-filter:blur(6px);cursor:pointer;box-shadow:0 6px 24px #0008}
+#hangarBtn:hover{background:#ffe06622}
+#shop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#070a1a99;z-index:4;overflow:auto}
+#shop .card{max-width:640px;width:calc(100% - 32px);text-align:left;padding:22px 26px}
+#shop h2{margin:0;font-size:26px;letter-spacing:3px;color:#ffe066}
+#shop .sub{opacity:.75;font-size:13px;margin:2px 0 14px}
+.up{display:grid;grid-template-columns:34px 1fr auto;gap:4px 12px;align-items:center;padding:9px 10px;border-radius:10px;border:1px solid #ffffff14;margin-bottom:6px;background:#ffffff08}
+.up .ico{font-size:22px;text-align:center;grid-column:1;grid-row:1/3}
+.up .nm{font-weight:700}
+.up>div:nth-child(2){grid-column:2;grid-row:1;text-align:left}
+.up .ds{font-size:12px;opacity:.7;grid-column:2}
+.up .pips{font-size:12px;letter-spacing:2px;color:#7dffb0;margin-left:8px}
+.up button{grid-column:3;grid-row:1/3;font:inherit;font-size:13px;font-weight:700;padding:8px 14px;border:0;border-radius:999px;color:#1a0b00;background:linear-gradient(90deg,#ffb347,#ffe066);cursor:pointer;min-width:92px}
+.up button:disabled{opacity:.35;cursor:default}
+.up button.max{background:#7dffb033;color:#7dffb0}
+#shop .foot{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:13px;opacity:.8;gap:12px}
+#shop .close{font:inherit;font-size:13px;padding:8px 18px;border:1px solid #ffffff44;border-radius:999px;background:transparent;color:#fff;cursor:pointer;white-space:nowrap}
 #vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,#000a 100%)}
 </style>
 </head>
@@ -65,9 +83,9 @@ button.go:hover{filter:brightness(1.08)}
   <div id="tags"><span class="tag" id="tagAssist">assist</span><span class="tag" id="tagHold">hover hold</span><span class="tag" id="tagWind" style="display:none">wind</span></div>
 </div>
 <div id="target"><div id="arrow"><svg viewBox="0 0 26 26" width="26" height="26"><path d="M13 2 L22 22 L13 17 L4 22 Z" fill="#7dffb0" stroke="#043" stroke-width="1"/></svg></div><span id="dist">—</span></div>
-<div id="score"><div class="big" id="scoreVal">0</div><div class="sub" id="level">Pad 1 / 8</div><div class="sub" id="timer">0:00</div><div id="lives">🚀🚀🚀</div></div>
+<div id="score"><div class="big" id="scoreVal">0</div><div class="sub" id="level">Pad 1 / 8</div><div class="sub" id="timer">0:00</div><div id="lives">🚀🚀🚀</div><div id="credits">0 credits</div></div>
 <div id="msg"><h1 id="msgH"></h1><p id="msgP"></p></div>
-<div id="help">W/S tilt · A/D turn · Q/E side-tilt · Space thrust · H hover hold · F assist · C camera · M mute · P pause · R restart</div>
+<div id="help">W/S tilt · A/D turn · Q/E side-tilt · Space thrust · H hover hold · F assist · U hangar · C camera · M mute · P pause · R restart</div>
 <div id="touch">
   <div class="tb" id="tUp" data-key="w">▲</div><div class="tb" id="tDown" data-key="s">▼</div>
   <div class="tb" id="tLeft" data-key="q">◀</div><div class="tb" id="tRight" data-key="e">▶</div>
@@ -75,11 +93,13 @@ button.go:hover{filter:brightness(1.08)}
   <div class="tb" id="tHold" data-key="h" data-tap="1">HOLD</div>
   <div class="tb" id="tThrust" data-key=" ">THRUST</div>
 </div>
+<button id="hangarBtn">HANGAR · UPGRADES (U)</button>
+<div id="shop"><div class="card"><h2>HANGAR</h2><div class="sub">Spend the credits you earn on the way. Press the number key or tap BUY. <span id="shopCredits"></span></div><div id="shopList"></div><div class="foot"><span>Upgrades last for this mission. Lift off whenever you are ready.</span><button class="close" id="shopClose">CLOSE (U)</button></div></div></div>
 <div id="flash"></div>
 <div id="title">
   <div class="card">
     <h1>ROCKET RUN</h1>
-    <p class="lead">Pilot a rocket across an alien canyon world. Hop from launch pad to launch pad, fly through the golden rings, grab fuel cells, and set it down gently on the green beacon. Eight pads, three rockets.</p>
+    <p class="lead">Pilot a rocket across an alien canyon world. Hop from launch pad to launch pad, fly through the golden rings, grab fuel cells, and set it down gently on the green beacon. Eight pads, three rockets. Every point you score is also a credit to spend in the hangar on a stronger engine, a bigger tank, better landing gear and more.</p>
     <div class="keys">
       <span><kbd>W</kbd><kbd>S</kbd> / <kbd>↑</kbd><kbd>↓</kbd></span><span>Tilt forward / back</span>
       <span><kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd></span><span>Turn left / right</span>
@@ -87,6 +107,7 @@ button.go:hover{filter:brightness(1.08)}
       <span><kbd>Space</kbd> / <kbd>Shift</kbd></span><span>Main engine</span>
       <span><kbd>H</kbd></span><span>Hover hold (auto-throttle, burns fuel)</span>
       <span><kbd>F</kbd></span><span>Flight assist on / off (auto-level)</span>
+      <span><kbd>U</kbd></span><span>Hangar: buy upgrades while on a pad</span>
       <span><kbd>C</kbd> <kbd>M</kbd> <kbd>P</kbd> <kbd>R</kbd></span><span>Camera · Mute · Pause · Restart</span>
     </div>
     <p class="lead" style="margin-bottom:16px">Safe landing: descend under <b>7 m/s</b>, drift under <b>5 m/s</b>, tilt under <b>15°</b>, inside the pad. Hard landings blow up the rocket.</p>
@@ -120,12 +141,18 @@ const TERRAIN_SIZE = 2000;
 const LAVA_Y = -4;            // the acid sea level
 const CEILING = 330;          // atmosphere limit
 const GRAVITY = 9.0;
-const THRUST_MAX = 23;        // m/s² at full throttle
-const BURN = 6.8;             // fuel units per second at full throttle
-const MAX_TILT = 42 * DEG;    // fly-by-wire tilt limit (assist on)
-const TILT_RATE = 2.4;        // rad/s tilt change
-const YAW_RATE = 1.7;         // rad/s turn speed
-const SAFE_VS = 7, SAFE_HS = 5, SAFE_TILT = 15 * DEG;
+// base rocket; the effective values live in P and grow with upgrades (see applyUpgrades)
+const BASE = { thrust: 23, burn: 6.8, cap: 100, maxTilt: 42, tiltRate: 2.4, yawRate: 1.7, safeVs: 7, safeHs: 5, safeTilt: 15 };
+const P = { thrust: 23, burn: 6.8, cap: 100, maxTilt: 42 * DEG, tiltRate: 2.4, yawRate: 1.7, safeVs: 7, safeHs: 5, safeTilt: 15 * DEG };
+const UPGRADES = [
+  { id: 'engine', name: 'Engine', icon: '🔥', desc: '+12% thrust per level: climbs faster, carries more speed', max: 3, cost: [350, 600, 900] },
+  { id: 'tank', name: 'Fuel tank', icon: '🛢️', desc: '+30 fuel capacity per level, with side boosters to show for it', max: 3, cost: [300, 550, 850] },
+  { id: 'eff', name: 'Efficiency', icon: '⚙️', desc: 'burns 12% less fuel per level: the flame runs blue', max: 3, cost: [400, 650, 950] },
+  { id: 'gyro', name: 'Gyro', icon: '🧭', desc: '25% faster tilt and turn, +4° max tilt per level', max: 3, cost: [250, 450, 700] },
+  { id: 'gear', name: 'Landing gear', icon: '🦿', desc: 'safe landing +1.5 m/s descent, +1 m/s drift, +3° tilt per level', max: 3, cost: [450, 750, 1100] },
+  { id: 'spare', name: 'Spare rocket', icon: '🚀', desc: 'one more rocket in the hangar (up to 5)', max: 2, cost: [800, 1200] },
+];
+const L = { engine: 0, tank: 0, eff: 0, gyro: 0, gear: 0, spare: 0 };
 const BOTTOM = 2.45;          // engine bell below rocket origin
 const NUM_PADS = 9;           // start pad + 8 targets
 
@@ -384,6 +411,7 @@ function spawnLeg(from, to) {
 // ----------------------------------------------------------------------------
 const rocket = new THREE.Group();
 let flame, flameCore, flameLight;
+const PARTS = { bell: null, boosters: [], legs: [] };
 {
   const white = new THREE.MeshStandardMaterial({ color: 0xf2f2f6, roughness: 0.4, metalness: 0.2 });
   const red = new THREE.MeshStandardMaterial({ color: 0xe63946, roughness: 0.45, metalness: 0.15 });
@@ -405,6 +433,21 @@ let flame, flameCore, flameLight;
   flameCore = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.7, 14, 1, true), new THREE.MeshBasicMaterial({ color: 0xcdeaff, transparent: true, opacity: 0.95, depthWrite: false, blending: THREE.AdditiveBlending }));
   flameCore.geometry.translate(0, -0.85, 0); flameCore.rotation.x = Math.PI; flameCore.position.y = -2.4; rocket.add(flameCore);
   flameLight = new THREE.PointLight(0xffa040, 0, 45, 2); flameLight.position.y = -3.4; rocket.add(flameLight);
+  // upgrade parts, hidden until bought
+  PARTS.bell = bell;
+  for (let i = 0; i < 4; i++) {
+    const b = new THREE.Group(); const a = i * Math.PI / 2;
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 2.6, 16), white); tube.castShadow = true;
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.6, 16), red); cap.position.y = 1.6;
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.35, 12), dark); foot.position.y = -1.45;
+    b.add(tube, cap, foot); b.position.set(Math.cos(a) * 1.42, -0.5, Math.sin(a) * 1.42); b.visible = false; rocket.add(b); PARTS.boosters.push(b);
+  }
+  for (let i = 0; i < 4; i++) {
+    const g = new THREE.Group(); const a = i * Math.PI / 2 + Math.PI / 4;
+    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.2, 8), dark); strut.position.set(0.3, -1.1, 0); strut.rotation.z = 0.55; strut.castShadow = true;
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 0.14, 12), dark); foot.position.set(0.62, -2.13, 0);
+    g.add(strut, foot); g.position.set(Math.cos(a) * 0.9, -0.25, Math.sin(a) * 0.9); g.rotation.y = -a; g.visible = false; rocket.add(g); PARTS.legs.push(g);
+  }
   scene.add(rocket);
 }
 
@@ -515,6 +558,47 @@ const Snd = {
 };
 
 // ----------------------------------------------------------------------------
+//  Upgrades & the hangar
+// ----------------------------------------------------------------------------
+const FLAME_HOT = new THREE.Color(0xffa21f), FLAME_BLUE = new THREE.Color(0x6fb8ff);
+function applyUpgrades() {
+  P.thrust = BASE.thrust * (1 + 0.12 * L.engine);
+  P.cap = BASE.cap + 30 * L.tank;
+  P.burn = BASE.burn * (1 - 0.12 * L.eff);
+  P.maxTilt = (BASE.maxTilt + 4 * L.gyro) * DEG; P.tiltRate = BASE.tiltRate * (1 + 0.25 * L.gyro); P.yawRate = BASE.yawRate * (1 + 0.25 * L.gyro);
+  P.safeVs = BASE.safeVs + 1.5 * L.gear; P.safeHs = BASE.safeHs + L.gear; P.safeTilt = (BASE.safeTilt + 3 * L.gear) * DEG;
+  // looks
+  const bs = 1 + 0.16 * L.engine; PARTS.bell.scale.set(bs, 1 + 0.1 * L.engine, bs);
+  PARTS.boosters.forEach((b, i) => { b.visible = L.tank >= (i < 2 ? 1 : 2); const sc = L.tank >= 3 ? 1.25 : 1; b.scale.set(sc, 1, sc); });
+  PARTS.legs.forEach(g => { g.visible = L.gear >= 1; const sc = 1 + 0.18 * Math.max(0, L.gear - 1); g.scale.set(sc, 1, sc); });
+  flame.material.color.copy(FLAME_HOT).lerp(FLAME_BLUE, L.eff / 3); flameLight.color.copy(flame.material.color);
+}
+function addScore(n) { G.score += n; G.credits += n; }
+const shopEl = $('shop'), shopList = $('shopList');
+function renderShop() {
+  $('shopCredits').textContent = `You have ${G.credits} credits.`;
+  shopList.innerHTML = UPGRADES.map((u, i) => {
+    const lvl = L[u.id], maxed = lvl >= u.max || (u.id === 'spare' && G.lives >= 5), cost = maxed ? 0 : u.cost[lvl], can = !maxed && G.credits >= cost;
+    const pips = '●'.repeat(lvl) + '○'.repeat(u.max - lvl);
+    return `<div class="up"><div class="ico">${u.icon}</div><div><span class="nm">${i + 1}. ${u.name}</span><span class="pips">${pips}</span></div><button data-i="${i}" ${can ? '' : 'disabled'} class="${maxed ? 'max' : ''}">${maxed ? 'MAX' : 'BUY ' + cost}</button><div class="ds">${u.desc}</div></div>`;
+  }).join('');
+}
+function buyUpgrade(i) {
+  const u = UPGRADES[i]; if (!u) return; const lvl = L[u.id];
+  if (lvl >= u.max || (u.id === 'spare' && G.lives >= 5)) { Snd.warn(); return; }
+  const cost = u.cost[lvl]; if (G.credits < cost) { Snd.warn(); showMsg('Not enough credits', `${u.name} costs ${cost}`, 1.2); return; }
+  G.credits -= cost; L[u.id]++; if (u.id === 'spare') { G.lives = Math.min(5, G.lives + 1); updateLives(); }
+  applyUpgrades(); if (u.id === 'tank') R.fuel = P.cap;
+  Snd.tone(523, 0.12, 'triangle', 0.18); Snd.tone(784, 0.25, 'triangle', 0.18, null, 0.1);
+  renderShop(); showMsg(`${u.icon} ${u.name} ${'I'.repeat(L[u.id])}`, u.desc, 1.6);
+}
+function openShop() { if (G.state !== 'landed' || G.shop) return; G.shop = true; for (const k in keys) keys[k] = false; renderShop(); shopEl.style.display = 'flex'; $('hangarBtn').style.display = 'none'; }
+function closeShop() { G.shop = false; shopEl.style.display = 'none'; }
+shopList.addEventListener('click', e => { const b = e.target.closest('button'); if (b) buyUpgrade(parseInt(b.dataset.i, 10)); });
+$('shopClose').addEventListener('click', closeShop);
+$('hangarBtn').addEventListener('click', openShop);
+
+// ----------------------------------------------------------------------------
 //  Input
 // ----------------------------------------------------------------------------
 const keys = {};
@@ -523,7 +607,7 @@ addEventListener('keydown', e => {
   const k = e.key.toLowerCase(); const m = KEYMAP[k] || k;
   if (['w', 's', 'a', 'd', 'q', 'e', ' '].includes(m)) e.preventDefault();
   if (!keys[m]) onKeyPress(m);
-  keys[m] = true;
+  if (!G.shop) keys[m] = true;
 });
 addEventListener('keyup', e => { const k = e.key.toLowerCase(); keys[KEYMAP[k] || k] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -543,7 +627,7 @@ addEventListener('pointerup', () => { dragging = false; });
 //  Game state
 // ----------------------------------------------------------------------------
 const R = { pos: V3(), vel: V3(), yaw: 0, pitch: 0, roll: 0, yawV: 0, thrust: 0, fuel: 100, landed: true, prevBottom: 0, tilt: 0, thrustDir: V3(0, 1, 0) };
-const G = { state: 'title', target: 1, score: 0, lives: 3, time: 0, legTime: 0, legRings: 0, hold: false, assist: true, camFar: false, paused: false, count: 0, timer: 0, shake: 0, wind: V3(), best: 0, flashT: 0 };
+const G = { state: 'title', target: 1, score: 0, credits: 0, shop: false, lives: 3, time: 0, legTime: 0, legRings: 0, hold: false, assist: true, camFar: false, paused: false, count: 0, timer: 0, shake: 0, wind: V3(), best: 0, flashT: 0 };
 try { G.best = parseInt(localStorage.getItem('rocketrun.best') || '0', 10) || 0; } catch (e) { }
 $('best').textContent = G.best ? `Best score: ${G.best}` : '';
 
@@ -568,15 +652,18 @@ function setTarget(i) {
   $('level').textContent = `Pad ${i} / ${NUM_PADS - 1}`;
 }
 function newGame() {
-  G.score = 0; G.lives = 3; G.time = 0; G.hold = false; G.state = 'count'; G.count = 3.9; R.fuel = 100;
+  G.score = 0; G.credits = 0; G.lives = 3; G.time = 0; G.hold = false; G.state = 'count'; G.count = 3.9; closeShop();
+  for (const k in L) L[k] = 0; applyUpgrades(); R.fuel = P.cap;
   debris.p.forEach(p => p.age = 9); fireball.visible = false; fireLight.intensity = 0;
   setTarget(1); placeOnPad(pads[0]); rocket.visible = true; hideMsg(); updateLives();
 }
-function updateLives() { $('lives').textContent = '🚀'.repeat(G.lives) + '·'.repeat(Math.max(0, 3 - G.lives)); }
+function updateLives() { $('lives').textContent = '🚀'.repeat(G.lives) + '·'.repeat(Math.max(0, 3 + L.spare - G.lives)); }
 function onKeyPress(k) {
   if (G.state === 'title') { if (k === 'enter' || k === ' ') start(); return; }
   if (k === 'm') { Snd.setMuted(!Snd.muted); showMsg(Snd.muted ? 'Muted' : 'Sound on', '', 0.8); return; }
   if (k === 'p') { if (G.state === 'fly' || G.state === 'landed' || G.state === 'paused') { G.paused = !G.paused; G.paused ? showMsg('Paused', 'press P to continue', 1e9) : hideMsg(); } return; }
+  if (G.shop) { if (k === 'u' || k === 'escape') closeShop(); else if (k >= '1' && k <= '6') buyUpgrade(parseInt(k, 10) - 1); return; }
+  if (k === 'u') { if (G.state === 'landed') openShop(); else if (G.state === 'fly') showMsg('Hangar closed', 'land on a pad to buy upgrades', 1.2); return; }
   if (k === 'c') { G.camFar = !G.camFar; return; }
   if (k === 'r') { if (G.state === 'crash' || G.state === 'over' || G.state === 'won') respawnOrRestart(); else if (G.state === 'fly' || G.state === 'landed') newGame(); return; }
   if (G.state !== 'fly' && G.state !== 'landed') return;
@@ -585,7 +672,7 @@ function onKeyPress(k) {
 }
 function respawnOrRestart() {
   if (G.state === 'over' || G.state === 'won') { newGame(); return; }
-  G.state = 'fly'; R.fuel = 100; placeOnPad(pads[G.target - 1]); R.landed = true; rocket.visible = true; hideMsg(); showMsg('Back on pad ' + (G.target - 1 === 0 ? 'H' : G.target - 1), 'hold SPACE to lift off', 2);
+  G.state = 'fly'; R.fuel = P.cap; placeOnPad(pads[G.target - 1]); R.landed = true; rocket.visible = true; hideMsg(); showMsg('Back on pad ' + (G.target - 1 === 0 ? 'H' : G.target - 1), 'hold SPACE to lift off', 2);
 }
 function start() {
   Snd.init(); Snd.resume(); $('title').style.display = 'none'; newGame();
@@ -611,21 +698,21 @@ function land(pad, vs, hs, dist) {
   R.landed = true; R.vel.set(0, 0, 0); R.pos.y = pad.y + 0.6 + BOTTOM; R.thrust = 0; G.hold = false;
   Snd.engine(0);
   if (pad.index === G.target) {
-    const soft = Math.round((1 - clamp(vs / SAFE_VS, 0, 1)) * 300), prec = Math.round((1 - clamp(dist / pad.radius, 0, 1)) * 300);
+    const soft = Math.round((1 - clamp(vs / P.safeVs, 0, 1)) * 300), prec = Math.round((1 - clamp(dist / pad.radius, 0, 1)) * 300);
     const tb = Math.max(0, Math.round((75 - G.legTime) * 4)), allRings = G.legRings === 3 ? 250 : 0;
-    const total = 500 + soft + prec + tb + allRings; G.score += total;
-    const fuelAdd = Math.min(100, R.fuel + 75) - R.fuel; R.fuel += fuelAdd;
+    const total = 500 + soft + prec + tb + allRings; addScore(total);
+    const fuelAdd = Math.min(P.cap, R.fuel + 75) - R.fuel; R.fuel += fuelAdd;
     Snd.land();
     if (G.target >= NUM_PADS - 1) {
       G.state = 'won'; try { if (G.score > G.best) { G.best = G.score; localStorage.setItem('rocketrun.best', String(G.best)); } } catch (e) { }
       Snd.win(); showMsg('MISSION COMPLETE', `All ${NUM_PADS - 1} pads in ${fmtTime(G.time)}\nFinal score ${G.score}  ·  best ${G.best}\npress R to fly again`, 1e9);
       pads.forEach(p => setPadState(p, 'done')); clearItems(); return;
     }
-    showMsg('TOUCHDOWN', `landing 500  ·  soft +${soft}  ·  centred +${prec}\ntime +${tb}${allRings ? '  ·  all rings +250' : ''}\n+${total}   ·   refuelled +${Math.round(fuelAdd)}`, 3.2);
+    showMsg('TOUCHDOWN', `landing 500  ·  soft +${soft}  ·  centred +${prec}\ntime +${tb}${allRings ? '  ·  all rings +250' : ''}\n+${total}   ·   refuelled +${Math.round(fuelAdd)}\npress U for the hangar`, 3.2);
     setTarget(G.target + 1);
     const nxt = pads[G.target]; R.yaw = Math.atan2(-(nxt.x - pad.x), -(nxt.z - pad.z));
   } else {
-    const fuelAdd = Math.min(100, R.fuel + 30) - R.fuel; R.fuel += fuelAdd; Snd.tone(523, 0.3, 'triangle', 0.15);
+    const fuelAdd = Math.min(P.cap, R.fuel + 30) - R.fuel; R.fuel += fuelAdd; Snd.tone(523, 0.3, 'triangle', 0.15);
     showMsg('Pit stop', `that's pad ${pad.index === 0 ? 'H' : pad.index}, the beacon is on pad ${G.target}\nrefuelled +${Math.round(fuelAdd)}`, 2.4);
   }
 }
@@ -641,7 +728,7 @@ function simulate(dt) {
   let throttle = keys[' '] ? 1 : 0;
   // hover hold: auto-throttle that kills vertical speed (altitude hold), pressing thrust still climbs
   if (G.hold && !R.landed && R.fuel > 0 && !throttle) {
-    const need = GRAVITY - R.vel.y * 1.6; throttle = clamp(need / (THRUST_MAX * Math.max(0.4, Math.cos(R.tilt))), 0, 1);
+    const need = GRAVITY - R.vel.y * 1.6; throttle = clamp(need / (P.thrust * Math.max(0.4, Math.cos(R.tilt))), 0, 1);
   }
   if (R.fuel <= 0) throttle = 0;
   R.thrust = approach(R.thrust, throttle, dt * (throttle > R.thrust ? 5 : 8));
@@ -651,21 +738,21 @@ function simulate(dt) {
   } else {
     // attitude
     if (G.assist) {
-      R.pitch = approach(R.pitch, -inF * MAX_TILT, TILT_RATE * dt);
-      R.roll = approach(R.roll, -inR * MAX_TILT, TILT_RATE * dt);
+      R.pitch = approach(R.pitch, -inF * P.maxTilt, P.tiltRate * dt);
+      R.roll = approach(R.roll, -inR * P.maxTilt, P.tiltRate * dt);
     } else {
       R.pitch = clamp(R.pitch - inF * 1.9 * dt, -85 * DEG, 85 * DEG);
       R.roll = clamp(R.roll - inR * 1.9 * dt, -85 * DEG, 85 * DEG);
     }
-    R.yawV = approach(R.yawV, -inY * YAW_RATE, 7 * dt); R.yaw += R.yawV * dt;
+    R.yawV = approach(R.yawV, -inY * P.yawRate, 7 * dt); R.yaw += R.yawV * dt;
   }
   tmpE.set(R.pitch, R.yaw, R.roll); R.thrustDir.copy(UP).applyEuler(tmpE); R.tilt = Math.acos(clamp(R.thrustDir.y, -1, 1));
-  if (R.thrust > 0.01) R.fuel = Math.max(0, R.fuel - R.thrust * BURN * dt);
+  if (R.thrust > 0.01) R.fuel = Math.max(0, R.fuel - R.thrust * P.burn * dt);
 
   if (!R.landed) {
     const prevBottom = R.pos.y - BOTTOM;
     // forces
-    tmpV.copy(R.thrustDir).multiplyScalar(R.thrust * THRUST_MAX); tmpV.y -= GRAVITY;
+    tmpV.copy(R.thrustDir).multiplyScalar(R.thrust * P.thrust); tmpV.y -= GRAVITY;
     const sp = R.vel.length(); tmpV.addScaledVector(R.vel, -(0.004 * sp + 0.06)); tmpV.add(G.wind);
     if (R.pos.y > CEILING) { tmpV.y -= (R.pos.y - CEILING) * 0.4; }
     R.vel.addScaledVector(tmpV, dt); R.pos.addScaledVector(R.vel, dt);
@@ -678,9 +765,9 @@ function simulate(dt) {
       if (d < pad.radius + 1.2 && bottom <= top && prevBottom > top - 1.5) {
         const vs = -R.vel.y, hs = Math.hypot(R.vel.x, R.vel.z);
         if (d > pad.radius - 0.8) { crash('Clipped the edge of the pad'); return; }
-        if (vs > SAFE_VS) { crash(`Came down too hard (${vs.toFixed(1)} m/s)`); return; }
-        if (hs > SAFE_HS) { crash(`Too much sideways drift (${hs.toFixed(1)} m/s)`); return; }
-        if (R.tilt > SAFE_TILT) { crash(`Landed tilted (${(R.tilt / DEG).toFixed(0)}°)`); return; }
+        if (vs > P.safeVs) { crash(`Came down too hard (${vs.toFixed(1)} m/s)`); return; }
+        if (hs > P.safeHs) { crash(`Too much sideways drift (${hs.toFixed(1)} m/s)`); return; }
+        if (R.tilt > P.safeTilt) { crash(`Landed tilted (${(R.tilt / DEG).toFixed(0)}°)`); return; }
         land(pad, vs, hs, d); return;
       }
       // hitting a pad from underneath / the pylon
@@ -697,8 +784,8 @@ function simulate(dt) {
     for (const it of items) {
       if (it.taken) continue;
       const dd = R.pos.distanceTo(it.mesh.position);
-      if (it.type === 'ring' && dd < 6.5) { it.taken = true; it.mesh.material = MAT.ringDone; G.legRings++; G.score += 100; Snd.ring(); showMsg('+100', G.legRings === 3 ? 'all rings!' : `ring ${G.legRings} / 3`, 0.9); }
-      else if (it.type === 'fuel' && dd < 4.5) { it.taken = true; R.fuel = Math.min(100, R.fuel + 35); G.score += 50; Snd.fuel(); showMsg('+35 fuel', '', 0.9); }
+      if (it.type === 'ring' && dd < 6.5) { it.taken = true; it.mesh.material = MAT.ringDone; G.legRings++; addScore(100); Snd.ring(); showMsg('+100', G.legRings === 3 ? 'all rings!' : `ring ${G.legRings} / 3`, 0.9); }
+      else if (it.type === 'fuel' && dd < 4.5) { it.taken = true; R.fuel = Math.min(P.cap, R.fuel + 35); addScore(50); Snd.fuel(); showMsg('+35 fuel', '', 0.9); }
     }
     // low fuel warning beeps
     if (R.fuel > 0 && R.fuel < 15 && G.time - hoverWarned > 1.5) { hoverWarned = G.time; Snd.warn(); }
@@ -758,18 +845,20 @@ function updateVisuals(dt, time) {
 }
 
 // HUD
-const hud = { fuel: $('fuel'), alt: $('alt'), vs: $('vs'), hs: $('hs'), tilt: $('tilt'), score: $('scoreVal'), timer: $('timer'), dist: $('dist'), arrow: $('arrow'), hold: $('tagHold'), assist: $('tagAssist') };
+const hud = { credits: $('credits'), fuel: $('fuel'), alt: $('alt'), vs: $('vs'), hs: $('hs'), tilt: $('tilt'), score: $('scoreVal'), timer: $('timer'), dist: $('dist'), arrow: $('arrow'), hold: $('tagHold'), assist: $('tagAssist') };
 let hudAcc = 0;
 function updateHUD(dt) {
   hudAcc += dt; if (hudAcc < 0.08) return; hudAcc = 0;
-  hud.fuel.style.width = R.fuel + '%'; hud.fuel.className = R.fuel < 20 ? 'low' : '';
+  hud.fuel.style.width = (R.fuel / P.cap * 100) + '%'; hud.fuel.className = R.fuel < 20 ? 'low' : '';
+  hud.credits.textContent = `${G.credits} credits`;
   const agl = Math.max(0, R.pos.y - BOTTOM - surfaceBelow(R.pos.x, R.pos.z, R.pos.y - BOTTOM + 0.01));
   hud.alt.textContent = agl.toFixed(agl < 20 ? 1 : 0) + ' m';
   const vs = -R.vel.y, hs = Math.hypot(R.vel.x, R.vel.z), tilt = R.tilt / DEG;
-  hud.vs.textContent = (vs > 0 ? '↓ ' : '↑ ') + Math.abs(vs).toFixed(1) + ' m/s'; hud.vs.className = 'val ' + (vs > SAFE_VS ? 'bad' : vs > SAFE_VS * 0.7 ? 'warn' : 'ok');
-  hud.hs.textContent = hs.toFixed(1) + ' m/s'; hud.hs.className = 'val ' + (hs > SAFE_HS ? 'bad' : hs > SAFE_HS * 0.7 ? 'warn' : 'ok');
-  hud.tilt.textContent = tilt.toFixed(0) + '°'; hud.tilt.className = 'val ' + (tilt > SAFE_TILT / DEG ? 'bad' : tilt > 10 ? 'warn' : 'ok');
+  hud.vs.textContent = (vs > 0 ? '↓ ' : '↑ ') + Math.abs(vs).toFixed(1) + ' m/s'; hud.vs.className = 'val ' + (vs > P.safeVs ? 'bad' : vs > P.safeVs * 0.7 ? 'warn' : 'ok');
+  hud.hs.textContent = hs.toFixed(1) + ' m/s'; hud.hs.className = 'val ' + (hs > P.safeHs ? 'bad' : hs > P.safeHs * 0.7 ? 'warn' : 'ok');
+  hud.tilt.textContent = tilt.toFixed(0) + '°'; hud.tilt.className = 'val ' + (tilt > P.safeTilt / DEG ? 'bad' : tilt > P.safeTilt / DEG * 0.66 ? 'warn' : 'ok');
   hud.score.textContent = G.score; hud.timer.textContent = fmtTime(G.time);
+  $('hangarBtn').style.display = G.state === 'landed' && !G.shop ? 'block' : 'none';
   hud.hold.className = 'tag' + (G.hold ? ' on' : ''); hud.assist.className = 'tag' + (G.assist ? ' on' : '');
   const tp = pads[G.target];
   if (tp && (G.state === 'fly' || G.state === 'landed' || G.state === 'count')) {
@@ -795,7 +884,7 @@ function frame(now) {
   if (G.state === 'count') {
     G.count -= Math.min(rawDt, 1); const n = Math.ceil(G.count);
     if (n !== G.lastCount) { G.lastCount = n; if (n > 0) { showMsg(String(n), 'get ready', 1); Snd.beep(false); } else { showMsg('GO!', 'hold SPACE to lift off · fly to the green beacon', 2.2); Snd.beep(true); G.state = 'fly'; G.time = 0; G.legTime = 0; } }
-  } else if ((G.state === 'fly' || G.state === 'landed') && !G.paused) {
+  } else if ((G.state === 'fly' || G.state === 'landed') && !G.paused && !G.shop) {
     // fixed-step physics for stability
     const steps = Math.max(1, Math.round(dt / (1 / 120))), h = dt / steps;
     for (let i = 0; i < steps && (G.state === 'fly' || G.state === 'landed'); i++) simulate(h);
@@ -811,7 +900,8 @@ function frame(now) {
 }
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 document.addEventListener('visibilitychange', () => { if (document.hidden && (G.state === 'fly' || G.state === 'landed') && !G.paused) { G.paused = true; showMsg('Paused', 'press P to continue', 1e9); } });
-window.__rr = { G, R, pads, keys, start, simulate };
+applyUpgrades();
+window.__rr = { G, R, pads, keys, start, simulate, L, P, buyUpgrade, openShop, closeShop };
 // initial attract state
 setPadState(pads[1], 'target'); rocket.position.set(0, pads[0].y + 0.6 + BOTTOM, 0); camPos.set(0, pads[0].y + 14, 40); camera.position.copy(camPos);
 requestAnimationFrame(frame);

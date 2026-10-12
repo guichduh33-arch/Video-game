@@ -164,6 +164,24 @@ last pad you reached with a full tank.
 The rocket's altitude readout is height above whatever is directly below: the ground,
 the sea or a pad top.
 
+### The hangar: upgrades
+
+Every point you score is also a **credit**. While the rocket is standing on any pad,
+press `U` (or tap the HANGAR button) to open the hangar and spend them. Upgrades last
+for the mission and reset when you start a new one.
+
+| Upgrade | Levels | Cost | Effect |
+|---|---|---|---|
+| Engine | 3 | 350 / 600 / 900 | +12 % thrust per level; the engine bell grows |
+| Fuel tank | 3 | 300 / 550 / 850 | +30 fuel capacity per level and a fill-up; side boosters appear |
+| Efficiency | 3 | 400 / 650 / 950 | burns 12 % less fuel per level; the flame turns blue |
+| Gyro | 3 | 250 / 450 / 700 | 25 % faster tilt and turn and +4° max tilt per level |
+| Landing gear | 3 | 450 / 750 / 1100 | safe landing limits +1.5 m/s descent, +1 m/s drift, +3° tilt per level; landing legs appear |
+| Spare rocket | 2 | 800 / 1200 | one more rocket, up to five |
+
+Press the number key of an upgrade or tap BUY; `U` or `Esc` closes the hangar. The
+engine is locked while the hangar is open, so you cannot lift off by accident.
+
 ### Rocket Run controls
 
 | Key | Action |
@@ -174,6 +192,7 @@ the sea or a pad top.
 | `Space` or `Shift` | Main engine |
 | `H` | Hover hold on / off |
 | `F` | Flight assist on / off |
+| `U` | Hangar: buy upgrades (only while on a pad) |
 | `C` | Near / far chase camera |
 | Mouse / finger drag | Look around (springs back) |
 | `M` | Mute |
@@ -532,8 +551,8 @@ are saved in the browser.
   bridges, two heroes and the swap, web wings and wind tunnels, slingshots, parry,
   hunters, the Lizard / Kraven / Venom fights and the act structure.
 - `rocket.html` – Rocket Run 3D: noise terrain, pad route, rocket physics and
-  fly-by-wire attitude, landing rules, instanced exhaust and debris, synthesized
-  engine and chimes, DOM HUD and touch controls.
+  fly-by-wire attitude, landing rules, the hangar upgrade shop, instanced exhaust
+  and debris, synthesized engine and chimes, DOM HUD and touch controls.
 - `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
   Spider-Man 3D games; `sw.js` caches them and Rocket Run for offline play.
 
