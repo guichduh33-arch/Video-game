@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Three games live in this repo:
+Four games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -22,6 +22,10 @@ Three games live in this repo:
   Spider-Men, a bigger two-borough city split by the East River, web wings, wind
   tunnels, slingshot pads, parrying, Kraven's hunters and a three-boss campaign
   (the Lizard, Kraven, Venom). See [Spider-Man 2](#spider-man-2-brooklyn-nights) below.
+- `rocket.html` – **Rocket Run 3D**: something completely different. Pilot a rocket
+  across an alien canyon world, hopping from launch pad to launch pad, flying through
+  rings and setting it down gently on the beacon. See [Rocket Run 3D](#rocket-run-3d)
+  below.
 
 ## Spider-Man 2: Brooklyn Nights
 
@@ -107,6 +111,78 @@ Eight crimes and three bosses, with act titles and story beats between them:
 
 Touch adds WINGS, PARRY and SWAP buttons next to the existing ones. Best score and
 time are saved separately from the first game.
+
+## Rocket Run 3D
+
+Open `rocket.html`. It is a 3D rocket-piloting game in the Lunar Lander tradition,
+built on the same Three.js-only, one-file, no-assets approach as the other games.
+
+### The mission
+
+You start on the home pad **H** of a procedurally generated alien world: dunes and
+mountains, an acid sea, boulders, violet crystals, a ringed planet on the horizon.
+Eight more launch pads stand on pylons along a wandering route. The next pad you have
+to reach glows green and shoots a beacon into the sky; the HUD arrow at the top points
+to it and shows the distance (`↑`/`↓` when it is well above or below you).
+
+Between each pair of pads float **three golden rings** (+100 each, +250 for all three
+on a leg) and **two fuel cells** (+35 fuel, +50 points). Land on the beacon pad to
+score the leg and refuel; land on the eighth pad to finish the mission. You have
+**three rockets**.
+
+### Flying
+
+The engine only pushes along the rocket's axis, so to go somewhere you tilt and
+thrust. With **flight assist** on (the default) the controls are fly-by-wire: holding
+`W` tilts the nose forward to 42° and letting go levels the rocket again. `Q`/`E`
+side-tilt the same way, and `A`/`D` turn the heading. Press `F` for manual attitude:
+the tilt then accumulates while you hold the key and nothing brings you back.
+
+**Hover hold** (`H`) is an auto-throttle that holds your altitude so you can line up a
+landing; pressing the engine still climbs. It burns fuel like any other thrust.
+
+Gravity is 9 m/s², the engine gives 23 m/s², and full throttle burns about 15 seconds
+of fuel. Hovering costs about 40 % throttle. From pad 4 on there is a sideways wind,
+stronger with each pad (shown in the HUD).
+
+### Landing
+
+A landing is safe when, as the engine bell touches the pad:
+
+- descent is under **7 m/s**,
+- sideways drift is under **5 m/s**,
+- tilt is under **15°**,
+- the rocket is inside the pad (clipping the edge counts as a crash).
+
+The three readouts in the HUD turn yellow and red as you approach the limits. A
+landing is worth 500 points, plus up to 300 for softness, up to 300 for landing in the
+centre, and a time bonus for a quick leg. Landing on a pad that is not the beacon is a
+pit stop: a smaller refuel and no score. Hitting the ground, the sea or the underside
+of a pad, or landing too hard, blows up the rocket; after a crash you respawn on the
+last pad you reached with a full tank.
+
+The rocket's altitude readout is height above whatever is directly below: the ground,
+the sea or a pad top.
+
+### Rocket Run controls
+
+| Key | Action |
+|---|---|
+| `W` / `S` or `↑` / `↓` | Tilt forward / back |
+| `A` / `D` or `←` / `→` | Turn left / right |
+| `Q` / `E` | Side-tilt (strafe) |
+| `Space` or `Shift` | Main engine |
+| `H` | Hover hold on / off |
+| `F` | Flight assist on / off |
+| `C` | Near / far chase camera |
+| Mouse / finger drag | Look around (springs back) |
+| `M` | Mute |
+| `P` | Pause |
+| `R` | Restart (or respawn / replay after a crash or the ending) |
+
+On a phone the tilt, turn, HOLD and THRUST buttons appear on screen. Your best score is
+kept in the browser. Add `?seed=123` to the URL to play the same world again; the pad
+route, terrain and pickups are generated from the seed.
 
 ## The hero model
 
@@ -455,8 +531,11 @@ are saved in the browser.
 - `spiderman2.html` – the sequel, same engine: two-borough city with the river and
   bridges, two heroes and the swap, web wings and wind tunnels, slingshots, parry,
   hunters, the Lizard / Kraven / Venom fights and the act structure.
-- `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two 3D
-  games; `sw.js` caches both for offline play.
+- `rocket.html` – Rocket Run 3D: noise terrain, pad route, rocket physics and
+  fly-by-wire attitude, landing rules, instanced exhaust and debris, synthesized
+  engine and chimes, DOM HUD and touch controls.
+- `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
+  Spider-Man 3D games; `sw.js` caches them and Rocket Run for offline play.
 
 ## Ideas for next steps
 
