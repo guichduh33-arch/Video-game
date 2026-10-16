@@ -425,11 +425,42 @@ the auto-tuning.
 | Talk to Gwen | `T` or the 💬 button |
 | Cycle suits | `N` forward, `B` back |
 | Soundtrack on / off | `M` or the 🎵 button |
+| Tech Lab (upgrades) | `U` or the 🔧 button (also on the title screen) |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
 the JUMP / WEB / PUNCH / VENOM / CAMO buttons do the rest. Hold WEB in the air to swing.
 Tapping PLAY goes fullscreen where the browser allows it (iPhone Safari does not; add the
 page to your home screen there instead).
+
+### The Tech Lab: upgrades (3D only)
+
+Press `U` (or tap the 🔧 button; it also sits on the title screen) to open the Tech Lab.
+Every crime you stop earns **1 tech point** and every boss or rogue you beat earns **3**;
+spend them on two trees. Levels and unspent points are saved in the browser, so they carry
+over from run to run, and buying something mid-fight pauses the game while the lab is open.
+
+**Web shooters**
+
+| Upgrade | Levels | What it does |
+| --- | --- | --- |
+| Rapid Fire | 3 | Web shot reload 1.1 s → 0.85 → 0.65 → 0.45 s |
+| Long Shot | 2 | Auto-aim lock-on range 34 m → 44 → 54 m |
+| Sticky Webs | 3 | Cocoons hold thugs 5 s → 7 → 9 → 12 s |
+| Twin Shooters | 1 | Every shot fires from both wrists; the second web takes the next nearest thug |
+| Web Burst | 1 | Needs Twin Shooters. A web that lands cocoons every thug within 4 m |
+| Impact Webs | 2 | Web shots also deal 1, then 2, damage on the way in |
+
+**Skills**
+
+| Upgrade | Levels | What it does |
+| --- | --- | --- |
+| Spider Vitality | 3 | Max health 100 → 120 → 140 → 160 |
+| Tough Skin | 2 | Take 15%, then 30%, less damage and get a longer breather after a hit |
+| Heavy Hitter | 3 | Punches hit 1.5×, 2×, then 2.5× as hard, on thugs and bosses |
+| Venom Battery | 3 | Venom regenerates faster (1.5 → 2.2 → 3 → 4 per second) and every hit charges +3 / +6 / +9 more |
+| Venom Strike | 3 | Reach 8 m → 10 → 12 → 14 m and +1 damage per level |
+| Camouflage | 3 | Lasts +2 / +4 / +7 s longer and recharges faster |
+| Swing Kinetics | 2 | Pump 25%, then 50%, harder on the line and launch higher on release |
 
 ### Miles' home (3D only)
 

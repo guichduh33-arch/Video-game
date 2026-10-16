@@ -101,6 +101,42 @@
   #overlay a.sequel:hover { background: rgba(255,210,63,.12); }
   body:has(#overlay:not(.hidden)) #hud, body:has(#overlay:not(.hidden)) .sideBtn { opacity: 0; pointer-events: none; }
   .hidden { display: none !important; }
+  /* ---- Tech Lab: upgrades ---- */
+  #techBtn { top: 298px; box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 0 1px rgba(0,229,255,.45); }
+  #techBtn.pts::after { content: attr(data-pts); position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--gold); color: var(--ink); font: 800 11px/18px system-ui; text-align: center; text-shadow: none; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .4s; }
+  @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  #upg { position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; background: rgba(3,4,12,.6); pointer-events: auto; }
+  #upgBox { width: min(860px, 100%); max-height: calc(100vh - 36px); display: flex; flex-direction: column; border-radius: 18px; background: rgba(8,10,28,.92); border: 1px solid rgba(0,229,255,.35); box-shadow: 0 20px 70px rgba(0,0,0,.6), 0 0 40px rgba(0,229,255,.12); overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; }
+  #upgBox header { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,.1); background: linear-gradient(90deg, rgba(0,229,255,.12), transparent 60%); }
+  #upgBox header .t { font-family: var(--display); font-size: 30px; letter-spacing: 2px; color: #fff; text-shadow: 3px 0 0 var(--cyan), -3px 0 0 var(--red), 3px 3px 0 #000; }
+  #upgBox header .sub { font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,.55); font-weight: 700; }
+  #upgPts { margin-left: auto; padding: 6px 14px; border-radius: 999px; background: rgba(255,210,63,.14); border: 1px solid rgba(255,210,63,.6); color: var(--gold); font-weight: 800; letter-spacing: 1.5px; font-size: 13px; white-space: nowrap; }
+  #upgBox header .x { cursor: pointer; opacity: .7; font-size: 20px; padding: 0 4px; }
+  #upgBox header .x:hover { opacity: 1; }
+  #upgBox nav { display: flex; gap: 6px; padding: 10px 14px 0; }
+  #upgBox nav .tab { flex: 1; font: 800 12px system-ui; letter-spacing: 2.5px; padding: 10px; border-radius: 10px 10px 0 0; border: 1px solid transparent; border-bottom: 0; background: transparent; color: rgba(255,255,255,.5); cursor: pointer; }
+  #upgBox nav .tab.on { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.14); color: #fff; }
+  #upgBox nav .tab.web.on { color: var(--cyan); } #upgBox nav .tab.skill.on { color: var(--gold); }
+  #upgList { overflow-y: auto; padding: 12px 14px; display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; background: rgba(255,255,255,.04); }
+  .up { display: grid; grid-template-columns: 46px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 14px; background: rgba(7,9,26,.7); border: 1px solid rgba(255,255,255,.1); transition: border-color .15s, box-shadow .15s; }
+  .up:not(.maxed):not(.locked):not(.cant):hover { border-color: rgba(0,229,255,.5); box-shadow: 0 0 18px rgba(0,229,255,.12); }
+  .up .ic { width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1); }
+  .up.web .ic { background: rgba(0,229,255,.12); border-color: rgba(0,229,255,.3); } .up.skill .ic { background: rgba(255,210,63,.12); border-color: rgba(255,210,63,.3); }
+  .up b { display: block; font-size: 13px; letter-spacing: 2px; color: #fff; }
+  .up .pips { display: inline-flex; gap: 4px; margin: 5px 0 6px; }
+  .up .pips i { width: 22px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); }
+  .up .pips i.on { background: var(--cyan); box-shadow: 0 0 8px rgba(0,229,255,.6); } .up.skill .pips i.on { background: var(--gold); box-shadow: 0 0 8px rgba(255,210,63,.6); }
+  .up p { margin: 0; font-size: 12px; line-height: 1.4; color: rgba(255,255,255,.72); }
+  .up p.now { color: rgba(255,255,255,.45); font-size: 11px; margin-top: 3px; }
+  .up button { font: 800 12px system-ui; letter-spacing: 1.5px; padding: 10px 14px; border-radius: 999px; border: 0; background: linear-gradient(180deg, #ff4d63, #e8001f); color: #fff; cursor: pointer; white-space: nowrap; box-shadow: 0 4px 0 #7a000f; transition: transform .1s, box-shadow .1s; }
+  .up button:active { transform: translateY(3px); box-shadow: 0 1px 0 #7a000f; }
+  .up.cant button { background: rgba(255,255,255,.1); color: rgba(255,255,255,.5); box-shadow: 0 4px 0 rgba(0,0,0,.4); cursor: default; }
+  .up.maxed button { background: rgba(255,210,63,.18); color: var(--gold); border: 1px solid rgba(255,210,63,.5); box-shadow: none; cursor: default; }
+  .up.locked { opacity: .55; } .up.locked button { background: rgba(255,255,255,.08); color: rgba(255,255,255,.5); box-shadow: none; cursor: default; }
+  .up.bought { animation: bought .5s; } @keyframes bought { 0% { box-shadow: 0 0 0 0 rgba(255,210,63,.8); } 100% { box-shadow: 0 0 0 16px rgba(255,210,63,0); } }
+  #upgBox footer { padding: 10px 18px; font-size: 11px; color: rgba(255,255,255,.5); border-top: 1px solid rgba(255,255,255,.1); letter-spacing: .3px; }
+  body.comic #upgBox { border-color: #000; box-shadow: 5px 5px 0 #000, 0 20px 70px rgba(0,0,0,.6); }
+  @media (max-width: 600px) { #upgList { grid-template-columns: 1fr; } .up { grid-template-columns: 38px 1fr auto; padding: 10px; } .up .ic { width: 38px; height: 38px; font-size: 20px; } #upgBox header .t { font-size: 24px; } #upgBox header .sub { display: none; } }
   /* ---- touch controls ---- */
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
   .tbtn { position: absolute; width: 72px; height: 72px; border-radius: 50%; background: rgba(7,9,26,.42); border: 2px solid rgba(255,255,255,.45); font: 800 11px system-ui; color: #fff; display: flex; align-items: center; justify-content: center; letter-spacing: 1.5px; pointer-events: auto; text-shadow: 0 1px 2px #000; box-shadow: 0 4px 16px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.15); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); transition: background .08s, transform .08s; }
@@ -158,16 +194,25 @@
   <div id="ovBody">
     <p class="lead">Swing through a 3D Brooklyn with Spider-Gwen at your side, wall-crawl skyscrapers, stop 8 rooftop crimes, then take down the Rhino, Venom, the Spot and the Prowler. Then Act II: the Sinister Ten, from Scorpion and Electro to Kingpin and Carnage.</p>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump / double jump · <b>Hold left mouse</b> or <b>Shift</b> web-swing · <b>J</b> / right mouse punch · <b>E</b> web shot · <b>K</b> Venom Strike · <b>L</b> camouflage</p>
-    <p><b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen (🎤 or <b>Y</b> to speak) · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack</p>
+    <p><b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen (🎤 or <b>Y</b> to speak) · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack · <b>U</b> Tech Lab: spend tech points on web shooters and skills</p>
     <p class="dim">Touch: left stick moves, drag the right side to look, buttons for the rest.</p>
   </div>
-  <div class="row"><button id="startBtn">PLAY</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
+  <div class="row"><button id="startBtn">PLAY</button><button id="techBtn2" class="alt">🔧 TECH LAB</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
   <a class="sequel" href="spiderman2.html">▶ PLAY THE SEQUEL: SPIDER-MAN 2</a>
   <p id="installHint" class="hidden" style="opacity:.7;margin-top:14px"></p>
 </div>
 <div id="fsBtn" class="sideBtn" title="Fullscreen (F)">⛶</div>
 <div id="chatBtn" class="sideBtn" title="Talk to Gwen (T)">💬</div>
 <div id="musicBtn" class="sideBtn" title="Soundtrack on / off (M)">🎵</div>
+<div id="techBtn" class="sideBtn" title="Tech Lab: upgrades (U)">🔧</div>
+<div id="upg" class="hidden">
+  <div id="upgBox">
+    <header><span class="t">TECH LAB</span><span class="sub">WEB SHOOTERS · SKILLS</span><span id="upgPts">⚡ 0 TECH</span><span class="x" id="upgClose" title="Close (U / Esc)">✕</span></header>
+    <nav><button class="tab web on" data-tab="web">🕸 WEB SHOOTERS</button><button class="tab skill" data-tab="skill">⚡ SKILLS</button></nav>
+    <div id="upgList"></div>
+    <footer>Tech points: <b>1</b> for every crime stopped, <b>3</b> for every boss or rogue beaten. Upgrades are kept between runs.</footer>
+  </div>
+</div>
 <div id="chat">
   <header>GWEN <small id="chatMode">radio</small><span class="ic" id="voiceBtn" title="Gwen speaks out loud (toggle)">🔊</span><span class="x" id="chatClose">✕</span></header>
   <div id="chatNote"></div>
@@ -1044,6 +1089,8 @@ const isDown = (...c) => c.some(k => keys[k]);
 const wasPressed = (...c) => c.some(k => pressed[k]);
 addEventListener('keydown', e => {
   if (CHAT.open) { if (e.code === 'Escape') { e.preventDefault(); closeChat(); } return; }
+  if (UPG.open) { if (e.code === 'Escape' || e.code === 'KeyU') { e.preventDefault(); closeUpgrades(); } return; }
+  if (e.code === 'KeyU') { e.preventDefault(); openUpgrades(); return; }
   if (e.code === 'KeyT' && G.state === 'play') { e.preventDefault(); openChat(); return; }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
   if (!keys[e.code]) pressed[e.code] = true; keys[e.code] = true;
@@ -1111,6 +1158,69 @@ function moveInput() {
   return { x: fx * z + rx * x, z: fz * z + rz * x, mag: Math.min(1, l) };
 }
 const inJump = () => wasPressed('Space', 'Jump');
+// ---------- Tech Lab: upgrades for the web shooters and Miles' skills ----------
+// Tech points come from stopping crimes (1) and beating bosses (3). Levels and unspent points persist in localStorage.
+const UPG_DEFS = [
+  { id: 'rapid', tab: 'web', ic: '🕸', name: 'RAPID FIRE', cost: [1, 2, 3], desc: ['Web shots reload faster: 1.1 s → 0.85 s', 'Reload 0.85 s → 0.65 s', 'Reload 0.65 s → 0.45 s'], now: l => `Reload ${[1.1, 0.85, 0.65, 0.45][l]} s` },
+  { id: 'range', tab: 'web', ic: '🎯', name: 'LONG SHOT', cost: [1, 2], desc: ['Auto-aim locks on thugs up to 44 m away (34 m now)', 'Lock-on range 44 m → 54 m'], now: l => `Lock-on ${34 + 10 * l} m` },
+  { id: 'sticky', tab: 'web', ic: '🧶', name: 'STICKY WEBS', cost: [1, 2, 2], desc: ['Cocoons hold thugs 7 s instead of 5 s', 'Cocoons hold 7 s → 9 s', 'Cocoons hold 9 s → 12 s'], now: l => `Cocoon ${[5, 7, 9, 12][l]} s` },
+  { id: 'twin', tab: 'web', ic: '🕷', name: 'TWIN SHOOTERS', cost: [3], desc: ['Every web shot fires from both wrists: the second web takes the next nearest thug'], now: l => l ? 'Two webs per shot' : 'One web per shot' },
+  { id: 'burst', tab: 'web', ic: '💥', name: 'WEB BURST', cost: [4], needs: 'twin', desc: ['A web that lands bursts: every thug within 4 m is cocooned too'], now: l => l ? 'Webs burst on impact' : 'Webs hit one thug' },
+  { id: 'impact', tab: 'web', ic: '🔨', name: 'IMPACT WEBS', cost: [2, 3], desc: ['Web shots also deal 1 damage and knock thugs back', 'Web shots deal 2 damage'], now: l => l ? `Web hit: ${l} damage` : 'Web hit: no damage' },
+  { id: 'health', tab: 'skill', ic: '❤️', name: 'SPIDER VITALITY', cost: [2, 3, 4], desc: ['Max health 100 → 120', 'Max health 120 → 140', 'Max health 140 → 160'], now: l => `Max health ${100 + 20 * l}` },
+  { id: 'tough', tab: 'skill', ic: '🛡', name: 'TOUGH SKIN', cost: [2, 3], desc: ['Take 15% less damage, a longer breather after a hit', 'Take 30% less damage'], now: l => `Damage taken −${[0, 15, 30][l]}%` },
+  { id: 'fists', tab: 'skill', ic: '👊', name: 'HEAVY HITTER', cost: [2, 3, 4], desc: ['Punches hit 50% harder, thugs and bosses alike', 'Punches hit 2× as hard', 'Punches hit 2.5× as hard'], now: l => `Punch ×${1 + 0.5 * l}` },
+  { id: 'battery', tab: 'skill', ic: '🔋', name: 'VENOM BATTERY', cost: [1, 2, 3], desc: ['Venom charges faster: +50% regen, +3 per hit', 'Regen doubled, +6 per hit', 'Regen ×2.7, +9 per hit'], now: l => `Regen ${[1.5, 2.2, 3, 4][l]}/s · +${3 * l} per hit` },
+  { id: 'strike', tab: 'skill', ic: '⚡', name: 'VENOM STRIKE', cost: [2, 3, 4], desc: ['Venom Strike reaches 10 m (8 m now) and hits harder', 'Reach 12 m, harder still', 'Reach 14 m: a rooftop-clearing blast'], now: l => `Reach ${8 + 2 * l} m · ${3 + l} damage` },
+  { id: 'camo', tab: 'skill', ic: '👻', name: 'CAMOUFLAGE', cost: [1, 2, 3], desc: ['Camouflage lasts 2 s longer and recharges 2 s faster', 'Lasts 4 s longer, recharges 4 s faster', 'Lasts 7 s longer, recharges in 3 s'], now: l => `+${[0, 2, 4, 7][l]} s · cooldown ${Math.max(3, 8 - 2 * l)} s` },
+  { id: 'swing', tab: 'skill', ic: '🌀', name: 'SWING KINETICS', cost: [2, 3], desc: ['Pump harder on the web line and launch higher at release', 'Even faster swings and bigger launches'], now: l => `Pump ×${[1, 1.25, 1.5][l]} · launch +${5 + 2 * l}` },
+];
+const UPG = { pts: 0, lv: {}, open: false, tab: 'web', told: false, byId: Object.fromEntries(UPG_DEFS.map(d => [d.id, d])) };
+try { const raw = JSON.parse(localStorage.getItem('mm3d_tech') || '{}'); UPG.pts = Math.max(0, +raw.pts || 0); if (raw.lv && typeof raw.lv === 'object') for (const d of UPG_DEFS) UPG.lv[d.id] = clamp(+raw.lv[d.id] || 0, 0, d.cost.length); } catch (e) { }
+const LV = id => UPG.lv[id] || 0;
+const MAXHP = () => 100 + 20 * LV('health');
+function upgSave() { try { localStorage.setItem('mm3d_tech', JSON.stringify({ pts: UPG.pts, lv: UPG.lv })); } catch (e) { } }
+function upgTotal() { return UPG_DEFS.reduce((n, d) => n + d.cost.length, 0); }
+function upgSpent() { return UPG_DEFS.reduce((n, d) => n + LV(d.id), 0); }
+function upgAdd(n, where) {
+  UPG.pts += n; upgSave(); AudioSys.pickup();
+  if (where) floatText(where.clone().add(V3(0, 5.2, 0)), `+${n} TECH`, '#00e5ff', 22);
+  if (!UPG.told && upgSpent() < upgTotal()) { UPG.told = true; G.hint = `${UPG.pts} tech point${UPG.pts > 1 ? 's' : ''} · press U (or 🔧) to upgrade your web shooters and skills`; G.hintT = 5; }
+  upgBadge();
+}
+function upgBadge() { const b = $('techBtn'); const can = UPG_DEFS.some(d => upgCan(d)); b.classList.toggle('pts', can && UPG.pts > 0); b.dataset.pts = UPG.pts; }
+function upgCan(d) { const l = LV(d.id); return l < d.cost.length && UPG.pts >= d.cost[l] && (!d.needs || LV(d.needs) > 0); }
+function upgBuy(id) {
+  const d = UPG.byId[id]; if (!d || !upgCan(d)) return false;
+  UPG.pts -= d.cost[LV(id)]; UPG.lv[id] = LV(id) + 1; upgSave();
+  AudioSys.venom(); if (id === 'health') P.hp = Math.min(MAXHP(), P.hp + 20);
+  upgRender(id); upgBadge(); return true;
+}
+function upgRender(flash) {
+  $('upgPts').textContent = `⚡ ${UPG.pts} TECH POINT${UPG.pts === 1 ? '' : 'S'}`;
+  for (const t of document.querySelectorAll('#upgBox nav .tab')) t.classList.toggle('on', t.dataset.tab === UPG.tab);
+  $('upgList').innerHTML = UPG_DEFS.filter(d => d.tab === UPG.tab).map(d => {
+    const l = LV(d.id), max = l >= d.cost.length, locked = d.needs && !LV(d.needs), can = upgCan(d);
+    const cls = ['up', d.tab, max ? 'maxed' : locked ? 'locked' : can ? '' : 'cant', flash === d.id ? 'bought' : ''].join(' ');
+    const pips = d.cost.map((c, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('');
+    const desc = max ? 'Fully upgraded' : locked ? `Needs ${UPG.byId[d.needs].name}` : d.desc[l];
+    const btn = max ? 'MAXED' : `UPGRADE · ${d.cost[l]}⚡`;
+    return `<div class="${cls}"><div class="ic">${d.ic}</div><div><b>${d.name}</b><span class="pips">${pips}</span><p>${desc}</p><p class="now">${d.now(l)}</p></div><button data-id="${d.id}" ${max || locked || !can ? 'disabled' : ''}>${btn}</button></div>`;
+  }).join('');
+}
+function openUpgrades() {
+  if (UPG.open) return; if (CHAT.open) closeChat();
+  UPG.open = true; UPG.told = true; $('upg').classList.remove('hidden'); upgRender(); document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false;
+}
+function closeUpgrades() { if (!UPG.open) return; UPG.open = false; $('upg').classList.add('hidden'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function toggleUpgrades() { UPG.open ? closeUpgrades() : openUpgrades(); }
+$('upgList').addEventListener('click', e => { const b = e.target.closest('button[data-id]'); if (b && !b.disabled) upgBuy(b.dataset.id); });
+for (const t of document.querySelectorAll('#upgBox nav .tab')) t.addEventListener('click', () => { UPG.tab = t.dataset.tab; upgRender(); });
+$('upgClose').addEventListener('click', closeUpgrades);
+$('upg').addEventListener('click', e => { if (e.target === e.currentTarget) closeUpgrades(); });
+$('techBtn').addEventListener('click', e => { e.stopPropagation(); toggleUpgrades(); });
+$('techBtn2').addEventListener('click', () => openUpgrades());
+upgBadge();
 const inWeb = () => mouse.down || isDown('ShiftLeft', 'ShiftRight') || touch.held.Web;
 const inPunch = () => wasPressed('KeyJ', 'Punch');
 const inVenom = () => wasPressed('KeyK', 'Venom');
@@ -1458,7 +1568,7 @@ function respawnPoint() {
 function resetPlayer() {
   const s = respawnPoint();
   P.pos.copy(s); P.vel.set(0, 0, 0);
-  Object.assign(P, { onGround: true, onWall: null, jumpsLeft: 1, swinging: false, hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, poisonT: 0 });
+  Object.assign(P, { onGround: true, onWall: null, jumpsLeft: 1, swinging: false, hp: MAXHP(), venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, poisonT: 0 });
   look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25;
 }
 
@@ -1511,15 +1621,15 @@ function startSwing() {
 function stopSwing(boost) {
   if (!P.swinging) return;
   P.swinging = false; P.webCd = 0.15;
-  if (boost) { P.vel.y = Math.max(P.vel.y, 7) + 5; AudioSys.jump(); }
+  if (boost) { P.vel.y = Math.max(P.vel.y, 7) + 5 + 2 * LV('swing'); AudioSys.jump(); }
 }
 function updatePlayer(dt) {
   if (!P.alive) { P.deadT += dt; P.vel.y -= GRAV * dt; P.pos.addScaledVector(P.vel, dt); const gh = groundHeight(P.pos.x, P.pos.z, P.radius); if (P.pos.y < gh) { P.pos.y = gh; P.vel.set(0, 0, 0); } return; }
   const mv = moveInput();
   P.animT += dt;
   for (const k of ['punchT', 'punchCd', 'shootT', 'shootCd', 'invulnT', 'camoCd', 'webCd', 'coyote', 'landT', 'senseT']) if (P[k] > 0) P[k] -= dt;
-  if (P.camo) { P.camoT -= dt; if (P.camoT <= 0) { P.camo = false; P.camoCd = SUIT === 'noir' ? 4 : 8; AudioSys.uncamo(); } }
-  if (P.venom < 100) P.venom = Math.min(100, P.venom + dt * 1.5);
+  if (P.camo) { P.camoT -= dt; if (P.camoT <= 0) { P.camo = false; P.camoCd = Math.max(3, (SUIT === 'noir' ? 4 : 8) - 2 * LV('camo')); AudioSys.uncamo(); } }
+  if (P.venom < 100) P.venom = Math.min(100, P.venom + dt * [1.5, 2.2, 3, 4][LV('battery')]);
   if (P.poisonT > 0) { P.poisonT -= dt; P.hp -= 2.5 * dt; if (Math.random() < dt * 6) burst(P.pos.clone().add(V3(rand(-0.5, 0.5), rand(0.5, 2.5), rand(-0.5, 0.5))), 1, 0x9ad45a, 1.5, 0.5, 0); if (P.hp <= 0) { P.hp = 0; P.alive = false; P.deadT = 0; } }
 
   // --- web swing ---
@@ -1534,8 +1644,9 @@ function updatePlayer(dt) {
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * 8 + mv.x * 4) * dt;
-    P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * 8 + mv.z * 4) * dt;
+    const pump = 8 * [1, 1.25, 1.5][LV('swing')];
+    P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 4) * dt;
+    P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 4) * dt;
     P.ropeLen = Math.max(5, P.ropeLen - dt * 2.2); // reel in slightly for height
     P.pos.addScaledVector(P.vel, dt);
     const d = P.pos.clone().sub(P.anchor), L = d.length();
@@ -1592,7 +1703,7 @@ function updatePlayer(dt) {
   if (inShoot() && P.shootCd <= 0) shootWeb();
   if (wasPressed('Suit')) toggleSuit(1);
   if (inVenom() && P.venom >= VENOM_COST()) venomStrike();
-  if (inCamo() && !P.camo && P.camoCd <= 0) { if (SUIT === 'symbiote') { G.hint = 'The symbiote can\'t hide. Hit harder instead'; G.hintT = 2; } else { P.camo = true; P.camoT = SUIT === 'noir' ? 10 : 6; AudioSys.camo(); for (const e of enemies) e.alert = false; } }
+  if (inCamo() && !P.camo && P.camoCd <= 0) { if (SUIT === 'symbiote') { G.hint = 'The symbiote can\'t hide. Hit harder instead'; G.hintT = 2; } else { P.camo = true; P.camoT = (SUIT === 'noir' ? 10 : 6) + [0, 2, 4, 7][LV('camo')]; AudioSys.camo(); for (const e of enemies) e.alert = false; } }
   // --- spider-sense: warn when a bullet or a thug's swing is about to land ---
   let danger = false;
   for (const b of bullets) if (b.pos.distanceTo(P.pos) < 9) danger = true;
@@ -1649,7 +1760,7 @@ function hitEnemy(e, dmg, dir, label, stun = 0.45) {
   burst(e.mesh.position.clone().add(V3(0, 1.6, 0)), 8, 0xffd23f, 7, 0.4);
   addCombo(100);
   floatText(e.mesh.position.clone().add(V3(0, 3, 0)), label, '#ffd23f', 18); pow(e.mesh.position.clone().add(V3(0, 2, 0)));
-  P.venom = Math.min(100, P.venom + (SUIT === 'punk' ? 18 : 12));
+  P.venom = Math.min(100, P.venom + (SUIT === 'punk' ? 18 : 12) + 3 * LV('battery'));
   if (e.hp <= 0) killEnemy(e);
 }
 function killEnemy(e) {
@@ -1687,8 +1798,8 @@ function punch() {
     if (flat < 5.5 && Math.abs(d.y) < 4.5 && (dot > 0.2 || flat < 3) && flat - 2 < bestD) {
       P.facing = Math.atan2(d.x, d.z);
       if (flat > 3.2) { P.pos.x += d.x / flat * (flat - 3); P.pos.z += d.z / flat * (flat - 3); }
-      const sneak = P.camo; if (P.camo) { P.camo = false; P.camoCd = 6; AudioSys.uncamo(); }
-      hitBoss(sneak ? 4 : (SUIT === 'symbiote' ? 2 : 1), sneak ? 'SNEAK ATTACK' : (SUIT === 'symbiote' ? ['TENDRIL', 'CLAW', 'SLAM', 'BITE'][G.combo % 4] : ['JAB', 'HOOK', 'KICK', 'UPPERCUT'][G.combo % 4]));
+      const sneak = P.camo; if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); AudioSys.uncamo(); }
+      hitBoss((sneak ? 4 : (SUIT === 'symbiote' ? 2 : 1)) * (1 + 0.5 * LV('fists')), sneak ? 'SNEAK ATTACK' : (SUIT === 'symbiote' ? ['TENDRIL', 'CLAW', 'SLAM', 'BITE'][G.combo % 4] : ['JAB', 'HOOK', 'KICK', 'UPPERCUT'][G.combo % 4]));
       return;
     }
   }
@@ -1697,11 +1808,12 @@ function punch() {
     const d = target.mesh.position.clone().sub(P.pos); P.facing = Math.atan2(d.x, d.z);
     if (bestD > 1.6) { P.pos.x += d.x / bestD * (bestD - 1.4); P.pos.z += d.z / bestD * (bestD - 1.4); }
     const dir = V3(Math.sin(P.facing), 0, Math.cos(P.facing));
-    if (P.camo) { P.camo = false; P.camoCd = 6; AudioSys.uncamo(); target.hp = 0; hitEnemy(target, 99, dir, 'STEALTH TAKEDOWN', 1); G.score += 300; }
-    else hitEnemy(target, SUIT === 'symbiote' ? 2 : 1, dir, SUIT === 'symbiote' ? ['TENDRIL', 'CLAW', 'SLAM', 'BITE'][G.combo % 4] : ['JAB', 'HOOK', 'KICK', 'UPPERCUT'][G.combo % 4]);
+    if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); AudioSys.uncamo(); target.hp = 0; hitEnemy(target, 99, dir, 'STEALTH TAKEDOWN', 1); G.score += 300; }
+    else hitEnemy(target, (SUIT === 'symbiote' ? 2 : 1) * (1 + 0.5 * LV('fists')), dir, SUIT === 'symbiote' ? ['TENDRIL', 'CLAW', 'SLAM', 'BITE'][G.combo % 4] : ['JAB', 'HOOK', 'KICK', 'UPPERCUT'][G.combo % 4]);
   } else if (P.camo) { /* swinging at air keeps you hidden */ }
 }
 const VENOM_COST = () => SUIT === 'punk' ? 35 : 50;
+const CAMO_CD = () => Math.max(2.5, 6 - 1.5 * LV('camo')); // cooldown after camouflage is spent on an attack
 function venomStrike() {
   P.venom -= VENOM_COST(); P.punchT = 0.4; P.punchCd = 0.5; AudioSys.venom(); shake(0.9); G.flash = 0.5;
   const c = hero.position.clone().add(V3(0, 1.5, 0));
@@ -1709,11 +1821,11 @@ function venomStrike() {
   let hits = 0;
   for (const e of enemies) {
     if (!e.alive) continue;
-    const d = e.mesh.position.clone().sub(P.pos); if (d.length() > 8) continue;
-    const dir = V3(d.x, 0, d.z).normalize(); hitEnemy(e, 3, dir, 'VENOM STRIKE', 1.2); e.vel.y = 9; hits++;
+    const d = e.mesh.position.clone().sub(P.pos); if (d.length() > 8 + 2 * LV('strike')) continue;
+    const dir = V3(d.x, 0, d.z).normalize(); hitEnemy(e, 3 + LV('strike'), dir, 'VENOM STRIKE', 1.2); e.vel.y = 9; hits++;
   }
-  if (boss.alive && boss.mesh.position.distanceTo(P.pos) < 9) { hitBoss(3, 'VENOM STRIKE'); hits++; }
-  if (P.camo) { P.camo = false; P.camoCd = 6; }
+  if (boss.alive && boss.mesh.position.distanceTo(P.pos) < 9 + 2 * LV('strike')) { hitBoss(3 + LV('strike'), 'VENOM STRIKE'); hits++; }
+  if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); }
   if (hits === 0) floatText(c.clone().add(V3(0, 2, 0)), 'ZAP', '#ffd23f', 18);
   venomArc.show(c);
 }
@@ -1724,8 +1836,8 @@ const venomArc = (() => {
 })();
 function takeDamage(n, from) {
   if (!P.alive || P.invulnT > 0) return;
-  P.hp -= n; P.invulnT = 0.7; G.combo = 0; G.comboT = 0; AudioSys.hurt(); shake(0.5);
-  if (P.camo) { P.camo = false; P.camoCd = 6; }
+  P.hp -= n * [1, 0.85, 0.7][LV('tough')]; P.invulnT = 0.7 + 0.2 * LV('tough'); G.combo = 0; G.comboT = 0; AudioSys.hurt(); shake(0.5);
+  if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); }
   if (from) { const d = P.pos.clone().sub(from); d.y = 0; d.normalize(); P.vel.x += d.x * 6; P.vel.z += d.z * 6; P.vel.y = Math.max(P.vel.y, 4); }
   if (P.swinging) stopSwing(false);
   burst(P.pos.clone().add(V3(0, 1.5, 0)), 10, 0xff2d47, 6, 0.4);
@@ -1770,7 +1882,7 @@ function updateHealth(dt) {
     if (h.life <= 0) { scene.remove(m); HEALTH.packs.splice(i, 1); continue; }
     if (!P.alive || P.hp >= 100) continue;
     if (Math.hypot(P.pos.x - m.position.x, P.pos.z - m.position.z) < 2.2 && P.pos.y > m.position.y - 1 && P.pos.y < m.position.y + 3.5) {
-      const before = P.hp; P.hp = Math.min(100, P.hp + h.amount); if (h.big) P.poisonT = 0;
+      const before = P.hp; P.hp = Math.min(MAXHP(), P.hp + h.amount); if (h.big) P.poisonT = 0;
       scene.remove(m); HEALTH.packs.splice(i, 1); HEALTH.grabbed++;
       AudioSys.heal(); burst(P.pos.clone().add(V3(0, 1.5, 0)), 16, 0x3bffd0, 6, 0.6, 4); G.flash = Math.max(G.flash, 0.25);
       floatText(P.pos.clone().add(V3(0, 4, 0)), '+' + Math.round(P.hp - before) + ' HP', '#3bffd0', 24);
@@ -1930,24 +2042,34 @@ const webBallGeo = new THREE.SphereGeometry(0.16, 8, 8), webBallMat = new THREE.
 const cocoonMat = new THREE.MeshPhysicalMaterial({ color: 0xf6f6f6, roughness: 0.9, transparent: true, opacity: 0.82, sheen: 1, sheenColor: new THREE.Color(0xffffff) });
 const cocoonWireMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5 });
 function shootWeb() {
-  P.shootT = 0.3; P.shootCd = 1.1; AudioSys.thwip();
-  const from = hero.parts && hero.parts.shooterR ? hero.parts.shooterR.muzzle.getWorldPosition(V3()) : hero.position.clone().add(V3(Math.sin(P.facing) * 0.4, 2.2, Math.cos(P.facing) * 0.4));
-  // aim: the nearest living, unwebbed enemy in front of the camera, else straight ahead
-  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-  let best = null, bd = 1e9;
-  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > 34 || Math.abs(d.y) > 14) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; if (flat < bd) { bd = flat; best = e; } }
+  P.shootT = 0.3; P.shootCd = [1.1, 0.85, 0.65, 0.45][LV('rapid')]; AudioSys.thwip();
+  const muzzle = side => hero.parts && hero.parts[side] ? hero.parts[side].muzzle.getWorldPosition(V3()) : hero.position.clone().add(V3(Math.sin(P.facing) * 0.4, 2.2, Math.cos(P.facing) * 0.4));
+  const from = muzzle('shooterR');
+  // aim: the nearest living, unwebbed enemies in front of the camera, else straight ahead
+  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), range = 34 + 10 * LV('range');
+  const picks = [];
+  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > range || Math.abs(d.y) > 14) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; picks.push({ e, flat }); }
+  picks.sort((a, b) => a.flat - b.flat);
+  let best = picks.length ? picks[0].e : null, bd = picks.length ? picks[0].flat : 1e9;
   // the Prowler and the Spot can be webbed too: generous aim while visible, a narrow cone while the Prowler is cloaked
-  if (boss.alive && (boss.kind === 'prowler' || boss.kind === 'spot' || boss.kind === 'gallery') && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge') { const d = boss.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); const dot = (d.x * fx + d.z * fz) / (flat || 1); if (flat < 34 && Math.abs(d.y) < 14 && dot > (boss.cloak > 0.5 ? 0.85 : 0.45) && flat < bd) { bd = flat; best = { mesh: boss.mesh, bossAim: true }; } }
-  let dir;
-  if (best) { dir = best.mesh.position.clone().add(V3(0, best.bossAim ? 2.8 : 1.6, 0)).sub(from).normalize(); P.facing = Math.atan2(dir.x, dir.z); }
-  else dir = V3(fx, -Math.sin(look.pitch) * 0.5, fz).normalize();
-  const m = new THREE.Mesh(webBallGeo, webBallMat); m.position.copy(from); scene.add(m);
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, from]), MAT.web); line.frustumCulled = false; scene.add(line);
-  webShots.push({ pos: from.clone(), vel: dir.multiplyScalar(48), life: 1.2, mesh: m, line, from });
+  if (boss.alive && (boss.kind === 'prowler' || boss.kind === 'spot' || boss.kind === 'gallery') && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge') { const d = boss.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); const dot = (d.x * fx + d.z * fz) / (flat || 1); if (flat < range && Math.abs(d.y) < 14 && dot > (boss.cloak > 0.5 ? 0.85 : 0.45) && flat < bd) { bd = flat; best = { mesh: boss.mesh, bossAim: true }; } }
+  const fire = (from, target) => {
+    let dir;
+    if (target) { dir = target.mesh.position.clone().add(V3(0, target.bossAim ? 2.8 : 1.6, 0)).sub(from).normalize(); P.facing = Math.atan2(dir.x, dir.z); }
+    else dir = V3(fx, -Math.sin(look.pitch) * 0.5, fz).normalize();
+    const m = new THREE.Mesh(webBallGeo, webBallMat); m.position.copy(from); scene.add(m);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, from]), MAT.web); line.frustumCulled = false; scene.add(line);
+    webShots.push({ pos: from.clone(), vel: dir.multiplyScalar(48), life: 1.2, mesh: m, line, from });
+  };
+  fire(from, best);
+  // Twin Shooters: the left wrist fires at the next nearest thug (or alongside the first web)
+  if (LV('twin')) { const second = picks.find(p => p.e !== best); setTimeout(() => { if (G.state === 'play' && P.alive) fire(muzzle('shooterL'), second ? second.e : null); }, 70); }
 }
 function webEnemy(e) {
   if (!e.alive) return;
-  e.webbed = 5; e.stun = Math.max(e.stun, 5); e.attackT = 0; e.alert = true;
+  const hold = [5, 7, 9, 12][LV('sticky')];
+  e.webbed = hold; e.stun = Math.max(e.stun, hold); e.attackT = 0; e.alert = true;
+  if (LV('impact')) { e.hp -= LV('impact'); e.flash = 0.15; burst(e.mesh.position.clone().add(V3(0, 1.6, 0)), 6, 0xffd23f, 6, 0.3); if (e.hp <= 0) { killEnemy(e); return; } }
   if (!e.cocoon) {
     const c = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.3, 6, 12), cocoonMat); body.position.y = 1.55; body.castShadow = true; c.add(body);
@@ -1965,7 +2087,7 @@ function updateWebShots(dt) {
     const hand = heroHand(); w.line.geometry.setFromPoints([hand, w.pos]);
     let hit = null;
     for (const e of enemies) if (e.alive && e.webbed <= 0 && w.pos.distanceTo(e.mesh.position.clone().add(V3(0, 1.5, 0))) < 1.4) { hit = e; break; }
-    if (hit) webEnemy(hit);
+    if (hit) { webEnemy(hit); if (LV('burst')) { const c = hit.mesh.position.clone(); for (const o of enemies) if (o !== hit && o.alive && o.webbed <= 0 && o.mesh.position.distanceTo(c) < 4) webEnemy(o); burst(c.clone().add(V3(0, 1.6, 0)), 18, 0xffffff, 9, 0.5); } }
     else if (boss.alive && boss.kind === 'prowler' && boss.state !== 'stunned' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { webProwler(); hit = boss; }
     else if (boss.alive && boss.kind === 'spot' && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { jamSpot(); hit = boss; }
     else if (boss.alive && boss.kind === 'gallery' && boss.webCd <= 0 && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.8) { galWebbed(); hit = boss; }
@@ -2023,19 +2145,19 @@ function updateCrimes(dt) {
   G.crime.t += dt; beacon.ring.scale.setScalar(1 + Math.sin(G.time * 5) * 0.15); beacon.rotation.y += dt;
   if (G.crime.boss) {
     if (!boss.alive) {
-      G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden');
-      if (boss.forced) { G.crimeSpawnT = 3; G.hint = boss.name + ' is down. Back on patrol'; G.hintT = 4; P.hp = Math.min(100, P.hp + 40); return; }
-      if (G.act === 2) { G.rogueIdx++; if (G.rogueIdx >= G.rogues.length) winGame(); else { G.crimeSpawnT = 4; G.hint = boss.name + ' is down. ' + (G.rogues.length - G.rogueIdx) + ' of the Sinister Ten left'; G.hintT = 5; P.hp = Math.min(100, P.hp + 40); } return; }
+      G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); upgAdd(3, P.pos);
+      if (boss.forced) { G.crimeSpawnT = 3; G.hint = boss.name + ' is down. Back on patrol'; G.hintT = 4; P.hp = Math.min(MAXHP(), P.hp + 40); return; }
+      if (G.act === 2) { G.rogueIdx++; if (G.rogueIdx >= G.rogues.length) winGame(); else { G.crimeSpawnT = 4; G.hint = boss.name + ' is down. ' + (G.rogues.length - G.rogueIdx) + ' of the Sinister Ten left'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); } return; }
       G.bossesBeaten++;
       if (G.bossesBeaten >= 4) winGame();
-      else { G.crimeSpawnT = 5; G.hint = G.bossesBeaten === 1 ? 'The Rhino is down… but something black is moving across the rooftops' : G.bossesBeaten === 2 ? 'Venom is down… but black holes are opening in the rooftops. Something is coming through' : 'The Spot is gone… but a purple shape just vanished off a rooftop. Someone is watching you'; G.hintT = 5; P.hp = Math.min(100, P.hp + 40); }
+      else { G.crimeSpawnT = 5; G.hint = G.bossesBeaten === 1 ? 'The Rhino is down… but something black is moving across the rooftops' : G.bossesBeaten === 2 ? 'Venom is down… but black holes are opening in the rooftops. Something is coming through' : 'The Spot is gone… but a purple shape just vanished off a rooftop. Someone is watching you'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); }
     }
     return;
   }
   if (!enemies.some(e => e.alive)) {
-    G.crimes++; G.score += 1000; G.crime = null; beacon.visible = false; G.crimeSpawnT = 2.5;
+    G.crimes++; G.score += 1000; G.crime = null; beacon.visible = false; G.crimeSpawnT = 2.5; upgAdd(1, P.pos);
     floatText(P.pos.clone().add(V3(0, 4, 0)), 'CRIME STOPPED +1000', '#3bffd0', 24);
-    P.hp = Math.min(100, P.hp + 25);
+    P.hp = Math.min(MAXHP(), P.hp + 25);
     if (G.act === 2) { G.rogueNext = true; G.crimeSpawnT = 3; G.hint = 'Next up: ' + GALLERY[G.rogues[G.rogueIdx]].name; G.hintT = 4; }
     else if (G.crimes >= 8) { G.crimeSpawnT = 3; G.hint = 'Something big is coming…'; G.hintT = 3; }
   }
@@ -3274,7 +3396,7 @@ function updateHome(dt) {
   HOME.pad.material.opacity = 0.35 + Math.sin(HOME.t * 3) * 0.15 + (onHatch ? 0.25 : 0);
   HOME.sign.visible = Math.hypot(P.pos.x - HOME.b.x, P.pos.z - HOME.b.z) < 160;
   if (HOME.resting > 0) {
-    HOME.resting -= dt; P.invulnT = Math.max(P.invulnT, 0.5); P.hp = Math.min(100, P.hp + dt * 12);
+    HOME.resting -= dt; P.invulnT = Math.max(P.invulnT, 0.5); P.hp = Math.min(MAXHP(), P.hp + dt * 12);
     if (!onHatch) { HOME.resting = 0; G.hint = 'Rest interrupted'; G.hintT = 2; return; }
     if (HOME.resting <= 0) {
       P.hp = 100; P.poisonT = 0; P.venom = Math.min(100, P.venom + 30); HOME.cd = 45; HOME.rests++;
@@ -3751,7 +3873,7 @@ function applyLevel(i) {
 }
 function autoQuality(now) {
   const dt = now - PERF.lastFrame || 16; PERF.lastFrame = now;
-  if (!PERF.auto || G.state !== 'play' || G.paused || CHAT.open) return;
+  if (!PERF.auto || G.state !== 'play' || G.paused || CHAT.open || UPG.open) return;
   if (dt > 250) return; // a tab switch or a hitch, not a trend
   PERF.acc += dt; PERF.n++;
   if (now - PERF.lastCheck < 1500 || PERF.n < 20) return;
@@ -3787,7 +3909,7 @@ const HUDC = {};
 function setIf(key, el, prop, val) { if (HUDC[key] !== val) { HUDC[key] = val; el[prop] = val; } }
 function styleIf(key, el, prop, val) { if (HUDC[key] !== val) { HUDC[key] = val; el.style[prop] = val; } }
 function updateHUD() {
-  styleIf('hp', $('hp').firstElementChild, 'width', clamp(P.hp, 0, 100).toFixed(1) + '%');
+  styleIf('hp', $('hp').firstElementChild, 'width', clamp(P.hp / MAXHP() * 100, 0, 100).toFixed(1) + '%');
   styleIf('venom', $('venom').firstElementChild, 'width', clamp(P.venom, 0, 100).toFixed(0) + '%');
   { const ready = P.venom >= VENOM_COST(); if (HUDC.venomB !== ready) { HUDC.venomB = ready; $('venom').classList.toggle('ready', ready); } }
   styleIf('camo', $('camo').firstElementChild, 'width', (P.camo ? P.camoT / (SUIT === 'noir' ? 10 : 6) * 100 : P.camoCd > 0 ? (1 - P.camoCd / (SUIT === 'noir' ? 4 : 8)) * 100 : 100).toFixed(0) + '%');
@@ -3800,7 +3922,7 @@ function updateHUD() {
   styleIf('crimeC', $('crime'), 'color', G.crime ? '#ff2d47' : '#9fb0ff');
   const h = $('hint'); setIf('hint', h, 'textContent', G.hintT > 0 ? G.hint : ''); styleIf('hintO', h, 'opacity', (clamp(G.hintT, 0, 1) * 0.9).toFixed(2));
   styleIf('flash', $('flash'), 'opacity', G.flash.toFixed(2)); if (G.flash > 0) G.flash = Math.max(0, G.flash - 0.04);
-  styleIf('vig', $('vignette'), 'boxShadow', `inset 0 0 160px rgba(255,0,40,${(P.hp < 35 ? 0.3 + Math.sin(G.time * 6) * 0.15 : P.invulnT > 0.4 ? 0.5 : 0).toFixed(2)})`);
+  styleIf('vig', $('vignette'), 'boxShadow', `inset 0 0 160px rgba(255,0,40,${(P.hp < MAXHP() * 0.35 ? 0.3 + Math.sin(G.time * 6) * 0.15 : P.invulnT > 0.4 ? 0.5 : 0).toFixed(2)})`);
   // beacon arrow
   const ar = $('arrow');
   if (G.crime) {
@@ -3858,8 +3980,9 @@ function winGame() { AudioSys.win(); G.flash = 1; endGame(true); }
 function togglePause() {
   if (G.state !== 'play') return;
   if (CHAT.open) { closeChat(); return; }
+  if (UPG.open) { closeUpgrades(); return; }
   G.paused = !G.paused;
-  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'ACROSS THE SPIDER-VERSE', ['<b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>Hold left mouse</b> / <b>Shift</b> web-swing', '<b>J</b> punch · <b>E</b> web shot · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>F</b> fullscreen · <b>V</b> comic / real look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack · <b>Esc</b> resume'], 'RESUME'); }
+  if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'ACROSS THE SPIDER-VERSE', ['<b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>Hold left mouse</b> / <b>Shift</b> web-swing', '<b>J</b> punch · <b>E</b> web shot · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>F</b> fullscreen · <b>V</b> comic / real look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack · <b>U</b> Tech Lab · <b>Esc</b> resume'], 'RESUME'); }
   else { $('overlay').classList.add('hidden'); if (!TOUCH) renderer.domElement.requestPointerLock?.(); }
 }
 function toggleMusic() { const on = MUSIC.toggle(); $('musicBtn').classList.toggle('off', !on); G.hint = on ? 'Soundtrack ON' : 'Soundtrack OFF'; G.hintT = 2; }
@@ -3925,7 +4048,7 @@ let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
-  if (G.state === 'play' && !G.paused && !CHAT.open) {
+  if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
@@ -3936,7 +4059,7 @@ function frame(now) {
     // idle: slow orbit on the title screen
     look.yaw += dt * 0.08; P.animT += dt;
   }
-  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open) GAL_FX.update(dt); animateHero(dt);
+  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open) GAL_FX.update(dt); animateHero(dt);
   updateCamera(dt, false); updateHUD();
   for (const b of buildings) if (b.beacon) b.beacon.visible = Math.sin(now / 400 + b.x) > 0;
   for (const c of clouds) { c.position.x += c.userData.drift * dt; if (c.position.x > 1400) c.position.x = -1400; }
