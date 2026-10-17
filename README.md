@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Four games live in this repo:
+Five games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -26,6 +26,9 @@ Four games live in this repo:
   across an alien canyon world, hopping from launch pad to launch pad, flying through
   rings and setting it down gently on the beacon. See [Rocket Run 3D](#rocket-run-3d)
   below.
+- `car.html` – **Apex Drift 3D**: an arcade racing game. Three laps against three AI
+  rivals on a procedurally generated circuit, with handbrake drifting, nitro pickups,
+  three cars and three track themes. See [Apex Drift 3D](#apex-drift-3d) below.
 
 ## Spider-Man 2: Brooklyn Nights
 
@@ -202,6 +205,73 @@ engine is locked while the hangar is open, so you cannot lift off by accident.
 On a phone the tilt, turn, HOLD and THRUST buttons appear on screen. Your best score is
 kept in the browser. Add `?seed=123` to the URL to play the same world again; the pad
 route, terrain and pickups are generated from the seed.
+
+## Apex Drift 3D
+
+Open `car.html`. It is a third-person arcade racer in the Three.js-only, one-file,
+no-assets style of the other games. Pick a circuit and a car on the title screen,
+then race three laps against three AI drivers.
+
+### Circuits
+
+Each circuit is generated from a seed: a closed Catmull-Rom loop with gentle hills,
+a 14 m asphalt ribbon with lane markings, red-and-white curbs, a grass run-off strip
+and a barrier wall on both sides. The start/finish arch, grandstands, trees, rocks and
+track-side lamps are placed around it, and ten glowing blue **nitro cells** sit on the
+racing line.
+
+| Circuit | Setting |
+| --- | --- |
+| Green Hills | rolling meadows, pine forest, afternoon sun |
+| Red Canyon | desert dusk, mesas, cactus and long sweepers |
+| Neon Midnight | night race under track lights and stars, with real headlights |
+
+### Cars
+
+| Car | Character |
+| --- | --- |
+| Viper GT | balanced coupe: quick, forgiving, drifts on demand |
+| Thunder V8 | brutal top speed, low grip, slides wide in corners |
+| Dune Rally | glued to the road and barely slowed by grass |
+
+### Driving
+
+The handling is arcade: the car has a top speed, engine power and lateral grip, the
+steering lock shrinks as you go faster, and the yaw rate is capped by how much
+cornering force the tyres can give. Push past that and the tail slides. Grass cuts
+grip and speed, the barriers bounce you back and scrub speed, and cars collide with
+each other.
+
+- **Handbrake** (`Space`) cuts grip to a third and lets the car rotate faster, so a
+  tap on corner entry kicks the tail out for a drift. Tyre marks and smoke follow.
+- **Nitro** (`Shift`) raises power and top speed by a quarter while the bar lasts.
+  Driving through a blue cell refills half the bar; cells respawn after 12 s.
+- The **AI drivers** follow the racing line with a look-ahead, brake for the
+  curvature ahead, move over to pass, use nitro on straights and back out when
+  stuck. They have three skill levels and a mix of the three cars.
+
+Laps count only after passing the far side of the circuit, so cutting back across
+the line does not help. Position, lap, race time, last lap and best lap are on the
+HUD along with a minimap, speedometer, gear and nitro bar. `C` cycles chase,
+hood and far cameras, `R` puts the car back on the centreline if you get stuck,
+`M` mutes and `Esc` pauses. The engine, tyre squeal, wind, hits and chimes are
+all synthesized with the Web Audio API.
+
+Best race time and best lap are saved per circuit and car in `localStorage`, and
+the results screen shows the finishing order with everyone's best laps.
+
+### Apex Drift controls
+
+| Action | Keyboard | Touch |
+| --- | --- | --- |
+| Accelerate | `W` / `↑` | GAS |
+| Brake, then reverse | `S` / `↓` | BRAKE |
+| Steer | `A` `D` / `←` `→` | ◀ ▶ |
+| Handbrake / drift | `Space` | DRIFT |
+| Nitro | `Shift` | NITRO |
+| Camera | `C` | CAM |
+| Reset to track | `R` | |
+| Mute / pause | `M` / `Esc` | |
 
 ## The hero model
 
@@ -592,8 +662,11 @@ are saved in the browser.
 - `rocket.html` – Rocket Run 3D: noise terrain, pad route, rocket physics and
   fly-by-wire attitude, landing rules, the hangar upgrade shop, instanced exhaust
   and debris, synthesized engine and chimes, DOM HUD and touch controls.
+- `car.html` – Apex Drift 3D: seeded spline circuit, ribbon road / curb / barrier
+  meshes, two-level terrain, arcade car physics, AI drivers, skid marks and smoke,
+  synthesized engine audio, minimap, DOM HUD and touch controls.
 - `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
-  Spider-Man 3D games; `sw.js` caches them and Rocket Run for offline play.
+  Spider-Man 3D games; `sw.js` caches them, Rocket Run and Apex Drift for offline play.
 
 ## Ideas for next steps
 
