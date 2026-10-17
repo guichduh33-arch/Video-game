@@ -315,6 +315,14 @@ reacts to what is happening: on patrol it stays sparse, a crime doubles the hi-h
 up the pad, and a boss fight adds a sawtooth arpeggio and extra kicks. Press `M` (or the 🎵
 button) to turn it off; the choice is remembered.
 
+**Sunflower.** A second original track, written for the game in the spirit of a sunny Spider-Verse
+afternoon: a laid-back bounce in C major at 92 BPM over Cmaj7 - Am7 - Fmaj7 - G(add9), with a soft
+kick, a clap on the back beat, shaker, glassy bells on the off-beats and a bright plucked hook that
+rides the echo. It is synthesized live like Brooklyn Nights, so there is still no audio file. `M`
+(or the 🎵 button) now cycles **Brooklyn Nights → Sunflower → off**, the choice is remembered, and
+you can ask Gwen on the radio: "play Sunflower" or "play Brooklyn Nights". While Sunflower plays,
+Gwen hums a few lines of it between fights.
+
 ### Spider-Society HQ (3D only)
 
 The tallest tower in the city is Spider-Society headquarters, marked by an orange beam.
@@ -424,7 +432,7 @@ the auto-tuning.
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
 | Cycle suits | `N` forward, `B` back |
-| Soundtrack on / off | `M` or the 🎵 button |
+| Soundtrack | `M` or the 🎵 button: Brooklyn Nights → Sunflower → off |
 | Tech Lab (upgrades) | `U` or the 🔧 button (also on the title screen) |
 
 Touch: the left stick moves, dragging the right half of the screen looks around, and
