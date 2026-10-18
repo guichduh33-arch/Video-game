@@ -238,8 +238,9 @@ other games.
 
 ### The shop
 
-Spend bottle caps between flights (click, or press `1`–`7`). Upgrades are saved in
-the browser:
+Spend bottle caps in the **garage**: it opens after every flight, and from the title
+screen with the UPGRADES button (or `U`). Click, or press `1`–`9` and `0`. Upgrades are
+saved in the browser:
 
 | Upgrade | Levels | Effect |
 |---|---|---|
@@ -249,7 +250,14 @@ the browser:
 | Fins | 3 | steer faster and tilt further |
 | Nose cone | 3 | -20 % air drag per level |
 | Mint magnet | 3 | pulls in pickups from further away |
+| Booster bottles | 2 | small side bottles that fire at launch and then drop off: 2 boosters for 4 s, then 4 boosters for 7 s |
+| Mega Mentos | 3 | a golden Mentos per level: press `B` (MEGA on a phone) for a 3-second burst at full fizz and +60 % thrust |
+| Lucky caps | 3 | +25 % caps from every flight |
 | Cap armour | 3 | a shield that blocks one hit per level, each flight |
+
+**Bottle skins** change the label, the drink and the foam colour: Classic (free),
+Cherry, Lemon-Lime, Orange, Zero and Gold. Buy a skin once, then switch between your
+skins for free.
 
 The first time you reach space you get a 1000-cap bonus.
 
@@ -257,11 +265,13 @@ The first time you reach space you get a 1000-cap bonus.
 |---|---|
 | `Space` | Drop the Mentos (launch) / drop another Mentos (in flight) |
 | `←` `→` / `A` `D` | Tilt the bottle |
-| `1`–`7` | Buy upgrades in the shop |
+| `B` | Mega Mentos (once you have bought it) |
+| `1`–`9`, `0` | Buy upgrades in the garage |
+| `U` | Open the garage from the title screen |
 | `Enter` | Launch again from the shop |
 | `P` / `M` | Pause / mute |
 
-On a phone, ◀ ▶ and MENTOS buttons appear on screen.
+On a phone, ◀ ▶, MENTOS and (once bought) MEGA buttons appear on screen.
 
 ## Apex Drift 3D
 

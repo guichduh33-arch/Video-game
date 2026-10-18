@@ -67,6 +67,17 @@ kbd{display:inline-block;padding:2px 7px;border:1px solid #0003;border-bottom-wi
 .tb.big{width:104px;height:104px;font-size:15px;background:#e2132dcc;letter-spacing:1px}
 .tb.on{background:#fff6;transform:scale(.95)}
 #topBtns{position:fixed;right:16px;bottom:16px;display:none;gap:8px;z-index:4}
+#megaRow{display:flex;gap:4px;min-height:0}
+.gold{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6c0,#ffd23f 55%,#b8860b);box-shadow:0 0 6px #ffd23f}
+.gold.used{opacity:.22;box-shadow:none}
+.sect{margin:4px 0 8px;font-size:15px;text-transform:uppercase;letter-spacing:2px;opacity:.7}
+.skins{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:9px;margin-bottom:14px}
+.skin{border:2px solid #f0d0d0;border-radius:12px;padding:8px;display:flex;flex-direction:column;gap:5px;align-items:center;font-size:13px;font-weight:700}
+.skin.sel{border-color:#e2132d;background:#fff4f4}
+.swatch{width:100%;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-style:italic;font-family:Georgia,serif;font-weight:900;font-size:16px}
+.skin button{border:0;border-radius:8px;padding:5px;width:100%;font-weight:800;font-family:inherit;cursor:pointer;background:#e2132d;color:#fff;font-size:12px}
+.skin button:disabled{background:#ccc;cursor:default}
+.tb.mega{width:78px;height:78px;font-size:13px;background:#d4a017cc}
 #flash{position:fixed;inset:0;pointer-events:none;background:#fff;opacity:0;z-index:2}
 @media (max-width:600px){.bar{width:110px}.val{font-size:16px}#zone{top:auto;bottom:140px}#altbar{visibility:hidden}.logo{font-size:34px}#meter{bottom:24%}}
 </style>
@@ -78,6 +89,8 @@ kbd{display:inline-block;padding:2px 7px;border:1px solid #0003;border-bottom-wi
   <div class="row"><span class="lbl">Cola</span><div class="bar"><div id="colaFill"></div></div></div>
   <div class="row"><span class="lbl">Fizz</span><div class="bar"><div id="fizzFill"></div></div></div>
   <div class="row"><span class="lbl">Mentos</span><div id="mentosRow"></div></div>
+  <div class="row" id="megaLine" style="display:none"><span class="lbl">Mega</span><div id="megaRow"></div></div>
+  <div class="row" id="boostLine" style="display:none"><span class="lbl">Boost</span><div class="bar"><div id="boostFill" style="background:linear-gradient(90deg,#ff9f1c,#ffe066)"></div></div></div>
   <div id="shieldRow"></div>
 </div>
 <div id="right" class="shadow"><div class="big" id="caps">0</div><div class="sub">bottle caps</div><div class="sub" id="bestLbl" style="margin-top:6px">best 0 m</div></div>
@@ -96,21 +109,26 @@ kbd{display:inline-block;padding:2px 7px;border:1px solid #0003;border-bottom-wi
   <div class="keys">
     <span><kbd>Space</kbd></span><span>Drop a Mentos: a fresh burst of fizz</span>
     <span><kbd>←</kbd> <kbd>→</kbd> / <kbd>A</kbd> <kbd>D</kbd></span><span>Tilt the bottle to steer</span>
+    <span><kbd>B</kbd></span><span>Golden Mega Mentos (an upgrade): a huge burst</span>
     <span><kbd>P</kbd> / <kbd>M</kbd></span><span>Pause / mute</span>
   </div>
   <button class="btn" id="playBtn">PLAY</button>
+  <button class="btn alt" id="garageBtn">UPGRADES</button>
 </div></div>
 
 <div id="hub" class="overlay"><div class="card">
   <h1 class="logo" id="hubTitle" style="font-size:34px">Flight report</h1>
   <div class="report" id="report"></div>
   <div class="wallet" id="wallet"></div>
+  <div class="sect">Upgrades</div>
   <div class="shop" id="shop"></div>
+  <div class="sect">Bottle skins</div>
+  <div class="skins" id="skins"></div>
   <button class="btn" id="launchBtn">LAUNCH AGAIN</button>
   <button class="btn alt" id="resetBtn" style="font-size:13px;padding:9px 18px">Reset progress</button>
 </div></div>
 
-<div id="touch"><div style="display:flex;gap:12px"><button class="tb" id="tL">◀</button><button class="tb" id="tR">▶</button></div><button class="tb big" id="tM">MENTOS</button></div>
+<div id="touch"><div style="display:flex;gap:12px"><button class="tb" id="tL">◀</button><button class="tb" id="tR">▶</button></div><div style="display:flex;gap:12px;align-items:flex-end"><button class="tb mega" id="tG" style="display:none">MEGA</button><button class="tb big" id="tM">MENTOS</button></div></div>
 
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
 <script type="module">
@@ -127,9 +145,9 @@ const GRAV = 9.8, SPACE_ALT = 10000;
 
 // ---------- save + upgrades ----------
 const SAVE_KEY = 'colaRocket.v1';
-const blankSave = () => ({ caps: 0, best: 0, won: false, up: { bottle: 0, diet: 0, pouch: 0, fins: 0, nose: 0, magnet: 0, shield: 0 } });
+const blankSave = () => ({ caps: 0, best: 0, won: false, skin: 'classic', skins: ['classic'], up: { bottle: 0, diet: 0, pouch: 0, fins: 0, nose: 0, magnet: 0, shield: 0, booster: 0, mega: 0, lucky: 0 } });
 let save = blankSave();
-try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = { ...save, ...s, up: { ...save.up, ...(s.up || {}) } }; } catch (e) {}
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = { ...save, ...s, up: { ...save.up, ...(s.up || {}) }, skins: s.skins || ['classic'] }; } catch (e) {}
 function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
 
 const BOTTLES = ['0.5 L', '1 L', '1.5 L', '2 L', '3 L'];
@@ -140,14 +158,27 @@ const UPGRADES = [
   { id: 'fins', name: 'Fins', cost: [110, 330, 750], desc: l => `Steer faster and tilt further. Level ${l}/3.` },
   { id: 'nose', name: 'Nose cone', cost: [180, 450, 950], desc: l => `-20 % air drag per level (now -${l * 20} %).` },
   { id: 'magnet', name: 'Mint magnet', cost: [150, 380, 800], desc: l => `Pulls in Mentos, cans and caps from further away.` },
+  { id: 'booster', name: 'Booster bottles', cost: [350, 850], desc: l => `${l === 0 ? 'Strap 2 small bottles to the sides' : l === 1 ? 'Now 2 boosters (4 s) → 4 boosters (7 s)' : '4 boosters, 7 s of burn'}. They fire at launch, then drop off.` },
+  { id: 'mega', name: 'Mega Mentos', cost: [250, 600, 1200], desc: l => `A golden Mentos: press B for a huge 3-second burst. ${l}${l < 3 ? ` → ${l + 1}` : ''} per flight.` },
+  { id: 'lucky', name: 'Lucky caps', cost: [200, 500, 1000], desc: l => `+25 % caps from every flight (now +${l * 25} %).` },
   { id: 'shield', name: 'Cap armour', cost: [220, 520, 1100], desc: l => `Shrug off hits: ${l}${l < 3 ? ` → ${l + 1}` : ''} per flight.` },
 ];
+const SKINS = [
+  { id: 'classic', name: 'Classic', word: 'Cola', cost: 0, bg: '#e2132d', fg: '#fff', liquid: '#3a1205', foam: null },
+  { id: 'cherry', name: 'Cherry', word: 'Cherry', cost: 300, bg: '#7a0a35', fg: '#ffd1e0', liquid: '#4a0715', foam: [1, 0.78, 0.84] },
+  { id: 'lime', name: 'Lemon-Lime', word: 'Lime', cost: 300, bg: '#1f9e45', fg: '#fff35c', liquid: '#cfe98a', foam: [0.95, 1, 0.85] },
+  { id: 'orange', name: 'Orange', word: 'Orange', cost: 450, bg: '#ff7a00', fg: '#fff', liquid: '#ff8a10', foam: [1, 0.9, 0.7] },
+  { id: 'zero', name: 'Zero', word: 'Zero', cost: 600, bg: '#111111', fg: '#e2132d', liquid: '#2a0c03', foam: null },
+  { id: 'gold', name: 'Gold', word: 'Gold', cost: 1500, bg: '#b8860b', fg: '#fff6c0', liquid: '#3a1205', foam: [1, 0.92, 0.55] },
+];
+const skin = () => SKINS.find(k => k.id === save.skin) || SKINS[0];
 function stats() {
   const u = save.up;
   return {
     cap: [60, 100, 145, 200, 280][u.bottle], thrust: 24 * (1 + 0.15 * u.diet), mentos: 3 + 2 * u.pouch,
     tilt: 0.55 + 0.1 * u.fins, tiltRate: 2.2 + 0.9 * u.fins, drag: 0.0022 * (1 - 0.2 * u.nose),
     magnet: 2.5 + 2.5 * u.magnet, shield: u.shield,
+    boost: [0, 4, 7][u.booster], mega: u.mega, lucky: 1 + 0.25 * u.lucky,
   };
 }
 
@@ -176,13 +207,17 @@ scene.add(sun, sun.target);
 
 const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, ...o });
 function canvasTex(w, h, draw) { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; }
-const labelTex = canvasTex(512, 128, (g, w, h) => {
-  g.fillStyle = '#e2132d'; g.fillRect(0, 0, w, h);
-  g.strokeStyle = '#fff'; g.lineWidth = 7; g.beginPath();
-  for (let x = 0; x <= w; x += 4) g.lineTo(x, h * 0.78 + Math.sin(x / w * Math.PI * 4) * 8); g.stroke();
-  g.fillStyle = '#fff'; g.font = 'italic 900 66px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText('Cola', w * 0.25, h * 0.42); g.fillText('Cola', w * 0.75, h * 0.42);
-});
+const labelTexs = {};
+function labelTexFor(k) {
+  return labelTexs[k.id] ||= canvasTex(512, 128, (g, w, h) => {
+    g.fillStyle = k.bg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = k.fg; g.lineWidth = 7; g.beginPath();
+    for (let x = 0; x <= w; x += 4) g.lineTo(x, h * 0.78 + Math.sin(x / w * Math.PI * 4) * 8); g.stroke();
+    g.fillStyle = k.fg; g.font = `italic 900 ${k.word.length > 4 ? 52 : 66}px Georgia, serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(k.word, w * 0.25, h * 0.42); g.fillText(k.word, w * 0.75, h * 0.42);
+  });
+}
+const labelTex = labelTexFor(SKINS[0]);
 const canTex = canvasTex(256, 128, (g, w, h) => {
   g.fillStyle = '#e2132d'; g.fillRect(0, 0, w, h);
   g.strokeStyle = '#fff'; g.lineWidth = 6; g.beginPath();
@@ -263,6 +298,22 @@ for (let i = 0; i < 3; i++) {
 const nose = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.1, 24), mat('#e2132d', { roughness: 0.3, metalness: 0.2 })); nose.position.y = 2.15; tiltG.add(nose);
 const noseTip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), mat('#fff')); noseTip.position.y = 2.7; tiltG.add(noseTip);
 const bubble = new THREE.Mesh(new THREE.SphereGeometry(2.3, 24, 16), new THREE.MeshBasicMaterial({ color: '#7fd4ff', transparent: true, opacity: 0.15, depthWrite: false })); tiltG.add(bubble);
+// booster bottles: small bottles strapped to the sides, dropped when empty
+const boostGeo = new THREE.LatheGeometry(prof, 16);
+const boostLabelM = new THREE.MeshStandardMaterial({ map: labelTex, roughness: 0.5 });
+function makeBooster() {
+  const g = new THREE.Group();
+  g.add(new THREE.Mesh(boostGeo, glass));
+  const liq = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.8, 16), colaMat); liq.position.y = 0.3; g.add(liq);
+  const lab = new THREE.Mesh(new THREE.CylinderGeometry(0.575, 0.575, 0.8, 16, 1, true), boostLabelM); lab.position.y = 0.25; g.add(lab);
+  const strap = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.06, 6, 20), mat('#999', { metalness: 0.8, roughness: 0.3 })); strap.rotation.x = Math.PI / 2; g.add(strap);
+  g.scale.setScalar(0.45); g.traverse(m => { if (m.isMesh) m.castShadow = true; });
+  return g;
+}
+const boosters = new THREE.Group(); tiltG.add(boosters);
+const BOOST_SLOTS = [[0.82, 0], [-0.82, 0], [0, 0.82], [0, -0.82]];
+const boosterMeshes = BOOST_SLOTS.map(([x, z]) => { const b = makeBooster(); b.position.set(x, -0.25, z); boosters.add(b); return b; });
+
 // parachute
 const chute = new THREE.Group(); chute.visible = false; rocket.add(chute);
 { const canopy = new THREE.Mesh(new THREE.SphereGeometry(2.6, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#fff', side: THREE.DoubleSide, roughness: 0.8 }));
@@ -278,8 +329,12 @@ function dressRocket() {
   fins.visible = u.fins > 0; fins.scale.setScalar(0.8 + u.fins * 0.25);
   nose.visible = noseTip.visible = u.nose > 0; nose.scale.set(1, 0.7 + u.nose * 0.2, 1);
   const s = [0.8, 0.95, 1.05, 1.15, 1.3][u.bottle]; tiltG.scale.set(s, s, s); ROCKET_BASE = TABLE_TOP + 1.05 + 1.72 * s;
-  colaMat.color.set(u.diet > 0 ? '#4a1a08' : '#3a1205');
-  label.material.map = labelTex; label.material.color.set(u.diet > 0 ? '#d0d0d0' : '#ffffff');
+  const k = skin(), tex = labelTexFor(k);
+  colaMat.color.set(k.liquid); label.material.map = tex; label.material.needsUpdate = true;
+  boostLabelM.map = tex; boostLabelM.needsUpdate = true;
+  glass.color.set(k.id === 'gold' ? '#ffd86b' : '#d8f5e6'); glass.opacity = k.id === 'gold' ? 0.55 : 0.35;
+  finM.color.set(k.id === 'classic' ? '#e2132d' : k.bg); nose.material.color.set(k.id === 'classic' ? '#e2132d' : k.bg);
+  const n = [0, 2, 4][u.booster]; boosterMeshes.forEach((b, i) => { b.visible = i < n; });
 }
 
 // ---------- particles: foam, sparkles, contrails ----------
@@ -317,7 +372,12 @@ function updateParticles(dt) {
   }
   pGeo.attributes.position.needsUpdate = pGeo.attributes.aColor.needsUpdate = pGeo.attributes.aSize.needsUpdate = true;
 }
-function foamColor() { const f = Math.random(); return f < 0.55 ? [1, 0.97, 0.9] : f < 0.85 ? [0.93, 0.8, 0.62] : [0.55, 0.28, 0.1]; }
+function foamColor() {
+  const f = Math.random(), t = skin().foam;
+  if (R.megaT > 0 && Math.random() < 0.5) return [1, 0.85, 0.3];
+  if (t && f < 0.5) return t;
+  return f < 0.55 ? [1, 0.97, 0.9] : f < 0.85 ? [0.93, 0.8, 0.62] : [0.55, 0.28, 0.1];
+}
 function burst(x, y, n, cols, speed = 8, size = 0.8) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, e = rand(-1, 1), s = rand(0.3, 1) * speed; const c = pick(cols); emit(x, y, 0, Math.cos(a) * s * Math.sqrt(1 - e * e), Math.sin(a) * s * Math.sqrt(1 - e * e), e * s, rand(0.4, 0.9), size, 0.5, c[0], c[1], c[2], 1, -3); } }
 
 // ---------- obstacles + pickups ----------
@@ -455,6 +515,7 @@ const sfx = {
   win: () => [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.35, 'triangle', 0.22), i * 140)),
   milestone: () => [660, 880].forEach((f, i) => setTimeout(() => tone(f, 0.2, 'triangle', 0.18), i * 110)),
   chute: () => tone(400, 0.4, 'sine', 0.15, 0.5),
+  mega: () => { tone(220, 0.6, 'sawtooth', 0.2, 3); [784, 988, 1175].forEach((f, i) => setTimeout(() => tone(f, 0.25, 'triangle', 0.18), i * 80)); },
 };
 
 // ---------- input ----------
@@ -464,10 +525,12 @@ addEventListener('keydown', e => {
   if (KEYMAP[e.code]) { keys[KEYMAP[e.code]] = true; e.preventDefault(); }
   if (e.repeat) return;
   if (e.code === 'Space') { e.preventDefault(); action(); }
+  if (e.code === 'KeyB') megaMentos();
   if (e.code === 'KeyP') togglePause();
   if (e.code === 'KeyM') { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.55; showMsg(muted ? 'Muted' : 'Sound on', '', 0.8); }
   if (e.code === 'Enter') { if (G.state === 'hub') startPad(); else if (G.state === 'title') startPad(); }
-  if (G.state === 'hub' && /^Digit[1-7]$/.test(e.code)) buy(+e.code.slice(5) - 1);
+  if (e.code === 'KeyU' && G.state === 'title') openGarage();
+  if (G.state === 'hub' && /^Digit[0-9]$/.test(e.code)) buy((+e.code.slice(5) + 9) % 10);
 });
 addEventListener('keyup', e => { if (KEYMAP[e.code]) keys[KEYMAP[e.code]] = false; });
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
@@ -480,11 +543,12 @@ function holdBtn(id, key) {
 holdBtn('tL', 'left'); holdBtn('tR', 'right');
 $('tM').addEventListener('pointerdown', e => { e.preventDefault(); $('tM').classList.add('on'); action(); });
 $('tM').addEventListener('pointerup', () => $('tM').classList.remove('on'));
+$('tG').addEventListener('pointerdown', e => { e.preventDefault(); megaMentos(); });
 renderer.domElement.addEventListener('pointerdown', () => { if (G.state === 'pad') action(); });
 
 // ---------- game state ----------
 const G = { state: 'title', paused: false, flightCaps: 0, maxAlt: 0, zone: -1, msgT: 0, flashT: 0, endT: 0, padT: 0, wonThisFlight: false, landedHow: '' };
-const R = { x: 0, y: 0, vx: 0, vy: 0, tilt: 0, cola: 0, react: 0, mentos: 0, shield: 0, inv: 0, dropCd: 0, wob: 0, s: stats(), liftoff: false, chute: false };
+const R = { x: 0, y: 0, vx: 0, vy: 0, tilt: 0, cola: 0, react: 0, mentos: 0, shield: 0, boost: 0, mega: 0, megaT: 0, inv: 0, dropCd: 0, wob: 0, s: stats(), liftoff: false, chute: false };
 const ZONES = [[0, 'Picnic Park'], [120, 'Treetops'], [400, 'Bird Highway'], [1100, 'Cloud Deck'], [2200, 'Jet Stream'], [4500, 'Stratosphere'], [7000, 'Edge of Space'], [SPACE_ALT, 'SPACE']];
 const MILESTONES = [[100, 'Above the trees!'], [500, 'Half a kilometre!'], [1000, '1 km!'], [2000, 'Higher than the clouds'], [3000, '3 km!'], [5000, 'Stratosphere!'], [7500, 'The sky is going dark...']];
 
@@ -499,11 +563,13 @@ function startPad() {
   initAudio(); setOverlay(null); setHud(true);
   clearThings(); spawnY = 0;
   R.s = stats(); dressRocket();
-  Object.assign(R, { x: 0, y: ROCKET_BASE, vx: 0, vy: 0, tilt: 0, cola: R.s.cap, react: 0, mentos: R.s.mentos, shield: R.s.shield, inv: 0, dropCd: 0, wob: 0, liftoff: false, chute: false });
+  Object.assign(R, { x: 0, y: ROCKET_BASE, vx: 0, vy: 0, tilt: 0, cola: R.s.cap, react: 0, mentos: R.s.mentos, shield: R.s.shield, boost: R.s.boost, mega: R.s.mega, megaT: 0, inv: 0, dropCd: 0, wob: 0, liftoff: false, chute: false });
   Object.assign(G, { state: 'pad', flightCaps: 0, maxAlt: 0, zone: -1, endT: 0, padT: Math.random() * 3, wonThisFlight: false, mileIdx: 0 });
   chute.visible = false; rocket.rotation.set(0, 0, 0);
   $('meter').style.display = 'block';
   buildMentosRow();
+  $('boostLine').style.display = R.s.boost ? 'flex' : 'none';
+  $('tG').style.display = R.s.mega && isTouch ? 'flex' : 'none';
   showMsg('Ready?', 'Drop the Mentos when the needle is in the green', 2.5);
 }
 function action() {
@@ -524,6 +590,23 @@ function action() {
     const top = rocketPoint(0, 1.6); burst(top.x, top.y, 18, [[1, 1, 1], [0.95, 0.9, 0.8]], 5, 0.6);
   }
 }
+function megaMentos() {
+  if (G.paused || G.state !== 'flight' || R.mega <= 0 || R.megaT > 0) return;
+  if (R.cola <= 0) { showMsg('No cola left!', '', 1); return; }
+  R.mega--; R.megaT = 3; R.react = 1.6; buildMentosRow(); sfx.mega(); flash(0.35, '#ffe27a');
+  showMsg('MEGA MENTOS!', '', 1.2);
+  const top = rocketPoint(0, 1.6); burst(top.x, top.y, 40, [[1, 0.85, 0.3], [1, 1, 0.8]], 9, 0.8);
+}
+function dropBoosters() {
+  boosterMeshes.forEach(b => {
+    if (!b.visible) return;
+    b.visible = false;
+    const wp = new THREE.Vector3(); b.getWorldPosition(wp);
+    const d = makeBooster(); d.scale.copy(b.scale).multiplyScalar(tiltG.scale.x);
+    addThing('debris', d, wp.x, wp.y, wp.z, { decor: true, vx: R.vx * 0.6 + Math.sign(wp.x - R.x || rand(-1, 1)) * rand(3, 6), vy: R.vy * 0.6, spin: rand(-6, 6) });
+  });
+  sfx.chute(); showMsg('Boosters away!', '', 1);
+}
 function togglePause() { if (G.state !== 'flight' && G.state !== 'falling') return; G.paused = !G.paused; if (G.paused) showMsg('Paused', 'Press P to continue', 1e9); else { G.msgT = 0.01; } }
 
 function rocketPoint(lx, ly) { const s = tiltG.scale.y, c = Math.cos(R.tilt), sn = Math.sin(R.tilt); return { x: R.x + (lx * c + ly * sn) * s, y: R.y + (-lx * sn + ly * c) * s }; }
@@ -533,6 +616,8 @@ function buildMentosRow() {
   const tot = R.s.mentos; let h = '';
   for (let i = 0; i < Math.max(tot, R.mentos); i++) h += `<div class="mint${i < R.mentos ? '' : ' used'}"></div>`;
   $('mentosRow').innerHTML = h;
+  let mg = ''; for (let i = 0; i < R.s.mega; i++) mg += `<div class="gold${i < R.mega ? '' : ' used'}"></div>`;
+  $('megaRow').innerHTML = mg; $('megaLine').style.display = R.s.mega ? 'flex' : 'none';
   $('shieldRow').textContent = R.s.shield ? '🛡 '.repeat(R.shield) + '· '.repeat(R.s.shield - R.shield) : '';
 }
 
@@ -565,14 +650,16 @@ function simulate(dt) {
   const falling = G.state === 'falling';
   if (!falling) R.tilt = approach(R.tilt, inX * S.tilt, S.tiltRate * dt);
   else R.tilt = approach(R.tilt, 0, 2 * dt);
+  if (R.megaT > 0) { R.megaT -= dt; R.react = Math.max(R.react, 1.6); }
   R.react *= Math.exp(-0.16 * dt);
-  let thrust = 0;
-  if (!falling && R.cola > 0 && R.react > 0.03) { thrust = S.thrust * R.react; R.cola = Math.max(0, R.cola - R.react * 6 * dt); }
+  let thrust = 0, boostThrust = 0;
+  if (!falling && R.cola > 0 && R.react > 0.03) { thrust = S.thrust * R.react * (R.megaT > 0 ? 1.6 : 1); R.cola = Math.max(0, R.cola - R.react * 6 * dt); }
+  if (!falling && R.boost > 0) { boostThrust = 15 + 3 * save.up.booster; R.boost -= dt; if (R.boost <= 0) dropBoosters(); }
   const mass = 0.7 + 0.3 * R.cola / S.cap, air = Math.exp(-R.y / 7000);
   const sp = Math.hypot(R.vx, R.vy), k = S.drag * air * sp;
   const wind = R.y > 300 ? Math.sin(R.y / 900 + 1.3) * Math.min(4, R.y / 600) : 0;
-  let ax = Math.sin(R.tilt) * thrust / mass - k * R.vx + (wind - R.vx) * 0.08 * air;
-  let ay = Math.cos(R.tilt) * thrust / mass - GRAV - k * R.vy;
+  let ax = Math.sin(R.tilt) * (thrust / mass + boostThrust) - k * R.vx + (wind - R.vx) * 0.08 * air;
+  let ay = Math.cos(R.tilt) * (thrust / mass + boostThrust) - GRAV - k * R.vy;
   if (falling && R.chute) { ax = (wind * 0.5 - R.vx) * 1.5; ay = (-11 - R.vy) * 2; }
   R.vx += ax * dt; R.vy += ay * dt; R.x += R.vx * dt; R.y += R.vy * dt;
   if (R.y < ROCKET_BASE && !R.liftoff) R.y = ROCKET_BASE;
@@ -586,6 +673,11 @@ function simulate(dt) {
       const sp2 = rand(16, 28) * (0.6 + R.react * 0.4), side = rand(-3, 3), c = foamColor();
       emit(nz.x + rand(-0.15, 0.15), nz.y, rand(-0.15, 0.15), R.vx * 0.3 - ax2 * sp2 + ay2 * side, R.vy * 0.3 - ay2 * sp2 - ax2 * side, rand(-3, 3), rand(0.5, 1.1), rand(0.35, 0.6), rand(1.8, 3.2), c[0], c[1], c[2], 0.95, -5);
     }
+  }
+  if (boostThrust > 0) for (const b of boosterMeshes) {
+    if (!b.visible || Math.random() > 0.7) continue;
+    const wp = new THREE.Vector3(0, -1.75, 0); b.localToWorld(wp); const c = foamColor();
+    emit(wp.x, wp.y, wp.z, R.vx * 0.3 - Math.sin(R.tilt) * 14, R.vy * 0.3 - Math.cos(R.tilt) * 14, rand(-1, 1), rand(0.4, 0.8), 0.3, 1.8, c[0], c[1], c[2], 0.9, -5);
   }
   if (fizzGain) { fizzGain.gain.setTargetAtTime(thrust > 0 ? 0.08 + R.react * 0.22 : 0, ac.currentTime, 0.05); fizzFilter.frequency.setTargetAtTime(1500 + R.react * 1600, ac.currentTime, 0.1); }
 
@@ -602,6 +694,7 @@ function simulate(dt) {
     else if (t.kind === 'meteor') { t.mesh.rotation.x += t.spin.x * dt; t.mesh.rotation.y += t.spin.y * dt; if (Math.random() < 0.7) emit(t.x, t.y, 0, rand(-1, 1), rand(-1, 1), 0, 0.6, 1.2, 2, 1, rand(0.4, 0.7), 0.1, 0.9, 0); }
     else if (t.kind === 'jet' && Math.random() < 0.8) emit(t.x - Math.sign(t.vx) * 4.5, t.y, 0, 0, 0, 0, 2.5, 0.8, 1.5, 1, 1, 1, 0.6, 0);
     else if (t.kind === 'storm' && Math.random() < dt * 0.6) { flash(0.15, '#e8f0ff'); }
+    else if (t.kind === 'debris') { t.vy -= GRAV * dt; t.mesh.rotation.z += t.spin * dt; }
     else if (t.pickup) { t.mesh.rotation.y += dt * 2.5; t.y += Math.sin(t.t * 2) * dt * 0.4; }
     t.x += t.vx * dt; t.y += t.vy * dt;
     if (t.pickup && !falling) {
@@ -628,11 +721,11 @@ function simulate(dt) {
   }
 
   // end of flight
-  if (G.state === 'flight' && R.vy < 0 && (R.cola <= 0 || (R.mentos === 0 && S.thrust * R.react / mass < GRAV * 0.9))) {
+  if (G.state === 'flight' && R.vy < 0 && (R.cola <= 0 || (R.mentos === 0 && R.mega === 0 && R.boost <= 0 && S.thrust * R.react / mass < GRAV * 0.9))) {
     G.state = 'falling'; G.endT = 2.6; R.chute = true; chute.visible = true; chute.scale.setScalar(0.1); sfx.chute();
     showMsg(R.cola <= 0 ? 'Out of cola!' : 'Out of fizz!', `Top altitude ${Math.round(G.maxAlt)} m`, 2.4);
   }
-  if (G.state === 'flight' && R.react < 0.12 && R.mentos > 0 && R.cola > 0 && G.msgT <= 0) showMsg('', 'Press SPACE to drop a Mentos!', 0.8);
+  if (G.state === 'flight' && R.react < 0.12 && (R.mentos > 0 || R.mega > 0) && R.cola > 0 && G.msgT <= 0) showMsg('', R.mentos > 0 ? 'Press SPACE to drop a Mentos!' : 'Press B for a Mega Mentos!', 0.8);
   if (G.state === 'falling') { G.endT -= dt; chute.scale.setScalar(Math.min(1, chute.scale.x + dt * 2)); if (G.endT <= 0) endFlight(); }
   if (R.liftoff && R.y < ROCKET_BASE - 1.5 && R.vy < 0) { R.y = ROCKET_BASE - 1.5; endFlight(); }
 }
@@ -640,10 +733,11 @@ function simulate(dt) {
 function endFlight() {
   G.state = 'hub'; if (fizzGain) fizzGain.gain.setTargetAtTime(0, ac.currentTime, 0.05);
   const alt = Math.round(G.maxAlt), altCaps = Math.floor(alt / 5), record = alt > save.best;
-  const earned = altCaps + G.flightCaps + (record && save.best > 0 ? 50 : 0);
+  const earned = Math.round((altCaps + G.flightCaps) * R.s.lucky) + (record && save.best > 0 ? 50 : 0);
   const prevBest = save.best; save.caps += earned; if (record) save.best = alt; persist();
   $('hubTitle').textContent = alt >= SPACE_ALT ? 'Space flight!' : record ? 'New record!' : 'Flight report';
-  $('report').innerHTML = `<div class="stat"><b>${alt} m</b><small>top altitude</small></div><div class="stat"><b>${Math.max(prevBest, alt)} m</b><small>best</small></div><div class="stat"><b>+${earned}</b><small>caps earned</small></div>`;
+  $('report').innerHTML = `<div class="stat"><b>${alt} m</b><small>top altitude</small></div><div class="stat"><b>${Math.max(prevBest, alt)} m</b><small>best</small></div><div class="stat"><b>+${earned}</b><small>caps earned${R.s.lucky > 1 ? ` (lucky ×${R.s.lucky})` : ''}</small></div>`;
+  $('report').style.display = 'flex'; $('launchBtn').textContent = 'LAUNCH AGAIN';
   renderShop(); setOverlay('hub'); setHud(false); $('meter').style.display = 'none';
 }
 function renderShop() {
@@ -654,6 +748,22 @@ function renderShop() {
       <button data-i="${i}" ${l >= max || save.caps < c ? 'disabled' : ''}>${l >= max ? 'MAXED' : `BUY · ${c}`}</button></div>`;
   }).join('');
   for (const b of $('shop').querySelectorAll('button')) b.onclick = () => buy(+b.dataset.i);
+  $('skins').innerHTML = SKINS.map((k, i) => {
+    const own = save.skins.includes(k.id), sel = save.skin === k.id;
+    return `<div class="skin${sel ? ' sel' : ''}"><div class="swatch" style="background:${k.bg};color:${k.fg}">${k.word}</div>${k.name}
+      <button data-k="${i}" ${sel || (!own && save.caps < k.cost) ? 'disabled' : ''}>${sel ? 'IN USE' : own ? 'USE' : `BUY · ${k.cost}`}</button></div>`;
+  }).join('');
+  for (const b of $('skins').querySelectorAll('button')) b.onclick = () => pickSkin(+b.dataset.k);
+}
+function pickSkin(i) {
+  const k = SKINS[i]; if (!k) return;
+  if (!save.skins.includes(k.id)) { if (save.caps < k.cost) return; save.caps -= k.cost; save.skins.push(k.id); }
+  save.skin = k.id; persist(); initAudio(); sfx.mint(); dressRocket(); renderShop();
+}
+function openGarage() {
+  initAudio(); G.state = 'hub';
+  $('hubTitle').textContent = 'Garage'; $('report').style.display = 'none'; $('launchBtn').textContent = 'LAUNCH';
+  renderShop(); setOverlay('hub'); setHud(false);
 }
 function buy(i) {
   const u = UPGRADES[i]; if (!u) return; const l = save.up[u.id], c = u.cost[l];
@@ -661,8 +771,9 @@ function buy(i) {
   save.caps -= c; save.up[u.id]++; persist(); initAudio(); sfx.mint(); renderShop();
 }
 $('playBtn').onclick = startPad;
+$('garageBtn').onclick = openGarage;
 $('launchBtn').onclick = startPad;
-$('resetBtn').onclick = () => { if (confirm('Reset all caps, upgrades and your best altitude?')) { save = blankSave(); persist(); renderShop(); } };
+$('resetBtn').onclick = () => { if (confirm('Reset all caps, upgrades and your best altitude?')) { save = blankSave(); persist(); dressRocket(); renderShop(); } };
 
 // ---------- visuals ----------
 const SKY = [[0, '#7ec8ff'], [1500, '#5aaef5'], [4000, '#2f6fd0'], [7000, '#14287a'], [9000, '#060a2a'], [11000, '#010208']].map(([a, c]) => [a, new THREE.Color(c)]);
@@ -715,6 +826,7 @@ function updateHUD(dt) {
   $('colaFill').style.width = (R.cola / R.s.cap * 100) + '%';
   $('fizzFill').style.width = clamp(R.react / 1.6 * 100, 0, 100) + '%';
   $('caps').textContent = save.caps + G.flightCaps;
+  if (R.s.boost) $('boostFill').style.width = (Math.max(0, R.boost) / R.s.boost * 100) + '%';
   $('bestLbl').textContent = `best ${save.best} m`;
   const top = Math.max(SPACE_ALT, save.best, G.maxAlt) * 1.05, h = $('altbar').clientHeight;
   $('altMe').style.top = (h - alt / top * h) + 'px'; $('altBest').style.top = (h - save.best / top * h) + 'px';
