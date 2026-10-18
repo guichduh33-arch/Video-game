@@ -773,7 +773,12 @@ function buy(i) {
 $('playBtn').onclick = startPad;
 $('garageBtn').onclick = openGarage;
 $('launchBtn').onclick = startPad;
-$('resetBtn').onclick = () => { if (confirm('Reset all caps, upgrades and your best altitude?')) { save = blankSave(); persist(); dressRocket(); renderShop(); } };
+let resetArmed = 0;
+$('resetBtn').onclick = () => {
+  const btn = $('resetBtn');
+  if (Date.now() - resetArmed > 3000) { resetArmed = Date.now(); btn.textContent = 'Tap again to erase everything'; setTimeout(() => { btn.textContent = 'Reset progress'; }, 3000); return; }
+  resetArmed = 0; btn.textContent = 'Reset progress'; save = blankSave(); persist(); dressRocket(); renderShop();
+};
 
 // ---------- visuals ----------
 const SKY = [[0, '#7ec8ff'], [1500, '#5aaef5'], [4000, '#2f6fd0'], [7000, '#14287a'], [9000, '#060a2a'], [11000, '#010208']].map(([a, c]) => [a, new THREE.Color(c)]);
