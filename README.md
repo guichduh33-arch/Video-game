@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Five games live in this repo:
+Six games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -29,6 +29,9 @@ Five games live in this repo:
 - `car.html` – **Apex Drift 3D**: an arcade racing game. Three laps against three AI
   rivals on a procedurally generated circuit, with handbrake drifting, nitro pickups,
   three cars and three track themes. See [Apex Drift 3D](#apex-drift-3d) below.
+- `cola.html` – **Mentos + Cola Rocket**: the old Mentos-in-a-bottle-of-cola geyser,
+  turned into a rocket. Ride the fizz from a picnic table to space. See
+  [Mentos + Cola Rocket](#mentos--cola-rocket) below.
 
 ## Spider-Man 2: Brooklyn Nights
 
@@ -205,6 +208,74 @@ engine is locked while the hangar is open, so you cannot lift off by accident.
 On a phone the tilt, turn, HOLD and THRUST buttons appear on screen. Your best score is
 kept in the browser. Add `?seed=123` to the URL to play the same world again; the pad
 route, terrain and pickups are generated from the seed.
+
+## Mentos + Cola Rocket
+
+Open `cola.html`. A bottle of cola stands neck-down on a launcher on a picnic table.
+Drop the Mentos and the foam shoots out of the neck and pushes the bottle up. The goal
+is to reach **space at 10 000 m**. It uses the same one-file Three.js approach as the
+other games.
+
+### How it works
+
+- **The launch.** A needle swings across a meter. Press `Space` (or tap) while it is in
+  the green. A perfect drop gives the biggest first burst of fizz and the fastest
+  lift-off.
+- **Cola and fizz.** The **cola** bar is your fuel. The **fizz** bar is how hard the
+  reaction is going right now. Thrust comes from the fizz, and fizz burns cola. Fizz
+  dies down over time, so press `Space` to drop another **Mentos** for a fresh burst.
+  You start with 3 Mentos.
+- **Steering in 3D.** The camera chases the bottle from behind and below, looking up
+  at the sky ahead. `←` / `→` (or `A` / `D`) tilt the bottle left and right, `↑` / `↓`
+  (or `W` / `S`) tilt it forward and back. The foam only pushes along the bottle, so
+  tilting moves you that way. A faint dashed line shows where you are heading. Higher
+  up there is wind.
+- **On the way up:** grab floating **Mentos** (+1), **cans of cola** (refill +28 %
+  and 5 caps) and lines of **bottle caps** (the money).
+- **Things to dodge**, depending on how high you are: birds, kites, drones, hot-air
+  balloons, airliners, storm clouds (lightning kills your fizz), fighter jets,
+  satellites and meteors. A hit spills cola and knocks you off course.
+- **The end of a flight.** It ends when you run out of cola, or run out of Mentos and
+  the fizz can no longer hold the bottle up. A parachute opens and you get caps for
+  every 5 m of altitude, plus the caps you picked up.
+
+### The shop
+
+Spend bottle caps in the **garage**: it opens after every flight, and from the title
+screen with the UPGRADES button (or `U`). Click, or press `1`–`9` and `0`. Upgrades are
+saved in the browser:
+
+| Upgrade | Levels | Effect |
+|---|---|---|
+| Bigger bottle | 4 | 0.5 L → 3 L of cola: a longer burn |
+| Diet formula | 4 | +15 % thrust per level (diet cola really does foam harder) |
+| Mentos roll | 4 | start with 2 more Mentos per level (up to 11) |
+| Fins | 3 | steer faster and tilt further |
+| Nose cone | 3 | -20 % air drag per level |
+| Mint magnet | 3 | pulls in pickups from further away |
+| Booster bottles | 2 | small side bottles that fire at launch and then drop off: 2 boosters for 4 s, then 4 boosters for 7 s |
+| Mega Mentos | 3 | a golden Mentos per level: press `B` (MEGA on a phone) for a 3-second burst at full fizz and +60 % thrust |
+| Lucky caps | 3 | +25 % caps from every flight |
+| Cap armour | 3 | a shield that blocks one hit per level, each flight |
+
+**Bottle skins** change the label, the drink and the foam colour: Classic (free),
+Cherry, Lemon-Lime, Orange, Zero and Gold. Buy a skin once, then switch between your
+skins for free.
+
+The first time you reach space you get a 1000-cap bonus.
+
+| Key | Action |
+|---|---|
+| `Space` | Drop the Mentos (launch) / drop another Mentos (in flight) |
+| `←` `→` / `A` `D` | Tilt the bottle left / right |
+| `↑` `↓` / `W` `S` | Tilt the bottle forward / back |
+| `B` | Mega Mentos (once you have bought it) |
+| `1`–`9`, `0` | Buy upgrades in the garage |
+| `U` | Open the garage from the title screen |
+| `Enter` | Launch again from the shop |
+| `P` / `M` | Pause / mute |
+
+On a phone, a ▲ ◀ ▶ ▼ pad, MENTOS and (once bought) MEGA buttons appear on screen.
 
 ## Apex Drift 3D
 
@@ -662,6 +733,8 @@ are saved in the browser.
 - `rocket.html` – Rocket Run 3D: noise terrain, pad route, rocket physics and
   fly-by-wire attitude, landing rules, the hangar upgrade shop, instanced exhaust
   and debris, synthesized engine and chimes, DOM HUD and touch controls.
+- `cola.html` – Mentos + Cola Rocket: bottle rocket physics, foam particles, altitude
+  zones with obstacles and pickups, and the upgrade shop.
 - `car.html` – Apex Drift 3D: seeded spline circuit, ribbon road / curb / barrier
   meshes, two-level terrain, arcade car physics, AI drivers, skid marks and smoke,
   synthesized engine audio, minimap, DOM HUD and touch controls.
