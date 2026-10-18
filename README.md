@@ -225,8 +225,11 @@ other games.
   reaction is going right now. Thrust comes from the fizz, and fizz burns cola. Fizz
   dies down over time, so press `Space` to drop another **Mentos** for a fresh burst.
   You start with 3 Mentos.
-- **Steering.** `←` / `→` (or `A` / `D`) tilt the bottle. The foam only pushes along
-  the bottle, so tilting moves you sideways. Higher up there is wind.
+- **Steering in 3D.** The camera chases the bottle from behind and below, looking up
+  at the sky ahead. `←` / `→` (or `A` / `D`) tilt the bottle left and right, `↑` / `↓`
+  (or `W` / `S`) tilt it forward and back. The foam only pushes along the bottle, so
+  tilting moves you that way. A faint dashed line shows where you are heading. Higher
+  up there is wind.
 - **On the way up:** grab floating **Mentos** (+1), **cans of cola** (refill +28 %
   and 5 caps) and lines of **bottle caps** (the money).
 - **Things to dodge**, depending on how high you are: birds, kites, drones, hot-air
@@ -264,14 +267,15 @@ The first time you reach space you get a 1000-cap bonus.
 | Key | Action |
 |---|---|
 | `Space` | Drop the Mentos (launch) / drop another Mentos (in flight) |
-| `←` `→` / `A` `D` | Tilt the bottle |
+| `←` `→` / `A` `D` | Tilt the bottle left / right |
+| `↑` `↓` / `W` `S` | Tilt the bottle forward / back |
 | `B` | Mega Mentos (once you have bought it) |
 | `1`–`9`, `0` | Buy upgrades in the garage |
 | `U` | Open the garage from the title screen |
 | `Enter` | Launch again from the shop |
 | `P` / `M` | Pause / mute |
 
-On a phone, ◀ ▶, MENTOS and (once bought) MEGA buttons appear on screen.
+On a phone, a ▲ ◀ ▶ ▼ pad, MENTOS and (once bought) MEGA buttons appear on screen.
 
 ## Apex Drift 3D
 
