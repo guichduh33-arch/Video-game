@@ -953,7 +953,7 @@ function togglePause() {
   G.paused = !G.paused; $('pause').style.display = G.paused ? 'flex' : 'none'; if (G.paused) setFizz(0);
 }
 $('resume').onclick = () => togglePause();
-$('resetSave').onclick = () => { if (!confirm('Erase all caps, upgrades and records?')) return; try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); };
+$('resetSave').onclick = () => { const b = $('resetSave'); if (!b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Tap again to erase everything'; return; } try { localStorage.removeItem(SAVE_KEY); } catch (e) {} location.reload(); };
 $('go').onclick = () => { au(); $('title').style.display = 'none'; startRound(); };
 $('titleBest').textContent = save.launches ? `Record ${Math.round(save.best)} m · ${save.caps} caps · ${save.launches} launches` : '';
 
