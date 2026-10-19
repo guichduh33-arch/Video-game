@@ -280,9 +280,11 @@ the results screen shows the finishing order with everyone's best laps.
 ## Cola Rocket 3D
 
 Open `cola.html`. It is a third-person backyard game in the same one-file Three.js style,
-starring a cartoon kid in a red cap, cola T-shirt, jeans and sneakers. He is built from
-rounded parts on a joint hierarchy and animated in code: walk and run cycles, breathing,
-blinking, glancing around, both hands on the bottle while shaking, and cheering at the sky
+starring Miles Morales in two looks you pick on the title screen (or swap with `V`): the
+black spider suit with red webbing, the big red spider and white mask lenses, worn with
+red-and-white high-tops, or his black hoodie with headphones around his neck. He is built
+from rounded parts on a joint hierarchy and animated in code: walk and run cycles, breathing,
+blinking (the mask lenses squint), glancing around, both hands on the bottle while shaking, and cheering at the sky
 during a flight. The game loads no model files.
 
 ### A launch
@@ -336,7 +338,7 @@ are saved in the browser.
 | Build, drop the mints, garage | `E` | ACTION |
 | Shake | `Space` | SHAKE |
 | Keep the rocket straight | `WASD` in flight | stick |
-| Garage · camera · mute · pause | `G` `C` `M` `Esc` | |
+| Garage · camera · outfit · mute · pause | `G` `C` `V` `M` `Esc` | |
 
 ## The hero model
 
@@ -730,7 +732,7 @@ are saved in the browser.
 - `car.html` – Apex Drift 3D: seeded spline circuit, ribbon road / curb / barrier
   meshes, two-level terrain, arcade car physics, AI drivers, skid marks and smoke,
   synthesized engine audio, minimap, DOM HUD and touch controls.
-- `cola.html` – Cola Rocket 3D: backyard scene, the procedural cartoon kid, lathe-modelled bottles, stacked-stage
+- `cola.html` – Cola Rocket 3D: backyard scene, procedural Miles (suit and hoodie), lathe-modelled bottles, stacked-stage
   rocket builder, soda-rocket physics with staging and attitude, instanced foam, the
   garage shop, synthesized fizz and sound, DOM HUD and touch controls.
 - `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
