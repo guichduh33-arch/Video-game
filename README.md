@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Five games live in this repo:
+Six games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -29,6 +29,10 @@ Five games live in this repo:
 - `car.html` – **Apex Drift 3D**: an arcade racing game. Three laps against three AI
   rivals on a procedurally generated circuit, with handbrake drifting, nitro pickups,
   three cars and three track themes. See [Apex Drift 3D](#apex-drift-3d) below.
+- `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
+  bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
+  it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
+  below.
 
 ## Spider-Man 2: Brooklyn Nights
 
@@ -272,6 +276,65 @@ the results screen shows the finishing order with everyone's best laps.
 | Camera | `C` | CAM |
 | Reset to track | `R` | |
 | Mute / pause | `M` / `Esc` | |
+
+## Cola Rocket 3D
+
+Open `cola.html`. It is a third-person backyard game in the same one-file Three.js style,
+starring a kid in a red cap (the X Bot rig from the Spider-Man games, dressed in a tee and
+jeans).
+
+### A launch
+
+1. **Gather.** Cola bottles (red light beams), mint rolls (blue beams) and loose bottle
+   caps are scattered around the yard. You need one bottle per rocket stage and as many
+   mints as your pocket holds.
+2. **Build.** Walk to the pad in the middle of the yard and press `E`. The bottles are
+   flipped neck-down and stacked, then the fins, nozzle, nose cone and parachute go on.
+3. **Shake.** Mash `Space` to build up pressure. A small rocket is lifted and shaken in
+   both hands, a tall stack gets wobbled on the pad. Stop in the white zone. Past 100 %
+   the bottle bursts and the launch is lost.
+4. **Drop the mints and run.** `E` takes the caps off and drops the mints in. You have
+   three seconds to get outside the white circle, or you get soaked.
+5. **Fly.** The foam jet pushes the rocket up. Without fins it wobbles, so hold it
+   straight with `WASD`. Fins weathervane it into the airflow on their own. Stages
+   separate when a bottle runs dry and the empty one tumbles away.
+
+Height milestones are placed in the sky: over the roof, the treetops, the kite, a flock
+of birds, a hot-air balloon, the cloud layer at 250 m, an airliner at 500 m, a weather
+balloon at 800 m, and above 1000 m the sky turns black and the stars come out.
+
+### The garage: upgrades
+
+Every flight earns bottle caps (altitude, first-time milestones, staying dry, parachute
+recovery). Spend them in the garage (`G`, or walk in):
+
+| Upgrade | Levels |
+| --- | --- |
+| Bottle size | 0.5 L → 1.25 L → 2 L → 3 L → 5 L jumbo |
+| Mint pocket | 3 → 5 → 8 → 12 → 16 mints |
+| Fins | none → cardboard → plastic → carbon |
+| Nose cone | flat → paper → plastic → ogive |
+| Nozzle | open neck → drilled cap → tornado tube → rocket nozzle |
+| Stages | 1 → 2 → 3 stacked bottles |
+| Parachute | soft landing, +25 % caps |
+| Sneakers | run faster in the yard |
+
+The physics is a game version of a real soda rocket: exhaust speed grows with mints,
+shaking and the nozzle, burn time with bottle size, drag falls with the nose cone and the
+air thins with height. A first, unshaken launch reaches about 10 m. A fully upgraded
+three-stage rocket with a well-timed shake passes 1000 m. Caps, upgrades and your record
+are saved in the browser.
+
+### Cola Rocket controls
+
+| Action | Keyboard / mouse | Touch |
+| --- | --- | --- |
+| Walk / run | `WASD` / arrows, `Shift` | stick, RUN |
+| Look around | drag, mouse wheel to zoom | drag on the right |
+| Build, drop the mints, garage | `E` | ACTION |
+| Shake | `Space` | SHAKE |
+| Keep the rocket straight | `WASD` in flight | stick |
+| Garage · camera · mute · pause | `G` `C` `M` `Esc` | |
 
 ## The hero model
 
@@ -665,8 +728,11 @@ are saved in the browser.
 - `car.html` – Apex Drift 3D: seeded spline circuit, ribbon road / curb / barrier
   meshes, two-level terrain, arcade car physics, AI drivers, skid marks and smoke,
   synthesized engine audio, minimap, DOM HUD and touch controls.
+- `cola.html` – Cola Rocket 3D: backyard scene, lathe-modelled bottles, stacked-stage
+  rocket builder, soda-rocket physics with staging and attitude, instanced foam, the
+  garage shop, synthesized fizz and sound, DOM HUD and touch controls.
 - `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
-  Spider-Man 3D games; `sw.js` caches them, Rocket Run and Apex Drift for offline play.
+  Spider-Man 3D games; `sw.js` caches them, Rocket Run, Apex Drift and Cola Rocket for offline play.
 
 ## Ideas for next steps
 
