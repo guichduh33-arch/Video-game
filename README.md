@@ -280,8 +280,10 @@ the results screen shows the finishing order with everyone's best laps.
 ## Cola Rocket 3D
 
 Open `cola.html`. It is a third-person backyard game in the same one-file Three.js style,
-starring a kid in a red cap (the X Bot rig from the Spider-Man games, dressed in a tee and
-jeans).
+starring a cartoon kid in a red cap, cola T-shirt, jeans and sneakers. He is built from
+rounded parts on a joint hierarchy and animated in code: walk and run cycles, breathing,
+blinking, glancing around, both hands on the bottle while shaking, and cheering at the sky
+during a flight. The game loads no model files.
 
 ### A launch
 
@@ -728,7 +730,7 @@ are saved in the browser.
 - `car.html` – Apex Drift 3D: seeded spline circuit, ribbon road / curb / barrier
   meshes, two-level terrain, arcade car physics, AI drivers, skid marks and smoke,
   synthesized engine audio, minimap, DOM HUD and touch controls.
-- `cola.html` – Cola Rocket 3D: backyard scene, lathe-modelled bottles, stacked-stage
+- `cola.html` – Cola Rocket 3D: backyard scene, the procedural cartoon kid, lathe-modelled bottles, stacked-stage
   rocket builder, soda-rocket physics with staging and attitude, instanced foam, the
   garage shop, synthesized fizz and sound, DOM HUD and touch controls.
 - `manifest.webmanifest` / `manifest-sm2.webmanifest` – PWA manifests for the two
