@@ -427,6 +427,7 @@ full-screen experience.
 | Wall-crawl | Push into a wall, then `W`/`S` to climb |
 | Punch | `J` or right mouse button |
 | Venom Strike | `K` (needs 50 venom, built by landing hits) |
+| Volt Swing | `K` while swinging (30 venom): an electric speed burst that shocks everyone you pass |
 | Camouflage | `L` or `Shift` (6 seconds, enemies lose you; punching from camo is a one-hit stealth takedown) |
 | Pause | `P` or `Esc` |
 

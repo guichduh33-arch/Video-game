@@ -175,6 +175,7 @@ const AudioSys = (() => {
     crime() { tone({ f: 440, type: 'square', dur: 0.1, vol: 0.07 }); tone({ f: 660, type: 'square', dur: 0.18, vol: 0.07, delay: 0.12 }); },
     alert() { tone({ f: 330, f2: 330, type: 'square', dur: 0.08, vol: 0.05 }); tone({ f: 330, type: 'square', dur: 0.08, vol: 0.05, delay: 0.12 }); },
     sense() { tone({ f: 1800, f2: 2400, type: 'sine', dur: 0.12, vol: 0.05 }); },
+    volt() { tone({ f: 300, f2: 2400, type: 'sawtooth', dur: 0.4, vol: 0.14 }); noise(0.35, 0.16, 2000); tone({ f: 80, f2: 160, type: 'square', dur: 0.3, vol: 0.12, delay: 0.05 }); },
     roar() { tone({ f: 90, f2: 40, type: 'sawtooth', dur: 0.7, vol: 0.25 }); noise(0.5, 0.2, 200); tone({ f: 180, f2: 60, type: 'square', dur: 0.5, vol: 0.1, delay: 0.1 }); },
     clank() { tone({ f: 1800, f2: 900, type: 'square', dur: 0.08, vol: 0.08 }); tone({ f: 600, f2: 300, type: 'triangle', dur: 0.15, vol: 0.1 }); },
     stomp() { tone({ f: 60, f2: 25, type: 'sine', dur: 0.5, vol: 0.4 }); noise(0.25, 0.25, 150); },
@@ -255,7 +256,7 @@ const player = {
   camo: false, camoT: 0, camoCd: 0,
   punchT: 0, punchCd: 0, punchId: 0, kickT: 0,
   invulnT: 0, lastHurt: -99, alive: true, deadT: 0, animT: 0,
-  hand: [0, 0], senseT: 0, wallT: 0, landT: 0, autoCd: 0, autoSwing: false,
+  hand: [0, 0], senseT: 0, wallT: 0, landT: 0, autoCd: 0, autoSwing: false, voltT: 0, voltId: 0, sinceSwing: 99,
 };
 const cam = { x: 0, y: 0 };
 const enemies = [], bullets = [], particles = [], texts = [], arcs = [];
@@ -271,7 +272,7 @@ function reset() {
   Object.assign(player, {
     x: start.x + start.w / 2, y: start.y - player.h / 2 - 1, vx: 0, vy: 0, facing: 1,
     hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, swinging: false, anchor: null, alive: true,
-    invulnT: 0, punchT: 0, punchCd: 0, jumpsLeft: 1, deadT: 0, lastHurt: -99, senseT: 0, onGround: true,
+    invulnT: 0, punchT: 0, punchCd: 0, jumpsLeft: 1, deadT: 0, lastHurt: -99, senseT: 0, onGround: true, voltT: 0,
   });
   cam.x = clamp(player.x - VW / 2, 0, WORLD_W - VW);
   cam.y = player.y - VH * 0.6;
@@ -386,11 +387,17 @@ function updatePlayer(dt) {
     floatText(p.x, p.y - 50, 'CAMOUFLAGE', '#9fe8ff', 14);
     for (const e of enemies) e.alerted = false;
   }
+  p.voltT = Math.max(0, p.voltT - dt);
+  p.sinceSwing = p.swinging ? 0 : p.sinceSwing + dt;
+  const inSwing = p.swinging || (!p.onGround && p.sinceSwing < 0.45);
   if (venomPressed) {
-    if (p.venom >= 50) {
+    if (inSwing && p.venom >= 30) {
+      p.venom -= 30; voltSwing();
+    } else if (!inSwing && p.venom >= 50) {
       p.venom -= 50; p.venomT = 0.35; venomStrike();
     } else { floatText(p.x, p.y - 50, 'NOT ENOUGH VENOM', '#ffd23f', 13, 0.8); }
   }
+  if (p.voltT > 0) voltTick(dt);
   if (punchPressed && p.punchCd <= 0) {
     p.punchT = 0.18; p.punchCd = 0.3; p.punchId++;
     AudioSys.punch();
@@ -452,7 +459,8 @@ function updatePlayer(dt) {
     const drag = Math.pow(0.975, dt);
     p.vx *= drag; p.vy *= drag;
     const sp = Math.hypot(p.vx, p.vy);
-    if (sp > 1950) { const k = 1950 / sp; p.vx *= k; p.vy *= k; }
+    const cap = p.voltT > 0 ? 2600 : 1950;
+    if (sp > cap) { const k = cap / sp; p.vx *= k; p.vy *= k; }
     if (Math.abs(p.vx) > 20) p.facing = sign(p.vx);
     if (jumpPressed) { // launch off the web
       p.swinging = false; p.anchor = null;
@@ -473,7 +481,7 @@ function updatePlayer(dt) {
     if (left) { p.vx -= accel * dt; p.facing = -1; }
     if (right) { p.vx += accel * dt; p.facing = 1; }
     if (!left && !right) p.vx *= Math.pow(p.onGround ? 0.0008 : 0.5, dt);
-    const cap = p.onGround ? maxRun : 1500;
+    const cap = p.onGround ? maxRun : (p.voltT > 0 ? 2200 : 1500);
     if (Math.abs(p.vx) > cap) p.vx = sign(p.vx) * Math.max(cap, Math.abs(p.vx) - 900 * dt);
     p.vy += GRAVITY * dt; if (p.vy > 1500) p.vy = 1500;
     p.coyote = p.onGround ? 0.12 : Math.max(0, p.coyote - dt);
@@ -533,6 +541,39 @@ function venomStrike() {
   for (let i = bullets.length - 1; i >= 0; i--) { const b = bullets[i]; if (Math.hypot(b.x - p.x, b.y - p.y) < 160) { burst(b.x, b.y, 4, '#ffe04a', 120, 0.3, 2, 0); bullets.splice(i, 1); } }
   if (p.camo) { p.camo = false; p.camoCd = 10; }
   if (hits >= 3) floatText(p.x, p.y - 70, 'SHOCKWAVE!', '#ffe04a', 22);
+}
+
+function voltSwing() {
+  const p = player, a = p.anchor;
+  p.voltT = 1.4; p.voltId++;
+  // burst along the direction of travel (or forward-up if hanging still)
+  let sp = Math.hypot(p.vx, p.vy), dx, dy;
+  if (sp > 120) { dx = p.vx / sp; dy = p.vy / sp; } else { dx = p.facing * 0.8; dy = -0.6; }
+  p.vx += dx * 750; p.vy += dy * 750;
+  AudioSys.volt(); shake(8); G.flash = 0.15;
+  floatText(p.x, p.y - 60, 'VOLT SWING!', '#ffe04a', 20, 1);
+  burst(p.x, p.y, 24, '#ffe04a', 300, 0.5, 3, 0);
+  if (a) for (let i = 0; i < 4; i++) arcs.push({ x1: p.hand[0], y1: p.hand[1], x2: a.x, y2: a.y, life: 0.3 + i * 0.05, maxLife: 0.35 });
+}
+function voltTick(dt) {
+  const p = player;
+  // crackle
+  if (Math.random() < 0.7) particles.push({ x: p.x + rand(-14, 14), y: p.y + rand(-24, 20), vx: rand(-120, 120), vy: rand(-120, 120), life: 0.25, maxLife: 0.25, color: Math.random() < 0.5 ? '#ffe04a' : '#ffffff', size: rand(2, 4), grav: 0 });
+  if (Math.random() < 0.25) { const a = Math.random() * TAU; arcs.push({ x1: p.x, y1: p.y - 5, x2: p.x + Math.cos(a) * rand(30, 70), y2: p.y - 5 + Math.sin(a) * rand(30, 70), life: 0.12, maxLife: 0.12 }); }
+  // shock whatever Miles passes
+  for (const e of enemies) {
+    if (e.dead || e.voltId === p.voltId) continue;
+    if (Math.abs(e.x - p.x) < 80 && Math.abs(e.y - p.y) < 80) {
+      e.voltId = p.voltId;
+      arcs.push({ x1: p.x, y1: p.y, x2: e.x, y2: e.y, life: 0.3, maxLife: 0.3 });
+      hitEnemy(e, 2, sign(e.x - p.x) * 380, -380, 'SHOCKED', 1.0);
+    }
+  }
+  const B = G.boss;
+  if (B && !B.dead && B.voltId !== p.voltId && Math.abs(B.x - p.x) < 90 && Math.abs(B.y - p.y) < 100) {
+    B.voltId = p.voltId; arcs.push({ x1: p.x, y1: p.y, x2: B.x, y2: B.y, life: 0.3, maxLife: 0.3 }); hitBoss(B, 3, sign(B.x - p.x) * 200);
+  }
+  for (let i = bullets.length - 1; i >= 0; i--) { const b = bullets[i]; if (Math.hypot(b.x - p.x, b.y - p.y) < 90) { burst(b.x, b.y, 4, '#ffe04a', 120, 0.3, 2, 0); bullets.splice(i, 1); } }
 }
 
 function hitEnemy(e, dmg, kx, ky, label, stun = 0.4) {
@@ -921,6 +962,7 @@ function drawMiles(p) {
   const rx = hx * Math.cos(tilt) - hy * Math.sin(tilt), ry = hx * Math.sin(tilt) + hy * Math.cos(tilt);
   p.hand = [p.x + rx * p.facing, p.y + ry];
 
+  if (p.voltT > 0) { ctx.globalAlpha = 0.35 + 0.2 * Math.sin(p.animT * 40); ctx.fillStyle = '#ffe04a'; circle(0, -8, 30); ctx.globalAlpha = alpha; }
   if (p.venomT > 0) {
     ctx.globalAlpha = 1; ctx.strokeStyle = '#ffe04a'; ctx.lineWidth = 2;
     for (let i = 0; i < 5; i++) { const a = Math.random() * TAU; const r = rand(20, 50); line(Math.cos(a) * 10, -10 + Math.sin(a) * 10, Math.cos(a) * r, -10 + Math.sin(a) * r); }
@@ -995,15 +1037,17 @@ function drawWeb(p) {
   if (!p.swinging || !p.anchor) return;
   const a = p.anchor, h = p.hand;
   ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  const volt = p.voltT > 0;
+  ctx.strokeStyle = volt ? '#ffe04a' : 'rgba(255,255,255,0.9)'; ctx.lineWidth = volt ? 3 : 2; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(h[0], h[1]);
-  const n = 6, wob = Math.min(1, p.swingT * 6) * 3;
+  const n = volt ? 12 : 6, wob = Math.min(1, p.swingT * 6) * 3;
   for (let i = 1; i <= n; i++) {
     const t = i / n; const x = lerp(h[0], a.x, t), y = lerp(h[1], a.y, t);
-    const off = Math.sin(t * Math.PI) * Math.sin(p.animT * 30 + i) * (3 - wob);
+    const off = volt ? (i < n ? rand(-9, 9) : 0) : Math.sin(t * Math.PI) * Math.sin(p.animT * 30 + i) * (3 - wob);
     ctx.lineTo(x + off, y + off);
   }
   ctx.stroke();
+  if (volt) { ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1; ctx.stroke(); }
   ctx.fillStyle = '#fff'; circle(a.x, a.y, 3.5);
   ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
   for (let i = 0; i < 4; i++) { const ang = i * Math.PI / 4 + 0.3; line(a.x - Math.cos(ang) * 7, a.y - Math.sin(ang) * 7, a.x + Math.cos(ang) * 7, a.y + Math.sin(ang) * 7); }
@@ -1193,7 +1237,7 @@ function drawHUD() {
   ctx.textBaseline = 'alphabetic';
   // left: bars
   bar(20, 20, 230, 18, p.hp / p.maxHp, p.hp < 30 ? '#ff2a3a' : '#e0202a', 'HEALTH');
-  bar(20, 46, 230, 12, p.venom / 100, p.venom >= 50 ? '#ffd23f' : '#8a7a2a', 'VENOM' + (p.venom >= 50 ? '  (K) READY' : ''));
+  bar(20, 46, 230, 12, p.venom / 100, p.venom >= 30 ? '#ffd23f' : '#8a7a2a', 'VENOM' + (p.swinging || !p.onGround ? (p.venom >= 30 ? '  (K) VOLT SWING READY' : '') : (p.venom >= 50 ? '  (K) STRIKE READY' : '')));
   // camo ring
   const cx = 36, cy = 86;
   ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, 13, 0, TAU); ctx.stroke();
@@ -1252,7 +1296,7 @@ function drawHUD() {
     ctx.globalAlpha = clamp(G.hintT, 0, 1);
     ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 360, H - 60, 720, 40);
     ctx.fillStyle = '#fff'; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText('A/D move  ·  W jump  ·  hold E to auto-swing  ·  hold SPACE / click to aim a web with the mouse  ·  J punch  ·  K venom  ·  L camo', W / 2, H - 35);
+    ctx.fillText('A/D move  ·  W jump  ·  hold E to auto-swing  ·  SPACE / click to aim a web  ·  J punch  ·  K venom strike, or K mid-swing = VOLT SWING  ·  L camo', W / 2, H - 35);
     ctx.globalAlpha = 1;
   }
   if (touch.ui && G.state === 'play') drawTouchUI();
@@ -1278,7 +1322,7 @@ function drawTouchUI() {
   // buttons
   for (const b of touch.btns) {
     let ready = true, label = b.label;
-    if (b.key === 'KeyK') { ready = p.venom >= 50; }
+    if (b.key === 'KeyK') { const air = p.swinging || !p.onGround; ready = air ? p.venom >= 30 : p.venom >= 50; if (air) label = 'VOLT'; }
     if (b.key === 'KeyL') { ready = !p.camo && p.camoCd <= 0; if (p.camoCd > 0) label = Math.ceil(p.camoCd) + 's'; if (p.camo) label = 'ON'; }
     if (b.key === 'KeyE' && p.swinging) label = 'SWING';
     ctx.globalAlpha = b.held ? 0.85 : ready ? 0.45 : 0.2;
@@ -1371,7 +1415,7 @@ function frame(now) {
     'Hold WEB and Miles swings on his own, let go to fly. Touch and hold the sky to aim a web yourself',
     'Drag in the bottom-left corner to move, push into walls to climb',
     'JUMP also launches you off a web (double jump in the air)',
-    'PUNCH thugs  ·  VENOM shocks everyone around you  ·  CAMO for stealth takedowns',
+    'PUNCH thugs  ·  VENOM shocks everyone around you, or tap it mid-swing for a VOLT SWING speed burst  ·  CAMO for stealth',
     '',
     `Stop ${CRIMES_TO_WIN} rooftop crimes, then take down the Rhino. Landscape works best.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
     'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
@@ -1382,7 +1426,8 @@ function frame(now) {
     'A / D  move     W  jump (double jump, launch off webs)',
     'Hold E  auto-swing     Hold SPACE or LEFT CLICK  aim a web with the mouse (W/S to shorten/lengthen)',
     'Hold toward a wall  wall-crawl     J / RIGHT CLICK  punch',
-    'K  Venom Strike (builds by landing hits)     L / SHIFT  Camouflage (stealth takedowns)',
+    'K  Venom Strike, or K mid-swing for a VOLT SWING: an electric speed burst that shocks everyone you pass',
+    'L / SHIFT  Camouflage (stealth takedowns)',
     '',
     `Stop ${CRIMES_TO_WIN} rooftop crimes, then take down the Rhino.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
     'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
