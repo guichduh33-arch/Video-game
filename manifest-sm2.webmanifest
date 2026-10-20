@@ -1,0 +1,18 @@
+{
+  "name": "Spider-Man 2: Brooklyn Nights",
+  "short_name": "Spider-Man 2",
+  "description": "Fan-made 3D sequel: play Peter Parker and Miles Morales across Manhattan and Brooklyn, glide on web wings, and take down the Lizard, Kraven and Venom.",
+  "start_url": "./spiderman2.html?source=pwa",
+  "id": "./spiderman2.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0b0b14",
+  "theme_color": "#0b0b14",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
