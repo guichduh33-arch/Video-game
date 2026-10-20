@@ -62,7 +62,7 @@ resize();
 const WORLD_W = 14000;
 const GROUND_Y = 900;
 const GRAVITY = 1900;
-const MAX_ROPE = 460;
+const MAX_ROPE = 500;
 const MIN_ROPE = 120;
 const SKY_LIMIT = -80; // webs can't anchor to empty sky above this (just over the tallest roof)
 const CRIMES_TO_WIN = 8;
@@ -175,6 +175,9 @@ const AudioSys = (() => {
     crime() { tone({ f: 440, type: 'square', dur: 0.1, vol: 0.07 }); tone({ f: 660, type: 'square', dur: 0.18, vol: 0.07, delay: 0.12 }); },
     alert() { tone({ f: 330, f2: 330, type: 'square', dur: 0.08, vol: 0.05 }); tone({ f: 330, type: 'square', dur: 0.08, vol: 0.05, delay: 0.12 }); },
     sense() { tone({ f: 1800, f2: 2400, type: 'sine', dur: 0.12, vol: 0.05 }); },
+    roar() { tone({ f: 90, f2: 40, type: 'sawtooth', dur: 0.7, vol: 0.25 }); noise(0.5, 0.2, 200); tone({ f: 180, f2: 60, type: 'square', dur: 0.5, vol: 0.1, delay: 0.1 }); },
+    clank() { tone({ f: 1800, f2: 900, type: 'square', dur: 0.08, vol: 0.08 }); tone({ f: 600, f2: 300, type: 'triangle', dur: 0.15, vol: 0.1 }); },
+    stomp() { tone({ f: 60, f2: 25, type: 'sine', dur: 0.5, vol: 0.4 }); noise(0.25, 0.25, 150); },
     win() { [523, 659, 784, 1046].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.35, vol: 0.14, delay: i * 0.14 })); },
     lose() { [392, 349, 311, 262].forEach((f, i) => tone({ f, type: 'sawtooth', dur: 0.4, vol: 0.1, delay: i * 0.2 })); },
   };
@@ -256,12 +259,12 @@ const player = {
 };
 const cam = { x: 0, y: 0 };
 const enemies = [], bullets = [], particles = [], texts = [], arcs = [];
-const G = { state: 'title', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 0, shake: 0, hintT: 16, best: 0, bestTime: 0, paused: false, flash: 0 };
+const G = { boss: null, state: 'title', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 0, shake: 0, hintT: 16, best: 0, bestTime: 0, paused: false, flash: 0 };
 try { G.best = +localStorage.getItem('mm_best') || 0; G.bestTime = +localStorage.getItem('mm_best_time') || 0; } catch (e) { }
 
 function reset() {
   enemies.length = 0; bullets.length = 0; particles.length = 0; texts.length = 0; arcs.length = 0;
-  Object.assign(G, { time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 1.2, shake: 0, paused: false, flash: 0 });
+  Object.assign(G, { time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, crime: null, crimeSpawnT: 1.2, shake: 0, paused: false, flash: 0, boss: null });
   touch.hintT = 12;
   // spawn on a tall, wide roof whose neighbour is attached and lower: a runway, not a pit
   const start = buildings.find((b, i) => { const n = buildings[i + 1]; return b.x > 300 && b.w >= 250 && b.h >= 380 && n && n.x === b.x + b.w && n.y >= b.y; }) || buildings[2];
@@ -401,7 +404,7 @@ function updatePlayer(dt) {
       p.onWall = 0; p.jumpsLeft = 1;
       // tug toward the anchor so a web fired from a standstill actually pulls you up
       const slow = Math.hypot(p.vx, p.vy) < 250;
-      const tug = slow ? 340 : 160;
+      const tug = slow ? 420 : 240;
       p.vx += (a.x - p.x) / d * tug; p.vy += (a.y - p.y) / d * tug;
       if (p.onGround) p.vy = Math.min(p.vy, -300);
       AudioSys.thwip();
@@ -418,6 +421,7 @@ function updatePlayer(dt) {
     const ahead = (p.x - a.x) * p.facing > p.ropeLen * 0.3, rising = p.vy < -40;
     if (ahead && rising && p.swingT > 0.35) {
       p.swinging = false; p.anchor = null; p.jumpsLeft = 1; p.autoCd = 0.12;
+      p.vx += p.facing * 90; p.vy -= 60;
       const n = findAnchor(true);
       if (n) { attach(n); p.autoSwing = true; }
     }
@@ -432,11 +436,11 @@ function updatePlayer(dt) {
     const a = p.anchor;
     p.swingT += dt;
     p.vy += GRAVITY * dt;
-    if (left) p.vx -= 700 * dt;
-    if (right) p.vx += 700 * dt;
+    if (left) p.vx -= 950 * dt;
+    if (right) p.vx += 950 * dt;
     if (up) p.ropeLen = Math.max(MIN_ROPE, p.ropeLen - 160 * dt);
     if (down) p.ropeLen = Math.min(MAX_ROPE, p.ropeLen + 160 * dt);
-    p.ropeLen = Math.max(MIN_ROPE, p.ropeLen - 25 * dt);
+    p.ropeLen = Math.max(MIN_ROPE, p.ropeLen - 45 * dt);
     p.x += p.vx * dt; p.y += p.vy * dt;
     const dx = p.x - a.x, dy = p.y - a.y, d = Math.hypot(dx, dy);
     if (d > p.ropeLen) {
@@ -445,14 +449,14 @@ function updatePlayer(dt) {
       const vn = p.vx * nx + p.vy * ny;
       if (vn > 0) { p.vx -= vn * nx; p.vy -= vn * ny; }
     }
-    const drag = Math.pow(0.93, dt);
+    const drag = Math.pow(0.975, dt);
     p.vx *= drag; p.vy *= drag;
     const sp = Math.hypot(p.vx, p.vy);
-    if (sp > 1500) { const k = 1500 / sp; p.vx *= k; p.vy *= k; }
+    if (sp > 1950) { const k = 1950 / sp; p.vx *= k; p.vy *= k; }
     if (Math.abs(p.vx) > 20) p.facing = sign(p.vx);
     if (jumpPressed) { // launch off the web
       p.swinging = false; p.anchor = null;
-      p.vy -= 320; p.vx += p.facing * 120; p.jumpsLeft = 1; AudioSys.jump();
+      p.vy -= 360; p.vx += p.facing * 180; p.jumpsLeft = 1; AudioSys.jump();
     }
     collideBody(p);
     if (p.onGround && p.swinging && p.swingT > 0.15) { p.swinging = false; p.anchor = null; }
@@ -469,7 +473,7 @@ function updatePlayer(dt) {
     if (left) { p.vx -= accel * dt; p.facing = -1; }
     if (right) { p.vx += accel * dt; p.facing = 1; }
     if (!left && !right) p.vx *= Math.pow(p.onGround ? 0.0008 : 0.5, dt);
-    const cap = p.onGround ? maxRun : 1000;
+    const cap = p.onGround ? maxRun : 1500;
     if (Math.abs(p.vx) > cap) p.vx = sign(p.vx) * Math.max(cap, Math.abs(p.vx) - 900 * dt);
     p.vy += GRAVITY * dt; if (p.vy > 1500) p.vy = 1500;
     p.coyote = p.onGround ? 0.12 : Math.max(0, p.coyote - dt);
@@ -497,6 +501,12 @@ function updatePlayer(dt) {
         p.venom = Math.min(100, p.venom + 12);
       }
     }
+    const B = G.boss;
+    if (B && !B.dead && B.hitId !== p.punchId && Math.abs(B.x - hx) < 36 + B.w / 2 && Math.abs(B.y - hy) < 50) {
+      B.hitId = p.punchId; hitBoss(B, p.camo ? 2 : 1, p.facing * 300);
+      if (p.camo) { p.camo = false; p.camoCd = 10; AudioSys.uncamo(); }
+      if (B.state === 'stunned') p.venom = Math.min(100, p.venom + 10);
+    }
   }
 }
 
@@ -518,6 +528,8 @@ function venomStrike() {
       hits++;
     }
   }
+  const B = G.boss;
+  if (B && !B.dead && Math.hypot(B.x - p.x, B.y - p.y) < 190) { arcs.push({ x1: p.x, y1: p.y, x2: B.x, y2: B.y, life: 0.35, maxLife: 0.35 }); hitBoss(B, 4, sign(B.x - p.x) * 200); }
   for (let i = bullets.length - 1; i >= 0; i--) { const b = bullets[i]; if (Math.hypot(b.x - p.x, b.y - p.y) < 160) { burst(b.x, b.y, 4, '#ffe04a', 120, 0.3, 2, 0); bullets.splice(i, 1); } }
   if (p.camo) { p.camo = false; p.camoCd = 10; }
   if (hits >= 3) floatText(p.x, p.y - 70, 'SHOCKWAVE!', '#ffe04a', 22);
@@ -655,14 +667,148 @@ function updateCrimes(dt) {
     G.crimes++; G.score += 500; G.crime = null; G.crimeSpawnT = 2.2;
     floatText(player.x, player.y - 80, 'CRIME STOPPED  +500', '#7dffa6', 22, 1.6);
     AudioSys.crime();
-    if (G.crimes >= CRIMES_TO_WIN) {
-      G.state = 'win'; AudioSys.win();
-      try {
-        if (G.score > G.best) { G.best = G.score; localStorage.setItem('mm_best', G.best); }
-        if (!G.bestTime || G.time < G.bestTime) { G.bestTime = G.time; localStorage.setItem('mm_best_time', G.bestTime); }
-      } catch (e) { }
-    }
+    if (G.crimes >= CRIMES_TO_WIN) { G.crimeSpawnT = 1e9; setTimeout(spawnBoss, 1500); }
   }
+}
+function winGame() {
+  G.state = 'win'; AudioSys.win();
+  try {
+    if (G.score > G.best) { G.best = G.score; localStorage.setItem('mm_best', G.best); }
+    if (!G.bestTime || G.time < G.bestTime) { G.bestTime = G.time; localStorage.setItem('mm_best_time', G.bestTime); }
+  } catch (e) { }
+}
+
+// ---------- Boss: the Rhino ----------
+function spawnBoss() {
+  if (G.state !== 'play' || G.boss) return;
+  const p = player;
+  const cands = buildings.filter(b => b.w >= 330 && b.h >= 260 && b.x > 100 && b.x + b.w < WORLD_W - 100);
+  let near = cands.filter(b => b.x > p.x + 500 && b.x < p.x + 2400);
+  if (!near.length) near = cands.filter(b => b.x + b.w < p.x - 500 && b.x > p.x - 2400);
+  if (!near.length) near = cands;
+  const b = near[Math.floor(Math.random() * near.length)];
+  G.boss = { x: b.x + b.w / 2, y: b.y - 60, vx: 0, vy: 0, w: 72, h: 84, facing: -1, hp: 30, maxHp: 30, bld: b,
+    state: 'intro', t: 2.2, stunT: 0, hurtT: 0, animT: 0, dead: false, deadT: 0, onGround: false, onWall: 0, wasAir: false, hitId: -1, charges: 0 };
+  AudioSys.roar(); shake(10);
+  floatText(p.x, p.y - 90, 'FINAL FIGHT: THE RHINO', '#ff5a5a', 24, 2.2);
+  burst(G.boss.x, b.y, 30, '#9aa3c7', 300, 0.7, 4);
+}
+function hitBoss(B, dmg, kx) {
+  const p = player;
+  if (B.dead) return;
+  if (B.state === 'stunned' || dmg >= 3) {
+    B.hp -= dmg; B.hurtT = 0.2; G.combo++; G.comboT = 2.2;
+    const pts = 50 * Math.min(G.combo, 10); G.score += pts;
+    floatText(B.x, B.y - 70, '+' + pts, dmg >= 3 ? '#ffe04a' : '#fff', 15, 0.8);
+    burst(B.x, B.y - 20, 10, dmg >= 3 ? '#ffe04a' : '#fff', 240, 0.4, 3);
+    AudioSys.hit(); shake(4);
+    if (dmg >= 3 && B.state !== 'stunned') { B.state = 'stunned'; B.t = 1.0; }
+    if (B.hp <= 0) {
+      B.hp = 0; B.dead = true; B.deadT = 0; B.state = 'dead'; B.vx = kx * 0.5; B.vy = -300;
+      G.score += 5000; floatText(B.x, B.y - 90, 'RHINO DOWN  +5000', '#7dffa6', 26, 2.5);
+      AudioSys.roar(); shake(16); burst(B.x, B.y, 50, '#ffe04a', 400, 0.9, 4);
+      setTimeout(winGame, 2200);
+    }
+  } else {
+    floatText(B.x, B.y - 70, 'ARMOR', '#9aa3c7', 14, 0.6); AudioSys.clank();
+    p.vx = -p.facing * 200; p.vy = Math.min(p.vy, -150);
+    burst(p.x + p.facing * 30, p.y, 5, '#ffffff', 160, 0.25, 2, 0);
+  }
+}
+function updateBoss(dt) {
+  const B = G.boss; if (!B) return;
+  const p = player, b = B.bld;
+  B.animT += dt; B.hurtT = Math.max(0, B.hurtT - dt);
+  B.vy += GRAVITY * dt;
+  const dx = p.x - B.x, dy = p.y - B.y;
+  const phase2 = B.hp <= B.maxHp / 2;
+  const wasAir = !B.onGround;
+  if (B.dead) {
+    B.deadT += dt; B.vx *= Math.pow(0.05, dt); B.x += B.vx * dt; B.y += B.vy * dt; collideBody(B); return;
+  }
+  switch (B.state) {
+    case 'intro':
+      B.t -= dt; B.vx = 0; B.facing = sign(dx) || -1;
+      if (B.t <= 0) { B.state = 'idle'; B.t = 0.6; }
+      break;
+    case 'idle':
+      B.t -= dt; B.facing = sign(dx) || B.facing;
+      B.vx = lerp(B.vx, Math.abs(dx) > 200 ? B.facing * 110 : 0, 1 - Math.pow(0.01, dt));
+      if (B.t <= 0 && p.alive) {
+        if (Math.abs(dx) < 170 && dy < -70 && Math.random() < 0.6) { B.state = 'stomp'; B.vy = -760; B.vx = B.facing * 160; AudioSys.jump(); }
+        else { B.state = 'windup'; B.t = phase2 ? 0.3 : 0.5; AudioSys.roar(); }
+      }
+      break;
+    case 'windup':
+      B.t -= dt; B.vx = -B.facing * 40;
+      if (B.t <= 0) { B.state = 'charge'; B.t = 2.5; B.charges++; }
+      break;
+    case 'charge': {
+      B.t -= dt;
+      const spd = phase2 ? 760 : 600;
+      B.vx = lerp(B.vx, B.facing * spd, 1 - Math.pow(0.002, dt));
+      if (Math.random() < 0.6) particles.push({ x: B.x - B.facing * 30, y: B.y + 40, vx: -B.facing * rand(50, 150), vy: rand(-80, -20), life: 0.5, maxLife: 0.5, color: '#6a6f80', size: rand(3, 6), grav: -50 });
+      const atEdge = (B.facing < 0 && B.x <= b.x + 46) || (B.facing > 0 && B.x >= b.x + b.w - 46) || B.onWall !== 0;
+      if (atEdge || B.t <= 0) {
+        B.state = 'stunned'; B.t = phase2 ? 2.0 : 2.8; B.vx = -B.facing * 120;
+        AudioSys.stomp(); shake(14); burst(B.x + B.facing * 36, B.y, 18, '#9aa3c7', 300, 0.6, 4);
+        floatText(B.x, B.y - 80, 'STUNNED! HIT HIM!', '#ffe04a', 16, 1.4);
+      }
+      break; }
+    case 'stomp':
+      B.facing = sign(dx) || B.facing;
+      if (B.onGround && wasAir === false && B.vy === 0) { /* landed last frame */ }
+      break;
+    case 'stunned':
+      B.t -= dt; B.vx *= Math.pow(0.02, dt);
+      if (B.t <= 0) { B.state = 'idle'; B.t = 0.4; }
+      break;
+  }
+  B.x += B.vx * dt; B.y += B.vy * dt;
+  // stay on the arena roof
+  if (B.x < b.x + 36) { B.x = b.x + 36; if (B.vx < 0) B.vx = 0; }
+  if (B.x > b.x + b.w - 36) { B.x = b.x + b.w - 36; if (B.vx > 0) B.vx = 0; }
+  collideBody(B);
+  if (B.state === 'stomp' && B.onGround && wasAir) {
+    B.state = 'idle'; B.t = 0.9; AudioSys.stomp(); shake(16);
+    burst(B.x, B.y + 40, 30, '#9aa3c7', 420, 0.6, 4);
+    if (p.onGround && Math.abs(p.x - B.x) < 230 && Math.abs(p.y - B.y) < 120) takeDamage(15, B.x);
+  }
+  // contact damage while charging or stomping
+  if (p.alive && (B.state === 'charge' || B.state === 'stomp') && Math.abs(dx) < (B.w + p.w) / 2 && Math.abs(dy) < (B.h + p.h) / 2) {
+    takeDamage(B.state === 'charge' ? 20 : 12, B.x); p.vx = B.facing * 520; p.vy = -420;
+  }
+}
+function drawBoss() {
+  const B = G.boss; if (!B) return;
+  ctx.save(); ctx.translate(B.x, B.y);
+  if (B.dead) { ctx.rotate(B.facing * Math.min(B.deadT * 2, 1) * Math.PI / 2); ctx.globalAlpha = clamp(1.6 - B.deadT * 0.4, 0, 1); }
+  ctx.scale(B.facing, 1);
+  const grey = B.hurtT > 0 ? '#ffffff' : (B.hp <= B.maxHp / 2 ? '#8f7f88' : '#8a8f9a');
+  const dark = B.hurtT > 0 ? '#dddddd' : '#565b6a';
+  const lean = B.state === 'charge' ? 0.25 : B.state === 'windup' ? -0.15 : 0;
+  ctx.rotate(lean);
+  const run = Math.abs(B.vx) > 40 && !B.dead ? Math.sin(B.animT * 14) : 0;
+  // legs
+  ctx.strokeStyle = dark; ctx.lineWidth = 14; ctx.lineCap = 'round';
+  for (const [lx, ph] of [[-22, 0], [-6, Math.PI], [12, Math.PI], [26, 0]]) { const sw = run * Math.cos(ph) * 10; line(lx, 10, lx + sw, 42); }
+  // body
+  ctx.fillStyle = grey;
+  ctx.beginPath(); ctx.roundRect(-38, -24, 76, 48, 18); ctx.fill();
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.roundRect(-30, -18, 50, 10, 5); ctx.fill(); // back plates
+  // head
+  ctx.fillStyle = grey; ctx.beginPath(); ctx.ellipse(36, -30, 24, 20, 0.1, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#d8d8e0'; ctx.beginPath(); ctx.moveTo(52, -40); ctx.lineTo(78, -66); ctx.lineTo(58, -30); ctx.fill(); // horn
+  ctx.beginPath(); ctx.moveTo(40, -46); ctx.lineTo(48, -60); ctx.lineTo(50, -44); ctx.fill(); // small horn
+  ctx.fillStyle = B.state === 'stunned' ? '#ffe04a' : '#ff2a2a'; circle(42, -36, 3.5);
+  ctx.fillStyle = dark; ctx.beginPath(); ctx.ellipse(24, -44, 6, 4, 0.3, 0, TAU); ctx.fill(); // ear
+  ctx.restore();
+  if (B.state === 'stunned' && !B.dead) {
+    ctx.save(); ctx.fillStyle = '#ffe04a'; ctx.font = 'bold 18px system-ui';
+    for (let i = 0; i < 4; i++) { const a = B.animT * 5 + i * TAU / 4; ctx.fillText('✦', B.x + Math.cos(a) * 30 - 6, B.y - 70 + Math.sin(a) * 8); }
+    ctx.restore();
+  }
+  if (B.state === 'windup' && !B.dead) { ctx.save(); ctx.fillStyle = '#ff5a5a'; ctx.font = 'bold 26px system-ui'; ctx.textAlign = 'center'; ctx.fillText('!', B.x, B.y - 76); ctx.restore(); }
 }
 
 function updateFx(dt) {
@@ -1001,6 +1147,10 @@ function drawBullets() {
 }
 
 function drawCrimeMarker() {
+  if (G.boss && !G.boss.dead) {
+    const x = G.boss.x, y = G.boss.y - 110 + Math.sin(G.time * 4) * 6;
+    ctx.save(); ctx.fillStyle = 'rgba(255,60,80,0.9)'; ctx.beginPath(); ctx.moveTo(x, y + 18); ctx.lineTo(x - 14, y - 6); ctx.lineTo(x + 14, y - 6); ctx.fill(); ctx.restore();
+  }
   if (!G.crime) return;
   const b = G.crime.b, x = b.x + b.w / 2, y = b.y - 70 + Math.sin(G.time * 4) * 6;
   ctx.save();
@@ -1016,9 +1166,9 @@ function drawCrimeMarker() {
 
 function drawSpeedLines(p) {
   const sp = Math.hypot(p.vx, p.vy);
-  if (sp < 720) return;
+  if (sp < 900) return;
   ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5;
-  const nx = p.vx / sp, ny = p.vy / sp, k = clamp((sp - 720) / 500, 0, 1);
+  const nx = p.vx / sp, ny = p.vy / sp, k = clamp((sp - 900) / 700, 0, 1);
   for (let i = 0; i < 10 * k; i++) {
     const ox = rand(-220, 220), oy = rand(-160, 160);
     const px = p.x - nx * 40 + ox - ny * oy * 0.6, py = p.y - ny * 40 + oy + nx * oy * 0.6;
@@ -1060,13 +1210,20 @@ function drawHUD() {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 15px system-ui, sans-serif';
   ctx.fillText(`CRIMES STOPPED  ${G.crimes} / ${CRIMES_TO_WIN}`, W / 2, 36);
   ctx.font = '13px system-ui, sans-serif'; ctx.fillStyle = '#cfd6ff';
-  if (G.crime) {
+  if (G.boss) {
+    const d = G.boss.x - p.x;
+    ctx.fillStyle = '#ff7a86';
+    ctx.fillText(G.boss.dead ? 'Rhino down!' : (d > 0 ? '→ ' : '← ') + 'FINAL FIGHT: THE RHINO  ' + Math.round(Math.abs(d) / 10) + 'm', W / 2, 57);
+  } else if (G.crime) {
     const d = (G.crime.b.x + G.crime.b.w / 2 - p.x);
     ctx.fillStyle = '#ff7a86';
     ctx.fillText((d > 0 ? '→ ' : '← ') + 'Crime in progress  ' + Math.round(Math.abs(d) / 10) + 'm', W / 2, 57);
-  } else ctx.fillText('Scanning for trouble...', W / 2, 57);
+  } else ctx.fillText(G.crimes >= CRIMES_TO_WIN ? 'Something big is coming...' : 'Scanning for trouble...', W / 2, 57);
+  if (G.boss && !G.boss.dead) {
+    bar(W / 2 - 180, 96, 360, 12, G.boss.hp / G.boss.maxHp, G.boss.state === 'stunned' ? '#ffe04a' : '#c84a4a', 'THE RHINO' + (G.boss.state === 'stunned' ? '  —  STUNNED, HIT HIM' : '  —  Venom Strike hurts him anytime; punches only when stunned'));
+  }
   ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.fillText(fmtTime(G.time), W / 2, 86);
+  ctx.fillText(fmtTime(G.time), W / 2, G.boss && !G.boss.dead ? 124 : 86);
 
   // right: score
   ctx.textAlign = 'right';
@@ -1076,8 +1233,9 @@ function drawHUD() {
   if (G.combo > 1) { ctx.fillStyle = '#ffd23f'; ctx.font = `bold ${16 + Math.min(G.combo, 10) * 1.5}px system-ui, sans-serif`; ctx.fillText(G.combo + 'x COMBO', W - 20, 90); }
 
   // off-screen crime arrow
-  if (G.crime) {
-    const wx = (G.crime.b.x + G.crime.b.w / 2 - cam.x) * VS, wy = (G.crime.b.y - 60 - cam.y) * VS;
+  const target = G.boss && !G.boss.dead ? { x: G.boss.x, y: G.boss.y - 60 } : G.crime ? { x: G.crime.b.x + G.crime.b.w / 2, y: G.crime.b.y - 60 } : null;
+  if (target) {
+    const wx = (target.x - cam.x) * VS, wy = (target.y - cam.y) * VS;
     if (wx < 0 || wx > W || wy < 0 || wy > H) {
       const ex = clamp(wx, 40, W - 40), ey = clamp(wy, 110, H - 40);
       const ang = Math.atan2(wy - ey, wx - ex);
@@ -1167,7 +1325,7 @@ function frame(now) {
     if (wasPressed('KeyP', 'Escape')) G.paused = !G.paused;
     if (!G.paused) {
       G.time += dt;
-      updatePlayer(dt); updateEnemies(dt); updateBullets(dt); updateCrimes(dt); updateFx(dt);
+      updatePlayer(dt); updateEnemies(dt); updateBoss(dt); updateBullets(dt); updateCrimes(dt); updateFx(dt);
     }
   } else if (G.state === 'win' || G.state === 'dead') {
     updateFx(dt);
@@ -1188,6 +1346,7 @@ function frame(now) {
   drawStreet();
   drawCrimeMarker();
   for (const e of enemies) drawEnemy(e);
+  drawBoss();
   drawBullets();
   drawSpeedLines(player);
   drawWeb(player);
@@ -1212,7 +1371,7 @@ function frame(now) {
     'JUMP also launches you off a web (double jump in the air)',
     'PUNCH thugs  ·  VENOM shocks everyone around you  ·  CAMO for stealth takedowns',
     '',
-    `Stop ${CRIMES_TO_WIN} rooftop crimes as fast as you can. Landscape works best.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
+    `Stop ${CRIMES_TO_WIN} rooftop crimes, then take down the Rhino. Landscape works best.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
     'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
   ]);
   else if (G.state === 'title') overlay('MILES MORALES', 'BROOKLYN NIGHTS', [
@@ -1223,11 +1382,11 @@ function frame(now) {
     'Hold toward a wall  wall-crawl     J / RIGHT CLICK  punch',
     'K  Venom Strike (builds by landing hits)     L / SHIFT  Camouflage (stealth takedowns)',
     '',
-    `Stop ${CRIMES_TO_WIN} rooftop crimes as fast as you can.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
+    `Stop ${CRIMES_TO_WIN} rooftop crimes, then take down the Rhino.` + (G.best ? `   Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''),
     'Fan-made, non-commercial tribute. Not affiliated with Marvel or Sony.',
   ]);
-  if (G.state === 'win') overlay('BROOKLYN IS SAFE', `${G.score.toLocaleString()} pts  ·  ${fmtTime(G.time)}`, [touch.ui ? 'Tap to swing again' : 'Press ENTER to swing again', G.best ? `Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''], '#7dffa6');
-  if (G.state === 'dead') overlay('KNOCKED OUT', `${G.score.toLocaleString()} pts  ·  ${G.crimes} crimes stopped`, [touch.ui ? 'Tap to get back up' : 'Press ENTER or R to get back up', 'Tip: keep moving. Swing in, punch, swing out. Venom Strike clears a crowd.']);
+  if (G.state === 'win') overlay('RHINO DOWN. BROOKLYN IS SAFE', `${G.score.toLocaleString()} pts  ·  ${fmtTime(G.time)}`, [touch.ui ? 'Tap to swing again' : 'Press ENTER to swing again', G.best ? `Best: ${G.best.toLocaleString()} pts in ${fmtTime(G.bestTime)}` : ''], '#7dffa6');
+  if (G.state === 'dead') overlay('KNOCKED OUT', `${G.score.toLocaleString()} pts  ·  ${G.crimes} crimes stopped`, [touch.ui ? 'Tap to get back up' : 'Press ENTER or R to get back up', G.boss ? 'Tip: the Rhino only takes punches when he is stunned. Make him charge into a wall, or Venom Strike him anytime.' : 'Tip: keep moving. Swing in, punch, swing out. Venom Strike clears a crowd.']);
 
   for (const k in pressed) pressed[k] = false;
   requestAnimationFrame(frame);
