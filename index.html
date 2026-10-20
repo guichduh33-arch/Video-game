@@ -39,10 +39,11 @@ function layoutButtons() {
   const r = clamp(Math.min(W, H) * 0.07, 28, 52);
   const m = r * 0.6, bx = W - m - r * 1.2, by = H - m - r * 1.2;
   touch.btns = [
-    { key: 'KeyW', label: 'JUMP', x: bx, y: by, r: r * 1.2, color: '#ffffff' },
-    { key: 'KeyJ', label: 'PUNCH', x: bx - r * 2.9, y: by + r * 0.2, r, color: '#ff4d5a' },
-    { key: 'KeyK', label: 'VENOM', x: bx - r * 2.3, y: by - r * 2.4, r, color: '#ffd23f' },
-    { key: 'KeyL', label: 'CAMO', x: bx + r * 0.2, y: by - r * 2.9, r, color: '#9fe8ff' },
+    { key: 'KeyE', label: 'WEB', x: bx, y: by, r: r * 1.25, color: '#ffffff', hold: true },
+    { key: 'KeyW', label: 'JUMP', x: bx - r * 2.9, y: by + r * 0.15, r: r * 1.05, color: '#cfd6ff' },
+    { key: 'KeyJ', label: 'PUNCH', x: bx - r * 5.5, y: by + r * 0.3, r, color: '#ff4d5a' },
+    { key: 'KeyK', label: 'VENOM', x: bx - r * 2.8, y: by - r * 2.5, r, color: '#ffd23f' },
+    { key: 'KeyL', label: 'CAMO', x: bx + r * 0.1, y: by - r * 2.9, r, color: '#9fe8ff' },
   ];
 }
 function resize() {
@@ -94,7 +95,7 @@ canvas.addEventListener('touchstart', e => {
     if (G.state !== 'play') { pressed.Mouse = true; continue; }
     const b = hitBtn(x, y);
     if (b) { pressed[b.key] = true; b.held = true; touch.held[t.identifier] = b; continue; }
-    if (x < W * 0.4 && !touch.stick) { touch.stick = { id: t.identifier, ox: x, oy: y, x, y }; continue; }
+    if (x < W * 0.4 && y > H * 0.45 && !touch.stick) { touch.stick = { id: t.identifier, ox: x, oy: y, x, y }; continue; }
     if (!touch.web) {
       touch.web = { id: t.identifier, x, y };
       mouse.x = x; mouse.y = y; mouse.used = true; mouse.lastMove = performance.now();
@@ -126,6 +127,7 @@ function applyTouchInput() {
   const s = touch.stick, dx = s ? s.x - s.ox : 0, dy = s ? s.y - s.oy : 0;
   keys.ArrowLeft = dx < -14; keys.ArrowRight = dx > 14;
   keys.ArrowUp = dy < -28; keys.ArrowDown = dy > 28;
+  keys.KeyE = Object.values(touch.held).some(b => b.key === 'KeyE');
 }
 const isDown = (...codes) => codes.some(c => keys[c]);
 const wasPressed = (...codes) => codes.some(c => pressed[c]);
@@ -250,7 +252,7 @@ const player = {
   camo: false, camoT: 0, camoCd: 0,
   punchT: 0, punchCd: 0, punchId: 0, kickT: 0,
   invulnT: 0, lastHurt: -99, alive: true, deadT: 0, animT: 0,
-  hand: [0, 0], senseT: 0, wallT: 0, landT: 0,
+  hand: [0, 0], senseT: 0, wallT: 0, landT: 0, autoCd: 0, autoSwing: false,
 };
 const cam = { x: 0, y: 0 };
 const enemies = [], bullets = [], particles = [], texts = [], arcs = [];
@@ -303,10 +305,10 @@ function wallTouch(b) {
 }
 
 // ---------- Web anchoring ----------
-function findAnchor() {
+function findAnchor(defaultAim = false) {
   const p = player;
   let dx, dy;
-  if (mouse.used && performance.now() - mouse.lastMove < 3500) {
+  if (!defaultAim && mouse.used && performance.now() - mouse.lastMove < 3500) {
     dx = (mouse.x / VS + cam.x) - p.x; dy = (mouse.y / VS + cam.y) - p.y;
     if (Math.hypot(dx, dy) < 30) { dx = p.facing * 0.6; dy = -1; }
   } else { dx = p.facing * 0.6; dy = -1; }
@@ -360,7 +362,9 @@ function updatePlayer(dt) {
   const left = isDown('KeyA', 'ArrowLeft'), right = isDown('KeyD', 'ArrowRight');
   const up = isDown('KeyW', 'ArrowUp'), down = isDown('KeyS', 'ArrowDown');
   const jumpPressed = wasPressed('KeyW', 'ArrowUp');
-  const webPressed = wasPressed('Space', 'Mouse'), webHeld = isDown('Space') || mouse.down;
+  const autoHeld = isDown('KeyE');
+  const webPressed = wasPressed('Space', 'Mouse'), webHeld = isDown('Space') || mouse.down || autoHeld;
+  p.autoCd = Math.max(0, p.autoCd - dt);
   const punchPressed = wasPressed('KeyJ', 'MouseR'), venomPressed = wasPressed('KeyK'), camoPressed = wasPressed('KeyL', 'ShiftLeft', 'ShiftRight');
 
   // timers
@@ -390,9 +394,7 @@ function updatePlayer(dt) {
   }
 
   // web
-  if (webPressed && !p.swinging) {
-    const a = findAnchor();
-    if (a) {
+  function attach(a) {
       p.swinging = true; p.anchor = a; p.swingT = 0;
       const d = Math.hypot(a.x - p.x, a.y - p.y);
       p.ropeLen = clamp(d * 0.97, MIN_ROPE, MAX_ROPE);
@@ -404,9 +406,23 @@ function updatePlayer(dt) {
       if (p.onGround) p.vy = Math.min(p.vy, -300);
       AudioSys.thwip();
       burst(a.x, a.y, 5, '#ffffff', 90, 0.35, 2, 0);
+  }
+  if (webPressed && !p.swinging) { const a = findAnchor(); if (a) { attach(a); p.autoSwing = false; } }
+  // auto-swing: hold E / the WEB button and Miles chains webs on his own
+  if (autoHeld && !p.swinging && p.autoCd <= 0 && !webPressed) {
+    const a = findAnchor(true);
+    if (a) { attach(a); p.autoSwing = true; } else p.autoCd = 0.2;
+  }
+  if (p.swinging && p.autoSwing && autoHeld && !(isDown('Space') || mouse.down)) {
+    const a = p.anchor;
+    const ahead = (p.x - a.x) * p.facing > p.ropeLen * 0.3, rising = p.vy < -40;
+    if (ahead && rising && p.swingT > 0.35) {
+      p.swinging = false; p.anchor = null; p.jumpsLeft = 1; p.autoCd = 0.12;
+      const n = findAnchor(true);
+      if (n) { attach(n); p.autoSwing = true; }
     }
   }
-  if (p.swinging && !webHeld) { p.swinging = false; p.anchor = null; p.jumpsLeft = 1; }
+  if (p.swinging && !webHeld) { p.swinging = false; p.anchor = null; p.jumpsLeft = 1; p.autoSwing = false; }
 
   const wall = !p.swinging ? wallTouch(p) : 0;
   const pushingWall = (wall > 0 && right) || (wall < 0 && left);
@@ -1074,9 +1090,9 @@ function drawHUD() {
   // hints
   if (G.hintT > 0 && G.state === 'play' && !touch.ui) {
     ctx.globalAlpha = clamp(G.hintT, 0, 1);
-    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 330, H - 60, 660, 40);
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 360, H - 60, 720, 40);
     ctx.fillStyle = '#fff'; ctx.font = '13px system-ui, sans-serif';
-    ctx.fillText('A/D move  ·  W jump (double jump)  ·  hold SPACE / click to web-swing (aim with mouse)  ·  J punch  ·  K venom strike  ·  L camouflage', W / 2, H - 35);
+    ctx.fillText('A/D move  ·  W jump  ·  hold E to auto-swing  ·  hold SPACE / click to aim a web with the mouse  ·  J punch  ·  K venom  ·  L camo', W / 2, H - 35);
     ctx.globalAlpha = 1;
   }
   if (touch.ui && G.state === 'play') drawTouchUI();
@@ -1104,6 +1120,7 @@ function drawTouchUI() {
     let ready = true, label = b.label;
     if (b.key === 'KeyK') { ready = p.venom >= 50; }
     if (b.key === 'KeyL') { ready = !p.camo && p.camoCd <= 0; if (p.camoCd > 0) label = Math.ceil(p.camoCd) + 's'; if (p.camo) label = 'ON'; }
+    if (b.key === 'KeyE' && p.swinging) label = 'SWING';
     ctx.globalAlpha = b.held ? 0.85 : ready ? 0.45 : 0.2;
     ctx.fillStyle = b.color; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.fill();
     ctx.globalAlpha = b.held ? 1 : 0.8;
@@ -1114,10 +1131,10 @@ function drawTouchUI() {
   if (touch.hintT > 0) {
     touch.hintT -= 1 / 60;
     ctx.globalAlpha = clamp(touch.hintT, 0, 1);
-    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 200, 100, 400, 50);
+    ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(W / 2 - 240, 100, 480, 50);
     ctx.fillStyle = '#fff'; ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.fillText('Touch and HOLD the sky to web-swing toward your finger', W / 2, 121);
-    ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Drag on the left to move  ·  push into walls to climb', W / 2, 141);
+    ctx.fillText('Hold WEB to swing. Or touch and hold the sky to aim a web yourself', W / 2, 121);
+    ctx.font = '13px system-ui, sans-serif'; ctx.fillText('Drag in the bottom-left corner to move  ·  push into walls to climb', W / 2, 141);
     ctx.globalAlpha = 1;
   }
 }
@@ -1190,8 +1207,8 @@ function frame(now) {
   if (G.state === 'title' && touch.ui) overlay('MILES MORALES', 'BROOKLYN NIGHTS', [
     'Tap to start',
     '',
-    'Drag on the left side of the screen to move, push into walls to climb',
-    'Touch and hold the sky to web-swing toward your finger, let go to release',
+    'Hold WEB and Miles swings on his own, let go to fly. Touch and hold the sky to aim a web yourself',
+    'Drag in the bottom-left corner to move, push into walls to climb',
     'JUMP also launches you off a web (double jump in the air)',
     'PUNCH thugs  ·  VENOM shocks everyone around you  ·  CAMO for stealth takedowns',
     '',
@@ -1202,7 +1219,7 @@ function frame(now) {
     'Press ENTER or click to start',
     '',
     'A / D  move     W  jump (double jump, launch off webs)',
-    'Hold SPACE or LEFT CLICK  web-swing  (aim with the mouse, W/S to shorten/lengthen the web)',
+    'Hold E  auto-swing     Hold SPACE or LEFT CLICK  aim a web with the mouse (W/S to shorten/lengthen)',
     'Hold toward a wall  wall-crawl     J / RIGHT CLICK  punch',
     'K  Venom Strike (builds by landing hits)     L / SHIFT  Camouflage (stealth takedowns)',
     '',

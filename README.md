@@ -21,9 +21,9 @@ npx http-server . -p 8080
 
 ## Controls
 
-**Touch (iPad / phone):** drag on the left side of the screen to move, touch and hold
-the sky to web-swing toward your finger, and use the JUMP, PUNCH, VENOM and CAMO
-buttons on the right. Landscape works best. Add the page to your home screen for a
+**Touch (iPad / phone):** hold the WEB button and Miles swings on his own, let go to
+fly. You can also touch and hold the sky to aim a web yourself. Drag in the bottom-left
+corner to move, and use the JUMP, PUNCH, VENOM and CAMO buttons on the right. Landscape works best. Add the page to your home screen for a
 full-screen experience.
 
 **Keyboard and mouse:**
@@ -32,7 +32,8 @@ full-screen experience.
 | --- | --- |
 | Move | `A` / `D` or arrow keys |
 | Jump / double jump / launch off a web | `W` or `↑` |
-| Web-swing (hold) | `Space` or left mouse button. Aim with the mouse. `W`/`S` shorten or lengthen the web while swinging |
+| Auto-swing (hold) | `E`. Miles fires and releases webs on his own; let go to fly |
+| Aimed web-swing (hold) | `Space` or left mouse button. Aim with the mouse. `W`/`S` shorten or lengthen the web while swinging |
 | Wall-crawl | Push into a wall, then `W`/`S` to climb |
 | Punch | `J` or right mouse button |
 | Venom Strike | `K` (needs 50 venom, built by landing hits) |
