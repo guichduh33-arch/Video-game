@@ -1220,10 +1220,12 @@ function drawHUD() {
     ctx.fillText((d > 0 ? '→ ' : '← ') + 'Crime in progress  ' + Math.round(Math.abs(d) / 10) + 'm', W / 2, 57);
   } else ctx.fillText(G.crimes >= CRIMES_TO_WIN ? 'Something big is coming...' : 'Scanning for trouble...', W / 2, 57);
   if (G.boss && !G.boss.dead) {
-    bar(W / 2 - 180, 96, 360, 12, G.boss.hp / G.boss.maxHp, G.boss.state === 'stunned' ? '#ffe04a' : '#c84a4a', 'THE RHINO' + (G.boss.state === 'stunned' ? '  —  STUNNED, HIT HIM' : '  —  Venom Strike hurts him anytime; punches only when stunned'));
+    bar(W / 2 - 180, 96, 360, 12, G.boss.hp / G.boss.maxHp, G.boss.state === 'stunned' ? '#ffe04a' : '#c84a4a', G.boss.state === 'stunned' ? 'THE RHINO  —  STUNNED, HIT HIM!' : 'THE RHINO');
+    ctx.textAlign = 'center'; ctx.fillStyle = '#cfd6ff'; ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText('Punches only land while he is stunned. Bait his charge into a wall, or Venom Strike him any time.', W / 2, 122);
   }
   ctx.fillStyle = '#fff'; ctx.font = 'bold 13px system-ui, sans-serif';
-  ctx.fillText(fmtTime(G.time), W / 2, G.boss && !G.boss.dead ? 124 : 86);
+  ctx.fillText(fmtTime(G.time), W / 2, G.boss && !G.boss.dead ? 140 : 86);
 
   // right: score
   ctx.textAlign = 'right';
