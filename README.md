@@ -64,6 +64,20 @@ map, and everything else (players, stadium, crowd, crests, ball texture, sound) 
 4. If there is no sound, turn off silent mode (the ring/silent switch or Control Center) and tap
    the 🔊 button.
 
+## Building games with Claude Code (skill + subagents)
+
+The repo ships a Claude Code project skill and two subagents for game work:
+
+- `.claude/skills/senior-game-graphics-dev/SKILL.md` – the graphics/animation playbook plus the
+  build workflow: plan the build in steps, hand each step to a builder subagent, and pass a test
+  gate before the next step starts.
+- `.claude/agents/game-graphics-dev.md` – builder subagent for one step (world, characters, AI, …).
+- `.claude/agents/game-tester.md` – test-gate subagent: returns PASS/FAIL with findings, never edits code.
+- `scripts/game-smoke.mjs` – the test gate itself:
+  `node scripts/game-smoke.mjs football.html --demo --seconds 60 --shots 3`
+  syntax-checks the page, runs it in headless Chromium, fast-forwards through `window.__fast`,
+  saves screenshots and prints errors, game state and draw calls (exit code 1 on any error).
+
 ## Spider-Man 2: Brooklyn Nights
 
 Open `spiderman2.html`. It is built on the 3D engine, so everything from Brooklyn
