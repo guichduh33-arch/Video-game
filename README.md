@@ -61,8 +61,21 @@ map, and everything else (players, stadium, crowd, crests, ball texture, sound) 
    it can load Three.js.
 2. Turn the iPad to landscape.
 3. To play full screen, tap Share → **Add to Home Screen**, then start it from the new icon.
+   The page links `manifest-football.webmanifest` (landscape, fullscreen, icons
+   `icons/kickstorm-*.png`) and registers `sw.js`, which caches `football.html`, Three.js and the
+   addons it uses, so after one online visit the home-screen app also starts with no connection.
 4. If there is no sound, turn off silent mode (the ring/silent switch or Control Center) and tap
    the 🔊 button.
+
+### Kickstorm with no wifi
+
+`offline/kickstorm-offline.html` is the whole game in one file (about 2 MB): Three.js and the
+`RoomEnvironment`, `Sky` and `BufferGeometryUtils` addons are embedded in the import map as
+`data:` URLs, so it needs nothing from the web. Copy it to the iPad (Files app, AirDrop) or any
+computer and open it in the browser. Rebuild it after changing the game with
+`node scripts/build-football-offline.mjs` (downloads three@0.160.0 from jsDelivr, or pass a local
+copy of the `three` package folder). The home-screen icons are drawn by
+`node scripts/make-football-icons.mjs` (same artwork as the icon the game draws at start-up).
 
 ## Building games with Claude Code (skill + subagents)
 
