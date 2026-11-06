@@ -11,8 +11,9 @@
 <meta name="format-detection" content="telephone=no">
 <meta name="theme-color" content="#06120b">
 <title>Kickstorm 3D</title>
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest-football.webmanifest">
+<link rel="apple-touch-icon" href="icons/kickstorm-180.png">
+<link rel="icon" href="icons/kickstorm-192.png">
 <style>
 /* ---------- base: no scroll, no zoom, no selection ---------- */
 :root{--ui:#f4fff7;--accent:#38f28b;--accent2:#ffd23f;--panel:rgba(6,18,12,.84);--line:rgba(255,255,255,.14);
@@ -701,7 +702,7 @@ const World = {
     const pitch = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), mat);
     pitch.rotation.x = -Math.PI / 2; pitch.receiveShadow = true; this.group.add(pitch);
     // outer apron grass, then the wider ground the stadium stands on (seen from the title orbit)
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(P.L + 34, P.W + 34), new THREE.MeshLambertMaterial({ color: night ? 0x2c6a2f : 0x34792f }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(P.L + 34, P.W + 34), new THREE.MeshLambertMaterial({ color: night ? 0x2f7032 : 0x3a8233 }));
     apron.rotation.x = -Math.PI / 2; apron.position.y = -0.02; apron.receiveShadow = high; this.group.add(apron);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshLambertMaterial({ color: night ? 0x1a1f26 : 0x6d7866 }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06; this.group.add(ground);
@@ -729,7 +730,15 @@ const World = {
     frame.castShadow = true; this.group.add(frame);
     const rods = new THREE.Mesh(mergeGeometries(this.goalRods), new THREE.MeshLambertMaterial({ color: 0xd8dade }));
     this.group.add(rods);
-    this.goalFrame.concat(this.goalRods).forEach(g => g.dispose()); this.goalFrame = this.goalRods = null; this.netMat = null;
+    this.goalFrame.concat(this.goalRods).forEach(g => g.dispose()); this.goalFrame = this.goalRods = null;
+    // nets: one shared geometry + one draw call for both goals (was 8 LineSegments)
+    let nv = 0; for (const net of this.nets) { net.off = nv; nv += net.base.length / 3; }
+    const pos = new Float32Array(nv * 3), idx = [];
+    for (const net of this.nets) { pos.set(net.base, net.off * 3); for (const i of net.idx) idx.push(i + net.off); net.idx = null; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setIndex(idx);
+    geo.attributes.position.setUsage(THREE.DynamicDrawUsage); geo.computeBoundingSphere();
+    for (const net of this.nets) net.geo = geo;
+    this.group.add(new THREE.LineSegments(geo, this.netMat)); this.netMat = null;
   },
   addNet(o, u, v, uLen, vLen, nu, nv, mat, side) {
     const n = new THREE.Vector3().crossVectors(u, v).normalize();
@@ -743,9 +752,8 @@ const World = {
     const idx = [];
     for (let j = 0; j <= nv; j++) for (let i = 0; i < nu; i++) idx.push(j * (nu + 1) + i, j * (nu + 1) + i + 1);
     for (let i = 0; i <= nu; i++) for (let j = 0; j < nv; j++) idx.push(j * (nu + 1) + i, (j + 1) * (nu + 1) + i);
-    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(base.slice(), 3)); geo.setIndex(idx);
-    const lines = new THREE.LineSegments(geo, mat); this.group.add(lines);
-    this.nets.push({ o, u, v, n, uLen, vLen, geo, base, ab, imp: [], side });
+    // all 8 nets share ONE LineSegments (built in finishNets): each record keeps its vertex offset into the shared buffer
+    this.nets.push({ o, u, v, n, uLen, vLen, geo: null, off: 0, idx, base, ab, imp: [], side });
   },
   /** Apply decaying gaussian bulges where the ball hit each net. */
   updateNets(dt) {
@@ -753,14 +761,14 @@ const World = {
       if (!net.imp.length && !net.dirty) continue;
       net.imp.forEach(im => { im.amp *= Math.exp(-3.2 * dt); im.t += dt; });
       net.imp = net.imp.filter(im => Math.abs(im.amp) > 0.004);
-      const pos = net.geo.attributes.position.array, cnt = pos.length / 3;
+      const pos = net.geo.attributes.position.array, cnt = net.base.length / 3, o3 = net.off * 3;
       for (let k = 0; k < cnt; k++) {
         const a = net.ab[k * 2], b = net.ab[k * 2 + 1];
         let disp = 0;
         for (const im of net.imp) disp += im.amp * Math.exp(-((a - im.a) ** 2 + (b - im.b) ** 2) / 0.7) * Math.cos(im.t * 9) ;
         const edge = Math.min(1, a / 0.6, (net.uLen - a) / 0.6, b / 0.6, (net.vLen - b) / 0.6);
         disp *= Math.max(0, edge);
-        pos[k * 3] = net.base[k * 3] + net.n.x * disp; pos[k * 3 + 1] = net.base[k * 3 + 1] + net.n.y * disp; pos[k * 3 + 2] = net.base[k * 3 + 2] + net.n.z * disp;
+        pos[o3 + k * 3] = net.base[k * 3] + net.n.x * disp; pos[o3 + k * 3 + 1] = net.base[k * 3 + 1] + net.n.y * disp; pos[o3 + k * 3 + 2] = net.base[k * 3 + 2] + net.n.z * disp;
       }
       net.geo.attributes.position.needsUpdate = true; net.dirty = net.imp.length > 0;
     }
@@ -773,6 +781,10 @@ const World = {
     const conc = night ? 0x5a6170 : 0x9ea3aa, stair = night ? 0x7b8392 : 0xc4c8ce, dark = 0x1a1e26, steel = night ? 0x3e4450 : 0x5d636d;
     const homeC = CLUBS[settings.home], awayC = CLUBS[settings.away];
     const gap = 8 * P.scale + 2, scale = P.scale;
+    // pitch-side colours (stand fronts): walkway concrete, painted wall, kick plate, coping
+    const walkC = night ? 0x555b64 : 0x8b8f93, kerbC = night ? 0x30353d : 0x5c6066, wallC = night ? 0x4c5565 : 0x7c8796;
+    const plateC = night ? 0x2c323b : 0x464d57, capC = night ? 0x9aa1ad : 0xdfe3e7;
+    const walkW = Math.min(1.8, (3.8 * scale + 0.8) * 0.5);   // stays clear of the ad boards (board line = 4.2*scale+1.2 from the touchline)
     const spacing = high ? 0.7 : (P.scale < 1 ? 0.72 : 1.05);   // low: ~3k fans in either mode
     /** frame: front-centre (ox,oz), outward normal (nx,nz). Local s runs along the stand, o outward. */
     const frame = (ox, oz, nx, nz) => ({ nx, nz, P: (s, o) => [ox + nz * s + nx * o, oz - nx * s + nz * o], ry: Math.atan2(nx, nz), face: Math.atan2(-nx, -nz) });
@@ -788,7 +800,16 @@ const World = {
       const ext = o0.ext || (() => [-o0.len / 2, o0.len / 2]);
       const rowD = depth / rows, rise = height / rows, aisleEvery = o0.aisle || 11;
       let o = 0.5, h = o0.h0 ?? 1.1;
-      { const [a, b] = ext(0.25); B(F, (a + b) / 2, 0.25, b - a, 0.5, 0, h, dark); }      // front wall
+      { // pitch-side front: concrete walkway strip, painted wall with a dark kick plate and a lit coping on top
+        // (was a single near-black 0x1a1e26 wall that faced away from the sun on most stands -> a black band at the stand base)
+        const [a, b] = ext(0.25), L = b - a, mid = (a + b) / 2;
+        const [wa, wb] = ext(-walkW / 2);
+        B(F, (wa + wb) / 2, -walkW / 2, wb - wa, walkW, -0.02, 0.012, walkC);            // walkway
+        B(F, mid, -0.04, L, 0.08, 0.0, 0.03, kerbC);                                    // gutter line along the wall foot
+        B(F, mid, 0.25, L, 0.5, 0, 0.16, plateC);                                       // kick plate
+        B(F, mid, 0.25, L, 0.5, 0.16, h - 0.1, wallC);                                  // painted wall
+        B(F, mid, 0.21, L + 0.04, 0.58, h - 0.1, h, capC);                              // coping (lit top edge)
+      }
       for (let k = 0; k < rows; k++) {
         if (k === tierAt) {   // concourse + upper-tier fascia with vomitories and an LED ribbon
           const [a, b] = ext(o + 1.4), L = b - a, mid = (a + b) / 2;
@@ -1066,7 +1087,10 @@ const World = {
       sh.fragmentShader = 'varying vec3 vCrowd;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= vCrowd;');
     };
     // one InstancedMesh per stand (shared silhouette + material) with a padded bounding sphere, so off-screen stands are culled
-    const groups = new Map(); people.forEach((p, i) => { if (!groups.has(p[5])) groups.set(p[5], []); groups.get(p[5]).push(i); });
+    // low quality (~3k fans, cheap vertices): only two meshes - the camera-side stand + its corners (groups 1, 5, 7: usually
+    // behind the TV camera and culled) and everything else - instead of nine; saves up to 7 draw calls
+    const key = g => high ? g : (g === 1 || g === 5 || g === 7 ? 1 : 0);
+    const groups = new Map(); people.forEach((p, i) => { const k = key(p[5]); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); });
     for (const idx of groups.values()) {
       const m = idx.length, g = new THREE.BufferGeometry();
       for (const k of ['position', 'normal', 'aPart', 'aArm']) g.setAttribute(k, geo.attributes[k]);
@@ -1105,6 +1129,31 @@ const blobTex = canvasTex(64, 64, (c) => { const g = c.createRadialGradient(32, 
 const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
 const blobGeo = new THREE.PlaneGeometry(1, 1); blobGeo.rotateX(-Math.PI / 2);
 const ballBlob = new THREE.Mesh(blobGeo, blobMat); ballBlob.renderOrder = 1; scene.add(ballBlob);
+/* ---- player ground blobs (low quality only, when real shadows are off): ONE InstancedMesh for every player = 1 draw call.
+   Per-instance fade rides in instanceColor.r (the texture is black, so colour would do nothing; the shader patch
+   multiplies alpha by it instead). Updated each frame by render() from the posed roots (live and replay alike). */
+const PBLOB_MAX = 24;
+const pblobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+pblobMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n#ifdef USE_INSTANCING_COLOR\n  diffuseColor.a *= vColor.r; diffuseColor.rgb = vec3(0.0);\n#endif'); };
+const playerBlobs = new THREE.InstancedMesh(blobGeo, pblobMat, PBLOB_MAX);
+playerBlobs.renderOrder = 1; playerBlobs.frustumCulled = false; playerBlobs.count = 0;
+playerBlobs.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+{ const c = new THREE.Color(1, 1, 1); for (let i = 0; i < PBLOB_MAX; i++) playerBlobs.setColorAt(i, c); playerBlobs.instanceColor.setUsage(THREE.DynamicDrawUsage); }
+scene.add(playerBlobs);
+const _pbM = new THREE.Matrix4(), _pbC = new THREE.Color();
+/** Place one blob under each visible player root. Lift (root y) fades and shrinks the blob; the blob stays on the ground. */
+function updatePlayerBlobs(players) {
+  const on = !isHigh() && players && players.length > 0;
+  playerBlobs.visible = !!on; if (!on) return;
+  let n = 0;
+  for (const p of players) {
+    const root = p.model && p.model.root; if (!root || !root.visible || !root.parent || n >= PBLOB_MAX) continue;
+    const lift = Math.max(0, root.position.y), s = 1.3 * root.scale.x * (1 - Math.min(0.35, lift * 0.35));
+    _pbM.makeScale(s, 1, s); _pbM.setPosition(root.position.x, 0.02, root.position.z);
+    playerBlobs.setMatrixAt(n, _pbM); playerBlobs.setColorAt(n, _pbC.setScalar(clamp(1 - lift * 0.9, 0.3, 1))); n++;
+  }
+  playerBlobs.count = n; playerBlobs.instanceMatrix.needsUpdate = true; playerBlobs.instanceColor.needsUpdate = true;
+}
 
 /* ---- controlled-player marker: glowing ring + arrow above head ---- */
 const markerRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.78, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -1196,7 +1245,7 @@ function numberTex(num, color) {
   return canvasTex(64, 64, (c) => { c.font = '900 46px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 5; c.strokeStyle = '#0008'; c.strokeText(num, 32, 34); c.fillStyle = color; c.fillText(num, 32, 34); });
 }
 
-/** 14 body meshes + the shirt-number plane (+ the blob, hidden when real shadows are on). */
+/** 14 body meshes + the shirt-number plane (ground blobs are one shared InstancedMesh, see playerBlobs). */
 function makePlayerModel(kit, look, number) {
   const mesh = (g, parent, x = 0, y = 0, z = 0, shadow = true) => { const m = new THREE.Mesh(g, playerMat); m.position.set(x, y, z); m.castShadow = shadow; parent.add(m); return m; };
   const piv = (parent, x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); parent.add(o); return o; };
@@ -1224,8 +1273,8 @@ function makePlayerModel(kit, look, number) {
   // shirt number on the back
   const nm = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ map: numberTex(String(number), kit.trim), transparent: true, depthWrite: false }));
   nm.position.set(0, 0.34, -0.108 * (0.96 + (build - 0.93) * 0.5) - 0.002); nm.rotation.y = Math.PI; spine.add(nm);
-  // cheap blob shadow used when real shadows are off
-  const blob = new THREE.Mesh(blobGeo, blobMat); blob.scale.setScalar(1.3); blob.position.y = 0.02; blob.visible = !isHigh(); root.add(blob);
+  // ground blob: drawn for all players by ONE InstancedMesh (playerBlobs, updated in render); this is only a placeholder
+  const blob = new THREE.Object3D(); blob.visible = false;
   const cur = {}; POSE_KEYS.forEach(k => cur[k] = 0); cur.gw = 1;
   return {
     root, body, hips, spine, neck, shL: J.sh[0], shR: J.sh[1], elL: J.el[0], elR: J.el[1], wrL: J.wr[0], wrR: J.wr[1],
@@ -2456,13 +2505,19 @@ function aiTakeSetPiece(sp) {
   else doPass(tk, { dir: V3(T.side, 0, rand(-0.3, 0.3)), type: 'lofted' });
 }
 function separate() {
-  const ps = G.players;
-  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
-    const a = ps[i], b = ps[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz);
-    if (d < 0.68 && d > 0.001) {
-      const push = (0.68 - d) * 0.5, ux = dx / d, uz = dz / d;
-      if (a.state !== 'dive') { a.pos.x -= ux * push; a.pos.z -= uz * push; }
-      if (b.state !== 'dive') { b.pos.x += ux * push; b.pos.z += uz * push; }
+  // In play: equal shares, 0.68 m (unchanged). In the 'celebrate' state bodies are spread (arms out, hugs), so the
+  // spacing grows (0.72 m, 1.05 m around the scorer), two passes resolve clusters, and the scorer is heavy (takes 10%
+  // of the overlap) so he keeps his run to the corner while everybody else is moved around him.
+  const ps = G.players, cel = G.state === 'celebrate', gl = G.lastGoal, sc = cel && gl && !gl.own ? gl.scorer : null;
+  for (let pass = cel ? 2 : 1; pass > 0; pass--) {
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+      const a = ps[i], b = ps[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz);
+      const minD = !cel ? 0.68 : (a === sc || b === sc) ? 1.05 : 0.72;
+      if (d < minD && d > 0.001) {
+        const ov = minD - d, ux = dx / d, uz = dz / d, wa = a === sc ? 0.1 : b === sc ? 0.9 : 0.5;
+        if (a.state !== 'dive') { a.pos.x -= ux * ov * wa; a.pos.z -= uz * ov * wa; }
+        if (b.state !== 'dive') { b.pos.x += ux * ov * (1 - wa); b.pos.z += uz * ov * (1 - wa); }
+      }
     }
   }
 }
@@ -2533,12 +2588,26 @@ function endReplay() {
   if (G.lastGoal.own) sc.setState('normal', 0);
   Sound.cheer(0.6);
 }
+/** Steer p around the celebrating scorer: drop the part of p's desired velocity that heads into him (measured
+ *  against where he will be in 0.4 s), turn it into a sidestep on the side p already favours, and add a soft push
+ *  out of radius R. Visual courtesy only: positions are still resolved by separate(). */
+function avoidScorer(p, sc, R, pushK) {
+  const cx = sc.pos.x + sc.vel.x * 0.4, cz = sc.pos.z + sc.vel.z * 0.4;
+  const dx = p.pos.x - cx, dz = p.pos.z - cz, d = Math.hypot(dx, dz);
+  if (d > R || d < 1e-3) return;
+  const ux = dx / d, uz = dz / d, des = p.desired, inward = -(des.x * ux + des.z * uz);
+  if (inward > 0) {
+    const tx = -uz, tz = ux, side = Math.sign(des.x * tx + des.z * tz) || (p.i % 2 ? 1 : -1);
+    des.x += (ux + tx * side) * inward; des.z += (uz + tz * side) * inward;
+  }
+  const k = (1 - d / R) * pushK; des.x += ux * k; des.z += uz * k;
+}
 function celebrateStep(dt) {
-  const gl = G.lastGoal, sc = gl.scorer, T = gl.team;
+  const gl = G.lastGoal, sc = gl.scorer, T = gl.team, solo = !gl.own;
   for (const p of G.players) {
-    if (p === sc && !gl.own) { const t = sc.celebTarget; if (steerTo(p, t.x, t.z, G.stateT < 2.5) < 1.5) { p.desired.set(0, 0, 0); p.faceTarget = Math.atan2(-p.pos.z, -p.pos.x); } }
-    else if (p.team === T && !p.isGK) { const s = gl.own ? p.pos : sc.pos; steerTo(p, s.x + Math.cos(p.i) * 1.3, s.z + Math.sin(p.i) * 1.3, true); if (p.speed < 1 && Math.random() < 0.02) p.setState('celebrate', 0.8); }
-    else { const f = { x: p.team.wx(Math.min(p.slot.x * 0.78 + 0.03, 0.45)), z: p.team.wz(p.slot.z) }; steerTo(p, f.x, f.z, false); }
+    if (p === sc && solo) { const t = sc.celebTarget; if (steerTo(p, t.x, t.z, G.stateT < 2.5) < 1.5) { p.desired.set(0, 0, 0); p.faceTarget = Math.atan2(-p.pos.z, -p.pos.x); } }
+    else if (p.team === T && !p.isGK) { const s = gl.own ? p.pos : sc.pos; steerTo(p, s.x + Math.cos(p.i) * 1.3, s.z + Math.sin(p.i) * 1.3, true); if (solo) avoidScorer(p, sc, 1.4, 1.5); if (p.speed < 1 && Math.random() < 0.02) p.setState('celebrate', 0.8); }
+    else { const f = { x: p.team.wx(Math.min(p.slot.x * 0.78 + 0.03, 0.45)), z: p.team.wz(p.slot.z) }; steerTo(p, f.x, f.z, false); if (solo) avoidScorer(p, sc, 2.6, 2.5); }
     stepPlayer(p, dt);
   }
   separate();
@@ -3160,6 +3229,7 @@ function render(dt) {
     const m = p.model; m.root.position.set(r.x, r.y, r.z); m.root.rotation.y = Math.PI / 2 - r.facing;
     applyPose(m, r, inReplay ? dt * 0.5 : dt * G.timeScale, time);
   });
+  updatePlayerBlobs(G.players);   // one instanced draw for all player blobs (low quality only)
   ballBlob.position.set(bp.x, 0.012, bp.z); const hb = bp.y - BALL_R; ballBlob.scale.setScalar(0.42 + hb * 0.12); ballBlob.material.opacity = clamp(1 - hb * 0.12, 0.2, 1);
   // controlled player marker
   const c = G.controlled, showM = c && (G.state === 'play' || G.state === 'setpiece' || G.state === 'stoppage') && !G.demo;
@@ -3202,7 +3272,7 @@ function frame(now) {
   c.fillStyle = 'rgba(255,255,255,0.08)'; for (let i = 0; i < 6; i += 2) c.fillRect(i * 30, 0, 30, 180);
   c.beginPath(); c.arc(90, 82, 48, 0, 7); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 4; c.strokeStyle = '#111'; c.stroke();
   c.fillStyle = '#111'; c.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; c.lineTo(90 + Math.cos(a) * 17, 82 + Math.sin(a) * 17); } c.fill();
-  c.font = '900 italic 30px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('KICKSTORM', 90, 165);
+  c.font = '900 italic 30px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('KICKSTORM', 90, 165, 164);
   const url = cv.toDataURL(); document.querySelectorAll('link[rel="apple-touch-icon"],link[rel="icon"]').forEach(l => l.href = url);
 })();
 setupInput(); setupMenus(); ensureWorld();
@@ -3211,6 +3281,8 @@ if (G.demo) { settings.halfLen = 3; show(null); startMatch(); }
 requestAnimationFrame(frame);
 window.__G = G; window.__ball = ball; window.__r = renderer; // debug handles (used by automated tests)
 window.__fast = n => { for (let i = 0; i < n; i++) { handleEvents(); update(DT); } };
+// offline play once installed: the service worker caches this page, Three.js and its addons (http/https only, never file:)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { const reg = () => navigator.serviceWorker.register('./sw.js').catch(() => { }); document.readyState === 'complete' ? reg() : addEventListener('load', reg); }
 </script>
 </body>
 </html>
