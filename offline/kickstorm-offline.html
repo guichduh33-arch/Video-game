@@ -306,7 +306,9 @@ const CLUBS = [
   { name: 'Northport Mariners',short: 'NPM', shirt: '#1d3f8f', trim: '#8fd3ff', shorts: '#0d1c40', socks: '#8fd3ff', gk: '#ffb000', crest: ['circle', 'wave'],    r: { att: 78, mid: 83, def: 81, gk: 82, pace: 77 } },
   { name: 'Emerald Vale FC',   short: 'EMV', shirt: '#13985a', trim: '#f2c230', shorts: '#0d3b25', socks: '#f2c230', gk: '#e04fd0', crest: ['diamond', 'star'],  r: { att: 80, mid: 79, def: 83, gk: 78, pace: 80 } },
   { name: 'Ironbridge Athletic',short: 'IRA', shirt: '#5d6470', trim: '#ff7a1a', shorts: '#2d3138', socks: '#ff7a1a', gk: '#1fd2ff', crest: ['shield', 'bar'],    r: { att: 76, mid: 78, def: 86, gk: 84, pace: 74 } },
-  { name: 'Sunvale Strikers',  short: 'SVS', shirt: '#ffd000', trim: '#161616', shorts: '#161616', socks: '#ffd000', gk: '#ff4040', crest: ['circle', 'sun'],     r: { att: 86, mid: 77, def: 74, gk: 76, pace: 86 } },
+  { name: 'Sunvale Strikers',  short: 'SVS', shirt: '#ffd000', trim: '#161616', shorts: '#161616', socks: '#ffd000', gk: '#ff4040', crest: ['circle', 'sun'],     r: { att: 86, mid: 77, def: 74, gk: 76, pace: 86 },
+    // the club's fictional star forward: blistering pace, close control, clinical finishing
+    star: { name: 'R. Solenne', num: 7, pace: 97, shooting: 93, dribbling: 95, passing: 84, defending: 42, skin: 1, hair: 2, boots: '#39e07a' } },
   { name: 'Frostholm United',  short: 'FHU', shirt: '#bfe6ff', trim: '#1f4e9c', shorts: '#ffffff', socks: '#1f4e9c', gk: '#3a3a3a', crest: ['hex', 'cross'],      r: { att: 79, mid: 82, def: 80, gk: 81, pace: 78 } },
   { name: 'Duskwood Wolves',   short: 'DKW', shirt: '#5b2a86', trim: '#111111', shorts: '#111111', socks: '#5b2a86', gk: '#c6ff3a', crest: ['shield', 'triangle'],r: { att: 84, mid: 81, def: 77, gk: 79, pace: 83 } },
   { name: 'Coral Bay City',    short: 'CBC', shirt: '#ff6f61', trim: '#00a6a6', shorts: '#00a6a6', socks: '#ff6f61', gk: '#5050ff', crest: ['circle', 'stripes'], r: { att: 81, mid: 84, def: 76, gk: 77, pace: 82 } },
@@ -327,6 +329,8 @@ function makeRoster(club, n) {
       pace: clamp(R.pace + v(), 55, 97), shooting: clamp(R.att + v(), 50, 96), passing: clamp(R.mid + v(), 50, 96),
       defending: clamp(R.def + v(), 45, 96), dribbling: clamp((R.att + R.mid) / 2 + v(), 50, 96), gk: clamp(R.gk + v(), 50, 95) });
   }
+  // a club star (if any) takes the last slot, which is a forward in every formation
+  if (club.star) out[n - 1] = { ...out[n - 1], ...club.star, isStar: true };
   return out;
 }
 
@@ -1674,6 +1678,7 @@ class Player {
     this.team = team; this.i = i; this.role = slot[0]; this.slot = { x: slot[1], z: slot[2] }; this.info = info;
     this.num = i === 0 ? 1 : [0, 2, 5, 4, 3, 7, 6, 8, 11, 9, 10][i] || i + 1;
     if (G.P.L < 80) this.num = [1, 4, 5, 8, 9][i];
+    if (info.num) this.num = info.num;
     this.pos = V3(); this.prev = V3(); this.vel = V3(); this.desired = V3(); this.target = V3();
     this.facing = 0; this.yawRate = 0; this.state = 'normal'; this.stateT = 0; this.dur = 0;
     this.anim = ANIM.RUN; this.phase = rand(0, 6); this.animT = 0; this.aux = 0; this.lift = 0;
@@ -1694,6 +1699,7 @@ class Player {
     if (ball.owner === this) v *= 0.9;
     if (!this.team.isUser) v *= this.team.diff.speed;
     if (this.burstT > 0) v *= 1.12;
+    if (this.info.isStar) v *= 1.06; // the club star's extra gear
     return v;
   }
   setState(s, dur) { this.state = s; this.stateT = 0; this.dur = dur; }
@@ -1716,7 +1722,7 @@ function buildTeams() {
     const roster = makeRoster(club, n), boots = ['#111111', '#f5f5f5', '#ff3b6b', '#2b7bff', '#ffd23f', '#39e07a'];
     FORMATIONS[T.formation].forEach((slot, i) => {
       const gkKit = { shirt: club.gk, trim: '#111111', shorts: '#202020', socks: club.gk, boots: '#111111', gloves: '#f0f0f0' };
-      const k = slot[0] === 'GK' ? gkKit : { ...kit, boots: boots[(i * 3 + ti) % boots.length] };
+      const k = slot[0] === 'GK' ? gkKit : { ...kit, boots: roster[i].boots || boots[(i * 3 + ti) % boots.length] };
       const p = new Player(T, i, slot, roster[i], k);
       T.players.push(p); G.players.push(p);
     });
@@ -2691,7 +2697,7 @@ function userAttacking() {
 }
 function setControlled(p) {
   if (G.controlled === p) return; G.controlled = p;
-  if (p) { $('pname').textContent = p.num + '  ' + p.info.name.toUpperCase() + '  · ' + p.role; p.pending = null; }
+  if (p) { $('pname').textContent = (p.info.isStar ? '★ ' : '') + p.num + '  ' + p.info.name.toUpperCase() + '  · ' + p.role; p.pending = null; }
 }
 function switchPlayer() {
   const U = G.teams.find(t => t.isUser); if (!U) return;
@@ -2992,7 +2998,7 @@ function buildSelect() {
   CLUBS.forEach(c => {
     const el = document.createElement('button'); el.className = 'club';
     const avg = Math.round((c.r.att + c.r.mid + c.r.def + c.r.gk) / 4);
-    el.innerHTML = `<img src="${crestURL(c, 128)}" alt=""><div>${c.name}</div><div class="r">ATT ${c.r.att} · MID ${c.r.mid} · DEF ${c.r.def} · OVR ${avg}</div><div class="tag" style="background:${c.shirt};color:${c.trim}">${c.short}</div>`;
+    el.innerHTML = `<img src="${crestURL(c, 128)}" alt=""><div>${c.name}</div><div class="r">ATT ${c.r.att} · MID ${c.r.mid} · DEF ${c.r.def} · OVR ${avg}</div>${c.star ? `<div class="r" style="color:#ffd23f;opacity:1">★ ${c.star.name} · PACE ${c.star.pace}</div>` : ''}<div class="tag" style="background:${c.shirt};color:${c.trim}">${c.short}</div>`;
     el.onclick = () => {
       Sound.init(); Sound.ui();
       if (selStage === 0) { settings.home = c.id; if (settings.away === c.id) settings.away = (c.id + 1) % CLUBS.length; selStage = 1; }
