@@ -2551,7 +2551,7 @@ const Replay = {
     this.end = Math.min(this.frame - 1, goalF + after * 60);
     this.start = Math.max(this.frameStart, this.frame - REC_N + 1, goalF - before * 60);
     if (this.end - this.start < 30) return false;
-    this.cursor = this.start; this.active = true; this.style = pickReplayStyle(this); this.prevX = 0;
+    this.cursor = this.start; this.active = true; this.style = pickReplayStyle(this); this.prevX = 0; this.firstFrame = true; // camera cuts on the first replay frame at any frame rate
     return true;
   },
   /** Interpolated sample at fractional frame f. */
@@ -2853,7 +2853,7 @@ function updateCamera(dt, bp) {
     tp = replayCam(Replay.style, bp, s, V3()); const [K, f0, f1] = REPLAY_FOV[Replay.style];
     fov = clamp(2 * Math.atan(K / Math.max(1, tp.distanceTo(bp))) * 180 / Math.PI, f0, f1);
     tl = bp.clone(); if (Replay.style === 2) tl.y *= 0.6;
-    rate = Replay.style === 1 ? 6 : 4; snap = Replay.cursor - Replay.start < 1;
+    rate = Replay.style === 1 ? 6 : 4; snap = Replay.firstFrame; Replay.firstFrame = false;
   } else if (st === 'celebrate') {
     const sc2 = G.lastGoal.scorer; Cam.orbit += dt * 0.35;
     tp = V3(sc2.pos.x + Math.cos(Cam.orbit) * 6, 2.1, sc2.pos.z + Math.sin(Cam.orbit) * 6); tl = V3(sc2.pos.x, 1.2, sc2.pos.z); fov = 36; rate = 3;
@@ -3265,16 +3265,7 @@ function frame(now) {
 }
 
 /* ---- boot ---- */
-// home-screen icon drawn on a canvas (used by "Add to Home Screen")
-(() => {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 180; const c = cv.getContext('2d');
-  const g = c.createLinearGradient(0, 0, 0, 180); g.addColorStop(0, '#1fb35e'); g.addColorStop(1, '#0a5c2c'); c.fillStyle = g; c.fillRect(0, 0, 180, 180);
-  c.fillStyle = 'rgba(255,255,255,0.08)'; for (let i = 0; i < 6; i += 2) c.fillRect(i * 30, 0, 30, 180);
-  c.beginPath(); c.arc(90, 82, 48, 0, 7); c.fillStyle = '#fff'; c.fill(); c.lineWidth = 4; c.strokeStyle = '#111'; c.stroke();
-  c.fillStyle = '#111'; c.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 2 / 5; c.lineTo(90 + Math.cos(a) * 17, 82 + Math.sin(a) * 17); } c.fill();
-  c.font = '900 italic 30px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('KICKSTORM', 90, 165, 164);
-  const url = cv.toDataURL(); document.querySelectorAll('link[rel="apple-touch-icon"],link[rel="icon"]').forEach(l => l.href = url);
-})();
+// home-screen icons: the PNGs in icons/ (linked in <head> and the manifest) are used as-is
 setupInput(); setupMenus(); ensureWorld();
 $('loading').remove(); show('scrTitle');
 if (G.demo) { settings.halfLen = 3; show(null); startMatch(); }
