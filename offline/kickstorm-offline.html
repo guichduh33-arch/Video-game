@@ -455,6 +455,11 @@ const SHOP_CAT = (() => {
       skin: ri(0, 3), hair: ri(0, 3), style: ri(0, 3), height: 0.95 + ri(0, 9) / 100, boots: pos === 'GK' ? BOOTS[ri(0, 1)] : BOOTS[ri(0, BOOTS.length - 1)],
       isStar: tier === 'legend' });
   }
+  // hand-made headline legend (appended last so the generated ids p01-p48 and their stats never change):
+  // an original, fictional speedster — the fastest player in the market
+  const ec = { pace: 99, shooting: 92, passing: 83, defending: 41, dribbling: 95, gk: 22 };
+  out.push({ id: 'p49', name: 'N. Éclair', pos: 'FWD', num: num('FWD'), tier: 'legend', ovr: clamp(ovrOf(ec, 'FWD'), 90, 99), price: 9500, ...ec,
+    skin: 1, hair: 1, style: 2, height: 1.0, boots: '#ff8a1f', isStar: true });
   return out;
 })();
 const SHOP_BY_ID = Object.fromEntries(SHOP_CAT.map(p => [p.id, p]));
