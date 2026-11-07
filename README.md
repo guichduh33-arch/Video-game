@@ -52,6 +52,10 @@ map, and everything else (players, stadium, crowd, crests, ball texture, sound) 
 - **Keyboard:** WASD/arrows, Shift sprint, K pass, J shoot, L thru/press, Z/X/C/E skills, V camera, Esc pause.
 - **Rules:** kick-offs, throw-ins, corners, goal kicks, fouls with free kicks and penalties, offside,
   half time and full time. Results are saved in `localStorage` (Records screen).
+- **Transfer market:** earn coins at full time (win 400 / draw 200 / loss 100, +60 per goal, +100 clean
+  sheet, ×1.5 on Hard) and buy from 48 original fictional players (Bronze, Silver, Gold, Legend) in
+  SHOP. MY SQUAD chooses which of them join your club; each replaces the weakest player in his position.
+  Coins and players are saved in `localStorage` (`kickstorm.shop.v1`).
 - **Debug:** `football.html?demo` plays CPU vs CPU.
 
 ### Playing it on an iPad

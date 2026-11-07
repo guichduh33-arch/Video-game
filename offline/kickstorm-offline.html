@@ -118,6 +118,52 @@ table.st td.m{text-align:center;opacity:.7;font-size:12px;letter-spacing:1px}
 @keyframes rot{50%{transform:rotate(-90deg)}}
 @media (orientation:portrait) and (max-width:1100px){#rotate{display:flex}}
 @media (max-height:620px){.mb{padding:11px 20px;font-size:17px}.club img{width:46px;height:46px}.btn{zoom:.85}}
+/* ---------- transfer market (SHOP) and MY SQUAD ---------- */
+.mb.sm{min-width:150px;padding:12px 18px;font-size:16px}
+.coinTag{font-size:14px;opacity:.85;margin-left:8px;letter-spacing:1px}
+.club .sq{font-size:10px;font-weight:900;letter-spacing:1px;color:#04220f;background:var(--accent);border-radius:6px;padding:2px 6px}
+.card.shopcard{width:min(1120px,96vw);max-width:min(1120px,96vw);height:92vh;display:flex;flex-direction:column;overflow:hidden;padding:14px 16px}
+.shophead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.shophead h2{flex:1;margin:0;font-size:22px}
+.coins{font-weight:900;font-size:20px;letter-spacing:1px;background:#00000055;border:1px solid #ffd23f88;color:#ffd23f;border-radius:12px;padding:9px 14px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center}
+.chips .gap{width:14px}
+.chips button{min-width:58px;min-height:44px;padding:8px 13px;border-radius:22px;border:1px solid #ffffff2a;background:#ffffff10;font-weight:800;font-size:13px;letter-spacing:1px}
+.chips button.on{background:var(--accent);color:#04220f;border-color:#b8ffd6}
+.snote{font-size:12px;opacity:.8;margin:0 0 8px;letter-spacing:.3px;line-height:1.4}
+.pgrid{flex:1;min-height:0;overflow-y:auto;touch-action:pan-y;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));grid-auto-rows:max-content;gap:10px;padding:2px 4px 8px;align-content:start}
+.pempty{grid-column:1/-1;text-align:center;opacity:.8;padding:40px 10px;font-weight:700;line-height:1.8}
+.pc{position:relative;border-radius:14px;padding:8px 9px 9px;display:flex;flex-direction:column;gap:4px;color:#1b1206;box-shadow:0 6px 14px #0008,inset 0 1px 0 #fff6;border:2px solid #0000;overflow:hidden}
+.pc.t-bronze{background:linear-gradient(155deg,#f0bd86,#b5733b 55%,#6a3b17)}
+.pc.t-silver{background:linear-gradient(155deg,#ffffff,#b9c2cc 55%,#6b747e)}
+.pc.t-gold{background:linear-gradient(155deg,#fff3b0,#e2b322 50%,#8a6206)}
+.pc.t-legend{background:linear-gradient(150deg,#150a33,#4b1f80 38%,#b73cf0 68%,#36e6cf);color:#fff;border-color:#ffd23f}
+.pc.t-legend::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,#0000 35%,#ffffff40 48%,#0000 60%);pointer-events:none}
+.pc.flash{animation:pcflash .6s}
+@keyframes pcflash{30%{transform:scale(1.05);filter:brightness(1.4)}}
+.pc>*{flex-shrink:0}
+.pc-top{display:flex;align-items:flex-start;gap:4px}
+.pc .ovr{font-size:34px;font-weight:900;line-height:.9;display:flex;flex-direction:column;align-items:center;min-width:44px}
+.pc .ovr small{font-size:13px;font-weight:900;letter-spacing:1px;margin-top:3px}
+.pc .num{font-size:13px;font-weight:900;opacity:.8;margin-top:2px}
+.pc img.por{width:78px;height:78px;margin-left:auto;margin-right:auto}
+.pc-name{font-weight:900;font-size:14px;letter-spacing:.5px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-top:1px solid #0003;padding-top:3px}
+.pc.t-legend .pc-name{border-color:#fff4}
+.pc-tier{font-size:9px;font-weight:900;letter-spacing:2px;text-align:center;opacity:.75;margin-top:-3px}
+.pc-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1px 6px;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.pc-stats span{display:flex;justify-content:space-between}
+.pc-stats span i{font-style:normal;opacity:.65;font-size:10px;letter-spacing:.5px;align-self:center}
+.pc-stats span.key b{text-decoration:underline;text-underline-offset:2px}
+.pc .slot{font-size:10px;font-weight:800;text-align:center;letter-spacing:.3px;min-height:13px;opacity:.85}
+.pc .slot:empty{display:none}
+.pc .act{margin-top:auto;min-height:44px;border-radius:10px;border:1px solid #0005;font-weight:900;font-size:14px;letter-spacing:1px;background:linear-gradient(180deg,#38f28b,#11a556);color:#04220f}
+.pc .act.need{background:#00000055;color:#fff;opacity:.85;font-size:12px}
+.pc .act.owned{background:#00000040;color:#fff}
+.pc .act.confirm{background:linear-gradient(180deg,#ffe27a,#e0a400);color:#2a1a00;animation:blink 0.9s infinite}
+.pc .act.off{background:#00000055;color:#fff}
+.coinsline{text-align:center;font-weight:900;font-size:22px;color:#ffd23f;letter-spacing:1px;margin:2px 0 4px}
+.coinsline small{display:block;font-size:11px;color:var(--ui);opacity:.75;letter-spacing:1px;font-weight:700;margin-top:2px}
+@media (max-height:620px){.pc img.por{width:56px;height:56px}.pc .ovr{font-size:28px}.shophead h2{font-size:18px}.coins{font-size:16px;padding:6px 10px}.chips button{min-height:40px;padding:6px 10px}}
 #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:3px;background:#06120b;z-index:98}
 </style>
 </head>
@@ -169,6 +215,8 @@ table.st td.m{text-align:center;opacity:.7;font-size:12px;letter-spacing:1px}
     <div class="sub">ARCADE FOOTBALL 3D</div>
     <div class="menu">
       <button class="mb primary" id="mQuick">QUICK MATCH</button>
+      <button class="mb" id="mShop">SHOP<span class="coinTag" id="titleCoins"></span></button>
+      <button class="mb" id="mSquad">MY SQUAD</button>
       <button class="mb" id="mOptions">OPTIONS</button>
       <button class="mb" id="mRecords">RECORDS</button>
       <button class="mb" id="mHelp">HOW TO PLAY</button>
@@ -182,9 +230,27 @@ table.st td.m{text-align:center;opacity:.7;font-size:12px;letter-spacing:1px}
     <div class="clubs" id="clubGrid"></div>
     <div class="vs" id="vsRow"></div>
     <div class="row">
-      <button class="mb" id="selBack">BACK</button>
+      <button class="mb sm" id="selBack">BACK</button>
+      <button class="mb sm" id="selShop">SHOP</button>
+      <button class="mb sm" id="selSquad">MY SQUAD</button>
       <button class="mb primary" id="selGo">KICK OFF</button>
     </div>
+  </div>
+</div>
+
+<div id="scrShop" class="screen dim hidden">
+  <div class="card shopcard">
+    <div class="shophead"><button class="mb sm" id="shopBack">BACK</button><h2>TRANSFER MARKET</h2><div class="coins" id="shopCoins"></div></div>
+    <div class="chips" id="shopChips"></div>
+    <div class="pgrid" id="shopGrid"></div>
+  </div>
+</div>
+
+<div id="scrSquad" class="screen dim hidden">
+  <div class="card shopcard">
+    <div class="shophead"><button class="mb sm" id="squadBack">BACK</button><h2>MY SQUAD</h2><div class="coins" id="squadCoins"></div></div>
+    <p class="snote" id="squadNote"></p>
+    <div class="pgrid" id="squadGrid"></div>
   </div>
 </div>
 
@@ -228,6 +294,7 @@ table.st td.m{text-align:center;opacity:.7;font-size:12px;letter-spacing:1px}
   <div class="card" style="min-width:min(520px,94vw)">
     <h2 id="brTitle">HALF TIME</h2>
     <div class="final" id="brScore"></div>
+    <div class="coinsline hidden" id="brCoins"></div>
     <table class="st" id="brStats"></table>
     <div class="row" id="brBtns"></div>
   </div>
@@ -332,6 +399,97 @@ function makeRoster(club, n) {
   // a club star (if any) takes the last slot, which is a forward in every formation
   if (club.star) out[n - 1] = { ...out[n - 1], ...club.star, isStar: true };
   return out;
+}
+
+/* ---- TRANSFER MARKET: an original, fictional catalogue bought with coins earned in matches ---- */
+/** Position overall from the six stats (also used to rank club players when a bought player takes a slot). */
+function ovrOf(s, role) {
+  if (role === 'GK') return Math.round(s.gk);
+  if (role === 'DEF') return Math.round(s.defending * 0.5 + s.pace * 0.2 + s.passing * 0.2 + s.dribbling * 0.1);
+  if (role === 'MID') return Math.round(s.passing * 0.35 + s.dribbling * 0.25 + s.shooting * 0.15 + s.defending * 0.15 + s.pace * 0.1);
+  return Math.round(s.shooting * 0.4 + s.pace * 0.3 + s.dribbling * 0.3);
+}
+const TIERS = {
+  bronze: { name: 'BRONZE', ovr: [64, 72], price: [300, 700] },
+  silver: { name: 'SILVER', ovr: [73, 80], price: [900, 1800] },
+  gold:   { name: 'GOLD',   ovr: [81, 87], price: [2200, 3800] },
+  legend: { name: 'LEGEND', ovr: [88, 94], price: [5000, 9000] }
+};
+const TIER_ORDER = ['bronze', 'silver', 'gold', 'legend'];
+/** Deterministic catalogue: 48 invented players (6 GK / 14 DEF / 14 MID / 14 FWD; 6 legends). Same list on every device. */
+const SHOP_CAT = (() => {
+  const rng = mulberry32(0x5EED5); const ri = (a, b) => a + Math.floor(rng() * (b - a + 1));
+  // shop-only syllables on top of the club ones (the club lists are untouched so club rosters stay the same)
+  const S1 = SYL1.concat(['Brav', 'Corv', 'Drae', 'Eld', 'Fyr', 'Grel', 'Hask', 'Ilv', 'Kesh', 'Lorn', 'Mov', 'Nyr', 'Orv', 'Prax', 'Quell', 'Rask', 'Thal', 'Ulm', 'Varn', 'Wexl', 'Yst', 'Zor']);
+  const S2 = SYL2.concat(['amir', 'avel', 'dren', 'ecki', 'endo', 'ffet', 'grim', 'holt', 'ivar', 'karo', 'laud', 'mund', 'nesk', 'orrin', 'quist', 'vane']);
+  // a shop surname must differ from every club-roster surname (both squad sizes, star included) and from every other shop surname,
+  // exactly and "nearly": no two surnames may share their first 5 letters
+  const near = s => s.toLowerCase().slice(0, 5), BLOCK = ['Belenko', 'Pellini'];   // BLOCK: rejected on review (too close to real people)
+  const usedS = new Set(BLOCK.map(near));
+  for (const c of CLUBS) for (const n of [11, 5]) makeRoster(c, n).forEach(p => usedS.add(near(p.name.split(' ').pop())));
+  const name = () => { for (;;) { const s = S1[ri(0, S1.length - 1)] + S2[ri(0, S2.length - 1)];
+    if (s.length >= 5 && s.length <= 10 && !usedS.has(near(s))) { usedS.add(near(s)); return FIRST[ri(0, FIRST.length - 1)] + ' ' + s; } } };
+  const comp = { GK: { legend: 1, gold: 1, silver: 2, bronze: 2 }, DEF: { legend: 1, gold: 4, silver: 4, bronze: 5 }, MID: { legend: 2, gold: 3, silver: 4, bronze: 5 }, FWD: { legend: 2, gold: 4, silver: 4, bronze: 4 } };
+  const numPref = { GK: [1, 13, 12, 23, 31, 30], DEF: [4, 5, 3, 2, 6, 15, 14, 22, 24, 26, 33, 35, 44, 16], MID: [10, 8, 17, 18, 20, 21, 25, 27, 28, 34, 36, 38, 42, 80], FWD: [9, 7, 11, 19, 29, 77, 99, 70, 90, 39, 32, 37, 45, 47] };
+  const BOOTS = ['#111111', '#f5f5f5', '#ff3b6b', '#2b7bff', '#ffd23f', '#39e07a', '#ff8a1f', '#b15cff', '#20e3d2', '#ff5ad1'];
+  const nums = new Set(), out = [];
+  const num = pos => { for (const n of numPref[pos]) if (!nums.has(n)) { nums.add(n); return n; } for (let n = 40; ; n++) if (!nums.has(n)) { nums.add(n); return n; } };
+  // stat shapes per position: [pace, shooting, passing, defending, dribbling, gk] as offsets from the target overall
+  const shape = {
+    GK:  () => [ri(-30, -15), ri(-45, -30), ri(-22, -8), ri(-35, -20), ri(-35, -20), 0],
+    DEF: () => [ri(-10, 4), ri(-28, -12), ri(-12, 0), ri(0, 6), ri(-15, -3), -ri(45, 55)],
+    MID: () => [ri(-10, 3), ri(-12, 2), ri(0, 6), ri(-25, 2), ri(-4, 5), -ri(50, 58)],
+    FWD: () => [ri(-4, 6), ri(0, 6), ri(-14, 0), ri(-45, -30), ri(-3, 6), -ri(55, 62)]
+  };
+  const K = ['pace', 'shooting', 'passing', 'defending', 'dribbling', 'gk'];
+  for (const pos of ['GK', 'DEF', 'MID', 'FWD']) for (const tier of [...TIER_ORDER].reverse()) for (let k = 0; k < comp[pos][tier]; k++) {
+    const T = TIERS[tier], target = ri(T.ovr[0], T.ovr[1]), off = shape[pos](), s = {};
+    K.forEach((key, j) => s[key] = clamp(target + off[j], 20, 99));
+    for (let it = 0; it < 6; it++) { // nudge so the position overall hits the target exactly (within the clamp)
+      const d = target - ovrOf(s, pos); if (!d) break;
+      for (const key of pos === 'GK' ? ['gk'] : pos === 'DEF' ? ['defending', 'pace', 'passing', 'dribbling'] : pos === 'MID' ? ['passing', 'dribbling', 'shooting', 'defending', 'pace'] : ['shooting', 'pace', 'dribbling']) s[key] = clamp(s[key] + d, 20, 99);
+    }
+    const ovr = clamp(ovrOf(s, pos), T.ovr[0], T.ovr[1]), f = (ovr - T.ovr[0]) / (T.ovr[1] - T.ovr[0]);
+    const price = clamp(Math.round((T.price[0] + f * (T.price[1] - T.price[0]) + ri(-60, 60)) / 50) * 50, T.price[0], T.price[1]);
+    out.push({ id: 'p' + String(out.length + 1).padStart(2, '0'), name: name(), pos, num: num(pos), tier, ovr, price, ...s,
+      skin: ri(0, 3), hair: ri(0, 3), style: ri(0, 3), height: 0.95 + ri(0, 9) / 100, boots: pos === 'GK' ? BOOTS[ri(0, 1)] : BOOTS[ri(0, BOOTS.length - 1)],
+      isStar: tier === 'legend' });
+  }
+  return out;
+})();
+const SHOP_BY_ID = Object.fromEntries(SHOP_CAT.map(p => [p.id, p]));
+const LS_SHOP = 'kickstorm.shop.v1', DEFAULT_SHOP = { coins: 1500, owned: [], active: [] };
+/** Repair whatever is in storage (or in memory) in place: coins a finite integer >= 0 (non-numbers / NaN / Infinity -> 1500,
+ *  finite negatives -> 0), owned/active de-duplicated arrays of known catalogue ids, active a subset of owned. */
+function sanitizeShop(s) {
+  if (!s || typeof s !== 'object') s = {};
+  const c = s.coins;
+  s.coins = typeof c === 'number' && Number.isFinite(c) ? Math.min(1e9, Math.max(0, Math.floor(c))) : DEFAULT_SHOP.coins;
+  const ids = a => Array.isArray(a) ? [...new Set(a.filter(id => typeof id === 'string' && Object.prototype.hasOwnProperty.call(SHOP_BY_ID, id)))] : [];
+  s.owned = ids(s.owned); s.active = ids(s.active).filter(id => s.owned.includes(id));
+  return s;
+}
+const shop = sanitizeShop(store.get(LS_SHOP, DEFAULT_SHOP));
+const saveShop = () => { sanitizeShop(shop); store.set(LS_SHOP, { coins: shop.coins, owned: shop.owned, active: shop.active }); };
+saveShop();   // write the repaired values straight back, so a corrupt entry never survives a boot
+/** Coins for a finished match: result + goals + clean sheet, scaled by difficulty. */
+function matchCoins(gf, ga, difficulty) {
+  const base = (gf > ga ? 400 : gf === ga ? 200 : 100) + gf * 60 + (ga === 0 ? 100 : 0);
+  return Math.round(base * ({ easy: 0.75, normal: 1, hard: 1.5 }[difficulty] || 1));
+}
+/** Which formation slot each active bought player takes (user team only). roster[i] belongs to slot i.
+ *  Per role: the best active players (by overall) replace the weakest club players; never more than the role has slots.
+ *  Returns { slot index -> shop player } plus the active players left without a slot. */
+function shopAssign(roster, slots) {
+  const act = shop.active.map(id => SHOP_BY_ID[id]).filter(p => p && shop.owned.includes(p.id)), map = {}, bench = [];
+  for (const role of ['GK', 'DEF', 'MID', 'FWD']) {
+    const mine = act.filter(p => p.pos === role).sort((a, b) => b.ovr - a.ovr);
+    // a club star is locked: he always keeps his place, so a bought player can only take a non-star slot
+    const idx = slots.map((s, i) => i).filter(i => slots[i][0] === role && !roster[i].isStar)
+      .sort((a, b) => ovrOf(roster[a], role) - ovrOf(roster[b], role));
+    mine.forEach((p, k) => k < idx.length ? map[idx[k]] = p : bench.push(p));
+  }
+  return { map, bench };
 }
 
 /** Draw a club crest from simple shapes onto a 2D context of size S. */
@@ -1676,15 +1834,13 @@ class Team {
 class Player {
   constructor(team, i, slot, info, kit) {
     this.team = team; this.i = i; this.role = slot[0]; this.slot = { x: slot[1], z: slot[2] }; this.info = info;
-    this.num = i === 0 ? 1 : [0, 2, 5, 4, 3, 7, 6, 8, 11, 9, 10][i] || i + 1;
-    if (G.P.L < 80) this.num = [1, 4, 5, 8, 9][i];
-    if (info.num) this.num = info.num;
+    this.num = info.num || defaultNum(i);
     this.pos = V3(); this.prev = V3(); this.vel = V3(); this.desired = V3(); this.target = V3();
     this.facing = 0; this.yawRate = 0; this.state = 'normal'; this.stateT = 0; this.dur = 0;
     this.anim = ANIM.RUN; this.phase = rand(0, 6); this.animT = 0; this.aux = 0; this.lift = 0;
     this.stamina = 1; this.touchCD = 0; this.sprint = false; this.thinkT = rand(0, 0.3); this.decideT = rand(0.2, 0.6);
     this.pending = null; this.runUntil = 0; this.feintT = 0; this.burstT = 0; this.tackleCD = 0; this.diveSide = 1; this.celebStyle = 0;
-    const look = { skin: info.skin, hair: info.hair, style: (info.hair + i) % 4, height: 0.96 + ((i * 37) % 9) / 100 };
+    const look = { skin: info.skin, hair: info.hair, style: info.style ?? (info.hair + i) % 4, height: info.height ?? 0.96 + ((i * 37) % 9) / 100 };
     this.model = makePlayerModel(kit, look, this.num);
     scene.add(this.model.root);
   }
@@ -1707,6 +1863,14 @@ class Player {
   dispose() { scene.remove(this.model.root); this.model.root.traverse(o => { if (o.material && o.material !== playerMat) { o.material.map?.dispose(); o.material.dispose(); } }); }
 }
 
+const defaultNum = i => G.P.L < 80 ? [1, 4, 5, 8, 9][i] || i + 1 : i === 0 ? 1 : [0, 2, 5, 4, 3, 7, 6, 8, 11, 9, 10][i] || i + 1;
+/** Unique shirt numbers within a team: the club star keeps his first, then bought players, then everyone else. */
+function resolveNumbers(roster) {
+  const taken = new Set(), order = roster.map((r, i) => i).sort((a, b) => (roster[b].isStar && !roster[b].shop ? 2 : roster[b].shop ? 1 : 0) - (roster[a].isStar && !roster[a].shop ? 2 : roster[a].shop ? 1 : 0) || a - b);
+  const clash = [];
+  for (const i of order) { const n = roster[i].num || defaultNum(i); if (taken.has(n)) clash.push(i); else { taken.add(n); roster[i] = { ...roster[i], num: n }; } }
+  for (const i of clash) { let n = 2; while (taken.has(n)) n++; taken.add(n); roster[i] = { ...roster[i], num: n }; }
+}
 function buildTeams() {
   G.players.forEach(p => p.dispose());
   G.players = []; G.teams = [];
@@ -1720,8 +1884,11 @@ function buildTeams() {
   [[homeClub, kH, true, 1], [awayClub, kA, false, -1]].forEach(([club, kit, isUser, side], ti) => {
     const T = new Team(ti, club, isUser && !G.demo, side, forms[ti]); T.kit = kit;
     const roster = makeRoster(club, n), boots = ['#111111', '#f5f5f5', '#ff3b6b', '#2b7bff', '#ffd23f', '#39e07a'];
+    // transfer-market players join the human's club only (never the CPU side, never in demo): each takes the slot of the weakest club player in his role
+    if (T.isUser) { try { const { map } = shopAssign(roster, FORMATIONS[T.formation]); for (const i in map) roster[i] = { ...map[i], shop: true }; T.shopCount = Object.keys(map).length; } catch (e) { console.warn('shop players skipped', e); } }
+    resolveNumbers(roster);
     FORMATIONS[T.formation].forEach((slot, i) => {
-      const gkKit = { shirt: club.gk, trim: '#111111', shorts: '#202020', socks: club.gk, boots: '#111111', gloves: '#f0f0f0' };
+      const gkKit = { shirt: club.gk, trim: '#111111', shorts: '#202020', socks: club.gk, boots: roster[i].boots || '#111111', gloves: '#f0f0f0' };
       const k = slot[0] === 'GK' ? gkKit : { ...kit, boots: roster[i].boots || boots[(i * 3 + ti) % boots.length] };
       const p = new Player(T, i, slot, roster[i], k);
       T.players.push(p); G.players.push(p);
@@ -2984,8 +3151,8 @@ function drawMinimap(players, bp) {
 /* =====================================================================
    17. MENUS, OPTIONS, RECORDS, PAUSE, HALF/FULL TIME
    ===================================================================== */
-const SCREENS = ['scrTitle', 'scrSelect', 'scrOptions', 'scrRecords', 'scrHelp', 'scrPause', 'scrBreak'];
-function show(id) { SCREENS.forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+const SCREENS = ['scrTitle', 'scrSelect', 'scrOptions', 'scrRecords', 'scrHelp', 'scrPause', 'scrBreak', 'scrShop', 'scrSquad'];
+function show(id) { SCREENS.forEach(s => $(s).classList.toggle('hidden', s !== id)); if (id === 'scrTitle') refreshCoins(); }
 function inMatchUI(on) { $('hud').classList.toggle('hidden', !on); $('controls').classList.toggle('hidden', !on || G.demo); }
 function toMenu() {
   G.state = 'menu'; G.paused = false; G.players.forEach(p => p.dispose()); G.players = []; G.teams = []; G.controlled = null;
@@ -2998,7 +3165,7 @@ function buildSelect() {
   CLUBS.forEach(c => {
     const el = document.createElement('button'); el.className = 'club';
     const avg = Math.round((c.r.att + c.r.mid + c.r.def + c.r.gk) / 4);
-    el.innerHTML = `<img src="${crestURL(c, 128)}" alt=""><div>${c.name}</div><div class="r">ATT ${c.r.att} · MID ${c.r.mid} · DEF ${c.r.def} · OVR ${avg}</div>${c.star ? `<div class="r" style="color:#ffd23f;opacity:1">★ ${c.star.name} · PACE ${c.star.pace}</div>` : ''}<div class="tag" style="background:${c.shirt};color:${c.trim}">${c.short}</div>`;
+    el.innerHTML = `<img src="${crestURL(c, 128)}" alt=""><div>${c.name}</div><div class="r">ATT ${c.r.att} · MID ${c.r.mid} · DEF ${c.r.def} · OVR ${avg}</div>${c.star ? `<div class="r" style="color:#ffd23f;opacity:1">★ ${c.star.name} · PACE ${c.star.pace}</div>` : ''}<div class="sq hidden"></div><div class="tag" style="background:${c.shirt};color:${c.trim}">${c.short}</div>`;
     el.onclick = () => {
       Sound.init(); Sound.ui();
       if (selStage === 0) { settings.home = c.id; if (settings.away === c.id) settings.away = (c.id + 1) % CLUBS.length; selStage = 1; }
@@ -3010,7 +3177,9 @@ function buildSelect() {
   refreshSelect();
 }
 function refreshSelect() {
-  [...$('clubGrid').children].forEach((el, i) => { el.classList.toggle('sel', i === settings.home); el.classList.toggle('sel2', i === settings.away); });
+  let nSq = 0; try { nSq = userPlan().count; } catch (e) { console.warn(e); }   // bought players join whichever club the human picks
+  [...$('clubGrid').children].forEach((el, i) => { el.classList.toggle('sel', i === settings.home); el.classList.toggle('sel2', i === settings.away);
+    const sq = el.querySelector('.sq'); sq.classList.toggle('hidden', !(i === settings.home && nSq)); sq.textContent = '+' + nSq + ' SQUAD PLAYER' + (nSq > 1 ? 'S' : ''); });
   $('selTitle').textContent = selStage === 0 ? 'CHOOSE YOUR CLUB' : 'CHOOSE YOUR OPPONENT';
   const H = CLUBS[settings.home], A = CLUBS[settings.away];
   $('vsRow').innerHTML = `<img src="${crestURL(H, 64)}">${H.name} <span style="opacity:.6">vs</span> ${A.name}<img src="${crestURL(A, 64)}"> <span style="font-size:12px;opacity:.7;margin-left:8px">${settings.difficulty.toUpperCase()} · ${settings.halfLen} MIN HALVES · ${settings.mode === '5' ? '5v5' : '11v11'}</span>`;
@@ -3063,6 +3232,9 @@ function saveResult() {
   const c = S.clubs[id] || (S.clubs[id] = { p: 0, w: 0, d: 0, l: 0 }); c.p++; c[r]++;
   S.history.unshift({ h: id, a: settings.away, hs, as, d: new Date().toLocaleDateString() }); S.history = S.history.slice(0, 20);
   store.set(LS_STATS, S);
+  // transfer-market coins (separate key, so RESET in Records never touches them)
+  sanitizeShop(shop); const gain = matchCoins(hs, as, settings.difficulty); shop.coins += gain; saveShop();
+  G.lastAward = { gain, hs, as, diff: settings.difficulty, balance: shop.coins };
 }
 function statsTable() {
   const [a, b] = G.stats, tot = a.poss + b.poss || 1;
@@ -3075,9 +3247,14 @@ function showBreak(full) {
   $('brTitle').textContent = full ? 'FULL TIME' : 'HALF TIME';
   $('brScore').innerHTML = `<img src="${crestURL(H.club, 128)}">${G.score[0]} – ${G.score[1]}<img src="${crestURL(A.club, 128)}">`;
   $('brStats').innerHTML = `<tr><td>${H.club.name}</td><td class="m"></td><td>${A.club.name}</td></tr>` + statsTable();
+  const aw = full && G.lastAward, bc = $('brCoins'); bc.classList.toggle('hidden', !aw);
+  if (aw) {
+    const res = aw.hs > aw.as ? 'WIN 400' : aw.hs === aw.as ? 'DRAW 200' : 'LOSS 100', mul = { easy: '×0.75', normal: '×1', hard: '×1.5' }[aw.diff];
+    bc.innerHTML = `+${fmtC(aw.gain)} 🪙 <span style="opacity:.8;font-size:16px">· BALANCE ${fmtC(aw.balance)}</span><small>${res} · ${aw.hs} GOAL${aw.hs === 1 ? '' : 'S'} +${aw.hs * 60}${aw.as === 0 ? ' · CLEAN SHEET +100' : ''} · ${aw.diff.toUpperCase()} ${mul}</small>`;
+  }
   const bb = $('brBtns'); bb.innerHTML = '';
   const mk = (t, cls, fn) => { const b = document.createElement('button'); b.className = 'mb ' + cls; b.textContent = t; b.onclick = () => { Sound.ui(); fn(); }; bb.appendChild(b); };
-  if (full) { mk('MAIN MENU', '', toMenu); mk('REMATCH', 'primary', () => { show(null); startMatch(); }); }
+  if (full) { mk('MAIN MENU', '', toMenu); if (aw) mk('SHOP', '', () => { toMenu(); openShop('scrTitle'); }); mk('REMATCH', 'primary', () => { show(null); startMatch(); }); }
   else mk('SECOND HALF', 'primary', () => { show(null); startSecondHalf(); });
   show('scrBreak');
 }
@@ -3088,6 +3265,13 @@ function togglePause() {
 }
 function setupMenus() {
   $('mQuick').onclick = () => { Sound.init(); Sound.ui(); selStage = 0; buildSelect(); show('scrSelect'); };
+  $('mShop').onclick = () => openShop('scrTitle');
+  $('mSquad').onclick = () => openSquad('scrTitle');
+  $('selShop').onclick = () => openShop('scrSelect');
+  $('selSquad').onclick = () => openSquad('scrSelect');
+  const backTo = id => { Sound.ui(); show(id); if (id === 'scrSelect') refreshSelect(); if (id === 'scrSquad') buildSquad(); };
+  $('shopBack').onclick = () => backTo(shopUI.back);
+  $('squadBack').onclick = () => backTo(squadUI.back);
   $('mOptions').onclick = () => { Sound.init(); Sound.ui(); buildOptions(); show('scrOptions'); };
   $('mRecords').onclick = () => { Sound.ui(); buildRecords(); show('scrRecords'); };
   $('mHelp').onclick = () => { Sound.ui(); show('scrHelp'); };
@@ -3109,12 +3293,131 @@ function setupMenus() {
 }
 
 /* =====================================================================
+   17b. TRANSFER MARKET (SHOP) and MY SQUAD — fictional players bought with match coins
+   ===================================================================== */
+const fmtC = n => { n = Number(n); return (Number.isFinite(n) ? Math.floor(n) : 0).toLocaleString('en-US'); };
+function refreshCoins() {
+  try {
+    const t = fmtC(shop.coins) + ' 🪙';
+    $('titleCoins').textContent = '· ' + t; $('shopCoins').textContent = t; $('squadCoins').textContent = t;
+  } catch (e) { console.warn(e); }
+}
+/** Small procedural head-and-shoulders portrait (neutral grey shirt), drawn once per player and cached. */
+const porCache = {};
+function portraitURL(p, S = 96) {
+  if (porCache[p.id]) return porCache[p.id];
+  const cv = document.createElement('canvas'); cv.width = cv.height = S; const c = cv.getContext('2d'); c.scale(S / 96, S / 96);
+  const skin = SKINS[p.skin], hair = HAIRS[p.hair], shade = mixHex(skin, '#000000', 0.22);
+  // shirt + collar + number
+  const g = c.createLinearGradient(0, 64, 0, 96); g.addColorStop(0, '#8a939e'); g.addColorStop(1, '#4f5761');
+  c.fillStyle = g; c.beginPath(); c.moveTo(4, 97); c.bezierCurveTo(4, 74, 22, 67, 48, 67); c.bezierCurveTo(74, 67, 92, 74, 92, 97); c.closePath(); c.fill();
+  c.fillStyle = shade; c.fillRect(40, 50, 16, 20);                                               // neck
+  c.fillStyle = '#3c434b'; c.beginPath(); c.moveTo(37, 67); c.lineTo(48, 79); c.lineTo(59, 67); c.lineTo(55, 66); c.lineTo(48, 73); c.lineTo(41, 66); c.closePath(); c.fill();
+  c.font = '900 15px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.fillStyle = '#e9edf1'; c.fillText(p.num, 70, 91);
+  if (p.style === 2) { c.fillStyle = hair; c.beginPath(); c.ellipse(48, 32, 22, 22, 0, 0, Math.PI * 2); c.fill(); }   // volume behind the head
+  // ears, head with soft side shading
+  c.fillStyle = skin; c.beginPath(); c.ellipse(31, 40, 4, 6, 0, 0, 7); c.ellipse(65, 40, 4, 6, 0, 0, 7); c.fill();
+  const hg = c.createRadialGradient(43, 32, 4, 48, 38, 24); hg.addColorStop(0, mixHex(skin, '#ffffff', 0.12)); hg.addColorStop(1, shade);
+  c.fillStyle = hg; c.beginPath(); c.ellipse(48, 38, 17, 21, 0, 0, Math.PI * 2); c.fill();
+  // hair on top (0 classic, 1 short, 2 full, 3 buzz)
+  c.fillStyle = p.style === 3 ? mixHex(skin, hair, 0.6) : hair; c.beginPath();
+  if (p.style === 0) { c.ellipse(48, 33, 18.5, 18, 0, Math.PI, 0); c.lineTo(66, 38); c.quadraticCurveTo(58, 24, 40, 27); c.quadraticCurveTo(32, 30, 30, 38); }
+  else if (p.style === 1) { c.ellipse(48, 31, 17.8, 14, 0, Math.PI, 0); c.quadraticCurveTo(48, 24, 30, 31); }
+  else if (p.style === 2) { c.ellipse(48, 30, 20, 16, 0, Math.PI, 0); c.quadraticCurveTo(48, 22, 28, 30); }
+  else { c.ellipse(48, 33, 17.4, 16.5, 0, Math.PI, 0); c.quadraticCurveTo(48, 28, 30.6, 33); }
+  c.fill();
+  // face: brows, eyes, nose, mouth
+  c.strokeStyle = hair; c.lineWidth = 2.2; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(37, 35); c.lineTo(45, 34.5); c.moveTo(51, 34.5); c.lineTo(59, 35); c.stroke();
+  c.fillStyle = '#16110e'; c.beginPath(); c.ellipse(41, 40, 2, 2.3, 0, 0, 7); c.ellipse(55, 40, 2, 2.3, 0, 0, 7); c.fill();
+  c.strokeStyle = shade; c.lineWidth = 1.6; c.beginPath(); c.moveTo(48, 41); c.lineTo(46.5, 47); c.lineTo(49, 47.5); c.stroke();
+  c.strokeStyle = '#6e3b33'; c.lineWidth = 2; c.beginPath(); c.moveTo(43, 52); c.quadraticCurveTo(48, 54.5, 53, 52); c.stroke();
+  return porCache[p.id] = cv.toDataURL();
+}
+const STAT_ROWS = [['pace', 'PAC'], ['shooting', 'SHO'], ['passing', 'PAS'], ['dribbling', 'DRI'], ['defending', 'DEF'], ['gk', 'GK']];
+const KEY_STATS = { GK: ['gk'], DEF: ['defending', 'pace'], MID: ['passing', 'dribbling'], FWD: ['shooting', 'pace', 'dribbling'] };
+function playerCard(p) {
+  const el = document.createElement('div'); el.className = 'pc t-' + p.tier; el.dataset.id = p.id;
+  const rows = p.pos === 'GK' ? [STAT_ROWS[5], ...STAT_ROWS.slice(0, 5)] : STAT_ROWS;
+  el.innerHTML = `<div class="pc-top"><div class="ovr">${p.ovr}<small>${p.pos}</small></div><img class="por" alt="" src="${portraitURL(p)}"><div class="num">#${p.num}</div></div>
+    <div class="pc-name">${p.isStar ? '★ ' : ''}${p.name.toUpperCase()}</div><div class="pc-tier">${TIERS[p.tier].name}</div>
+    <div class="pc-stats">${rows.map(([k, l]) => `<span class="${KEY_STATS[p.pos].includes(k) ? 'key' : ''}"><i>${l}</i><b>${p[k]}</b></span>`).join('')}</div>
+    <div class="slot"></div><button class="act"></button>`;
+  return el;
+}
+/* ---- SHOP ---- */
+const shopUI = { pos: 'ALL', tier: 'ALL', confirm: null, confirmT: 0, back: 'scrTitle' };
+function openShop(back) { sanitizeShop(shop); Sound.init(); Sound.ui(); shopUI.back = back; shopUI.confirm = null; buildShop(); show('scrShop'); $('shopGrid').scrollTop = 0; }
+function buildShop() {
+  const ch = $('shopChips'); ch.innerHTML = '';
+  const chip = (label, on, fn) => { const b = document.createElement('button'); b.textContent = label; b.classList.toggle('on', on); b.onclick = () => { Sound.ui(); fn(); buildShop(); $('shopGrid').scrollTop = 0; }; ch.appendChild(b); };
+  for (const k of ['ALL', 'GK', 'DEF', 'MID', 'FWD']) chip(k, shopUI.pos === k, () => shopUI.pos = k);
+  const gap = document.createElement('span'); gap.className = 'gap'; ch.appendChild(gap);
+  for (const k of ['ALL', ...TIER_ORDER]) chip(k === 'ALL' ? 'ALL TIERS' : TIERS[k].name, shopUI.tier === k, () => shopUI.tier = k);
+  const list = SHOP_CAT.filter(p => (shopUI.pos === 'ALL' || p.pos === shopUI.pos) && (shopUI.tier === 'ALL' || p.tier === shopUI.tier))
+    .sort((a, b) => b.ovr - a.ovr || a.price - b.price);
+  const grid = $('shopGrid'); grid.innerHTML = '';
+  for (const p of list) { const el = playerCard(p); el.querySelector('.act').onclick = () => shopTap(p, el); grid.appendChild(el); }
+  if (!list.length) grid.innerHTML = '<div class="pempty">No players match this filter.</div>';
+  updateShopButtons();
+}
+function updateShopButtons() {
+  refreshCoins();
+  for (const el of $('shopGrid').querySelectorAll('.pc')) {
+    const p = SHOP_BY_ID[el.dataset.id], b = el.querySelector('.act'), own = shop.owned.includes(p.id), poor = !(shop.coins >= p.price);
+    b.className = 'act';
+    if (own) { b.classList.add('owned'); b.textContent = 'OWNED ✓'; }
+    else if (shopUI.confirm === p.id) { b.classList.add('confirm'); b.textContent = 'CONFIRM ' + fmtC(p.price) + '?'; }
+    else if (poor) { b.classList.add('need'); b.textContent = 'NEED ' + fmtC(p.price - shop.coins) + ' MORE'; }
+    else b.textContent = 'BUY ' + fmtC(p.price) + ' 🪙';
+    b.disabled = own || poor;
+  }
+}
+function shopTap(p, el) {
+  Sound.init(); sanitizeShop(shop);
+  if (shop.owned.includes(p.id) || !(shop.coins >= p.price)) return;
+  if (shopUI.confirm === p.id && performance.now() - shopUI.confirmT < 350) return;   // a fast double-tap must not skip the confirm
+  if (shopUI.confirm !== p.id) { shopUI.confirm = p.id; shopUI.confirmT = performance.now(); Sound.ui(); updateShopButtons(); setTimeout(() => { if (shopUI.confirm === p.id && performance.now() - shopUI.confirmT > 2900) { shopUI.confirm = null; updateShopButtons(); } }, 3000); return; }
+  shop.coins -= p.price; shop.owned.push(p.id); if (!shop.active.includes(p.id)) shop.active.push(p.id);   // new signings play by default
+  shopUI.confirm = null; saveShop(); Sound.ui(); Sound.tone('triangle', 990, 1480, 0.12, 0.1, 0.09);
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  updateShopButtons();
+}
+/* ---- MY SQUAD ---- */
+const squadUI = { back: 'scrTitle' };
+function userPlan() {   // what Quick Match will do with the active players for the current club / mode / formation
+  const club = CLUBS[settings.home], slots = FORMATIONS[formationFor(settings.mode, settings.formation)], roster = makeRoster(club, slots.length);
+  const r = shopAssign(roster, slots), bySlot = {};
+  for (const i in r.map) bySlot[r.map[i].id] = roster[i];
+  return { club, roster, slots, bySlot, bench: r.bench, count: Object.keys(r.map).length };
+}
+function openSquad(back) { sanitizeShop(shop); Sound.init(); Sound.ui(); squadUI.back = back; buildSquad(); show('scrSquad'); $('squadGrid').scrollTop = 0; }
+function buildSquad() {
+  refreshCoins();
+  const plan = userPlan(), grid = $('squadGrid'); grid.innerHTML = '';
+  $('squadNote').innerHTML = `Players set to <b>PLAY</b> join <b>${plan.club.name}</b> in Quick Match (${settings.mode === '5' ? '5 v 5' : '11 v 11'}), each one replacing the weakest club player in his position. ` +
+    `<b>${plan.count}</b> will start${plan.bench.length ? `, ${plan.bench.length} without a free slot` : ''}. They wear your club's kit.`;
+  const own = shop.owned.map(id => SHOP_BY_ID[id]).filter(Boolean).sort((a, b) => ['GK', 'DEF', 'MID', 'FWD'].indexOf(a.pos) - ['GK', 'DEF', 'MID', 'FWD'].indexOf(b.pos) || b.ovr - a.ovr);
+  if (!own.length) {
+    grid.innerHTML = '<div class="pempty">You have not signed anyone yet.<br>Win matches to earn coins, then visit the transfer market.<br><button class="mb primary" id="squadToShop" style="margin-top:12px">GO TO SHOP</button></div>';
+    $('squadToShop').onclick = () => openShop('scrSquad'); return;
+  }
+  for (const p of own) {
+    const el = playerCard(p), b = el.querySelector('.act'), on = shop.active.includes(p.id), rep = plan.bySlot[p.id];
+    b.className = 'act' + (on ? '' : ' off'); b.textContent = on ? 'PLAY: ON' : 'PLAY: OFF';
+    el.querySelector('.slot').textContent = !on ? 'ON THE BENCH' : rep ? `STARTS · IN FOR ${rep.name.toUpperCase()}` : `NO FREE ${p.pos} SLOT`;
+    b.onclick = () => { Sound.ui(); const i = shop.active.indexOf(p.id); if (i >= 0) shop.active.splice(i, 1); else shop.active.push(p.id); saveShop(); const st = $('squadGrid').scrollTop; buildSquad(); $('squadGrid').scrollTop = st; };
+    grid.appendChild(el);
+  }
+}
+
+/* =====================================================================
    18. MATCH LIFECYCLE & MAIN LOOP (fixed 60 Hz physics, interpolated rendering)
    ===================================================================== */
 function startMatch() {
   ensureWorld();
   buildTeams(); G.score = [0, 0]; G.half = 1; G.clock = 0; G.t = 0; G.stats = newStats(); G.paused = false; G.controlled = null;
-  G.lastGoal = null; G.timeScale = 1; G.excite = 0; Replay.reset(); ball.reset(0, 0);
+  G.lastGoal = null; G.lastAward = null; G.timeScale = 1; G.excite = 0; Replay.reset(); ball.reset(0, 0);
   hudInit(); inMatchUI(true); setLetterbox(false); $('joyHint').style.display = '';
   startSetPiece('kickoff', G.teams[0], null, true);
   G.state = 'intro'; G.stateT = 0; aimArrow.visible = false;
@@ -3277,6 +3580,8 @@ $('loading').remove(); show('scrTitle');
 if (G.demo) { settings.halfLen = 3; show(null); startMatch(); }
 requestAnimationFrame(frame);
 window.__G = G; window.__ball = ball; window.__r = renderer; // debug handles (used by automated tests)
+window.__shop = { catalogue: SHOP_CAT, state: shop, coins: matchCoins, plan: userPlan,   // test hook: read / write the transfer-market state
+  set(o) { Object.assign(shop, o); saveShop(); refreshCoins(); return shop; }, sanitize: sanitizeShop };
 window.__fast = n => { for (let i = 0; i < n; i++) { handleEvents(); update(DT); } };
 // offline play once installed: the service worker caches this page, Three.js and its addons (http/https only, never file:)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { const reg = () => navigator.serviceWorker.register('./sw.js').catch(() => { }); document.readyState === 'complete' ? reg() : addEventListener('load', reg); }
