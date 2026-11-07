@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Six games live in this repo:
+Seven games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -33,6 +33,67 @@ Six games live in this repo:
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
   below.
+- `football.html` – **Kickstorm 3D**: an arcade 3D football (soccer) game built for iPad Safari in
+  landscape, with touch controls, 11v11 or 5v5, eight fictional clubs and instant replays. See
+  [Kickstorm 3D](#kickstorm-3d) below.
+
+## Kickstorm 3D
+
+Open `football.html`. A single HTML file: Three.js 0.160 is loaded from jsDelivr through an import
+map, and everything else (players, stadium, crowd, crests, ball texture, sound) is generated in code.
+
+- **Modes:** Quick Match against the CPU, 11v11 (4-4-2 / 4-3-3) or 5v5, halves of 3, 5 or 8 minutes,
+  Easy / Normal / Hard, day or night, optional offside, Low / High graphics.
+- **Touch controls:** floating joystick on the left. On the right: PASS (tap = ground, hold = lofted),
+  SHOOT (hold to charge), SPRINT, THRU (through ball). When defending these become SWITCH, TACKLE
+  (with SPRINT = slide) and PRESS. Swipe on the right half for skills (down = quick turn,
+  left/right = step-over, up = knock-on). Press PASS/SHOOT just before the ball arrives to play it
+  first time.
+- **Keyboard:** WASD/arrows, Shift sprint, K pass, J shoot, L thru/press, Z/X/C/E skills, V camera, Esc pause.
+- **Rules:** kick-offs, throw-ins, corners, goal kicks, fouls with free kicks and penalties, offside,
+  half time and full time. Results are saved in `localStorage` (Records screen).
+- **Transfer market:** earn coins at full time (win 400 / draw 200 / loss 100, +60 per goal, +100 clean
+  sheet, ×1.5 on Hard) and buy from 48 original fictional players (Bronze, Silver, Gold, Legend) in
+  SHOP. MY SQUAD chooses which of them join your club; each replaces the weakest player in his position.
+  Coins and players are saved in `localStorage` (`kickstorm.shop.v1`).
+- **Debug:** `football.html?demo` plays CPU vs CPU.
+
+### Playing it on an iPad
+
+1. Host the file over HTTPS (for example GitHub Pages on this repo) and open
+   `https://<your-site>/football.html` in Safari. The iPad needs internet access the first time so
+   it can load Three.js.
+2. Turn the iPad to landscape.
+3. To play full screen, tap Share → **Add to Home Screen**, then start it from the new icon.
+   The page links `manifest-football.webmanifest` (landscape, fullscreen, icons
+   `icons/kickstorm-*.png`) and registers `sw.js`, which caches `football.html`, Three.js and the
+   addons it uses, so after one online visit the home-screen app also starts with no connection.
+4. If there is no sound, turn off silent mode (the ring/silent switch or Control Center) and tap
+   the 🔊 button.
+
+### Kickstorm with no wifi
+
+`offline/kickstorm-offline.html` is the whole game in one file (about 2 MB): Three.js and the
+`RoomEnvironment`, `Sky` and `BufferGeometryUtils` addons are embedded in the import map as
+`data:` URLs, so it needs nothing from the web. Copy it to the iPad (Files app, AirDrop) or any
+computer and open it in the browser. Rebuild it after changing the game with
+`node scripts/build-football-offline.mjs` (downloads three@0.160.0 from jsDelivr, or pass a local
+copy of the `three` package folder). The home-screen icons are drawn by
+`node scripts/make-football-icons.mjs` (same artwork as the icon the game draws at start-up).
+
+## Building games with Claude Code (skill + subagents)
+
+The repo ships a Claude Code project skill and two subagents for game work:
+
+- `.claude/skills/senior-game-graphics-dev/SKILL.md` – the graphics/animation playbook plus the
+  build workflow: plan the build in steps, hand each step to a builder subagent, and pass a test
+  gate before the next step starts.
+- `.claude/agents/game-graphics-dev.md` – builder subagent for one step (world, characters, AI, …).
+- `.claude/agents/game-tester.md` – test-gate subagent: returns PASS/FAIL with findings, never edits code.
+- `scripts/game-smoke.mjs` – the test gate itself:
+  `node scripts/game-smoke.mjs football.html --demo --seconds 60 --shots 3`
+  syntax-checks the page, runs it in headless Chromium, fast-forwards through `window.__fast`,
+  saves screenshots and prints errors, game state and draw calls (exit code 1 on any error).
 
 ## Spider-Man 2: Brooklyn Nights
 

@@ -1,0 +1,4 @@
+# temporary per-step builds made by subagents during build/test passes
+football-*.html
+scripts/.*.cjs
+scripts/.*.js
