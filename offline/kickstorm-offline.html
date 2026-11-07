@@ -336,9 +336,23 @@ const DT = 1 / 60;          // fixed physics step
 const GRAV = 9.81;
 const BALL_R = 0.11;
 const GOAL_HW = 3.66, GOAL_H = 2.44, GOAL_D = 2.0, POST_R = 0.06;
-const ROLL_DECEL = 2.6;     // m/s² rolling resistance of the grass
-const AIR_DRAG = 0.010;     // quadratic drag coefficient (per m)
-const MAGNUS = 0.0065;      // spin x velocity curve strength
+/* ---- ball physics (size-5 ball: m = 0.43 kg, r = 0.11 m, A = pi r^2 = 0.038 m^2, air rho = 1.225 kg/m^3) ----
+ * Drag:   a = k(v) v^2 with k = rho A Cd / (2 m) = 0.0541 * Cd. Cd follows the drag crisis: ~0.42 below 12 m/s
+ *         (laminar, slow lobs and rolling passes), falling to ~0.2 above 22 m/s (turbulent, driven shots).
+ * Magnus: a = MAGNUS * (spin x v), spin in rad/s. Lift coefficient CL ~ S = r w / v gives
+ *         a = rho A r w v / (2 m) = 0.0060 w v, so MAGNUS ~ 0.006. 8 rev/s of side spin on a 25 m/s shot
+ *         -> ~7 m/s^2 sideways, a curled 25 m shot bends 1-3 m.
+ * Rolling: grass rolling resistance (FIFA "ball roll" 4-10 m from 3 m/s -> 0.45-1.1 m/s^2) plus the same air drag.
+ * Bounce: vertical restitution ~0.62 on turf, contact friction couples spin and ground speed (back spin checks up, top spin skids on). */
+const AIR_DRAG = 0.0108;    // k at high speed (Cd 0.2); see dragK() for the drag crisis
+const AIR_DRAG_SLOW = 0.0227; // k below the drag crisis (Cd 0.42)
+const ROLL_DECEL = 0.85;    // m/s^2 rolling resistance of the grass (TUNE: longer/wetter grass = higher)
+const BOUNCE_E = 0.62;      // vertical coefficient of restitution on turf
+const BOUNCE_MU = 0.45;     // ball-turf friction at impact
+const MAGNUS = 0.0060;      // spin x velocity curve strength
+const SPIN_DECAY = 0.35;    // 1/s, spin loss in the air
+/** Drag constant k(v) (per metre) with the drag crisis between 12 and 22 m/s. */
+const dragK = v => v <= 12 ? AIR_DRAG_SLOW : v >= 22 ? AIR_DRAG : AIR_DRAG_SLOW + (AIR_DRAG - AIR_DRAG_SLOW) * (v - 12) / 10;
 
 /** Pitch geometry for the two modes. 11v11 uses a full 105x68 pitch, 5v5 a compact one. */
 function makePitch(mode) {
@@ -358,10 +372,14 @@ const settings = store.get(LS_SET, DEFAULT_SETTINGS);
 const saveSettings = () => store.set(LS_SET, settings);
 
 /** CPU behaviour per difficulty. react = decision interval, err = aim noise. */
+/** CPU behaviour per difficulty. react = decision interval, err = aim noise.
+ *  patience = how much the carrier prefers keeping the ball (recycling) over a risky forward pass (0..1);
+ *  xgMin = lowest chance quality (xG) the AI shoots from; line = defensive-line discipline (0..1, how tightly
+ *  the back four hold one line and step up together); press = pressing-trigger sensitivity (0..1). */
 const DIFF = {
-  easy:   { react: 0.65, speed: 0.92, passErr: 0.11, shotErr: 0.16, pressers: 1, tackle: 0.35, gk: 0.82, shootRange: 0.8, slide: 0.05 },
-  normal: { react: 0.38, speed: 1.0,  passErr: 0.06, shotErr: 0.10, pressers: 1, tackle: 0.55, gk: 1.0,  shootRange: 1.0, slide: 0.12 },
-  hard:   { react: 0.2,  speed: 1.05, passErr: 0.03, shotErr: 0.065, pressers: 2, tackle: 0.75, gk: 1.12, shootRange: 1.15, slide: 0.2 }
+  easy:   { react: 0.65, speed: 0.92, passErr: 0.11, shotErr: 0.16, pressers: 1, tackle: 0.35, gk: 0.82, shootRange: 0.8, slide: 0.05, patience: 0.25, xgMin: 0.025, line: 0.5, press: 0.4 },
+  normal: { react: 0.38, speed: 1.0,  passErr: 0.06, shotErr: 0.10, pressers: 1, tackle: 0.55, gk: 1.0,  shootRange: 1.0, slide: 0.12, patience: 0.45, xgMin: 0.03, line: 0.8, press: 0.7 },
+  hard:   { react: 0.2,  speed: 1.05, passErr: 0.03, shotErr: 0.065, pressers: 2, tackle: 0.75, gk: 1.12, shootRange: 1.15, slide: 0.2, patience: 0.6, xgMin: 0.035, line: 0.95, press: 0.9 }
 };
 const TEAMMATE_DIFF = DIFF.normal; // the user's AI teammates always play at "normal"
 
@@ -626,9 +644,20 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.3, 700);
 const isHigh = () => settings.quality === 'high';
+/* High-only "grade": a CSS vignette layered over the canvas. It is composited by the browser (no extra WebGL pass,
+   no render target, MSAA kept), so it costs next to nothing. A real EffectComposer (RenderPass + bloom + OutputPass)
+   was ruled out: at the iPad's 2x pixel ratio (~4 MP) the extra half-float target, the MSAA resolve and the bloom mip
+   chain add several full-screen passes, well past the +20% frame-time budget for High. Low gets nothing. */
+const vignette = document.createElement('div');
+vignette.id = 'g2vig';
+vignette.style.cssText = 'position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse 75% 70% at 50% 46%,rgba(0,0,0,0) 58%,rgba(10,14,22,0.24) 100%)';
+renderer.domElement.after(vignette);
 function applyQuality() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isHigh() ? 2 : 1.25));
   renderer.shadowMap.enabled = isHigh();
+  vignette.style.display = isHigh() ? 'block' : 'none';
+  const bm = ballMesh.material, nm = isHigh() ? ballMaps.normal : null;   // stitched-seam normal map: High only
+  if (bm.normalMap !== nm) { bm.normalMap = nm; bm.needsUpdate = true; }
   resize();
 }
 function resize() {
@@ -686,6 +715,42 @@ const NOISE_GLSL = `
     return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y); }
   float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < OCT; i++) { s += a * vnoise(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; } return s; }
 `;
+/** Tileable grass micro-detail (High only), generated once. RGB is DATA, not colour:
+    R,G = tangent-plane normal tilt along world x / z, B = blade albedo (0.5 = mean).
+    Height field = two octaves of soft clump noise + ~50k short random "blades"; normals from its slope.
+    Sampled in world space twice (1 m blade tile, ~7 m clump tile); mipmaps fade it to flat at TV distance, so no shimmer. */
+let _grassDetail = null;
+function grassDetailTex() {
+  if (_grassDetail) return _grassDetail;
+  const N = 512, R = mulberry32(77), H = new Float32Array(N * N);
+  const lattice = (cells, amp) => {   // tileable value noise
+    const g = new Float32Array(cells * cells); for (let i = 0; i < g.length; i++) g[i] = R();
+    const sm = t => t * t * (3 - 2 * t);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const fx = x / N * cells, fy = y / N * cells, ix = fx | 0, iy = fy | 0, tx = sm(fx - ix), ty = sm(fy - iy);
+      const a = g[iy * cells + ix], b = g[iy * cells + (ix + 1) % cells], c = g[((iy + 1) % cells) * cells + ix], d = g[((iy + 1) % cells) * cells + (ix + 1) % cells];
+      H[y * N + x] += amp * ((a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty);
+    }
+  };
+  lattice(8, 1.2); lattice(32, 0.7);
+  for (let i = 0; i < N * N * 0.2; i++) {   // blades: short strokes, brighter at the tip
+    const x = R() * N, y = R() * N, a = R() * Math.PI * 2, L = 5 + R() * 8, h = 0.4 + R() * 0.9, dx = Math.cos(a), dy = Math.sin(a);
+    for (let t = 0; t < L; t++) { const k = (((y + dy * t) | 0) & (N - 1)) * N + (((x + dx * t) | 0) & (N - 1)); H[k] += h * (0.55 + 0.45 * t / L); }
+  }
+  let m = 0, v = 0; for (let i = 0; i < H.length; i++) m += H[i]; m /= H.length;
+  for (let i = 0; i < H.length; i++) v += (H[i] - m) ** 2; const sd = Math.sqrt(v / H.length);
+  const cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const cx = cv.getContext('2d'), img = cx.createImageData(N, N), px = img.data;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x, hx = H[y * N + ((x + 1) & (N - 1))] - H[y * N + ((x - 1) & (N - 1))], hy = H[((y + 1) & (N - 1)) * N + x] - H[((y - 1) & (N - 1)) * N + x];
+    px[i * 4] = clamp(128 - hx / sd * 40, 0, 255); px[i * 4 + 1] = clamp(128 - hy / sd * 40, 0, 255);
+    px[i * 4 + 2] = clamp(128 + (H[i] - m) / sd * 46, 0, 255); px[i * 4 + 3] = 255;
+  }
+  cx.putImageData(img, 0, 0);
+  const t = _grassDetail = new THREE.CanvasTexture(cv);   // NoColorSpace: data texture
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+  return t;
+}
 const World = {
   group: null, P: null, nets: [], sun: null, hemi: null, glows: [], roofs: [],
   build(P) {
@@ -718,9 +783,11 @@ const World = {
   buildSky(night, high) {
     // the fog colour IS the horizon colour, so distant stands/skyline melt into the sky
     const horizon = night ? 0x18203a : 0xbdd3ea;
-    renderer.toneMappingExposure = night ? 1.12 : 0.92;
+    renderer.toneMappingExposure = night ? 1.12 : high ? 0.88 : 0.92;
     scene.background = new THREE.Color(horizon);
-    scene.fog = new THREE.Fog(horizon, 170, 560);
+    // day: exponential aerial haze (~4% at the far touchline, ~12% on the far stands, the skyline melts into the horizon);
+    // night: the old linear fog, so floodlit stands stay crisp against the dark sky
+    scene.fog = night || !high ? new THREE.Fog(horizon, 170, 560) : new THREE.FogExp2(horizon, 0.0021);   // Low day: old look
     let sky;
     if (!night) {
       sky = new Sky(); const u = sky.material.uniforms;
@@ -769,15 +836,19 @@ const World = {
   },
 
   buildLights(night, high) {
-    this.hemi = new THREE.HemisphereLight(night ? 0x8296c8 : 0xd3e7ff, night ? 0x223220 : 0x4d6234, night ? 0.5 : 0.95);
+    // day: stronger, slightly cooler sky fill + olive ground bounce, so the shadow side is blue-ish air instead of flat grey
+    // (Low day keeps the previous, brighter-green values: without the turf layers the new grade reads dull)
+    const newDay = !night && high;
+    this.hemi = new THREE.HemisphereLight(night ? 0x8296c8 : newDay ? 0xc6dcff : 0xd3e7ff, night ? 0x223220 : newDay ? 0x56663a : 0x4d6234, night ? 0.5 : newDay ? 1.15 : 0.95);
     this.group.add(this.hemi);
-    // night: a cool, strong floodlight key almost overhead; day: warm sun matching the Sky's sun position
-    const s = this.sun = new THREE.DirectionalLight(night ? 0xe4edff : 0xfff0d6, night ? 3.3 : 2.75);
+    // night: a cool, strong floodlight key almost overhead; day: warm mid-afternoon sun matching the Sky's sun position
+    const s = this.sun = new THREE.DirectionalLight(night ? 0xe4edff : newDay ? 0xffe2bd : 0xfff0d6, night ? 3.3 : newDay ? 2.85 : 2.75);
     s.userData.offset = night ? V3(8, 70, 12) : V3(-34, 60, 28);
     s.castShadow = high;
-    s.shadow.mapSize.set(1024, 1024);
+    // High: a 2048 map over the same +-34 m frustum -> 3.3 cm texels, so feet / ball contact shadows are tight and dark
+    s.shadow.mapSize.set(2048, 2048);
     const sc = s.shadow.camera; sc.left = -34; sc.right = 34; sc.top = 34; sc.bottom = -34; sc.near = 10; sc.far = 160;
-    s.shadow.bias = -0.0006; s.shadow.normalBias = 0.03; s.shadow.radius = 3;
+    s.shadow.bias = -0.0004; s.shadow.normalBias = 0.02; s.shadow.radius = 3;
     this.group.add(s, s.target);
     if (night) { // second bank of floodlights from the opposite corner (no shadow): lifts the dark side of players
       const f = new THREE.DirectionalLight(0xdfe8ff, 1.1); f.position.set(-40, 55, -45); this.group.add(f);
@@ -799,12 +870,15 @@ const World = {
     const X = x => (x + P.hl + M) * ppm, Z = z => (z + P.hw + M) * ppm;
     const n = Math.round(P.L / 5.25) | 1, sw = P.L / n;
     const tex = canvasTex(cw, ch, (c) => {
-      c.fillStyle = night ? '#368a3c' : '#3f9136'; c.fillRect(0, 0, cw, ch);
+      c.fillStyle = night ? '#368a3c' : high ? '#46803a' : '#3f9136'; c.fillRect(0, 0, cw, ch);
       // low-frequency colour drift: big soft blotches of lighter / yellower / darker grass
       const blot = (x, y, r, col) => { const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(x - r, y - r, r * 2, r * 2); };
-      for (let i = 0; i < 90; i++) blot(R() * cw, R() * ch, (4 + R() * 12) * ppm, pick(['rgba(120,170,60,0.10)', 'rgba(20,70,25,0.10)', 'rgba(160,170,80,0.07)', 'rgba(60,120,50,0.08)']));
+      if (high) {   // High: more drift + small clump patches (stand-in for a second, larger-scale detail fetch in the shader)
+        for (let i = 0; i < 110; i++) blot(R() * cw, R() * ch, (4 + R() * 12) * ppm, pick(['rgba(130,170,60,0.11)', 'rgba(20,70,25,0.11)', 'rgba(170,170,85,0.08)', 'rgba(60,120,50,0.09)']));
+        for (let i = 0; i < 420; i++) blot(R() * cw, R() * ch, (0.6 + R() * 2.0) * ppm, pick(['rgba(150,175,70,0.08)', 'rgba(15,55,20,0.09)']));   // small patches
+      } else for (let i = 0; i < 90; i++) blot(R() * cw, R() * ch, (4 + R() * 12) * ppm, pick(['rgba(120,170,60,0.10)', 'rgba(20,70,25,0.10)', 'rgba(160,170,80,0.07)', 'rgba(60,120,50,0.08)']));
       // mowing stripes as overlays, so the drift underneath survives
-      for (let i = -1; i <= n; i++) { c.fillStyle = i % 2 ? `rgba(255,255,230,${night ? 0.09 : 0.075})` : `rgba(0,25,0,${night ? 0.11 : 0.08})`; c.fillRect(X(-P.hl + i * sw), 0, sw * ppm + 1, ch); }
+      for (let i = -1; i <= n; i++) { c.fillStyle = i % 2 ? `rgba(255,255,230,${night ? (high ? 0.1 : 0.09) : 0.075})` : `rgba(0,25,0,${night ? (high ? 0.125 : 0.11) : 0.08})`; c.fillRect(X(-P.hl + i * sw), 0, sw * ppm + 1, ch); }
       // cross-cut (fainter perpendicular stripes)
       const m2 = Math.round(P.W / 6); for (let i = 0; i < m2; i += 2) { c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(0, Z(-P.hw + i * P.W / m2), cw, P.W / m2 * ppm); }
       // fine grain
@@ -848,8 +922,18 @@ const World = {
           for (const zs of [-1, 1]) arc(gx, zs * P.hw, 1, zs < 0 ? 0 : Math.PI, zs < 0 ? Math.PI : Math.PI * 2);
         }
       };
-      drawLines(0.28, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.10)');
-      drawLines(0.12, 'rgba(255,255,255,0.97)', '#fff');
+      const main = c, lc = document.createElement('canvas'); lc.width = cw; lc.height = ch; c = lc.getContext('2d');
+      drawLines(0.26, 'rgba(255,255,255,0.10)', 'rgba(255,255,255,0.10)');
+      drawLines(0.12, 'rgba(255,255,255,0.93)', 'rgba(255,255,255,0.93)');
+      // paint is not a vector line: knock tiny holes into it (grass poking through) and fade it where it gets trampled
+      c.globalCompositeOperation = 'destination-out';
+      const sp = document.createElement('canvas'); sp.width = sp.height = 128; const sc = sp.getContext('2d');
+      for (let i = 0; i < 1100; i++) { sc.fillStyle = `rgba(0,0,0,${0.06 + R() * 0.2})`; sc.fillRect(R() * 128, R() * 128, 0.5 + R() * 0.6, 0.5 + R() * 0.6); }   // sub-texel, soft
+      c.fillStyle = c.createPattern(sp, 'repeat'); c.fillRect(0, 0, cw, ch);
+      for (let i = 0; i < 160; i++) blot(R() * cw, R() * ch, (2 + R() * 5) * ppm, 'rgba(0,0,0,0.09)');   // uneven coat along the lines (broad, faint)
+      for (const s of [-1, 1]) for (let i = 0; i < 40; i++) blot(X(s * P.hl - s * R() * 6), Z(gauss() * 3), (0.4 + R() * 0.9) * ppm, 'rgba(0,0,0,0.16)');   // goalmouth scuffs
+      c.globalCompositeOperation = 'source-over';
+      c = main; c.drawImage(lc, 0, 0);
       // goal line shading inside goals
       c.fillStyle = 'rgba(0,0,0,0.12)';
       for (const s of [-1, 1]) c.fillRect(X(s > 0 ? P.hl : -P.hl - GOAL_D), Z(-GOAL_HW), GOAL_D * ppm, GOAL_HW * 2 * ppm);
@@ -858,10 +942,31 @@ const World = {
     const mat = new THREE.MeshLambertMaterial({ map: tex });
     // view-dependent mowing sheen: blades in alternate stripes lean opposite ways, so a stripe looks
     // lighter when you look along its lean and darker against it (cheap per-fragment term).
+    // High adds the turf layers (2 texture fetches + a few ALU ops): blade/clump albedo, a detail normal that the sun
+    // and the shadow map light, paint that follows the blades, and a grazing-angle sheen for low replay cameras.
+    // Low keeps exactly the old shader.
+    const detail = high ? grassDetailTex() : null;
+    mat.customProgramCacheKey = () => high ? 'pitchH' : 'pitchL';
     mat.onBeforeCompile = sh => {
       sh.uniforms.uStripe = { value: V3(P.hl, sw, night ? 0.09 : 0.11) };
       sh.vertexShader = 'varying vec3 vWP;\n' + sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = 'uniform vec3 uStripe; varying vec3 vWP;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      let f = 'uniform vec3 uStripe; varying vec3 vWP;\n' + sh.fragmentShader;
+      if (detail) {
+        sh.uniforms.uGrassD = { value: detail }; sh.uniforms.uSheen = { value: night ? 0.2 : 0.5 };
+        f = 'uniform sampler2D uGrassD; uniform float uSheen;\n' + f;
+        f = f.replace('#include <map_fragment>', `#include <map_fragment>
+          vec3 gd1 = texture2D(uGrassD, vWP.xz).rgb;                     // blades + clumps, 1 m tile (one fetch; the pitch canvas carries the larger patches)
+          float gBlade = gd1.b - 0.5;
+          diffuseColor.rgb *= vec3(1.0 + gBlade * 0.6, 1.0 + gBlade * 0.52, 1.0 + gBlade * 0.3);`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          vec2 gN = (gd1.rg - 0.5) * 1.6;
+          normal = normalize(normal + (viewMatrix * vec4(gN.x, 0.0, gN.y, 0.0)).xyz);`)
+          .replace('#include <opaque_fragment>', `vec3 gV = normalize(vViewPosition);
+          float gF = 1.0 - saturate(dot(normal, gV)); gF *= gF; gF *= gF;
+          outgoingLight += diffuseColor.rgb * vec3(0.9, 1.0, 0.7) * gF * (0.45 + gBlade) * uSheen;
+          #include <opaque_fragment>`);
+      }
+      sh.fragmentShader = f.replace('#include <map_fragment>', `#include <map_fragment>
         float par = mod(floor((vWP.x + uStripe.x) / uStripe.y), 2.0) * 2.0 - 1.0;
         vec3 vd = normalize(vWP - cameraPosition);
         diffuseColor.rgb *= 1.0 + par * uStripe.z * vd.x * (1.0 - step(uStripe.x + 0.2, abs(vWP.x)));`);
@@ -869,31 +974,48 @@ const World = {
     const pitch = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), mat);
     pitch.rotation.x = -Math.PI / 2; pitch.receiveShadow = true; this.group.add(pitch);
     // outer apron grass, then the wider ground the stadium stands on (seen from the title orbit)
-    const apron = new THREE.Mesh(new THREE.PlaneGeometry(P.L + 34, P.W + 34), new THREE.MeshLambertMaterial({ color: night ? 0x2f7032 : 0x3a8233 }));
+    const apron = new THREE.Mesh(new THREE.PlaneGeometry(P.L + 34, P.W + 34), new THREE.MeshLambertMaterial({ color: night ? 0x2f7032 : high ? 0x427e35 : 0x3a8233 }));
     apron.rotation.x = -Math.PI / 2; apron.position.y = -0.02; apron.receiveShadow = high; this.group.add(apron);
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshLambertMaterial({ color: night ? 0x1a1f26 : 0x6d7866 }));
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.06; this.group.add(ground);
   },
 
   /* ---------------- goals: frames merged (both goals = 1 PBR mesh + 1 rod mesh), nets stay separate ---------------- */
+  /** Goal-frame member along +y: a rounded-square ("squircle", superellipse n=2.6; flats 0.97x, corners ~1.05x POST_R so the ball never visibly clips) section like modern aluminium goals,
+      smooth-shaded with analytic normals, so the white paint shows a soft bevel highlight instead of a flat tube. */
+  postGeo(len) {
+    const r = POST_R * 0.97, ne = 2.6, g = new THREE.CylinderGeometry(1, 1, len, 24, 1, false);
+    const p = g.attributes.position, nr = g.attributes.normal;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i), rad = Math.hypot(x, z); if (rad < 1e-4) continue;
+      const c = x / rad, sn = z / rad, ex = 2 / ne;
+      const px = Math.sign(c) * Math.abs(c) ** ex, pz = Math.sign(sn) * Math.abs(sn) ** ex;
+      p.setX(i, px * r * rad); p.setZ(i, pz * r * rad);
+      if (Math.abs(nr.getY(i)) < 0.5) {   // side: gradient of |x|^n + |z|^n
+        const gx = Math.sign(px) * Math.abs(px) ** (ne - 1), gz = Math.sign(pz) * Math.abs(pz) ** (ne - 1), l = Math.hypot(gx, gz) || 1;
+        nr.setXYZ(i, gx / l, 0, gz / l);
+      }
+    }
+    return g;
+  },
   buildGoal(P, s) {
     const gx = s * P.hl;
     this.goalFrame = this.goalFrame || []; this.goalRods = this.goalRods || [];
-    for (const z of [-GOAL_HW, GOAL_HW]) { const g = new THREE.CylinderGeometry(POST_R, POST_R, GOAL_H, 12); g.translate(gx, GOAL_H / 2, z); this.goalFrame.push(g); }
-    const bar = new THREE.CylinderGeometry(POST_R, POST_R, GOAL_HW * 2 + POST_R * 2, 12); bar.rotateX(Math.PI / 2); bar.translate(gx, GOAL_H, 0); this.goalFrame.push(bar);
+    for (const z of [-GOAL_HW, GOAL_HW]) { const g = this.postGeo(GOAL_H + POST_R); g.translate(gx, (GOAL_H + POST_R) / 2, z); this.goalFrame.push(g); }
+    const bar = this.postGeo(GOAL_HW * 2 + POST_R * 2.1); bar.rotateX(Math.PI / 2); bar.translate(gx, GOAL_H, 0); this.goalFrame.push(bar);
     const bx = gx + s * GOAL_D;
     const rod = (len, x, y, z, rx, rz) => { const g = new THREE.CylinderGeometry(0.025, 0.025, len, 6); g.rotateX(rx || 0); g.rotateZ(rz || 0); g.translate(x, y, z); this.goalRods.push(g); };
     for (const z of [-GOAL_HW, GOAL_HW]) { rod(GOAL_H, bx, GOAL_H / 2, z); rod(GOAL_D, gx + s * GOAL_D / 2, GOAL_H, z, 0, Math.PI / 2); rod(GOAL_D, gx + s * GOAL_D / 2, 0.02, z, 0, Math.PI / 2); }
     rod(GOAL_HW * 2, bx, GOAL_H, 0, Math.PI / 2); rod(GOAL_HW * 2, bx, 0.02, 0, Math.PI / 2);
-    const netMat = this.netMat || (this.netMat = new THREE.LineBasicMaterial({ color: 0xf4f6f8, transparent: true, opacity: 0.7 }));
-    // origin, u axis, v axis, lengths, grid resolution
-    this.addNet(V3(bx, 0, -GOAL_HW), V3(0, 0, 1), V3(0, 1, 0), GOAL_HW * 2, GOAL_H, 26, 10, netMat, s);        // back
-    this.addNet(V3(gx, 0, -GOAL_HW), V3(s, 0, 0), V3(0, 1, 0), GOAL_D, GOAL_H, 8, 10, netMat, s);              // side -z
-    this.addNet(V3(gx, 0, GOAL_HW), V3(s, 0, 0), V3(0, 1, 0), GOAL_D, GOAL_H, 8, 10, netMat, s);               // side +z
-    this.addNet(V3(gx, GOAL_H, -GOAL_HW), V3(s, 0, 0), V3(0, 0, 1), GOAL_D, GOAL_HW * 2, 8, 26, netMat, s);    // roof
+    const netMat = this.netMat || (this.netMat = new THREE.LineBasicMaterial({ color: 0xeef1f4, transparent: true, opacity: 0.62 }));
+    // origin, u axis, v axis, lengths, grid resolution (~20 cm mesh: reads as netting in close-ups, still a soft veil at TV distance)
+    this.addNet(V3(bx, 0, -GOAL_HW), V3(0, 0, 1), V3(0, 1, 0), GOAL_HW * 2, GOAL_H, 36, 13, netMat, s);        // back
+    this.addNet(V3(gx, 0, -GOAL_HW), V3(s, 0, 0), V3(0, 1, 0), GOAL_D, GOAL_H, 10, 13, netMat, s);             // side -z
+    this.addNet(V3(gx, 0, GOAL_HW), V3(s, 0, 0), V3(0, 1, 0), GOAL_D, GOAL_H, 10, 13, netMat, s);              // side +z
+    this.addNet(V3(gx, GOAL_H, -GOAL_HW), V3(s, 0, 0), V3(0, 0, 1), GOAL_D, GOAL_HW * 2, 10, 36, netMat, s, 0.06);   // roof (sags 6 cm)
   },
   finishGoals() {
-    const frame = new THREE.Mesh(mergeGeometries(this.goalFrame), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.32, metalness: 0.0, envMapIntensity: 0.8 }));
+    const frame = new THREE.Mesh(mergeGeometries(this.goalFrame), new THREE.MeshStandardMaterial({ color: 0xf6f6f2, roughness: 0.26, metalness: 0.0, envMapIntensity: 0.9 }));
     frame.castShadow = true; this.group.add(frame);
     const rods = new THREE.Mesh(mergeGeometries(this.goalRods), new THREE.MeshLambertMaterial({ color: 0xd8dade }));
     this.group.add(rods);
@@ -907,13 +1029,13 @@ const World = {
     for (const net of this.nets) net.geo = geo;
     this.group.add(new THREE.LineSegments(geo, this.netMat)); this.netMat = null;
   },
-  addNet(o, u, v, uLen, vLen, nu, nv, mat, side) {
+  addNet(o, u, v, uLen, vLen, nu, nv, mat, side, sag = 0) {
     const n = new THREE.Vector3().crossVectors(u, v).normalize();
     const cnt = (nu + 1) * (nv + 1), base = new Float32Array(cnt * 3), ab = new Float32Array(cnt * 2);
     let k = 0;
     for (let j = 0; j <= nv; j++) for (let i = 0; i <= nu; i++) {
       const a = i / nu * uLen, b = j / nv * vLen;
-      base[k * 3] = o.x + u.x * a + v.x * b; base[k * 3 + 1] = o.y + u.y * a + v.y * b; base[k * 3 + 2] = o.z + u.z * a + v.z * b;
+      base[k * 3] = o.x + u.x * a + v.x * b; base[k * 3 + 1] = o.y + u.y * a + v.y * b - sag * Math.sin(Math.PI * a / uLen) * Math.sin(Math.PI * b / vLen); base[k * 3 + 2] = o.z + u.z * a + v.z * b;
       ab[k * 2] = a; ab[k * 2 + 1] = b; k++;
     }
     const idx = [];
@@ -1278,29 +1400,63 @@ const World = {
   }
 };
 
-/* ---- the ball mesh (panel pattern painted on canvas) ---- */
-const ballTex = canvasTex(256, 128, (c, w, h) => {
-  c.fillStyle = '#f7f7f7'; c.fillRect(0, 0, w, h);
-  c.fillStyle = '#16181c';
-  const spots = [[0.1, 0.5], [0.3, 0.5], [0.5, 0.5], [0.7, 0.5], [0.9, 0.5], [0.0, 0.18], [0.2, 0.18], [0.4, 0.18], [0.6, 0.18], [0.8, 0.18], [0.0, 0.82], [0.2, 0.82], [0.4, 0.82], [0.6, 0.82], [0.8, 0.82], [0.5, 0.0], [0.5, 1.0]];
-  for (const [u, v] of spots) for (const du of [0, 1, -1]) {
-    c.beginPath(); const r = 13 + (Math.abs(v - 0.5) > 0.4 ? 30 : 0);
-    for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 - Math.PI / 2; c.lineTo((u + du) * w + Math.cos(a) * r * (Math.abs(v - 0.5) > 0.4 ? 2 : 1), v * h + Math.sin(a) * 13); }
-    c.fill();
+/* ---- the ball mesh: a real 32-panel truncated-icosahedron layout, computed per texel of the sphere's UV map ----
+   Each texel's direction is classified by its nearest panel centre (12 pentagons = icosahedron vertices, 20 hexagons
+   = dodecahedron vertices; pentagon scores weighted 0.974 so the panel edges meet where they do on the real solid).
+   The margin to the runner-up centre gives the seam: a thin grey stitch line in the colour map and a groove + puffy
+   panel in a height field that becomes the normal map (High only, set in applyQuality). Dark pentagons keep spin readable. */
+const ballMaps = (() => {
+  const W = 512, Hh = 256, phi = (1 + Math.sqrt(5)) / 2, cen = [];
+  const cyc = ([x, y, z]) => [[x, y, z], [z, x, y], [y, z, x]];
+  const sg = ([x, y, z]) => { const o = []; for (const a of [1, -1]) for (const b of [1, -1]) for (const c of [1, -1]) o.push([x * a, y * b, z * c]); return o; };
+  const addSet = (list, w, dark) => { const seen = new Set(); for (const v of list) { const k = v.map(n => n.toFixed(4)).join(); if (seen.has(k)) continue; seen.add(k); const l = Math.hypot(...v); cen.push([v[0] / l, v[1] / l, v[2] / l, w, dark]); } };
+  addSet(cyc([0, 1, phi]).flatMap(sg), 0.974, 1);
+  addSet([[1, 1, 1], ...cyc([0, phi, 1 / phi])].flatMap(sg), 1, 0);
+  const hgt = new Float32Array(W * Hh), col = document.createElement('canvas'); col.width = W; col.height = Hh;
+  const cx = col.getContext('2d'), img = cx.createImageData(W, Hh), px = img.data;
+  for (let y = 0; y < Hh; y++) {
+    const th = (y + 0.5) / Hh * Math.PI, st = Math.sin(th), ct = Math.cos(th);
+    for (let x = 0; x < W; x++) {
+      const ph = (x + 0.5) / W * Math.PI * 2, dx = -Math.cos(ph) * st, dy = ct, dz = Math.sin(ph) * st;   // SphereGeometry's UV mapping
+      let b1 = -9, b2 = -9, dk = 0;
+      for (const c of cen) { const sc = (c[0] * dx + c[1] * dy + c[2] * dz) * c[3]; if (sc > b1) { b2 = b1; b1 = sc; dk = c[4]; } else if (sc > b2) b2 = sc; }
+      const m = b1 - b2, seam = 1 - Math.min(1, m / 0.006), i = y * W + x;
+      hgt[i] = Math.min(1, m / 0.05) ** 0.6;                                       // groove at the seam, domed panel
+      let r = dk ? 22 : 246, g = dk ? 24 : 246, bl = dk ? 30 : 242;
+      const k = 1 - seam * 0.55; r *= k; g *= k; bl *= k;
+      px[i * 4] = r; px[i * 4 + 1] = g; px[i * 4 + 2] = bl; px[i * 4 + 3] = 255;
+    }
   }
-});
-const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 18, 12), new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.45, metalness: 0, envMapIntensity: 0.6 }));
+  cx.putImageData(img, 0, 0);
+  const nc = document.createElement('canvas'); nc.width = W; nc.height = Hh;
+  const nx = nc.getContext('2d'), ni = nx.createImageData(W, Hh), np = ni.data;
+  for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, hx = hgt[y * W + (x + 1) % W] - hgt[y * W + (x + W - 1) % W];
+    const hy = hgt[Math.min(Hh - 1, y + 1) * W + x] - hgt[Math.max(0, y - 1) * W + x];
+    let ax = -hx * 3, ay = hy * 3; const l = Math.hypot(ax, ay, 1);
+    np[i * 4] = 128 + ax / l * 127; np[i * 4 + 1] = 128 + ay / l * 127; np[i * 4 + 2] = 128 + 127 / l; np[i * 4 + 3] = 255;
+  }
+  nx.putImageData(ni, 0, 0);
+  const map = new THREE.CanvasTexture(col); map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 4;
+  const normal = new THREE.CanvasTexture(nc); normal.anisotropy = 4;
+  return { map, normal };
+})();
+const ballTex = ballMaps.map;
+const ballMesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 32, 20), new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.36, metalness: 0, envMapIntensity: 0.85, normalScale: new THREE.Vector2(0.9, 0.9) }));
 ballMesh.castShadow = true; scene.add(ballMesh);
-// blob shadow for the ball (always on: it sells height when the ball is in the air)
-const blobTex = canvasTex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
+// blob shadow for the ball (always on: it sells height when the ball is in the air). Dark core = contact occlusion.
+const blobTex = canvasTex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 1, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.78)'); g.addColorStop(0.28, 'rgba(0,0,0,0.5)'); g.addColorStop(0.65, 'rgba(0,0,0,0.14)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
 const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
 const blobGeo = new THREE.PlaneGeometry(1, 1); blobGeo.rotateX(-Math.PI / 2);
 const ballBlob = new THREE.Mesh(blobGeo, blobMat); ballBlob.renderOrder = 1; scene.add(ballBlob);
-/* ---- player ground blobs (low quality only, when real shadows are off): ONE InstancedMesh for every player = 1 draw call.
+/* ---- player ground blobs: ONE InstancedMesh for every player = 1 draw call.
+   Low: the full soft blob (there is no shadow map). High: a smaller, fainter ambient-occlusion pool under the feet that
+   sits beneath the real sun shadow, so players look planted even where the shadow falls away from them.
    Per-instance fade rides in instanceColor.r (the texture is black, so colour would do nothing; the shader patch
    multiplies alpha by it instead). Updated each frame by render() from the posed roots (live and replay alike). */
 const PBLOB_MAX = 24;
-const pblobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+const pblobTex = canvasTex(64, 64, (c) => { const g = c.createRadialGradient(32, 32, 1, 32, 32, 32); g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(0.4, 'rgba(0,0,0,0.36)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64); });
+const pblobMat = new THREE.MeshBasicMaterial({ map: pblobTex, transparent: true, depthWrite: false });
 pblobMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n#ifdef USE_INSTANCING_COLOR\n  diffuseColor.a *= vColor.r; diffuseColor.rgb = vec3(0.0);\n#endif'); };
 const playerBlobs = new THREE.InstancedMesh(blobGeo, pblobMat, PBLOB_MAX);
 playerBlobs.renderOrder = 1; playerBlobs.frustumCulled = false; playerBlobs.count = 0;
@@ -1310,14 +1466,15 @@ scene.add(playerBlobs);
 const _pbM = new THREE.Matrix4(), _pbC = new THREE.Color();
 /** Place one blob under each visible player root. Lift (root y) fades and shrinks the blob; the blob stays on the ground. */
 function updatePlayerBlobs(players) {
-  const on = !isHigh() && players && players.length > 0;
+  const on = players && players.length > 0, hi = isHigh();
   playerBlobs.visible = !!on; if (!on) return;
+  const size = hi ? 0.95 : 1.3, fade = hi ? 0.62 : 1;
   let n = 0;
   for (const p of players) {
     const root = p.model && p.model.root; if (!root || !root.visible || !root.parent || n >= PBLOB_MAX) continue;
-    const lift = Math.max(0, root.position.y), s = 1.3 * root.scale.x * (1 - Math.min(0.35, lift * 0.35));
+    const lift = Math.max(0, root.position.y), s = size * root.scale.x * (1 - Math.min(0.35, lift * 0.35));
     _pbM.makeScale(s, 1, s); _pbM.setPosition(root.position.x, 0.02, root.position.z);
-    playerBlobs.setMatrixAt(n, _pbM); playerBlobs.setColorAt(n, _pbC.setScalar(clamp(1 - lift * 0.9, 0.3, 1))); n++;
+    playerBlobs.setMatrixAt(n, _pbM); playerBlobs.setColorAt(n, _pbC.setScalar(clamp(1 - lift * 0.9, 0.3, 1) * fade)); n++;
   }
   playerBlobs.count = n; playerBlobs.instanceMatrix.needsUpdate = true; playerBlobs.instanceColor.needsUpdate = true;
 }
@@ -1331,7 +1488,7 @@ aimArrow.visible = false;
 scene.add(markerRing, markerArrow, aimArrow);
 
 /* =====================================================================
-   6. PLAYER MODEL — joint hierarchy built from capsules / lathe / spheres
+   6. PLAYER MODEL — joint hierarchy built from lathes / capsules / spheres + a shared fabric shader
    Hierarchy (every pivot sits at the anatomical joint, its mesh hangs below it in -y):
      root (scale = height, yaw = facing) → body (pivot at the FEET: whole-body lean / roll, y = ground solve)
        → hips (pelvis yaw / roll; thighs hang here) → spine (thorax; torso mesh) → neck (order YXZ) → head
@@ -1349,64 +1506,313 @@ scene.add(markerRing, markerArrow, aimArrow);
      neck.rotation.x  [hp]   > 0 chin down / nod                 < 0 look up
      shoulder.x [lsx/rsx]    > 0 arm swings BACK                 < 0 forward / raised; -PI = straight overhead
      L shoulder.z [lsz]      > 0 arm out to the side (abduction) R shoulder.z [rsz] uses < 0 for outward
+     L shoulder.y [lsy]      > 0 external rotation (bent forearm turns OUT)   < 0 internal (forearm across the body)
+     R shoulder.y [rsy]      < 0 external rotation (out)                      > 0 internal (across)
+                             shoulder Euler order XZY: the arm turns about its own long axis (y), is abducted (z), then swung (x)
      elbow.x [lel/rel]       < 0 flexes (forearm forward / up)   NEVER > 0 (clamped)
      wrist.x [lwx/rwx]       < 0 hand flexes toward palm/front   > 0 extends back      (|x| <= 0.8)
      hip.x [lhx/rhx]         < 0 flexion (thigh forward)         > 0 extension (thigh back)
+     hip.y [lhy/rhy]         > 0 whole leg turns to the left (toes point left); hip Euler order YXZ (turn, then swing,
+                             then abduct). Running sets lhy = rhy = -py so the planted foot does not yaw with the pelvis.
      L hip.z [lhz]           > 0 leg out to the side             R hip.z [rhz] uses < 0 for outward
      knee.x [lkn/rkn]        > 0 flexes (shin / foot goes back)  NEVER < 0 (clamped)
      ankle.x [lax/rax]       > 0 plantarflexion (toes down, push-off)   < 0 dorsiflexion (toes up)   [-0.6, 1.3]
                              foot pitch in the world ≈ bx + hip.x + knee.x + ankle.x → 0 = sole flat on the ground
+     Leg IK (run): thigh forward angle in the body frame α = -hip.x, shin forward angle = α - knee.x.
    ===================================================================== */
+/* Fabric / skin shading. ONE shared material for every player (kit colours live in vertex colours, so a team costs
+   no extra material). Each vertex carries a surface id `aMat`; the shader adds a canvas-generated knit / rib height
+   field (triplanar in part space, so no UVs), procedural folds and creases, per-surface roughness and a warm skin fill.
+   Surface ids: */
+const SURF = { SKIN: 0, SHIRT: 1, SLEEVE: 2, SHORTS: 3, SHORTLEG: 4, SOCK: 5, BOOT: 6, SOLE: 7, HAIR: 8, EYE: 9, GLOVE: 10, RIB: 11, LIP: 12 };
+/** Shared 256x256 detail map (data, not colour): R jersey knit loops, G 1x1 rib, B tileable value noise (fbm), A = 1. */
+const fabricTex = (() => {
+  const N = 256, cv = document.createElement('canvas'); cv.width = cv.height = N;
+  const c = cv.getContext('2d'), img = c.createImageData(N, N), d = img.data;
+  const rnd = mulberry32(911), G = [];
+  for (const cells of [4, 8, 16, 32]) { const g = []; for (let i = 0; i < cells * cells; i++) g.push(rnd()); G.push([cells, g]); }
+  const vnoise = (x, y) => { let v = 0, a = 0.5, tot = 0;
+    for (const [cells, g] of G) { const fx = x / N * cells, fy = y / N * cells, ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+      const at = (i, j) => g[((j + cells) % cells) * cells + ((i + cells) % cells)], sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+      v += a * lerp(lerp(at(ix, iy), at(ix + 1, iy), sx), lerp(at(ix, iy + 1), at(ix + 1, iy + 1), sx), sy); tot += a; a *= 0.55; }
+    return v / tot; };
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const cx = (x % 8) / 8, cy = (y % 8) / 8 - 0.5;                       // one jersey stitch = two slanted loops (a "V")
+    const loop = (ox, sl) => { const dx = (cx - ox + cy * sl) / 0.2, dy = cy / 0.56; return Math.sqrt(Math.max(0, 1 - dx * dx - dy * dy)); };
+    const knit = Math.max(loop(0.27, 0.32), loop(0.73, -0.32));
+    const rib = 0.5 + 0.5 * Math.cos(x / 8 * Math.PI * 2);
+    const k = (y * N + x) * 4; d[k] = knit * 255; d[k + 1] = rib * 255; d[k + 2] = vnoise(x, y) * 255; d[k + 3] = 255;
+  }
+  c.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); return t;
+})();
 const playerMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.74, metalness: 0, envMapIntensity: 0.55 });
+playerMat.onBeforeCompile = (sh) => {
+  sh.uniforms.uFab = { value: fabricTex };
+  sh.vertexShader = sh.vertexShader
+    .replace('#include <common>', '#include <common>\n#ifdef FAB_HI\nattribute float aMat;\nvarying float vMat;\nvarying vec3 vLp;\nvarying vec3 vLn;\n#endif')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\n#ifdef FAB_HI\nvMat = aMat; vLp = position; vLn = normal;\n#endif');
+  sh.fragmentShader = sh.fragmentShader
+    .replace('#include <common>', `#include <common>
+#ifdef FAB_HI
+uniform sampler2D uFab;
+varying float vMat;
+varying vec3 vLp;
+varying vec3 vLn;
+float fabH; float fabCav;
+// detail map projected in part space (metres) on the plane facing the normal's dominant axis (one fetch per scale)
+vec2 fabUV(vec3 p, vec3 n) { vec3 a = abs(n); return a.x > a.y && a.x > a.z ? p.zy : (a.z > a.y ? p.xy : p.xz); }
+vec3 bumpN(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDir) {
+  vec3 sX = dFdx(surf_pos), sY = dFdy(surf_pos), R1 = cross(sY, surf_norm), R2 = cross(surf_norm, sX);
+  float det = dot(sX, R1) * faceDir;
+  vec3 grad = sign(det) * (dHdxy.x * R1 + dHdxy.y * R2);
+  return normalize(abs(det) * surf_norm - grad);
+}
+// height (m) of the fabric relief + cavity (0..1, darkens creases) for surface id m at part-space point p
+void fabric(float m, vec3 p, vec3 n) {
+  vec2 uv = fabUV(p, n);
+  vec4 f = texture(uFab, uv * 8.0);    // fine: 12.5 cm tile → 4 mm stitches
+  vec4 g = texture(uFab, uv * 1.6);    // coarse noise: drape
+  float h = 0.0, cav = 0.0, ax = abs(p.x);
+  if (m < 0.5) { h = (f.b - 0.5) * 0.00025; }                                    // skin: faint pores
+  else if (m < 1.5) {                                                            // torso shirt: knit + waist folds + armpit folds
+    float waist = smoothstep(0.26, 0.1, p.y) * smoothstep(-0.02, 0.06, p.y);
+    float fw = sin(p.y * 95.0 + 5.0 * sin(p.x * 17.0 + p.z * 9.0) + g.b * 6.0);
+    float pit = smoothstep(0.1, 0.17, ax) * smoothstep(0.3, 0.42, p.y) * smoothstep(0.54, 0.46, p.y);
+    float fp = sin((p.y + ax * 1.3) * 120.0 + g.b * 4.0);
+    float drape = (g.b - 0.5);
+    h = f.r * 0.00025 + fw * waist * 0.003 + fp * pit * 0.0025 + drape * 0.004;
+    cav = max(0.0, -fw) * waist * 0.35 + max(0.0, -fp) * pit * 0.3;
+  } else if (m < 2.5) {                                                          // sleeve: knit + creases near the armpit
+    float cr = sin(p.y * 140.0 + p.z * 40.0 + g.b * 5.0) * smoothstep(0.02, -0.06, p.y) * smoothstep(-0.16, -0.08, p.y);
+    h = f.r * 0.00025 + cr * 0.0018 + (g.b - 0.5) * 0.002; cav = max(0.0, -cr) * 0.3;
+  } else if (m < 3.5) {                                                          // shorts body: twill + V creases at the crotch
+    float cr = sin((p.y * 0.9 + ax * 1.1) * 110.0 + g.b * 5.0) * smoothstep(0.06, -0.08, p.y) * smoothstep(0.16, 0.04, ax);
+    float wb = smoothstep(0.035, 0.045, p.y);                                    // gathered waistband
+    h = f.r * 0.0003 + cr * 0.0016 + wb * f.g * 0.0008 + (g.b - 0.5) * 0.003; cav = max(0.0, -cr) * 0.12;
+  } else if (m < 4.5) {                                                          // shorts legs: loose diagonal folds
+    float cr = sin(p.y * 70.0 + p.z * 45.0 * sign(p.x + 1e-4) + p.x * 30.0 + g.b * 7.0);
+    h = f.r * 0.0003 + cr * 0.0028 + (g.b - 0.5) * 0.003; cav = max(0.0, -cr) * 0.3;
+  } else if (m < 5.5) {                                                          // sock: rib + ankle wrinkles
+    float wr = sin(p.y * 210.0 + sin(p.x * 60.0) * 1.5) * smoothstep(-0.29, -0.34, p.y) * 0.0012;
+    h = f.g * 0.0009 + wr; cav = (1.0 - f.g) * 0.12;
+  } else if (m < 6.5) {                                                          // boot leather: grain + lacing on the instep
+    float lace = step(abs(p.x), 0.018) * step(-0.05, p.y) * smoothstep(0.0, 0.02, p.z) * smoothstep(0.13, 0.11, p.z);
+    float lr = 0.5 + 0.5 * sin(p.z * 330.0);
+    h = (f.b - 0.5) * 0.0004 + lace * lr * 0.0015; cav = lace * (1.0 - lr) * 0.5;
+  } else if (m < 7.5) { h = (f.b - 0.5) * 0.0005; }                              // sole / studs
+  else if (m < 8.5) {                                                            // hair: strands + clumps
+    vec4 s = texture(uFab, fabUV(p * vec3(1.0, 0.25, 1.0), n) * 22.0);
+    h = (s.b - 0.5) * 0.0012 + (g.b - 0.5) * 0.002; cav = (1.0 - s.b) * 0.35;
+  } else if (m < 9.5) { h = 0.0; }
+  else if (m < 10.5) { h = f.b * 0.0006; cav = (1.0 - f.b) * 0.15; }            // gloves: foam latex
+  else if (m < 11.5) { h = f.g * 0.0008; cav = (1.0 - f.g) * 0.15; }            // rib trim (collar, cuffs, sock tops)
+  fabH = h; fabCav = cav;
+}
+#endif`)
+    .replace('#include <color_fragment>', `#include <color_fragment>
+#ifdef FAB_HI
+  fabric(vMat, vLp, vLn);
+  diffuseColor.rgb *= 1.0 - fabCav * 0.5;
+  if (vMat > 7.5 && vMat < 8.5) diffuseColor.rgb *= 0.85 + 0.3 * fabH / 0.002;
+#endif`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+#ifdef FAB_HI
+  normal = bumpN(-vViewPosition, normal, vec2(dFdx(fabH), dFdy(fabH)), faceDirection);
+#endif`)
+    .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+#ifdef FAB_HI
+  roughnessFactor = vMat < 0.5 ? 0.52 : vMat < 2.5 ? 0.82 : vMat < 4.5 ? 0.66 : vMat < 5.5 ? 0.9 : vMat < 6.5 ? 0.34 : vMat < 7.5 ? 0.6
+    : vMat < 8.5 ? 0.58 : vMat < 9.5 ? 0.18 : vMat < 10.5 ? 0.85 : vMat < 11.5 ? 0.88 : 0.4;
+#endif`)
+    .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+#ifdef FAB_HI
+  if (vMat < 0.5 || vMat > 11.5) {   // skin: warm sub-surface-like fill + soft red rim where light scatters through
+    float fr = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 2.5);
+    totalEmissiveRadiance += diffuseColor.rgb * (vec3(0.11, 0.045, 0.025) + vec3(0.22, 0.07, 0.04) * fr);
+  }
+#endif`);
+};
+playerMat.customProgramCacheKey = () => 'kfab2' + (playerMat.defines && 'FAB_HI' in playerMat.defines ? 'h' : 'l');
+/* Quality tiers (read when a model is built): High = fabric shader + full-detail parts; Low (!isHigh()) = plain vertex-colour
+   Standard (no shader extras, no texture fetch) and lighter geometry: fewer segments, no micro face parts / studs / linings. */
+let GQ = 1;
+const setPlayerQuality = hi => {
+  GQ = hi ? 1 : 0;
+  const has = !!(playerMat.defines && 'FAB_HI' in playerMat.defines);
+  if (has !== hi) { playerMat.defines = playerMat.defines || {}; if (hi) playerMat.defines.FAB_HI = ''; else delete playerMat.defines.FAB_HI; playerMat.needsUpdate = true; }
+};
+setPlayerQuality(typeof isHigh === 'function' ? isHigh() : true);
 const geoCache = new Map();
-const cached = (key, fn) => { if (!geoCache.has(key)) geoCache.set(key, fn()); return geoCache.get(key); };
-const capG = (r, len, color, x, y, z, sx = 1, sz = 1) => { const g = new THREE.CapsuleGeometry(r, len, 2, 7); g.scale(sx, 1, sz); return colorPart(g, color, x, y, z); };
-const sphG = (r, color, x, y, z, sx = 1, sy = 1, sz = 1, phiLen = Math.PI) => { const g = new THREE.SphereGeometry(r, 9, 7, 0, Math.PI * 2, 0, phiLen); g.scale(sx, sy, sz); return colorPart(g, color, x, y, z); };
+const cached = (key, fn) => { key = GQ + key; if (!geoCache.has(key)) geoCache.set(key, fn()); return geoCache.get(key); };
+/** tag a coloured part with a surface id (and optional extra deformation already applied) */
+const tag = (g, id) => { g.setAttribute('aMat', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(id), 1)); return g; };
+const capG = (r, len, color, x, y, z, sx = 1, sz = 1, id = 0) => { const g = new THREE.CapsuleGeometry(r, len, GQ ? 2 : 1, GQ ? 8 : 6); g.scale(sx, 1, sz); return tag(colorPart(g, color, x, y, z), id); };
+const sphG = (r, color, x, y, z, sx = 1, sy = 1, sz = 1, phiLen = Math.PI, id = 0, ws = 8, hs = 6) => { if (!GQ) { ws = Math.max(5, ws - 3); hs = Math.max(4, hs - 2); } const g = new THREE.SphereGeometry(r, ws, hs, 0, Math.PI * 2, 0, phiLen); g.scale(sx, sy, sz); return tag(colorPart(g, color, x, y, z), id); };
+/** lathe from [r, y] pairs; sx / sz scale the section; deform(v) may move vertices (v = Vector3, part space) */
+const latheG = (prof, color, id, segs = 12, sx = 1, sz = 1, deform = null) => {
+  if (prof[0][1] > prof[prof.length - 1][1]) prof = prof.slice().reverse();          // bottom → top keeps the faces outward
+  const g = new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), Math.max(6, Math.round(segs * (GQ ? 0.84 : 0.55)))); g.scale(sx, 1, sz);
+  if (deform) { const p = g.attributes.position, v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); deform(v); p.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); }
+  return tag(colorPart(g, color), id);
+};
+/** ring (torus) lying in the xz plane at height y, for collars / cuffs / hems / sock tops */
+const ringG = (r, tube, color, y, id = SURF.RIB, sz = 1, tilt = 0, z = 0) => { const g = new THREE.TorusGeometry(r, tube, GQ ? 4 : 3, GQ ? 14 : 8); g.rotateX(Math.PI / 2); g.scale(1, 1, sz); if (tilt) g.rotateX(tilt); return tag(colorPart(g, color, 0, y, z), id); };
+const boxG = (w, h, d, c, x, y, z, id = 0, rx = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rx) g.rotateX(rx); return tag(colorPart(g, c, x, y, z), id); };
+/** merge coloured + tagged parts into one non-indexed geometry (one draw call per mesh) */
+function mergeTagged(parts) {
+  let n = 0; for (const p of parts) n += p.attributes.position.count;
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), col = new Float32Array(n * 3), mat = new Float32Array(n); let o = 0;
+  for (const p of parts) {
+    pos.set(p.attributes.position.array, o * 3); nor.set(p.attributes.normal.array, o * 3); col.set(p.attributes.color.array, o * 3);
+    if (p.attributes.aMat) mat.set(p.attributes.aMat.array, o);
+    o += p.attributes.position.count; p.dispose();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aMat', new THREE.BufferAttribute(mat, 1));
+  g.computeBoundingSphere(); return g;
+}
 const SKINS = ['#f2cba8', '#d6a179', '#a86c45', '#6a412a'], HAIRS = ['#1b1410', '#4a2c18', '#c89b52', '#2a2a2a'];
 const mixHex = (a, b, t) => '#' + new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString();
 const hash01 = n => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const bump = (x, a, b) => x <= a || x >= b ? 0 : Math.sin((x - a) / (b - a) * Math.PI);   // 0 → 1 → 0 over [a, b]
 
 function torsoGeo(shirt, trim, shorts) {
   return cached(`t${shirt}${trim}${shorts}`, () => {
-    const prof = [[0.001, 0.05], [0.14, 0.06], [0.155, 0.16], [0.165, 0.3], [0.19, 0.45], [0.17, 0.53], [0.08, 0.58], [0.001, 0.585]].map(([r, y]) => new THREE.Vector2(r, y));
-    const lathe = new THREE.LatheGeometry(prof, 10); lathe.scale(1, 1, 0.62);
-    return mergeParts([
-      colorPart(lathe, shirt),
-      sphG(0.175, shorts, 0, 0.02, 0, 1, 0.7, 0.72, Math.PI),            // pelvis / shorts
-      capG(0.055, 0.05, trim, 0, 0.56, 0, 1.2, 0.8),                       // collar
-      box(0.32, 0.04, 0.02, trim, 0, 0.38, 0.105),                          // chest band
-    ]);
+    // V-tapered athletic torso: waist 0.15, chest 0.185, sloping trapezius into the neck; flattened front-to-back
+    // the shirt hem hangs OVER the shorts waistband (same section scale + segment count, 6-8 mm clearance → no poke-through)
+    const shirtProf = [[0.15, -0.024], [0.178, -0.018], [0.177, 0.0], [0.166, 0.05], [0.157, 0.12], [0.157, 0.2], [0.17, 0.3], [0.179, 0.39], [0.177, 0.45], [0.162, 0.5], [0.126, 0.54], [0.085, 0.565], [0.06, 0.575]];
+    const chest = v => { // pecs / shoulder blades, a slightly flatter belly
+      const front = v.z > 0 ? 1 : 0, ax = Math.abs(v.x);
+      v.z += Math.sign(v.z) * (front ? 0.012 * bump(v.y, 0.3, 0.5) * bump(ax, -0.02, 0.17) : 0.008 * bump(v.y, 0.3, 0.52) * bump(ax, 0.02, 0.16));
+      if (front) v.z -= 0.006 * bump(v.y, 0.04, 0.26);
+    };
+    // shorts seat: flat crotch tucked up between the thighs (the leg openings live on the thighs), waist inside the hem
+    const shortsProf = [[0.001, -0.082], [0.09, -0.08], [0.145, -0.066], [0.166, -0.035], [0.168, -0.01], [0.16, 0.02], [0.148, 0.04]];
+    const parts = [
+      latheG(shirtProf, shirt, SURF.SHIRT, 14, 1, 0.64, chest),
+      latheG(shortsProf, shorts, SURF.SHORTS, 14, 1, 0.64),
+      ringG(0.066, 0.011, trim, 0.566, SURF.RIB, 0.78, 0.16, 0.004),          // crew collar, front sits lower
+    ];
+    if (GQ) parts.push(tag(colorPart(new THREE.CylinderGeometry(0.052, 0.058, 0.07, 10, 1, true), mixHex(shirt, '#000000', 0.25), 0, 0.565, 0.003), SURF.SHIRT)); // collar lining
+    return mergeTagged(parts);
   });
+}
+/** Hair as a shell over the skull: a hairline that sits low at the nape, high at the forehead, cut around the ears,
+    thickness / volume / tufts per style → a real silhouette instead of a helmet. Head ellipsoid centre (0, cy, cz). */
+const HEAD = { r: 0.109, sx: 0.88, sy: 1.08, cy: 0.132, cz: 0.005 };
+function hairShell(style, color) {
+  const S = [ // front / back hairline (polar angle from the crown), ear cut, thickness base / top, tuft size + frequency, quiff
+    { fr: 0.33, bk: 0.62, ear: 0.07, t0: 0.006, t1: 0.016, n: 0.003, nf: 7, q: 0.006, side: 0 },   // 0 textured crop
+    { fr: 0.31, bk: 0.64, ear: 0.06, t0: 0.008, t1: 0.03, n: 0.002, nf: 4, q: 0.014, side: 0.01 },  // 1 swept quiff (side part)
+    { fr: 0.3, bk: 0.7, ear: 0.03, t0: 0.022, t1: 0.04, n: 0.009, nf: 9, q: 0.0, side: 0 },          // 2 curly mop
+    { fr: 0.355, bk: 0.6, ear: 0.08, t0: 0.0022, t1: 0.003, n: 0, nf: 1, q: 0, side: 0 },            // 3 buzz cut
+  ][style] || null;
+  const NA = GQ ? 18 : 12, NP = GQ ? 7 : 5, pos = [], idx = [];
+  const H = HEAD;
+  for (let j = 0; j <= NP; j++) for (let i = 0; i < NA; i++) {
+    const a = i / NA * Math.PI * 2 - Math.PI, fa = (1 - Math.cos(a)) / 2, aa = Math.abs(a);         // a = 0 front (+z)
+    let te = Math.PI * (S.fr + (S.bk - S.fr) * Math.pow(fa, 1.15));
+    te -= Math.PI * S.ear * Math.exp(-Math.pow((aa - 1.62) / 0.42, 2));                             // around the ears
+    te -= Math.PI * 0.055 * Math.exp(-Math.pow((aa - 0.66) / 0.24, 2));                              // temple recession
+    te += Math.PI * 0.012 * Math.sin(a * 9 + style) * (1 - fa);                                      // irregular front edge
+    const u = j / NP, th = te * u, top = Math.max(0, Math.cos(th));
+    let t = (S.t0 + (S.t1 - S.t0) * top * top) * (1 - 0.88 * sstep(0.62, 1, u));
+    t += S.q * Math.exp(-Math.pow(a / 0.7, 2)) * Math.exp(-Math.pow((u - 0.72) / 0.22, 2));        // fringe / quiff lift
+    t += S.side * Math.sin(a) * top;
+    if (S.n) t += S.n * (0.5 + 0.5 * Math.sin(a * S.nf + th * 11.3) * Math.sin(th * S.nf * 1.7 + a * 3.1)) * (1 - 0.7 * sstep(0.7, 1, u));
+    const R = H.r + 0.0015 + t, st = Math.sin(th);
+    pos.push(H.sx * R * st * Math.sin(a), H.cy + H.sy * R * Math.cos(th), H.cz + R * st * Math.cos(a));
+  }
+  for (let j = 0; j < NP; j++) for (let i = 0; i < NA; i++) {
+    const a = j * NA + i, b = j * NA + (i + 1) % NA, c = a + NA, d = b + NA; idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return tag(colorPart(g, color), SURF.HAIR);
 }
 /** Head + face. beard: 0 none, 1 stubble, 2 full beard. Cached per (skin, hair, style, beard). */
 function headGeo(skin, hair, style, beard) {
   return cached(`h${skin}${hair}${style}${beard}`, () => {
-    const parts = [capG(0.045, 0.06, skin, 0, 0.0, 0), sphG(0.105, skin, 0, 0.13, 0.005, 0.88, 1.08, 1)];
-    if (style === 0) parts.push(sphG(0.112, hair, 0, 0.15, -0.012, 0.92, 1.0, 1.04, Math.PI * 0.55));
-    if (style === 1) parts.push(sphG(0.108, hair, 0, 0.14, -0.005, 0.9, 1.05, 1.02, Math.PI * 0.45));
-    if (style === 2) { parts.push(sphG(0.116, hair, 0, 0.15, -0.02, 0.95, 1.05, 1.06, Math.PI * 0.6)); parts.push(capG(0.07, 0.08, hair, 0, 0.06, -0.07, 1.3, 0.6)); }
-    if (style === 3) parts.push(sphG(0.107, mixHex(skin, hair, 0.55), 0, 0.137, -0.004, 0.89, 1.05, 1.01, Math.PI * 0.42)); // buzz cut
-    parts.push(box(0.02, 0.012, 0.01, '#111', 0.035, 0.145, 0.093), box(0.02, 0.012, 0.01, '#111', -0.035, 0.145, 0.093)); // eyes
-    parts.push(box(0.03, 0.009, 0.012, hair, 0.036, 0.168, 0.089), box(0.03, 0.009, 0.012, hair, -0.036, 0.168, 0.089)); // brows
-    parts.push(box(0.022, 0.04, 0.03, skin, 0, 0.11, 0.1));                                   // nose
-    parts.push(box(0.036, 0.008, 0.01, '#6e3b33', 0, 0.075, 0.091));                         // mouth
-    parts.push(sphG(0.024, skin, 0.091, 0.128, 0, 0.5, 1, 0.8), sphG(0.024, skin, -0.091, 0.128, 0, 0.5, 1, 0.8)); // ears
-    if (beard) { // lower front shell of the head ellipsoid: jaw, chin, cheeks
-      const r = beard === 2 ? 0.111 : 0.1066, g = new THREE.SphereGeometry(r, 10, 4, Math.PI * 0.5 - 1.4, 2.8, Math.PI * 0.56, Math.PI * 0.4);
-      g.scale(0.9, 1.1, 1.03); parts.push(colorPart(g, beard === 2 ? hair : mixHex(skin, hair, 0.45), 0, 0.13, 0.006));
+    const H = HEAD, lip = mixHex(skin, '#8a3b3b', 0.4), shade = mixHex(skin, '#3a2018', 0.25);
+    const parts = [
+      latheG([[0.047, -0.03], [0.05, 0.0], [0.046, 0.04], [0.044, 0.07]], skin, SURF.SKIN, 10, 1.05, 1.0),            // neck (wider at the base)
+      sphG(H.r, skin, 0, H.cy, H.cz, H.sx, H.sy, 1),                                                               // cranium
+      sphG(0.07, skin, 0, 0.074, 0.02, 1.13, 0.86, 1.06),                                                          // jaw + chin
+    ];
+    if (GQ) parts.push(sphG(0.026, skin, 0.046, 0.118, 0.062, 1.1, 0.7, 0.75, Math.PI, 0, 7, 5), sphG(0.026, skin, -0.046, 0.118, 0.062, 1.1, 0.7, 0.75, Math.PI, 0, 7, 5)); // cheekbones
+    if (GQ) { const g = new THREE.CapsuleGeometry(0.015, 0.07, 2, 8); g.rotateZ(Math.PI / 2); g.scale(1, 1, 0.8); parts.push(tag(colorPart(g, skin, 0, 0.162, 0.088), SURF.SKIN)); } // brow ridge
+    { const g = new THREE.CylinderGeometry(0.006, 0.012, 0.05, 4, 1); g.rotateY(Math.PI / 4); g.scale(1.3, 1, 1.2); g.rotateX(0.32); parts.push(tag(colorPart(g, skin, 0, 0.124, 0.106), SURF.SKIN)); } // nose bridge (wedge)
+    parts.push(sphG(0.0115, skin, 0, 0.102, 0.116, 1.1, 0.85, 0.9, Math.PI, 0, 7, 5));
+    if (GQ) parts.push(sphG(0.0075, skin, 0.011, 0.099, 0.109, 1.1, 0.9, 1, Math.PI, 0, 6, 4), sphG(0.0075, skin, -0.011, 0.099, 0.109, 1.1, 0.9, 1, Math.PI, 0, 6, 4)); // tip, nostrils
+    for (const s of [1, -1]) {
+      const ear = new THREE.SphereGeometry(0.03, 7, 5); ear.scale(0.38, 1, 0.7); ear.rotateY(s * 0.35);
+      parts.push(tag(colorPart(ear, skin, s * 0.092, 0.128, -0.006), SURF.SKIN));
+      if (GQ) parts.push(sphG(0.0125, '#efe9e2', s * 0.034, 0.141, 0.093, 1.05, 0.62, 0.6, Math.PI, SURF.EYE, 7, 5));         // eye white
+      parts.push(sphG(0.0074, '#2a1d14', s * 0.034, 0.1405, 0.0995, 1, 0.95, 0.45, Math.PI, SURF.EYE, 6, 4));                 // iris
+      { const g = new THREE.BoxGeometry(0.034, 0.0055, 0.01); g.rotateZ(-s * 0.12); parts.push(tag(colorPart(g, mixHex(hair, skin, 0.15), s * 0.036, 0.1635, 0.1), SURF.HAIR)); } // brow, slight arch
+      if (GQ) parts.push(boxG(0.03, 0.006, 0.01, shade, s * 0.034, 0.152, 0.099));                                       // upper lid crease
     }
-    return mergeParts(parts);
+    parts.push(boxG(0.036, 0.007, 0.012, lip, 0, 0.074, 0.098, SURF.LIP), boxG(0.03, 0.007, 0.012, mixHex(lip, skin, 0.35), 0, 0.067, 0.097, SURF.LIP)); // lips
+    parts.push(hairShell(style, style === 3 ? mixHex(skin, hair, 0.6) : hair));
+    if (beard) { // lower front shell of the jaw: chin, jaw line, cheeks
+      const r = beard === 2 ? 0.0745 : 0.0712, g = new THREE.SphereGeometry(r, GQ ? 12 : 7, GQ ? 5 : 3, Math.PI * 0.5 - 1.45, 2.9, Math.PI * 0.42, Math.PI * 0.5);
+      g.scale(1.13, 0.86, 1.06); parts.push(tag(colorPart(g, beard === 2 ? hair : mixHex(skin, hair, 0.45), 0, 0.074, 0.02), beard === 2 ? SURF.HAIR : SURF.SKIN));
+    }
+    return mergeTagged(parts);
   });
 }
-const upperArmGeo = (shirt, skin) => cached(`ua${shirt}${skin}`, () => mergeParts([capG(0.064, 0.08, shirt, 0, -0.07, 0), capG(0.048, 0.14, skin, 0, -0.18, 0)]));
-const foreArmGeo = skin => cached(`fa${skin}`, () => capG(0.043, 0.18, skin, 0, -0.12, 0));                 // ends at the wrist (y -0.25)
-const handGeo = hand => cached(`hd${hand}`, () => mergeParts([sphG(0.047, hand, 0, -0.052, 0.004, 0.82, 1.15, 0.7), sphG(0.018, hand, 0.026, -0.03, 0.02, 1, 1.4, 1)]));
-const thighGeo = (shorts, skin) => cached(`th${shorts}${skin}`, () => mergeParts([capG(0.088, 0.13, shorts, 0, -0.1, 0), capG(0.066, 0.2, skin, 0, -0.28, 0)]));
-const shinGeo = socks => cached(`sh${socks}`, () => capG(0.058, 0.28, socks, 0, -0.19, 0, 1, 1.08));          // knee → ankle (y -0.405)
+// arms: sleeve with a hem cuff over a deltoid / biceps lathe; forearm tapers to a flat wrist
+const upperArmGeo = (shirt, skin, trim) => cached(`ua${shirt}${skin}${trim}`, () => mergeTagged([
+  latheG([[0.012, 0.05], [0.04, 0.043], [0.056, 0.022], [0.061, -0.01], [0.062, -0.05], [0.06, -0.12], [0.06, -0.158], [0.047, -0.162]], shirt, SURF.SLEEVE, 12, 1, 0.92,
+    v => { if (v.x > 0) v.x -= 0.008 * sstep(0.0, 0.05, v.y); }),            // cap leans in toward the neck: no notch at the seam
+  ringG(0.0585, 0.0062, trim, -0.157, SURF.RIB, 0.92),
+  latheG([[0.05, -0.1], [0.052, -0.15], [0.05, -0.2], [0.044, -0.25], [0.04, -0.285], [0.026, -0.31], [0.001, -0.315]], skin, SURF.SKIN, 10, 1, 0.95,
+    v => { if (v.z > 0) v.z += 0.006 * bump(v.y, -0.13, -0.26); }),                                                // biceps
+]));
+const foreArmGeo = skin => cached(`fa${skin}`, () => latheG([[0.001, 0.035], [0.03, 0.025], [0.042, 0.0], [0.046, -0.05], [0.042, -0.11], [0.034, -0.18], [0.027, -0.235], [0.026, -0.255], [0.001, -0.262]], skin, SURF.SKIN, 10, 1, 0.82));
+const handGeo = (hand, glove) => cached(`hd${hand}${glove}`, () => {
+  const id = glove ? SURF.GLOVE : SURF.SKIN;
+  const fing = new THREE.CapsuleGeometry(0.02, 0.035, 1, GQ ? 7 : 5); fing.scale(1.25, 1, 0.62); fing.rotateX(-0.35);
+  const thumb = new THREE.CapsuleGeometry(0.011, 0.03, 1, GQ ? 5 : 4); thumb.rotateZ(0.5); thumb.rotateX(-0.3);
+  return mergeTagged([sphG(0.044, hand, 0, -0.045, 0.002, 0.95, 1.05, 0.55, Math.PI, id, 7, 5), tag(colorPart(fing, hand, 0, -0.098, 0.012), id), tag(colorPart(thumb, hand, 0.03, -0.045, 0.018), id)]);
+});
+// legs: shorts leg with a side stripe over a quad / hamstring lathe; sock with calf, shin-pad bulge and a rib band
+const thighGeo = (shorts, skin, trim) => cached(`th${shorts}${skin}${trim}`, () => mergeTagged([
+  latheG([[0.06, 0.02], [0.088, -0.01], [0.1, -0.05], [0.104, -0.12], [0.104, -0.19], [0.106, -0.205], [0.08, -0.209]], shorts, SURF.SHORTLEG, 14, 1, 1.0),
+  ringG(0.105, 0.005, mixHex(shorts, trim, 0.5), -0.202, SURF.SHORTLEG),
+  (() => { const g = new THREE.BoxGeometry(0.012, 0.22, 0.03); g.translate(0.102, -0.085, 0); return tag(colorPart(g, trim), SURF.SHORTLEG); })(),
+  latheG([[0.07, -0.12], [0.083, -0.19], [0.08, -0.27], [0.07, -0.35], [0.058, -0.41], [0.052, -0.45], [0.001, -0.47]], skin, SURF.SKIN, 12, 0.95, 1.05,
+    v => { if (v.z > 0) v.z += 0.008 * bump(v.y, -0.14, -0.4); v.z += 0.004; }),                                  // quads
+].concat(GQ ? [sphG(0.028, skin, 0, -0.43, 0.04, 1.1, 1.15, 0.7, Math.PI, 0, 7, 5)] : [])));                       // + kneecap
+// thighGeo is mirrored for the right leg (stripe on the outside)
+const shinGeo = (socks, skin, trim) => cached(`sh${socks}${skin}${trim}`, () => mergeTagged([
+  latheG([[0.001, 0.03], [0.04, 0.025], [0.052, 0.0], [0.054, -0.04], [0.055, -0.06]], skin, SURF.SKIN, 12),
+  ringG(0.056, 0.008, trim, -0.068, SURF.RIB),
+  latheG([[0.056, -0.066], [0.06, -0.12], [0.058, -0.18], [0.05, -0.25], [0.04, -0.31], [0.035, -0.36], [0.038, -0.4], [0.001, -0.41]], socks, SURF.SOCK, 12, 1, 1.05,
+    v => { if (v.z < 0) v.z -= 0.018 * bump(v.y, -0.06, -0.3) * Math.min(1, -v.z / 0.03);                         // calf
+           else v.z += 0.011 * bump(v.y, -0.08, -0.33) * Math.min(1, v.z / 0.03) * (1 - Math.min(1, Math.abs(v.x) / 0.05)); }), // shin pad
+]));
+const SHOULDER_X = 0.172, SHOULDER_Y = 0.49;
 const FOOT_SOLE = -0.101, FOOT_HEEL = -0.075, FOOT_TOE = 0.185;                                               // contact points in ankle space
 const footGeo = boot => cached(`ft${boot}`, () => {
-  const g = new THREE.CapsuleGeometry(0.046, 0.17, 2, 7); g.rotateX(Math.PI / 2); g.scale(1.05, 0.82, 1);
-  return mergeParts([colorPart(g, boot, 0, -0.052, 0.055), sphG(0.05, boot, 0, -0.022, -0.004, 1, 0.9, 1.1), box(0.096, 0.018, 0.258, '#eeeeee', 0, -0.092, 0.055)]);
+  const up = new THREE.CapsuleGeometry(0.044, 0.165, 2, GQ ? 9 : 7); up.rotateX(Math.PI / 2); up.scale(1.08, 0.8, 1); up.translate(0, -0.058, 0.058);
+  const p = up.attributes.position;     // shape the last: toe box drops and narrows, instep higher
+  for (let i = 0; i < p.count; i++) { let x = p.getX(i), y = p.getY(i); const z = p.getZ(i);
+    if (y > -0.07) y -= Math.max(0, z - 0.05) * 0.2 * (y + 0.07) / 0.04;
+    x *= 1 - Math.max(0, z - 0.11) * 2.2 + Math.max(0, -z - 0.02) * -1.2;
+    p.setXYZ(i, x, Math.max(y, -0.091), z); }
+  up.computeVertexNormals();
+  const sh = new THREE.Shape(); // sole outline, toe forward (+y of the shape → +z), heel back
+  sh.moveTo(0, -0.08); sh.bezierCurveTo(0.036, -0.08, 0.04, -0.03, 0.038, 0.02); sh.bezierCurveTo(0.048, 0.08, 0.052, 0.13, 0.042, 0.165);
+  sh.bezierCurveTo(0.032, 0.195, -0.022, 0.198, -0.034, 0.17); sh.bezierCurveTo(-0.046, 0.12, -0.04, 0.07, -0.034, 0.02); sh.bezierCurveTo(-0.038, -0.03, -0.034, -0.08, 0, -0.08);
+  const sole = new THREE.ExtrudeGeometry(sh, { depth: 0.012, bevelEnabled: false, curveSegments: 4 }); sole.rotateX(Math.PI / 2); sole.translate(0, -0.079, 0);
+  const parts = [tag(colorPart(up, boot), SURF.BOOT), sphG(0.05, boot, 0, -0.026, -0.008, 0.92, 0.95, 1.05, Math.PI, SURF.BOOT), tag(colorPart(sole, mixHex(boot, '#e6e6e6', 0.62)), SURF.SOLE)];
+  if (GQ) for (const [x, z] of [[0.02, -0.06], [-0.02, -0.06], [0.026, 0.05], [-0.024, 0.05], [0.03, 0.12], [-0.026, 0.12], [0.002, 0.16]]) {
+    const st = new THREE.CylinderGeometry(0.006, 0.008, 0.011, 4, 1); parts.push(tag(colorPart(st, '#c9c9c9', x, -0.0955, z), SURF.SOLE)); // studs, bottom at FOOT_SOLE
+  }
+  return mergeTagged(parts);
 });
 function numberTex(num, color) {
   return canvasTex(64, 64, (c) => { c.font = '900 46px -apple-system,Segoe UI,sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineWidth = 5; c.strokeStyle = '#0008'; c.strokeText(num, 32, 34); c.fillStyle = color; c.fillText(num, 32, 34); });
@@ -1417,51 +1823,60 @@ function makePlayerModel(kit, look, number) {
   const mesh = (g, parent, x = 0, y = 0, z = 0, shadow = true) => { const m = new THREE.Mesh(g, playerMat); m.position.set(x, y, z); m.castShadow = shadow; parent.add(m); return m; };
   const piv = (parent, x, y, z) => { const o = new THREE.Object3D(); o.position.set(x, y, z); parent.add(o); return o; };
   // deterministic body variation from what we are given
-  const seed = number * 13.7 + Math.round(look.height * 100) * 7.1 + look.style * 3.3 + look.skin * 5.9 + look.hair * 11.3;
+  setPlayerQuality(typeof isHigh === 'function' ? isHigh() : true);
+  // kit colours go into the seed too, so two keepers with the same number / look still differ (build, beard)
+  let kh = 0; for (const ch of String(kit.shirt) + kit.shorts) kh = (kh * 31 + ch.charCodeAt(0)) % 9973;
+  const seed = number * 13.7 + Math.round(look.height * 100) * 7.1 + look.style * 3.3 + look.skin * 5.9 + look.hair * 11.3 + kh * 0.917;
   const build = 0.93 + hash01(seed) * 0.15, legK = 0.97 + hash01(seed + 1) * 0.06;
   const beard = hash01(seed + 2) < 0.36 ? (hash01(seed + 3) < 0.5 ? 1 : 2) : 0;
   const th = 0.44 * legK, sh = 0.405 * legK, hipH = th + sh - FOOT_SOLE + 0.004;
-  const skin = SKINS[look.skin];
+  const skin = SKINS[look.skin], trim = kit.trim;
   const root = new THREE.Group(), body = piv(root, 0, 0, 0), hips = piv(body, 0, hipH, 0), spine = piv(hips, 0, 0, 0);
   root.scale.setScalar(look.height);
-  mesh(torsoGeo(kit.shirt, kit.trim, kit.shorts), spine).scale.set(build, 1, 0.96 + (build - 0.93) * 0.5);
+  const depth = 0.96 + (build - 0.93) * 0.5;
+  mesh(torsoGeo(kit.shirt, trim, kit.shorts), spine).scale.set(build, 1, depth);
   const neck = piv(spine, 0, 0.6, 0); neck.rotation.order = 'YXZ'; mesh(headGeo(skin, HAIRS[look.hair], look.style, beard), neck);
   const J = { sh: [], el: [], wr: [], hp: [], kn: [], an: [] };
   for (const s of [1, -1]) { // +1 = left, -1 = right
-    const shoulder = piv(spine, s * 0.205 * build, 0.49, 0); mesh(upperArmGeo(kit.shirt, skin), shoulder).scale.set(build, 1, build);
-    const elbow = piv(shoulder, 0, -0.29, 0); mesh(foreArmGeo(skin), elbow);
-    const wrist = piv(elbow, 0, -0.25, 0); const hand = mesh(handGeo(kit.gloves || skin), wrist, 0, 0, 0, false);
+    const shoulder = piv(spine, s * SHOULDER_X * build, SHOULDER_Y, 0); shoulder.rotation.order = 'XZY'; mesh(upperArmGeo(kit.shirt, skin, trim), shoulder).scale.set(build, 1, build);
+    const elbow = piv(shoulder, 0, -0.29, 0); mesh(foreArmGeo(skin), elbow).scale.set(0.96 + (build - 0.93) * 0.6, 1, 1);
+    const wrist = piv(elbow, 0, -0.25, 0); const hand = mesh(handGeo(kit.gloves || skin, !!kit.gloves), wrist, 0, 0, 0, false);
     hand.scale.set(s, 1, 1); if (kit.gloves) hand.scale.multiplyScalar(1.22);                 // mirror the thumb, bigger gloves
-    const hip = piv(hips, s * 0.095, 0, 0); mesh(thighGeo(kit.shorts, skin), hip).scale.y = legK;
-    const knee = piv(hip, 0, -th, 0); mesh(shinGeo(kit.socks), knee).scale.y = legK;
-    const ankle = piv(knee, 0, -sh, 0); mesh(footGeo(kit.boots), ankle);
+    const hip = piv(hips, s * 0.095, 0, 0); hip.rotation.order = 'YXZ'; mesh(thighGeo(kit.shorts, skin, trim), hip).scale.set(s, legK, 1); // mirrored: stripe outside
+    const knee = piv(hip, 0, -th, 0); mesh(shinGeo(kit.socks, skin, trim), knee).scale.y = legK;
+    const ankle = piv(knee, 0, -sh, 0); mesh(footGeo(kit.boots), ankle).scale.x = s;
     J.sh.push(shoulder); J.el.push(elbow); J.wr.push(wrist); J.hp.push(hip); J.kn.push(knee); J.an.push(ankle);
   }
   // shirt number on the back
   const nm = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), new THREE.MeshBasicMaterial({ map: numberTex(String(number), kit.trim), transparent: true, depthWrite: false }));
-  nm.position.set(0, 0.34, -0.108 * (0.96 + (build - 0.93) * 0.5) - 0.002); nm.rotation.y = Math.PI; spine.add(nm);
+  nm.position.set(0, 0.33, -0.118 * depth - 0.002); nm.rotation.y = Math.PI; spine.add(nm);
   // ground blob: drawn for all players by ONE InstancedMesh (playerBlobs, updated in render); this is only a placeholder
   const blob = new THREE.Object3D(); blob.visible = false;
   const cur = {}; POSE_KEYS.forEach(k => cur[k] = 0); cur.gw = 1;
+  // personal idle signature so 22 players never breathe / shift in sync: rate, amplitude, phase, idle style
+  const pv = { r: 0.82 + hash01(seed + 4) * 0.36, a: 0.75 + hash01(seed + 5) * 0.5, ph: hash01(seed + 6) * 6.283, st: Math.floor(hash01(seed + 7) * 3), w: hash01(seed + 8) };
   return {
     root, body, hips, spine, neck, shL: J.sh[0], shR: J.sh[1], elL: J.el[0], elR: J.el[1], wrL: J.wr[0], wrR: J.wr[1],
     hipL: J.hp[0], hipR: J.hp[1], knL: J.kn[0], knR: J.kn[1], anL: J.an[0], anR: J.an[1], blob, cur,
-    dims: { th, sh, hipH }, build, legK, beard, handK: kit.gloves ? 1.22 : 1,
-    // animation memory (visual only): head look, acceleration lean, last dive side, previous anim
-    hdY: 0, hdP: 0, tw: 0, acc: 0, spd0: -1, prevAnim: -1, diveSide: 1, fromDive: false,
+    dims: { th, sh, hipH, legW: 1 }, build, legK, beard, handK: kit.gloves ? 1.22 : 1, pv,
+    // animation memory (visual only): head look, acceleration lean, last dive side, previous anim, braking / turning
+    hdY: 0, hdP: 0, tw: 0, acc: 0, spd0: -1, prevAnim: -1, diveSide: 1, fromDive: false, since: 9, brake: 0, yaw0: null, yr: 0, alert: 0, gkRun: false, cycK: 0, cS: 0, cP: 0, cV: 0, ph0: null,
   };
 }
 
 /* ---- procedural pose system ---------------------------------------------------------- */
 const ANIM = { RUN: 0, KICK: 1, SLIDE: 2, TACKLE: 3, FALLEN: 4, DIVE: 5, HOLD: 6, CELEB: 7, THROW: 8, HEADER: 9, STUMBLE: 10, GKREADY: 11 };
-const POSE_KEYS = ['bx', 'bz', 'by', 'gw', 'py', 'pz', 'sx', 'sy', 'hy', 'hp', 'lsx', 'lsz', 'lel', 'lwx', 'rsx', 'rsz', 'rel', 'rwx', 'lhx', 'lhz', 'lkn', 'lax', 'rhx', 'rhz', 'rkn', 'rax'];
-const LEG_KEYS = new Set(['lhx', 'lhz', 'lkn', 'lax', 'rhx', 'rhz', 'rkn', 'rax', 'by', 'gw']);
+const POSE_KEYS = ['bx', 'bz', 'by', 'gw', 'py', 'pz', 'sx', 'sy', 'hy', 'hp', 'lsx', 'lsz', 'lsy', 'lel', 'lwx', 'rsx', 'rsz', 'rsy', 'rel', 'rwx', 'lhx', 'lhy', 'lhz', 'lkn', 'lax', 'rhx', 'rhy', 'rhz', 'rkn', 'rax'];
+const LEG_KEYS = new Set(['lhx', 'lhy', 'lhz', 'lkn', 'lax', 'rhx', 'rhy', 'rhz', 'rkn', 'rax', 'by', 'gw']);
+// keys the foot plant depends on: followed exactly once a locomotion pose has settled (pelvis / body angles feed the leg IK)
+const LOCO_EXACT = new Set([...LEG_KEYS, 'bx', 'bz', 'py', 'pz']);
 const easeOut = t => 1 - (1 - t) * (1 - t);
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 const TP = {}, ACT = {}; // reusable target pose / action layer
 // per-anim: joint damping rate, head-tracking weight
 const POSE_RATE = [18, 30, 26, 30, 22, 24, 26, 22, 30, 30, 26, 18];
 const TRACK_W = [1, 0.8, 0.3, 0.8, 0, 0.55, 0.9, 0, 0.7, 0, 0.4, 1];
+const DIMS0 = { th: 0.44, sh: 0.405, hipH: 0.954, legW: 1 }, PV0 = { r: 1, a: 1, ph: 0, st: 0, w: 0.5 };
 /** Keyframed action layer: frames = [[t, {key: value}], ...] (every frame holds the same keys). Linear between keys;
     the joint damping in applyPose rounds the corners. Result goes into ACT. */
 function keyframes(frames, t) {
@@ -1473,8 +1888,28 @@ function keyframes(frames, t) {
 function layer(wl, wu) { for (const k in ACT) { const w = LEG_KEYS.has(k) ? wl : wu; TP[k] += (ACT[k] - TP[k]) * w; } for (const k in ACT) delete ACT[k]; }
 /** Ankle angle that puts the sole at world pitch `pitch` (0 = flat) for the current targets of one leg. */
 const plantL = (pitch = 0) => { TP.lax = pitch - (TP.bx + TP.lhx + TP.lkn); };
+/** Fade out the gait's thigh turn / abduction under an action whose key poses do not set them (kick, tackle). */
+const unturnLegs = w => { const q = 1 - w; TP.lhy *= q; TP.rhy *= q; TP.lhz *= q; TP.rhz *= q; };   // call BEFORE layer()
 const plantR = (pitch = 0) => { TP.rax = pitch - (TP.bx + TP.rhx + TP.rkn); };
+/** Two-bone leg IK in the BODY frame: ankle target (z forward, y up) relative to the hip joint → hip.x, knee.x.
+    Thigh forward angle α = φ + β (knee always in front), knee flexion = π - interior angle; hip.x = -α (sign table). */
+const _ik = { hx: 0, kn: 0, hz: 0 };
+function legIK(th, sh, z, y) {
+  const d = clamp(Math.hypot(z, y), Math.abs(th - sh) + 0.08, (th + sh) * 0.9995), phi = Math.atan2(z, -y);
+  const beta = Math.acos(clamp((th * th + d * d - sh * sh) / (2 * th * d), -1, 1)), gam = Math.acos(clamp((th * th + sh * sh - d * d) / (2 * th * sh), -1, 1));
+  _ik.hx = -(phi + beta); _ik.kn = Math.PI - gam;
+}
 
+/** Leg IK with abduction, in the HIPS frame: ankle target v (x lateral, y up, z forward) relative to the hip joint →
+    hip.x, hip.z (Euler XYZ: v = Rx(hx)·Rz(hz)·u, u = thigh + flexed shin in the leg's own yz-plane), knee.x. */
+function legIK3(th, sh, vx, vy, vz) {
+  let d = Math.hypot(vx, vy, vz); const dc = clamp(d, Math.abs(th - sh) + 0.08, (th + sh) * 0.9995);
+  if (d > 1e-6 && dc !== d) { const q = dc / d; vx *= q; vy *= q; vz *= q; } d = dc;
+  _ik.kn = Math.PI - Math.acos(clamp((th * th + sh * sh - d * d) / (2 * th * sh), -1, 1));
+  const uy = -(th + sh * Math.cos(_ik.kn)), uz = -sh * Math.sin(_ik.kn);
+  const shz = clamp(vx / -uy, -0.9, 0.9); _ik.hz = Math.asin(shz);
+  _ik.hx = wrapA(Math.atan2(vz, vy) - Math.atan2(uz, uy * Math.cos(_ik.hz)));
+}
 // action key poses (sides: kicks with the RIGHT foot, left is the planted support leg)
 const KICK_KF = [
   [0, { bx: -0.02, bz: -0.08, sx: 0.04, py: -0.28, sy: 0.12, rhx: 0.75, rkn: 1.45, rax: 0.55, lhx: -0.28, lkn: 0.38, lsx: -0.45, lsz: 0.6, lel: -0.55, rsx: 0.35, rsz: -0.38, rel: -0.6, lwx: -0.25, rwx: -0.2 }],
@@ -1495,59 +1930,134 @@ const THROW_KF = [ // throw-in: ball held overhead (t = 0 while aiming), take it
   [1, { bx: 0.08, sx: 0.1, hp: 0.05, lsx: -1.15, rsx: -1.15, lsz: 0.18, rsz: -0.18, lel: -0.35, rel: -0.35, lwx: -0.4, rwx: -0.4, lkn: 0.15, rkn: 0.12, rhx: 0.15 }],
 ];
 
+
 /** Build the target pose from an animation record {anim, phase, t, speed, aux}. `m` (optional) is the model,
-    used only for visual memory (acceleration lean, last dive side). */
+    used only for visual memory (acceleration lean, braking / turning plant, idle signature, last dive side). */
 function targetPose(f, time, m) {
   for (const k of POSE_KEYS) TP[k] = 0;
   TP.gw = 1;
-  const s = clamp(f.speed / 9, 0, 1), ph = f.phase, sn = Math.sin(ph), cs = Math.cos(ph), t = f.t;
-  /** Locomotion (k = amplitude). Left leg: thigh forward when sin(phase) > 0, swing while cos(phase) > 0. */
-  const run = (k = 1) => {
-    const amp = (0.22 + 0.62 * s) * k, bias = -0.3 * amp;                  // flexion range > extension range
-    TP.lhx = -sn * amp + bias; TP.rhx = sn * amp + bias;
-    const sw = (0.35 + 1.15 * s) * k, st = (0.08 + 0.38 * s) * k;           // knee: big flexion mid-swing, some in stance
-    TP.lkn = 0.08 + Math.max(0, cs) * sw + Math.max(0, -cs) * st; TP.rkn = 0.08 + Math.max(0, -cs) * sw + Math.max(0, cs) * st;
-    TP.by = 0.035 * s * sn * sn * k;                                        // flight phase between toe-off and heel strike
-    TP.py = -sn * (0.06 + 0.12 * s) * k; TP.sy = sn * (0.05 + 0.13 * s) * k;   // pelvis yaw, thorax counter-rotation
-    TP.pz = cs * 0.04 * s * k;                                              // pelvis drops on the swing side
-    TP.hy = -TP.sy * 0.8;
-    TP.lsx = sn * (0.18 + 0.72 * s) * k; TP.rsx = -sn * (0.18 + 0.72 * s) * k;
-    TP.lel = -(0.32 + 0.9 * s) - Math.max(0, -TP.lsx) * 0.35; TP.rel = -(0.32 + 0.9 * s) - Math.max(0, -TP.rsx) * 0.35;
-    TP.lwx = -0.15 + cs * 0.14 * s; TP.rwx = -0.15 - cs * 0.14 * s;         // hands trail the swing (follow-through)
-    TP.lsz = 0.1 + 0.04 * s; TP.rsz = -0.1 - 0.04 * s;
-    TP.bx = 0.03 + 0.09 * s; TP.sx = 0.03 + 0.12 * s; TP.bz = f.aux;
-    // ankles: stance foot flat → push-off (heel rises) before toe-off; dorsiflexed in swing, toes up at heel strike
-    const P = (0.25 + 0.6 * s) * k;
-    for (const L of [1, -1]) {
-      const sl = sn * L, cl = cs * L, hx = L > 0 ? TP.lhx : TP.rhx, kn = L > 0 ? TP.lkn : TP.rkn;
-      const stance = sstep(0, 0.35, -cl), world = sl > 0 ? -0.18 * sl * sl * k : P * Math.pow(-sl, 1.5);
-      const swing = -0.18 + 0.45 * Math.max(0, -sl) * s;                   // relative to the shin
-      const ax = stance * (world - (TP.bx + hx + kn)) + (1 - stance) * lerp(swing, -0.15 - (TP.bx + hx + kn), sstep(0.2, 0.95, sl));
-      if (L > 0) TP.lax = ax; else TP.rax = ax;
+  const s = clamp(f.speed / 9, 0, 1), ph = f.phase, t = f.t;
+  /** Locomotion (k = amplitude), foot-planted gait. f.phase advances 2π per (1.4 + 0.3·speed) m (gameplay), so the
+      stance foot sweeps back exactly the distance the body travels while it is down (no skating): stance fraction D
+      shrinks with speed (walk ≈ 0.55 → sprint 0.25, flight phase in between), the foot lands 26-50 % of the sweep
+      ahead of the hip (whatever keeps the pelvis highest), heel strike → flat → heel-off → toe push-off, then swings through with a heel kick that grows
+      with speed. Ankle targets are solved with two-bone IK, so knee bend and pelvis bob fall out of the geometry
+      (pelvis lowest at mid-stance when running, highest at mid-stance when walking). Left leg touches down at u = 0. */
+  const run = (k = 1, ov = null) => {   // ov: {bx, bz} body angles an action imposes (the leg IK must plant for them)
+    const sp = f.speed, ht = m ? m.root.scale.y : 1, Dm = m ? m.dims : DIMS0, br = m ? m.brake : 0;
+    // C = metres per gait cycle: learned from how fast f.phase advances vs. distance (m.cyc, see applyPose), so the plant
+    // stays correct whatever stride formula gameplay uses; default 0.9 + 0.38·speed
+    const gk = sstep(0.1, 1.5, sp) * k, C = (0.9 + 0.38 * sp) * (m && m.cycK > 0 ? m.cycK : 1) / ht;
+    const Lr = 0.975 * (Dm.th + Dm.sh), D = Math.min(clamp(0.62 - 0.045 * sp, 0.25, 0.62), 0.88 * Lr / C), S = D * C * gk;
+    const p0 = (-0.3 + 0.27 * s) * gk, pOff = (0.55 + 0.4 * s) * Math.min(1, gk * 1.5), Hc = (0.05 + 0.3 * Math.pow(s, 1.2)) * gk;
+    const acc = m ? m.acc : 0, running = f.anim === ANIM.RUN || f.anim === ANIM.GKREADY;
+    const bx = ov && ov.bx != null ? ov.bx : ((0.03 + 0.12 * s) + clamp(acc * 0.012, -0.07, 0.09)) * k - 0.13 * br;
+    // pelvis height: nominal crouch, lowered if the touchdown (heel pivot) or the toe-off (toe pivot, leg fully extended) would
+    // be out of reach; the touchdown point FR (fraction of the sweep ahead of the hip) is picked to keep the pelvis highest
+    const c0 = Math.cos(p0), s0 = Math.sin(p0), cO = Math.cos(pOff), sO = Math.sin(pOff), LB = 0.995 * (Dm.th + Dm.sh);
+    const yF = -(FOOT_SOLE * c0 - FOOT_HEEL * s0), oF = FOOT_HEEL - (FOOT_SOLE * s0 + FOOT_HEEL * c0);
+    const yB = -(FOOT_SOLE * cO - FOOT_TOE * sO), oB = FOOT_TOE - (FOOT_SOLE * sO + FOOT_TOE * cO);
+    let FR = 0.3, Hr = -9;
+    for (let fr = 0.26; fr <= 0.5; fr += 0.04) {
+      const zF = S * fr + oF, zB = -S * (1 - fr) + oB;
+      const h = Math.min(yF + Math.sqrt(Math.max(0, Lr * Lr - zF * zF)), yB + Math.sqrt(Math.max(0, LB * LB - zB * zB)));
+      if (h > Hr + 1e-4) { Hr = h; FR = fr; }
     }
-    // idle: weight shift from leg to leg, breathing
+    const Hn = Math.min(Dm.hipH - 0.01 - 0.022 * s * k, Hr) - 0.075 * br;
+    const drop = lerp(-0.016, 0.012 + 0.016 * s, sstep(1.8, 3.2, sp)) * gk;
+    const uL = ((ph / (Math.PI * 2)) % 1 + 1) % 1;
+    // stance weights (sin hump over each stance) → pelvis bob, hip drop, weight shift
+    let bob = 0, minCl = 9; const stW = [0, 0];
+    for (let j = 0; j < 2; j++) { const u = (uL + j * 0.5) % 1; if (u < D) { stW[j] = Math.sin(Math.PI * u / D); bob = Math.max(bob, stW[j]); } }
+    const yg = -(Hn - drop * bob);
+    // pelvis yaw follows the forward leg, thorax counter-rotates; swing-side hip drops; bank INTO the turn (gameplay sets
+    // aux = -yawRate·speed·k and yawRate > 0 is a right turn, so the inward roll, bz > 0 = right, is -aux) + weight shift
+    const wv = Math.cos(Math.PI * 2 * (uL + 0.05));                            // +1: left thigh fully forward
+    const a = Math.min(1, gk * 1.3);
+    TP.py = -(0.05 + 0.1 * s) * wv * a; TP.sy = (0.04 + 0.12 * s) * wv * a;
+    TP.pz = 0.045 * (stW[0] - stW[1]) * a * (1 - 0.5 * s);
+    TP.hy = -TP.sy * 0.8; TP.lhy = TP.rhy = -TP.py;
+    TP.bz = ov && ov.bz != null ? ov.bz : (running ? -f.aux : 0) - 0.014 * (stW[0] - stW[1]) * a;
+    // flight window (fraction of the swing during which the other foot is also airborne): the landing foot comes in
+    // ~3 cm above the turf through it and drops only in its last third, so the body never floats > 3 cm or drops at footfall
+    const wF = Math.max(0.05, Math.max(0, 0.5 - D) / (1 - D));
+    for (let j = 0; j < 2; j++) {
+      const u = (uL + j * 0.5) % 1, L = j === 0 ? 1 : -1;
+      let zf, cl, p;
+      if (u < D) { const us = u / D; zf = S * (FR - us); cl = 0; p = p0 * (1 - sstep(0, 0.22, us)) + pOff * sstep(0.5, 1, us); }
+      else { // swing: Hermite path that leaves and re-enters with a backward foot speed (ground-speed matching at touchdown)
+        const uw = (u - D) / (1 - D), r = (1 - D) / D, m0 = -S * Math.min(1, r) * 0.5, m1 = -S * Math.min(2, r), t2 = uw * uw, t3 = t2 * uw;
+        zf = (2 * t3 - 3 * t2 + 1) * S * (FR - 1) + (t3 - 2 * t2 + uw) * m0 + (3 * t2 - 2 * t3) * S * FR + (t3 - t2) * m1;
+        const e = 1 - wF;                                                      // heel-kick hump, then the low approach
+        cl = Hc * Math.pow(Math.sin(Math.PI * Math.min(1, uw / e)), 1.2) + 0.03 * gk * sstep(1, 1 - 0.35 * wF, uw) * sstep(0, 0.25, uw);
+        p = lerp(pOff, p0, sstep(0.05, 0.9, uw)); }
+      minCl = Math.min(minCl, cl);
+      // contact pivot: toe when pitched toes-down, heel when toes-up; the pivot stays on the planned ground point
+      const qz = p >= 0 ? FOOT_TOE : FOOT_HEEL, c = Math.cos(p), sn = Math.sin(p);
+      const ay = yg + cl - (FOOT_SOLE * c - qz * sn), az = zf + qz - (FOOT_SOLE * sn + qz * c);
+      // 3-D plant: target in the root frame (lateral track fixed under the body, so pelvis yaw / drop / roll cannot drag
+      // the planted foot sideways) → body frame (undo bx, bz) → hips frame (undo py, pz) → two-bone IK with hip abduction
+      const hc = Dm.hipH * Math.cos(TP.bz);
+      _gp[0] = L * (0.09 - 0.022 * s) * Dm.legW; _gp[1] = hc * Math.cos(bx) + ay; _gp[2] = hc * Math.sin(bx) + az;
+      rotX(_gp, -bx); rotZ(_gp, -TP.bz);                                         // root frame → body frame
+      _gd[0] = L * 0.095; _gd[1] = 0; _gd[2] = 0; rotZ(_gd, TP.pz); rotY(_gd, TP.py); // hip joint in hips space → body
+      _gp[0] -= _gd[0]; _gp[1] -= _gd[1] + Dm.hipH; _gp[2] -= _gd[2];
+      rotY(_gp, -TP.py); rotZ(_gp, -TP.pz);                                      // → hips frame
+      rotY(_gp, TP.py);                                                          // undo the thigh turn hip.y = -py (YXZ)
+      legIK3(Dm.th, Dm.sh, _gp[0], _gp[1], _gp[2]);
+      if (j === 0) { TP.lhx = _ik.hx; TP.lkn = _ik.kn; TP.lhz = _ik.hz; TP.lax = p - (bx + _ik.hx + _ik.kn); }
+      else { TP.rhx = _ik.hx; TP.rkn = _ik.kn; TP.rhz = _ik.hz; TP.rax = p - (bx + _ik.hx + _ik.kn); }
+    }
+    TP.by = D < 0.5 && running ? Math.min(0.035, minCl) : 0;                  // true flight lift (≤ 3 cm by construction)
+    const A = (0.12 + 0.72 * s) * a;
+    for (const L of [1, -1]) {
+      let sx_ = A * wv * L; if (sx_ < 0) sx_ *= 1.05;                            // L: back while the left leg is forward
+      const fwd = Math.max(0, -sx_);
+      const el = -(0.42 + 0.95 * s) * Math.max(0.6, a) - fwd * 0.8 * (0.4 + s);  // elbow folds as the arm comes through
+      if (L > 0) { TP.lsx = sx_ + 0.04; TP.lel = el; TP.lsz = 0.09 + 0.04 * s; TP.lsy = -(0.08 + 0.22 * s) * a; TP.lwx = -0.12 - 0.12 * s * wv; }
+      else { TP.rsx = sx_ + 0.04; TP.rel = el; TP.rsz = -0.09 - 0.04 * s; TP.rsy = (0.08 + 0.22 * s) * a; TP.rwx = -0.12 + 0.12 * s * wv; }
+    }
+    TP.bx = bx; TP.sx = ((0.03 + 0.1 * s) + clamp(acc * 0.016, -0.09, 0.12)) * k - 0.07 * br;
+    if (m) TP.hy += clamp(-m.yr * 0.07, -0.35, 0.35) * k;                       // look into the turn
+    // braking / cutting plant: arms out for balance, chest up
+    if (br > 0) { TP.lsz += 0.3 * br; TP.rsz -= 0.3 * br; TP.lsx -= 0.25 * br; TP.rsx -= 0.15 * br; TP.lel -= 0.25 * br; TP.rel -= 0.25 * br; TP.hp -= 0.1 * br; }
+    // idle (standing): weight shift, breathing — personal rate / amplitude / phase and an idle style per player;
+    // when the ball is close (m.alert) everyone drops into a ready stance
     const wi = 1 - sstep(0.15, 0.7, f.speed);
     if (wi > 0) {
-      const w = Math.sin(time * 0.7 + ph * 1.7), br = Math.sin(time * 1.8 + ph);
-      const I = { bx: 0.02, sx: br * 0.02, bz: -w * 0.03, pz: w * 0.05, py: w * 0.04, sy: -w * 0.03, hy: 0, by: 0,
-        lhx: -0.02, rhx: -0.02 - Math.max(0, w) * 0.06, lhz: 0.04, rhz: -0.04, lkn: 0.05 + Math.max(0, -w) * 0.14, rkn: 0.05 + Math.max(0, w) * 0.14,
-        lsx: 0.02, rsx: 0.02, lsz: 0.12 + br * 0.02, rsz: -0.12 - br * 0.02, lel: -0.28, rel: -0.28, lwx: -0.15, rwx: -0.15 };
+      const pv = m ? m.pv : PV0, al = m ? m.alert : 0, tt = time * pv.r + pv.ph;
+      const w = Math.sin(tt * 0.7 + ph * 1.7) * pv.a, b2 = Math.sin(tt * 1.8 + ph), st = al > 0.5 ? -1 : pv.st;
+      const I = { bx: 0.02, sx: b2 * 0.02, bz: -w * 0.03, pz: w * 0.05, py: w * 0.04, lhy: -w * 0.04, rhy: -w * 0.04, sy: -w * 0.03, hy: 0, by: 0, hp: 0,
+        lhx: -0.02, rhx: -0.02 - Math.max(0, w) * 0.06, lhz: 0.04 + pv.w * 0.03, rhz: -0.04 - pv.w * 0.03, lkn: 0.05 + Math.max(0, -w) * 0.14, rkn: 0.05 + Math.max(0, w) * 0.14,
+        lsx: 0.02, rsx: 0.02, lsz: 0.12 + b2 * 0.02, rsz: -0.12 - b2 * 0.02, lsy: 0.15, rsy: -0.15, lel: -0.28, rel: -0.28, lwx: -0.15, rwx: -0.15 };
+      if (st === 1) { // hands on hips
+        Object.assign(I, { lsx: 0.42, rsx: 0.42, lsz: 0.62, rsz: -0.62, lsy: -1.05, rsy: 1.05, lel: -1.75, rel: -1.75, lwx: 0.35, rwx: 0.35, sx: 0.0 + b2 * 0.02, hp: -0.05 });
+      } else if (st === 2) { // loose: arms hang, one hand on the thigh, chin down a touch
+        Object.assign(I, { lsx: 0.08, rsx: -0.05, lsz: 0.08, rsz: -0.1, lel: -0.15, rel: -0.45, sx: 0.06 + b2 * 0.02, hp: 0.12 });
+      }
       for (const kk in I) TP[kk] += (I[kk] - TP[kk]) * wi;
       TP.lhx -= Math.max(0, -w) * 0.06 * wi;
+      if (al > 0) { // ready stance: knees soft, weight forward, hands out in front
+        const r = al * wi;
+        TP.lkn += 0.22 * r; TP.rkn += 0.22 * r; TP.lhx -= 0.14 * r; TP.rhx -= 0.14 * r; TP.bx += 0.03 * r; TP.sx += 0.1 * r;
+        TP.lsx -= 0.15 * r; TP.rsx -= 0.15 * r; TP.lel -= 0.35 * r; TP.rel -= 0.35 * r; TP.lsz += 0.08 * r; TP.rsz -= 0.08 * r;
+      }
+      if (br > 0) { // stopped hard: front foot planted, knees bent, chest up
+        const r = br * wi;
+        TP.lhx -= 0.38 * r; TP.lkn += 0.5 * r; TP.rhx += 0.1 * r; TP.rkn += 0.4 * r; TP.bx -= 0.06 * r; TP.sx += 0.05 * r;
+      }
       TP.lax += ((-(TP.bx + TP.lhx + TP.lkn)) - TP.lax) * wi; TP.rax += ((-(TP.bx + TP.rhx + TP.rkn)) - TP.rax) * wi;
     }
-    // forward lean with acceleration (lean back when braking)
-    if (m) { TP.bx += clamp(m.acc * 0.012, -0.07, 0.09) * k; TP.sx += clamp(m.acc * 0.018, -0.1, 0.13) * k; }
   };
   switch (f.anim) {
     case ANIM.RUN: run(); break;
     case ANIM.KICK: {
       run(0.6); keyframes(KICK_KF, t);
-      const w = sstep(0, 0.1, t) * (1 - 0.65 * sstep(0.72, 1, t)); layer(w, w * 0.9); plantL(); break;
+      const w = sstep(0, 0.1, t) * (1 - 0.65 * sstep(0.72, 1, t)); unturnLegs(w); layer(w, w * 0.9); plantL(); break;
     }
     case ANIM.TACKLE: {
       run(0.6); keyframes(TACKLE_KF, t);
-      const w = sstep(0, 0.12, t) * (1 - 0.6 * sstep(0.7, 1, t)); layer(w, w); plantL(); break;
+      const w = sstep(0, 0.12, t) * (1 - 0.6 * sstep(0.7, 1, t)); unturnLegs(w); layer(w, w); plantL(); break;
     }
     case ANIM.THROW: { run(0.5); keyframes(THROW_KF, t); layer(0.6, 1); plantL(); plantR(); break; }
     case ANIM.SLIDE: { // drop onto the left hip: lead (right) leg straight at the ball, trailing left leg bent along the turf
@@ -1575,6 +2085,7 @@ function targetPose(f, time, m) {
           [0, { bx: 0.55, by: 0, gw: 1, sx: 0.2, hp: -0.3, lhx: -0.3, rhx: 0.3, lkn: 0.4, rkn: 0.7, lax: 0, rax: 0.5, lsx: -1.6, rsx: -1.6, lsz: 0.3, rsz: -0.3, lel: -0.3, rel: -0.3, lwx: 0.4, rwx: 0.4 }],
           [0.2, { bx: 1.2, by: 0, gw: 1, sx: 0.05, hp: -0.6, lhx: 0.05, rhx: 0.1, lkn: 0.2, rkn: 0.4, lax: 0.9, rax: 0.9, lsx: -1.25, rsx: -1.25, lsz: 0.4, rsz: -0.4, lel: -0.35, rel: -0.35, lwx: 0.7, rwx: 0.7 }], // lands on the hands
           [0.52, { bx: 1.42, by: 0, gw: 1, sx: 0.05, hp: -0.55, lhx: 0.05, rhx: 0.08, lkn: 0.3, rkn: 0.45, lax: 0.9, rax: 0.9, lsx: -2.6, rsx: -2.6, lsz: 0.6, rsz: -0.6, lel: -1.5, rel: -1.5, lwx: 0.3, rwx: 0.3 }], // on the forearms
+          [0.63, { bx: 1.05, by: 0, gw: 1, sx: 0.35, hp: -0.5, lhx: -1.05, rhx: -1.0, lkn: 1.6, rkn: 1.55, lax: 0.9, rax: 0.9, lsx: -1.35, rsx: -1.35, lsz: 0.2, rsz: -0.2, lel: -0.15, rel: -0.15, lwx: 0.6, rwx: 0.6 }], // push up onto hands and knees
           [0.74, { bx: 0.15, by: 0, gw: 1, sx: 0.4, hp: -0.1, lhx: -1.75, rhx: -0.15, lkn: 1.62, rkn: 1.7, lax: 0, rax: 0.3, lsx: -0.6, rsx: -0.3, lsz: 0.2, rsz: -0.3, lel: -0.4, rel: -0.4, lwx: -0.2, rwx: -0.2 }], // right knee down
           [0.9, { bx: 0.15, by: 0, gw: 1, sx: 0.4, hp: -0.1, lhx: -1.75, rhx: -0.15, lkn: 1.62, rkn: 1.7, lax: 0, rax: 0.3, lsx: -0.6, rsx: -0.3, lsz: 0.2, rsz: -0.3, lel: -0.4, rel: -0.4, lwx: -0.2, rwx: -0.2 }],
           [1, { bx: 0.06, by: 0, gw: 1, sx: 0.1, hp: 0, lhx: -0.2, rhx: -0.15, lkn: 0.35, rkn: 0.3, lax: 0, rax: 0, lsx: -0.1, rsx: 0, lsz: 0.2, rsz: -0.2, lel: -0.4, rel: -0.4, lwx: -0.2, rwx: -0.2 }],
@@ -1600,9 +2111,9 @@ function targetPose(f, time, m) {
     }
     case ANIM.HOLD: run(0.4); TP.lsx = TP.rsx = -1.15; TP.lsz = -0.18; TP.rsz = 0.18; TP.lel = TP.rel = -0.8; TP.lwx = TP.rwx = -0.45; break;
     case ANIM.CELEB:
-      run(1);
-      if (f.aux > 0.5) { TP.lsz = 1.5; TP.rsz = -1.5; TP.lsx = TP.rsx = -0.05; TP.lel = TP.rel = -0.05; TP.lwx = TP.rwx = 0.25; TP.bz = Math.sin(time * 3) * 0.22; TP.hp = -0.25; TP.sy = Math.sin(time * 3) * 0.12; }
-      else { const pump = Math.max(0, Math.sin(time * 7)); TP.lsx = TP.rsx = -2.75; TP.lsz = 0.35; TP.rsz = -0.35; TP.lel = TP.rel = -0.2 - 0.7 * pump; TP.lwx = TP.rwx = -0.5; TP.bx = -0.04; TP.sx = -0.12; TP.hp = -0.45; }
+      run(1, f.aux > 0.5 ? { bz: Math.sin(time * 3) * 0.22 } : { bx: -0.04 });
+      if (f.aux > 0.5) { TP.lsz = 1.5; TP.rsz = -1.5; TP.lsx = TP.rsx = -0.05; TP.lel = TP.rel = -0.05; TP.lwx = TP.rwx = 0.25; TP.hp = -0.25; TP.sy = Math.sin(time * 3) * 0.12; }
+      else { const pump = Math.max(0, Math.sin(time * 7)); TP.lsx = TP.rsx = -2.75; TP.lsz = 0.35; TP.rsz = -0.35; TP.lel = TP.rel = -0.2 - 0.7 * pump; TP.lwx = TP.rwx = -0.5; TP.sx = -0.12; TP.hp = -0.45; }
       break;
     case ANIM.HEADER: {
       const n = Math.sin(t * Math.PI);
@@ -1624,12 +2135,14 @@ function targetPose(f, time, m) {
   return TP;
 }
 
+
 /** Height of the body pivot that puts the lowest point of the current pose on the ground (y = 0 in body space):
     soles / heels / toes (both edges), knee caps, pelvis, chest, shoulders, head, elbows, wrists and hands.
     Analytic forward kinematics on the damped joint values (no matrix updates); every point carries its radius. */
-const TORSO_PTS = [[0.16, 0, 0], [-0.16, 0, 0], [0, -0.06, -0.12], [0, -0.06, 0.12], [0.2, 0.42, 0], [-0.2, 0.42, 0], [0, 0.38, 0.12], [0, 0.38, -0.12],
-  [0.27, 0.48, 0], [-0.27, 0.48, 0], [0, 0.73, 0.115], [0, 0.73, -0.11], [0.1, 0.73, 0], [-0.1, 0.73, 0], [0, 0.86, 0]];
+const TORSO_PTS = [[0.16, 0, 0], [-0.16, 0, 0], [0, -0.04, -0.105], [0, -0.04, 0.105], [0, -0.08, 0], [0.2, 0.42, 0], [-0.2, 0.42, 0], [0, 0.38, 0.125], [0, 0.38, -0.12],
+  [0.24, 0.49, 0], [-0.24, 0.49, 0], [0, 0.72, 0.12], [0, 0.73, -0.12], [0.1, 0.73, 0], [-0.1, 0.73, 0], [0, 0.875, 0]];
 const _gp = [0, 0, 0], _gd = [0, 0, 0];
+const SOLE_PTS = [[FOOT_HEEL, 0.032], [FOOT_HEEL, -0.032], [0.12, 0.048], [0.12, -0.046], [FOOT_TOE, 0.026], [FOOT_TOE, -0.026]];
 const rotX = (v, a) => { const c = Math.cos(a), s = Math.sin(a), y = v[1] * c - v[2] * s; v[2] = v[1] * s + v[2] * c; v[1] = y; };
 const rotY = (v, a) => { const c = Math.cos(a), s = Math.sin(a), x = v[0] * c + v[2] * s; v[2] = -v[0] * s + v[2] * c; v[0] = x; };
 const rotZ = (v, a) => { const c = Math.cos(a), s = Math.sin(a), x = v[0] * c - v[1] * s; v[1] = v[0] * s + v[1] * c; v[0] = x; };
@@ -1642,26 +2155,27 @@ function groundOffset(m, c) {
   // point given in spine space → body space
   const spinePt = (v, r) => { rotY(v, syaw); rotX(v, c.sx); hipsPt(v, r); };
   for (let L = 1; L >= -1; L -= 2) {
-    const hx = L > 0 ? c.lhx : c.rhx, hz = L > 0 ? c.lhz : c.rhz, kn = Math.max(0, L > 0 ? c.lkn : c.rkn), ax = L > 0 ? c.lax : c.rax;
+    const hx = L > 0 ? c.lhx : c.rhx, hz = L > 0 ? c.lhz : c.rhz, kn = Math.max(0, L > 0 ? c.lkn : c.rkn), ax = L > 0 ? c.lax : c.rax, hy = L > 0 ? c.lhy : c.rhy;
+    const legPt = (v, r) => { v[0] -= L * 0.095; rotY(v, hy); v[0] += L * 0.095; hipsPt(v, r); };     // hip turn (YXZ) about the joint
     const ch = Math.cos(hz), shz = Math.sin(hz), a2 = hx + kn, a3 = a2 + ax;
     const kx = L * 0.095 + shz * D.th, ky = -D.th * ch * Math.cos(hx), kz = -D.th * ch * Math.sin(hx);
     const fx = kx + shz * D.sh, fy = ky - D.sh * ch * Math.cos(a2), fz = kz - D.sh * ch * Math.sin(a2);
     const c3 = Math.cos(a3), s3 = Math.sin(a3);
-    for (const zc of [FOOT_HEEL, FOOT_TOE]) for (const e of [-0.05, 0.05]) {      // sole corners, both edges
-      _gp[0] = fx + e; _gp[1] = fy + FOOT_SOLE * c3 - zc * s3; _gp[2] = fz + FOOT_SOLE * s3 + zc * c3; hipsPt(_gp, 0);
+    for (const [zc, e] of SOLE_PTS) {                                             // sole outline: heel, ball, toe (both edges)
+      _gp[0] = fx + e; _gp[1] = fy + FOOT_SOLE * c3 - zc * s3; _gp[2] = fz + FOOT_SOLE * s3 + zc * c3; legPt(_gp, 0);
     }
-    _gp[0] = kx; _gp[1] = ky - 0.02 * Math.cos(a2) - 0.065 * Math.sin(a2); _gp[2] = kz - 0.02 * Math.sin(a2) + 0.065 * Math.cos(a2); hipsPt(_gp, 0); // knee cap
-    _gp[0] = kx; _gp[1] = ky; _gp[2] = kz; hipsPt(_gp, 0.07);                                                          // knee sides
-    // arm: shoulder (Rx·Rz) → elbow (Rx) → wrist (Rx) → hand
-    const sx_ = L > 0 ? c.lsx : c.rsx, sz_ = L > 0 ? c.lsz : c.rsz, el = Math.min(0, L > 0 ? c.lel : c.rel), wx = clamp(L > 0 ? c.lwx : c.rwx, -0.8, 0.8);
-    const sX = L * 0.205 * m.build, sY = 0.49;
-    const seg = (len, bend) => { _gd[0] = 0; _gd[1] = -len * Math.cos(bend); _gd[2] = -len * Math.sin(bend); rotZ(_gd, sz_); rotX(_gd, sx_); };
+    _gp[0] = kx; _gp[1] = ky - 0.02 * Math.cos(a2) - 0.065 * Math.sin(a2); _gp[2] = kz - 0.02 * Math.sin(a2) + 0.065 * Math.cos(a2); legPt(_gp, 0); // knee cap
+    _gp[0] = kx; _gp[1] = ky; _gp[2] = kz; legPt(_gp, 0.07);                                                          // knee sides
+    // arm: shoulder (Euler XZY: Rx·Rz·Ry) → elbow (Rx) → wrist (Rx) → hand
+    const sx_ = L > 0 ? c.lsx : c.rsx, sz_ = L > 0 ? c.lsz : c.rsz, sy_ = L > 0 ? c.lsy : c.rsy, el = Math.min(0, L > 0 ? c.lel : c.rel), wx = clamp(L > 0 ? c.lwx : c.rwx, -0.8, 0.8);
+    const sX = L * SHOULDER_X * m.build, sY = SHOULDER_Y;
+    const seg = (len, bend) => { _gd[0] = 0; _gd[1] = -len * Math.cos(bend); _gd[2] = -len * Math.sin(bend); rotY(_gd, sy_); rotZ(_gd, sz_); rotX(_gd, sx_); };
     seg(0.29, 0); const ex = sX + _gd[0], ey = sY + _gd[1], ez = _gd[2];
     seg(0.25, el); const wx_ = ex + _gd[0], wy = ey + _gd[1], wz = ez + _gd[2];
-    seg(0.07 * m.handK, el + wx);
     _gp[0] = ex; _gp[1] = ey; _gp[2] = ez; spinePt(_gp, 0.05);
-    _gp[0] = wx_; _gp[1] = wy; _gp[2] = wz; spinePt(_gp, 0.045);
-    _gp[0] = wx_ + _gd[0]; _gp[1] = wy + _gd[1]; _gp[2] = wz + _gd[2]; spinePt(_gp, 0.045 * m.handK);
+    _gp[0] = wx_; _gp[1] = wy; _gp[2] = wz; spinePt(_gp, 0.04);
+    seg(0.07 * m.handK, el + wx); _gp[0] = wx_ + _gd[0]; _gp[1] = wy + _gd[1]; _gp[2] = wz + _gd[2]; spinePt(_gp, 0.045 * m.handK);   // palm
+    seg(0.11 * m.handK, el + wx); _gp[0] = wx_ + _gd[0]; _gp[1] = wy + _gd[1]; _gp[2] = wz + _gd[2]; spinePt(_gp, 0.026 * m.handK);   // finger tips
   }
   const bw = m.build;
   for (const [x, y, z] of TORSO_PTS) { _gp[0] = x * bw; _gp[1] = y; _gp[2] = z; spinePt(_gp, 0); }
@@ -1669,17 +2183,39 @@ function groundOffset(m, c) {
 }
 /** Write pose into the model with exponential damping so nothing pops. */
 function applyPose(m, f, dt, time) {
-  // visual memory: acceleration (for the lean), last dive side, whether this fall follows a dive
+  // visual memory: acceleration (for the lean), yaw rate, braking / cutting plant, ball proximity, last dive side
   if (dt > 0) {
     if (m.spd0 < 0) m.spd0 = f.speed;
     m.acc = damp(m.acc, clamp((f.speed - m.spd0) / dt, -25, 25), 5, dt); m.spd0 = f.speed;
+    if (m.yaw0 == null) m.yaw0 = f.facing;
+    m.yr = damp(m.yr, clamp(wrapA(f.facing - m.yaw0) / dt, -12, 12), 10, dt); m.yaw0 = f.facing;
+    const running = f.anim === ANIM.RUN || (f.anim === ANIM.GKREADY && f.speed > 1.6);
+    const bT = running ? Math.max(clamp((-m.acc - 3) / 9, 0, 1), 0.6 * sstep(2.5, 6, Math.abs(m.yr)) * sstep(1.5, 4, f.speed)) : 0;
+    m.brake = damp(m.brake, bT, bT > m.brake ? 10 : 2.5, dt);
+    let al = 0;
+    if (typeof ballMesh !== 'undefined') { const dx = ballMesh.position.x - f.x, dz = ballMesh.position.z - f.z; al = dx * dx + dz * dz < 196 ? 1 : 0; }
+    m.alert = damp(m.alert, al, 1.5, dt);
+    m.since += dt;
+    // learn the gait cycle length (metres per 2π of f.phase) from the record itself: ratio to 0.9 + 0.38·speed
+    const dph = m.ph0 == null ? -1 : f.phase - m.ph0; m.ph0 = f.phase;
+    if (running && f.speed > 0.8 && dph >= 0 && dph < 1.5) {
+      m.cS += f.speed * dt; m.cP += dph; m.cV += f.speed * dph;
+      if (m.cP > 0.6) { const v = m.cV / m.cP, kk = Math.PI * 2 * m.cS / m.cP / (0.9 + 0.38 * v);
+        if (kk > 0.4 && kk < 2.5) m.cycK = m.cycK > 0 ? lerp(m.cycK, kk, 0.6) : kk; m.cS = m.cP = m.cV = 0; }
+    } else { m.cS = m.cP = m.cV = 0; }
   }
   if (f.anim === ANIM.DIVE) m.diveSide = f.aux >= 0 ? 1 : -1;
-  if (f.anim !== m.prevAnim) { if (f.anim === ANIM.FALLEN) m.fromDive = m.prevAnim === ANIM.DIVE; m.prevAnim = f.anim; }
+  if (f.anim !== m.prevAnim) { if (f.anim === ANIM.FALLEN) m.fromDive = m.prevAnim === ANIM.DIVE; m.prevAnim = f.anim; m.since = 0; }
+  if (f.anim === ANIM.GKREADY) { const g = f.speed > 1.6; if (g !== m.gkRun) { m.gkRun = g; m.since = 0; } }   // keeper: run ↔ set stance swap
   const T = targetPose(f, time, m), c = m.cur;
-  const a = dt <= 0 ? 1 : 1 - Math.exp(-(POSE_RATE[f.anim] || 26) * dt);
-  const vmax = dt <= 0 ? 1e9 : 14 * dt;                                    // joint speed cap (rad/s) so big pose changes never snap
-  for (const k of POSE_KEYS) c[k] += clamp((T[k] - c[k]) * a, -vmax, vmax);
+  // locomotion targets are already smooth and foot-planted: once settled, follow them tightly (little lag = no skate).
+  // A jump in the target (replay cut, set-piece reset, speed snap) re-arms the normal damped blend instead of popping.
+  if (dt > 0) { let jump = 0; for (const k of LEG_KEYS) jump = Math.max(jump, Math.abs(T[k] - c[k])); if (jump > 0.8) m.since = Math.min(m.since, 0); }
+  const loco = f.anim === ANIM.RUN || f.anim === ANIM.CELEB || (f.anim === ANIM.GKREADY && f.speed > 1.6) ? sstep(0.15, 0.5, m.since) : 0;
+  const a = dt <= 0 ? 1 : 1 - Math.exp(-lerp(POSE_RATE[f.anim] || 26, 50, loco) * dt);
+  const vmax = dt <= 0 ? 1e9 : 14 * dt, vLeg = dt <= 0 ? 1e9 : lerp(14, 60, loco) * dt;   // joint speed caps (rad/s): nothing snaps
+  const exact = f.anim === ANIM.CELEB ? LEG_KEYS : LOCO_EXACT;
+  for (const k of POSE_KEYS) { const lg = exact.has(k), v = lg ? vLeg : vmax; c[k] += clamp((T[k] - c[k]) * (lg ? lerp(a, 1, loco) : a), -v, v); }
   c.lel = Math.min(0, c.lel); c.rel = Math.min(0, c.rel); c.lkn = Math.max(0, c.lkn); c.rkn = Math.max(0, c.rkn);
   c.lax = clamp(c.lax, -0.6, 1.3); c.rax = clamp(c.rax, -0.6, 1.3);
   m.body.rotation.set(c.bx, 0, c.bz);
@@ -1705,10 +2241,10 @@ function applyPose(m, f, dt, time) {
   }
   if (dt > 0) { m.hdY = damp(m.hdY, yaw, 8, dt); m.hdP = damp(m.hdP, pitch, 8, dt); } else { m.hdY = yaw; m.hdP = pitch; }
   m.neck.rotation.set(m.hdP, m.hdY, 0);
-  m.shL.rotation.set(c.lsx, 0, c.lsz); m.shR.rotation.set(c.rsx, 0, c.rsz);
+  m.shL.rotation.set(c.lsx, c.lsy, c.lsz); m.shR.rotation.set(c.rsx, c.rsy, c.rsz);
   m.elL.rotation.x = c.lel; m.elR.rotation.x = c.rel;
   m.wrL.rotation.x = clamp(c.lwx, -0.8, 0.8); m.wrR.rotation.x = clamp(c.rwx, -0.8, 0.8);
-  m.hipL.rotation.set(c.lhx, 0, c.lhz); m.hipR.rotation.set(c.rhx, 0, c.rhz);
+  m.hipL.rotation.set(c.lhx, c.lhy, c.lhz); m.hipR.rotation.set(c.rhx, c.rhy, c.rhz);
   m.knL.rotation.x = c.lkn; m.knR.rotation.x = c.rkn;
   m.anL.rotation.x = c.lax; m.anR.rotation.x = c.rax;
 }
@@ -1721,29 +2257,65 @@ const ball = {
   owner: null, holder: null, lastTouch: null, lastKick: null, receiver: null, shot: false, lofted: false,
   reset(x, z) { this.pos.set(x, BALL_R, z); this.prev.copy(this.pos); this.vel.set(0, 0, 0); this.spin.set(0, 0, 0); this.owner = this.holder = this.receiver = null; this.shot = false; this.lofted = false; }
 };
-const _v = V3(), _w = V3(), _q = new THREE.Quaternion(), UP = V3(0, 1, 0);
-function ballStep(dt, P, onEvent) {
-  ball.prev.copy(ball.pos);
-  if (ball.holder) { ball.vel.set(0, 0, 0); return; }        // in a keeper's hands / set piece: positioned by holder
-  const p = ball.pos, v = ball.vel;
-  const air = p.y > BALL_R + 0.02 || v.y > 0.3;
+const _v = V3(), _w = V3(), _q = new THREE.Quaternion(), UP = V3(0, 1, 0), _bs = V3();
+/** Bounce on the turf: restitution BOUNCE_E on the normal speed, Coulomb friction at the contact point couples
+ *  ground speed and spin (contact-point velocity = v + w x (0,-r,0) = (vx + wz r, vz - wx r)). The friction impulse is
+ *  capped at the amount that makes the ball roll (hollow sphere, I = 2/3 m r^2 -> factor 2/5). */
+function ballBounce(v, w) {
+  const vy = -v.y; v.y = vy * BOUNCE_E;
+  const cx = v.x + w.z * BALL_R, cz = v.z - w.x * BALL_R, c = Math.hypot(cx, cz);
+  if (c > 1e-4) {
+    const j = Math.min(BOUNCE_MU * (1 + BOUNCE_E) * vy, 0.4 * c), dvx = -cx / c * j, dvz = -cz / c * j;
+    v.x += dvx; v.z += dvz;
+    const k = 1.5 / BALL_R; w.x += -dvz * k; w.z += dvx * k;
+  }
+  w.y *= 0.7;
+}
+/** One integration step of a free ball (shared by ballStep, predictBall and the kick solvers so they agree).
+ *  ground = false skips the turf (used by the aim solvers). Returns true while airborne. */
+function ballIntegrate(p, v, w, dt, ground = true) {
+  const air = !ground || p.y > BALL_R + 0.02 || v.y > 0.3;
   if (air) {
     v.y -= GRAV * dt;
-    const sp = v.length(); v.multiplyScalar(1 - AIR_DRAG * sp * dt);
-    _v.crossVectors(ball.spin, v).multiplyScalar(MAGNUS * dt); v.add(_v);       // Magnus: curl from spin
-    ball.spin.multiplyScalar(Math.exp(-0.5 * dt));
+    const sp = v.length(); if (sp > 0) v.multiplyScalar(Math.max(0, 1 - dragK(sp) * sp * dt));
+    _bs.crossVectors(w, v).multiplyScalar(MAGNUS * dt); v.add(_bs);              // Magnus: curl / dip / float from spin
+    w.multiplyScalar(Math.exp(-SPIN_DECAY * dt));
   } else {
     const h = Math.hypot(v.x, v.z);
-    if (h > 0) { const nh = Math.max(0, h - (ROLL_DECEL + 0.06 * h) * dt); v.x *= nh / h; v.z *= nh / h; }
-    ball.spin.multiplyScalar(Math.exp(-3 * dt));
-    if (h > 3 && ball.spin.y !== 0) { _v.crossVectors(ball.spin, v).multiplyScalar(MAGNUS * 0.3 * dt); v.x += _v.x; v.z += _v.z; }
+    if (h > 0) { const nh = Math.max(0, h - (ROLL_DECEL + dragK(h) * h * h) * dt); v.x *= nh / h; v.z *= nh / h; }
+    if (h > 3 && w.y !== 0) { _bs.crossVectors(w, v).multiplyScalar(MAGNUS * 0.25 * dt); v.x += _bs.x; v.z += _bs.z; } // a rolling ball with side spin still drifts a little
+    // spin relaxes to pure rolling (axis = up x v), side spin bleeds off on the grass
+    const r = 1 - Math.exp(-6 * dt); w.x += (v.z / BALL_R - w.x) * r; w.z += (-v.x / BALL_R - w.z) * r; w.y *= Math.exp(-2.5 * dt);
   }
   p.addScaledVector(v, dt);
-  if (p.y < BALL_R) {
+  if (ground && p.y < BALL_R) {
     p.y = BALL_R;
-    if (v.y < -1.4) { v.y = -v.y * 0.56; v.x *= 0.88; v.z *= 0.88; ball.spin.multiplyScalar(0.6); if (v.y > 2) onEvent('bounce', v.y); }
-    else v.y = 0;
+    if (v.y < -1.4) { const vy = -v.y; ballBounce(v, w); return vy; } // returns the impact speed (> 0) on a bounce
+    v.y = 0;
   }
+  return air ? -1 : 0;
+}
+/** Fly a ball from p0 with velocity v0 / spin w0 (no turf) until stop(p, v, t) is true or tMax. Writes into out. */
+const _fp = V3(), _fv = V3(), _fw = V3();
+function ballFly(p0, v0, w0, tMax, stop, out) {
+  _fp.copy(p0); _fv.copy(v0); _fw.copy(w0); let t = 0; const h = 1 / 60;
+  while (t < tMax) { ballIntegrate(_fp, _fv, _fw, h, false); t += h; if (stop(_fp, _fv, t)) break; }
+  out.copy(_fp); return t;
+}
+/** Arrival speed of a ground pass kicked at v0 after d metres (0 if it stops short), and its travel time. */
+function rollArrive(v0, d) {
+  let v = v0, x = 0, t = 0; const h = 1 / 30;
+  while (x < d) { if (v <= 0.05) return { v: 0, t: 99 }; const s = Math.min(h, (d - x) / v); x += v * s; t += s; v = Math.max(0, v - (ROLL_DECEL + dragK(v) * v * v) * s); }
+  return { v, t };
+}
+/** Kick speed for a ground pass that arrives with speed va after d metres (bisection on rollArrive). */
+function rollSolve(d, va) {
+  let lo = 2, hi = 34;
+  for (let i = 0; i < 16; i++) { const m = (lo + hi) / 2; if (rollArrive(m, d).v < va) lo = m; else hi = m; }
+  return hi;
+}
+/** Goal frame collisions (posts, crossbar, nets) for one (sub)step from prev to p. */
+function collideGoalFrame(prev, p, v, P, onEvent) {
   // posts & crossbar (cylinders)
   for (const s of [-1, 1]) {
     const gx = s * P.hl;
@@ -1768,7 +2340,7 @@ function ballStep(dt, P, onEvent) {
   // nets: finite planes; ball is absorbed, net bulges
   for (const net of World.nets) {
     if (Math.abs(p.x - net.o.x) > GOAL_D + 2) continue;
-    _v.subVectors(ball.prev, net.o); const s0 = _v.dot(net.n);
+    _v.subVectors(prev, net.o); const s0 = _v.dot(net.n);
     _w.subVectors(p, net.o); const s1 = _w.dot(net.n);
     if (Math.abs(s1) > BALL_R && Math.sign(s0) === Math.sign(s1)) continue;
     const a = _w.dot(net.u), b = _w.dot(net.v);
@@ -1780,6 +2352,22 @@ function ballStep(dt, P, onEvent) {
     net.imp.push({ a, b, amp: clamp(vn * 0.045, -0.45, 0.45), t: 0 }); net.dirty = true;
     if (Math.abs(vn) > 3) onEvent('net', Math.abs(vn));
   }
+}
+const _bp = V3();
+function ballStep(dt, P, onEvent) {
+  ball.prev.copy(ball.pos);
+  if (ball.holder) { ball.vel.set(0, 0, 0); return; }        // in a keeper's hands / set piece: positioned by holder
+  const p = ball.pos, v = ball.vel;
+  const air = p.y > BALL_R + 0.02 || v.y > 0.3;
+  // near a goal frame, sub-step so fast shots cannot tunnel through a post / the bar (<= 4 cm per sub-step)
+  const sp = v.length(), near = Math.abs(Math.abs(p.x) - P.hl) < 3 + sp * dt;
+  const n = near ? clamp(Math.ceil(sp * dt / 0.04), 1, 16) : 1, hs = dt / n;
+  for (let k = 0; k < n; k++) {
+    _bp.copy(p);
+    const imp = ballIntegrate(p, v, ball.spin, hs);
+    if (imp > 0 && v.y > 2) onEvent('bounce', v.y);
+    collideGoalFrame(_bp, p, v, P, onEvent);
+  }
   // advertising boards: keep the ball near the pitch
   const bx = P.hl + 4.2 * P.scale + 1, bz = P.hw + 4.2 * P.scale + 1;
   if (Math.abs(p.x) > bx) { p.x = Math.sign(p.x) * bx; v.x *= -0.3; }
@@ -1789,18 +2377,12 @@ function ballStep(dt, P, onEvent) {
   if (!air && h > 0.01) { _v.set(v.z, 0, -v.x).normalize(); _q.setFromAxisAngle(_v, h * dt / BALL_R); ball.quat.premultiply(_q); }
   else if (air) { const w = ball.spin.length() + 2; _v.copy(ball.spin).addScaledVector(V3(v.z, 0, -v.x).normalize(), 2).normalize(); _q.setFromAxisAngle(_v, w * dt); ball.quat.premultiply(_q); }
 }
-/** Cheap forward prediction of the ball (no spin/collisions) used by the AI for intercepts. */
-const PRED_N = 50, PRED_DT = 0.06, pred = Array.from({ length: PRED_N }, () => V3());
+/** Forward prediction of the ball (same integrator as ballStep incl. spin and bounces, no collisions) used by the AI for intercepts. */
+const PRED_N = 50, PRED_DT = 0.06, pred = Array.from({ length: PRED_N }, () => V3()), _pw = V3();
 function predictBall() {
-  const p = _v.copy(ball.pos), v = _w.copy(ball.vel);
+  const p = _v.copy(ball.pos), v = _w.copy(ball.vel), w = _pw.copy(ball.spin);
   for (let i = 0; i < PRED_N; i++) {
-    for (let k = 0; k < 3; k++) {
-      const dt = PRED_DT / 3;
-      if (p.y > BALL_R + 0.02 || v.y > 0.3) { v.y -= GRAV * dt; v.multiplyScalar(1 - AIR_DRAG * v.length() * dt); }
-      else { const h = Math.hypot(v.x, v.z); if (h > 0) { const nh = Math.max(0, h - (ROLL_DECEL + 0.06 * h) * dt); v.x *= nh / h; v.z *= nh / h; } }
-      p.addScaledVector(v, dt);
-      if (p.y < BALL_R) { p.y = BALL_R; v.y = v.y < -1.4 ? -v.y * 0.56 : 0; }
-    }
+    for (let k = 0; k < 3; k++) ballIntegrate(p, v, w, PRED_DT / 3);
     pred[i].copy(p);
   }
 }
@@ -1853,11 +2435,12 @@ class Player {
   get speed() { return Math.hypot(this.vel.x, this.vel.z); }
   get controlled() { return G.controlled === this; }
   stat(k) { return this.info[k]; }
+  /** Top speed: sprint 7.5 m/s (pace 55) .. 9.5 m/s (pace 97), a run is 74 % of it; dribbling costs 10-14 %. */
   maxSpeed(sprint) {
-    let v = 4.6 + this.info.pace * 0.024;
-    if (sprint) v *= 1.3;
+    let v = 7.5 + (clamp(this.info.pace, 40, 99) - 55) * 0.0476;
+    if (!sprint) v *= 0.74;
     v *= 0.72 + 0.28 * Math.min(1, this.stamina * 1.5);
-    if (ball.owner === this) v *= 0.9;
+    if (ball.owner === this) v *= sprint ? 0.86 : 0.9;
     if (!this.team.isUser) v *= this.team.diff.speed;
     if (this.burstT > 0) v *= 1.12;
     if (this.info.isStar) v *= 1.06; // the club star's extra gear
@@ -1911,7 +2494,7 @@ const cnt = k => { const c = G.cnt || (G.cnt = {}); c[k] = (c[k] || 0) + 1; };
 function kickBall(p, vel, spin, kind, power = 0.5) {
   ball.owner = null; ball.holder = null;
   ball.vel.copy(vel); ball.spin.copy(spin);
-  ball.lastTouch = p; ball.lastKick = { p, kind, t: G.t }; cnt('k_' + kind); ball.shot = kind === 'shot' || kind === 'header'; ball.lofted = kind === 'lofted' || kind === 'cross' || kind === 'throw';
+  ball.lastTouch = p; ball.lastKick = { p, kind, t: G.t, x: ball.pos.x, z: ball.pos.z }; cnt('k_' + kind); ball.shot = kind === 'shot' || kind === 'header'; ball.lofted = kind === 'lofted' || kind === 'cross' || kind === 'throw';
   ball.receiver = null;
   p.touchCD = 0.32;
   if (kind === 'throw') p.setState('throw', 0.45); else if (kind === 'header') p.setState('header', 0.5); else p.setState('kick', 0.36);
@@ -1947,13 +2530,29 @@ function selectReceiver(p, dir, minCos = 0.5) {
   }
   return best;
 }
-/** Ground / lofted / through pass or throw-in towards a receiver or into space. */
+/** Velocity that puts the ball at tgt after Tt seconds through the real flight model (drag crisis + Magnus), by
+ *  fixed-point correction of a drag-free first guess. spin is the spin the kick will carry. */
+const _so = V3();
+function solveFlight(from, tgt, Tt, spin) {
+  const v = V3((tgt.x - from.x) / Tt, (tgt.y - from.y + 0.5 * GRAV * Tt * Tt) / Tt, (tgt.z - from.z) / Tt);
+  for (let i = 0; i < 5; i++) {
+    ballFly(from, v, spin, Tt - 1e-6, () => false, _so);
+    v.x += (tgt.x - _so.x) / Tt; v.y += (tgt.y - _so.y) / Tt; v.z += (tgt.z - _so.z) / Tt;
+  }
+  return v;
+}
+/** Back spin (w > 0) / top spin (w < 0) vector for a ball travelling along (ux, uz). Top spin axis = up x v. */
+const lineSpin = (ux, uz, w) => V3(-uz * w, 0, ux * w);
+/* Ground-pass pace (TUNE): arrival speed at the receiver, m/s. A firm 20 m pass is struck ~16.5 m/s and arrives ~10 m/s. */
+const passArrive = (type, d) => type === 'through' ? 6.5 + d * 0.06 : 7.5 + d * 0.13;
+/** Ground / lofted / through pass, cross or throw-in towards a receiver or into space. */
 function doPass(p, { dir = null, type = 'ground', target = null, power = 0.5, point = null } = {}) {
   const T = p.team;
   if (!dir || dir.lengthSq() < 0.01) dir = fwdOf(p);
   dir = dir.clone().setY(0).normalize();
   const r = target || (point ? null : selectReceiver(p, dir, type === 'through' ? 0.35 : 0.5));
   const from = ball.pos;
+  const loftT = d => type === 'cross' ? clamp(1.0 + d * 0.025, 1.1, 1.9) : clamp(0.75 + d * 0.04, 0.9, 2.3);
   let tgt;
   if (point) tgt = point.clone();
   else if (r) {
@@ -1961,71 +2560,97 @@ function doPass(p, { dir = null, type = 'ground', target = null, power = 0.5, po
     if (type === 'through') {
       const ahead = r.speed > 2.5 ? r.vel.clone().normalize() : V3(T.side, 0, 0);
       tgt = r.pos.clone().addScaledVector(ahead, 6 + d * 0.1).addScaledVector(r.vel, 0.4);
-    } else if (type === 'lofted' || type === 'throw') tgt = r.pos.clone().addScaledVector(r.vel, clamp(0.75 + d * 0.04, 0.9, 2.3) * 0.75);
-    else tgt = r.pos.clone().addScaledVector(r.vel, d / 18 * 0.85);
+    } else if (type === 'lofted' || type === 'throw' || type === 'cross') tgt = r.pos.clone().addScaledVector(r.vel, loftT(d) * 0.75);
+    else { const tt = rollArrive(rollSolve(d, passArrive(type, d)), d).t; tgt = r.pos.clone().addScaledVector(r.vel, Math.min(tt, 2.5) * 0.8); }
   } else tgt = from.clone().addScaledVector(dir, type === 'lofted' ? 26 : type === 'throw' ? 12 : 16);
-  tgt.x = clamp(tgt.x, -G.P.hl - 1, G.P.hl + 1); tgt.z = clamp(tgt.z, -G.P.hw + 0.5, G.P.hw - 0.5);
-  // accuracy from the passer's stat and difficulty
-  const err = (100 - p.stat('passing')) / 100 * 0.12 + T.diff.passErr * (T.isUser && p.controlled ? 0.5 : 1);
+  tgt.x = clamp(tgt.x, -G.P.hl - 1, G.P.hl + 1); tgt.z = clamp(tgt.z, -G.P.hw + 0.3, G.P.hw - 0.3);
+  // accuracy from the passer's stat and difficulty; passing under pressure or on the turn is harder
+  let press = 9; for (const o of T.opp.players) press = Math.min(press, d2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
+  const err = (100 - p.stat('passing')) / 100 * 0.2 + T.diff.passErr * (T.isUser && p.controlled ? 0.5 : 1) + clamp((2.2 - press) * 0.02, 0, 0.04);
   const ang = gauss() * err, dx = tgt.x - from.x, dz = tgt.z - from.z;
-  let d = Math.hypot(dx, dz) * (1 + gauss() * err * 0.4);
+  let d = Math.max(1, Math.hypot(dx, dz) * (1 + gauss() * err * 0.4));
   const a = Math.atan2(dz, dx) + ang, ux = Math.cos(a), uz = Math.sin(a);
-  const v = V3();
-  if (type === 'lofted') {
-    const Tt = clamp(0.75 + d * 0.04, 0.9, 2.3), hs = d / Tt * (1 + AIR_DRAG * d * 0.55);
-    v.set(ux * hs, 0.5 * GRAV * Tt * 0.98, uz * hs);
+  let v, spin = V3();
+  if (type === 'lofted' || type === 'cross') {
+    // lofted balls carry back spin (they hang, then check up on the bounce); crosses are whipped with some side spin
+    spin = lineSpin(ux, uz, type === 'cross' ? 6 : 8); if (type === 'cross') spin.y = rand(-14, 14);
+    v = solveFlight(from, V3(from.x + ux * d, type === 'cross' ? 1.1 : 0.45, from.z + uz * d), loftT(d), spin);
   } else if (type === 'throw') {
-    ball.pos.y = 2.0; const Tt = clamp(0.5 + d * 0.035, 0.6, 1.3), hs = Math.min(17, d / Tt);
-    v.set(ux * hs, (0.6 - 2.0 + 0.5 * GRAV * Tt * Tt) / Tt, uz * hs);
+    ball.pos.y = 2.0; const Tt = clamp(0.5 + d * 0.035, 0.6, 1.3);
+    v = solveFlight(from, V3(from.x + ux * d, 0.6, from.z + uz * d), Tt, spin);
+    const hs = Math.hypot(v.x, v.z); if (hs > 17) { v.x *= 17 / hs; v.z *= 17 / hs; }
   } else {
-    const va = type === 'through' ? 7 : 6.5 + d * 0.11;
-    let v0 = 10; for (let k = 0; k < 3; k++) { const dec = ROLL_DECEL + 0.06 * (v0 + va) / 2; v0 = Math.sqrt(va * va + 2 * dec * d); }
-    v0 = clamp(v0, 7, 30) * (0.92 + p.stat('passing') / 1000);
-    v.set(ux * v0, 0, uz * v0);
+    const v0 = clamp(rollSolve(d, passArrive(type, d)), 6, 30) * (0.96 + p.stat('passing') / 2000);
+    v = V3(ux * v0, 0, uz * v0);
   }
-  kickBall(p, v, V3(), type === 'throw' ? 'throw' : type === 'lofted' ? 'lofted' : 'pass', 0.4 + d / 60);
+  kickBall(p, v, spin, type === 'throw' ? 'throw' : type === 'cross' ? 'cross' : type === 'lofted' ? 'lofted' : 'pass', 0.4 + d / 60);
   ball.receiver = r; if (r) r.receiveT = G.t;
   statFor(T).passes++;
   if (T.isUser && r && !r.isGK && !G.demo) setControlled(r);
   return r;
 }
 /** Shot at goal. aim ∈ [-1,1] across the goal mouth (null = AI picks far corner), curl ∈ [-1,1]. */
+const CURL_SPIN = 35, SHOT_SPREAD = 3.2, SHOT_SPREAD_D = 0.03;   // rad/s of side spin at curl = 1 (~5.6 rev/s): bends a 25 m shot ~2.5 m off its initial line
 function doShoot(p, power, aim = null, curl = 0) {
-  const T = p.team, gx = T.goalX, gk = T.opp.gk, b = ball.pos;
+  const T = p.team, gx = T.goalX, gk = T.opp.gk, b = ball.pos, g = Math.sign(gx);
   // aim is in world z across the goal mouth (-1 = post at -z, +1 = post at +z); AI aims away from the keeper
   if (aim === null) aim = (gk.pos.z > b.z ? -1 : 1) * rand(0.5, 0.95);
   let tz = clamp(aim, -1, 1) * (GOAL_HW - 0.45);
   const shooting = p.stat('shooting');
   const dist = d2(b.x, b.z, gx, tz);
-  const err = (1 - shooting / 100) * 0.8 + (T.isUser && p.controlled ? T.diff.shotErr * 0.5 : T.diff.shotErr) + Math.max(0, power - 0.86) * 2.2 + dist / 90;
-  let ty = 0.3 + power * 0.85 + Math.max(0, power - 0.86) * rand(2, 7) + gauss() * err * 0.7;
-  ty = clamp(ty, 0.15, 6); tz += gauss() * err * 2.6;
-  const speed = 13 + power * (11 + shooting * 0.1);
-  const Tt = dist / speed, w = curl * 26;
-  const spin = V3(0, w, 0);
-  // pre-compensate the Magnus bend so curl bends the ball back to the target
-  const hx = (gx - b.x) / Tt, hz = (tz - b.z) / Tt;
-  const bendX = 0.5 * MAGNUS * Tt * Tt * (w * hz), bendZ = 0.5 * MAGNUS * Tt * Tt * (-w * hx);
-  const k = Math.exp(AIR_DRAG * dist * 0.5);
-  const v = V3((gx - bendX - b.x) / Tt * k, 0, (tz - bendZ - b.z) / Tt * k);
-  v.y = (ty - b.y + 0.5 * GRAV * Tt * Tt) / Tt + GRAV * Tt * (k - 1) * 0.5;
+  let press = 9; for (const o of T.opp.players) if (!o.isGK) press = Math.min(press, d2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
+  const volley = b.y > 0.35 || Math.hypot(ball.vel.x - p.vel.x, ball.vel.z - p.vel.z) > 9;     // first-time / in the air
+  const err = (1 - shooting / 100) * 0.8 + (T.isUser && p.controlled ? T.diff.shotErr * 0.5 : T.diff.shotErr) + Math.max(0, power - 0.86) * 2.2
+    + dist / 90 + clamp((2.2 - press) * 0.12, 0, 0.25) + (volley ? 0.12 : 0);
+  // TUNE shot spread: lateral sd ~ err * SHOT_SPREAD + dist * SHOT_SPREAD_D m (a free 11 m shot ~2.5 m, 20 m ~3.7 m), vertical ~ err * 1.4 m (some shots skied over the bar)
+  let ty = 0.3 + power * 0.85 + Math.max(0, power - 0.86) * rand(2, 7) + dist * 0.012 + gauss() * err * 1.4;
+  ty = clamp(ty, 0.15, 6); tz += gauss() * (err * SHOT_SPREAD + dist * SHOT_SPREAD_D) * (T.isUser && p.controlled && !G.demo ? 0.8 : 1);
+  const speed = 12 + power * (10 + shooting * 0.1);       // ~27 m/s for a firm strike, ~32 m/s flat out
+  const w = curl * CURL_SPIN, ux = (gx - b.x) / (dist || 1), uz = (tz - b.z) / (dist || 1);
+  const spin = lineSpin(ux, uz, -Math.max(0, power - 0.75) * 40); spin.y = w;     // driven shots dip with top spin
+  // aim through the real flight model: correct height and side at the goal line (curl pre-compensated)
+  const v = V3(ux * speed, 0, uz * speed), Tt0 = dist / speed;
+  v.y = (ty - b.y + 0.5 * GRAV * Tt0 * Tt0) / Tt0;
+  for (let i = 0; i < 4 && (b.x - gx) * g < -0.5; i++) {
+    const t = ballFly(b, v, spin, 4, q => (q.x - gx) * g >= 0, _so);
+    if ((_so.x - gx) * g < 0) break;
+    v.y += (ty - _so.y) / t; v.z += (tz - _so.z) / t;
+  }
   if (v.length() > 36) v.setLength(36);
   kickBall(p, v, spin, 'shot', power);
   statFor(T).shots++;
   G.lastShooter = p;
 }
 function doHeader(p) {
-  const T = p.team, b = ball.pos, nearGoal = d2(b.x, b.z, T.goalX, 0) < 22;
+  const T = p.team, b = ball.pos, dG = d2(b.x, b.z, T.goalX, 0), nearGoal = T.prog(b.x) > 0.7 && (dG < 9 || (dG < 15 && xG(T, b.x, b.z) > 0.12));
   p.lift = 0.35;
   if (nearGoal) {
-    const tz = clamp(rand(-1, 1) * (GOAL_HW - 0.4) + gauss() * 1.2, -5, 5), tx = T.goalX, sp = 14 + p.stat('shooting') * 0.05;
-    const dist = d2(b.x, b.z, tx, tz), Tt = dist / sp, ty = rand(0.2, 1.4);
-    kickBall(p, V3((tx - b.x) / Tt, (ty - b.y + 0.5 * GRAV * Tt * Tt) / Tt, (tz - b.z) / Tt), V3(), 'header', 0.6);
+    // headers are hard to place: wide spread, some looped over the bar
+    const tz = clamp(rand(-1, 1) * (GOAL_HW - 0.4) + gauss() * (2.4 - p.stat('shooting') * 0.01 + dG * 0.08), -8, 8), tx = T.goalX, sp = 12 + p.stat('shooting') * 0.05;
+    const dist = d2(b.x, b.z, tx, tz), ty = rand(0.15, 1.8) + Math.max(0, gauss()) * 1.2;
+    cnt('headShot');
+    kickBall(p, solveFlight(b, V3(tx, ty, tz), dist / sp, V3()), V3(), 'header', 0.6);
     statFor(T).shots++; G.lastShooter = p;
+    return;
+  }
+  // nod it down to a team-mate if one is open in front of the header, otherwise clear it long and away from goal
+  const own = T.prog(b.x) < 0.3;
+  let best = null, bs = -1e9;
+  if (!own || Math.random() < 0.3) for (const t of T.players) {
+    if (t === p || t.isGK || t.state === 'fallen') continue;
+    const d = d2(b.x, b.z, t.pos.x, t.pos.z); if (d < 4 || d > 18) continue;
+    let open = 9; for (const o of T.opp.players) open = Math.min(open, d2(o.pos.x, o.pos.z, t.pos.x, t.pos.z));
+    const sc = open * 0.3 + (T.prog(t.pos.x) - T.prog(b.x)) * 6 - d * 0.03;
+    if (open > 2.2 && sc > bs) { bs = sc; best = t; }
+  }
+  if (best) {
+    const d = d2(b.x, b.z, best.pos.x, best.pos.z), Tt = 0.45 + d * 0.045;
+    const tg = best.pos.clone().addScaledVector(best.vel, Tt * 0.8); tg.y = 0.5;
+    const v = solveFlight(b, tg, Tt, V3()); if (v.length() > 15) v.setLength(15);
+    kickBall(p, v, V3(), 'header', 0.4); ball.shot = false; ball.receiver = best; cnt('headPass');
   } else {
-    // defensive clearance / flick on: away from own goal and towards the attack direction
-    const a = Math.atan2(rand(-0.6, 0.6), T.side > 0 ? 1 : -1);
-    kickBall(p, V3(Math.cos(a) * 12, 6, Math.sin(a) * 12), V3(), 'header', 0.5);
+    const a = own ? Math.atan2(rand(0.3, 1.2) * (Math.sign(b.z) || 1), T.side) : Math.atan2(rand(-0.7, 0.7), T.side), s = own ? rand(12, 16) : rand(9, 13);   // own third: away from goal, towards the flank
+    kickBall(p, V3(Math.cos(a) * s, rand(4.5, 7.5), Math.sin(a) * s), V3(), 'header', 0.5); ball.shot = false;
   }
 }
 function doTackle(p) {
@@ -2041,6 +2666,8 @@ function doSlide(p) {
   const f = fwdOf(p); p.vel.copy(f).multiplyScalar(Math.max(p.speed, 5.5) + 2.6);
   Sound.tackle();
 }
+/* foul chances (TUNE): failed tackle with contact from the front / from behind, won tackle through the man from behind */
+const FOUL = { FAIL_FRONT: 0.35, FAIL_BEHIND: 0.6, WIN_BEHIND: 0.3 };
 function resolveTackle(p) {
   const o = ball.owner, f = fwdOf(p); 
   const dx = ball.pos.x - p.pos.x, dz = ball.pos.z - p.pos.z, d = Math.hypot(dx, dz);
@@ -2049,12 +2676,15 @@ function resolveTackle(p) {
     const bonus = p.team.isUser ? 0 : p.team.diff.tackle - 0.55;
     const chance = clamp(0.45 + (p.stat('defending') - o.stat('dribbling')) * 0.012 + bonus + (o.feintT > 0 ? -0.3 : 0), 0.12, 0.9);
     if (Math.random() < chance) {
-      ball.owner = null; ball.lastTouch = p; ball.vel.set(f.x * 3.5 + dx * 1.5, 0, f.z * 3.5 + dz * 1.5);
+      const behind = (Math.cos(o.facing) * -dx + Math.sin(o.facing) * -dz) > 0.3;
+      if (behind && Math.random() < FOUL.WIN_BEHIND) { p.setState('stumble', 0.3); cnt('tackleFoul'); callFoul(p, o); return; }
+      const a = Math.atan2(f.z * 3.5 + dz * 1.5, f.x * 3.5 + dx * 1.5) + rand(-0.9, 0.9), s = rand(2.5, 7);   // the ball squirts loose
+      ball.owner = null; ball.lastTouch = p; ball.vel.set(Math.cos(a) * s, 0, Math.sin(a) * s);
       o.setState('stumble', 0.55); o.touchCD = 0.5; p.touchCD = 0; Sound.tackle(); G.offside = null; cnt('tackleWin');
     } else {
       p.setState('stumble', 0.45); cnt('tackleFail');
       const behind = (Math.cos(o.facing) * -dx + Math.sin(o.facing) * -dz) > 0;
-      if (d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z) < 1.1 && Math.random() < (behind ? 0.35 : 0.12)) callFoul(p, o);
+      if (d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z) < 1.6 && Math.random() < (behind ? FOUL.FAIL_BEHIND : FOUL.FAIL_FRONT)) callFoul(p, o);
     }
   } else if (!o && d < 1.4 && ball.pos.y < 0.6) { cnt('poke');
     ball.lastTouch = p; ball.vel.set(f.x * 6, 0, f.z * 6); p.touchCD = 0.2; G.offside = null;
@@ -2063,7 +2693,7 @@ function resolveTackle(p) {
 
 /* ---- per-step physics for a player: movement, stamina, actions in progress ---- */
 function stepPlayer(p, dt) {
-  p.stateT += dt; p.touchCD -= dt; p.tackleCD -= dt; p.feintT -= dt; p.burstT -= dt;
+  p.stateT += dt; p.touchCD -= dt; p.tackleCD -= dt; p.feintT -= dt; p.burstT = Math.max(0, p.burstT - dt);
   if (p.pending && G.t - p.pending.t > 0.75) p.pending = null;
   const st = p.state;
   if (st !== 'normal' && st !== 'hold' && p.stateT >= p.dur) {
@@ -2071,23 +2701,24 @@ function stepPlayer(p, dt) {
     else if (st === 'dive') p.setState('fallen', 0.55);
     else p.setState('normal', 0);
   }
-  let accel = ball.owner === p ? 15 : 22, maxV = 99;
+  let accel = ball.owner === p ? 15 : 22, maxV = 99, run = p.state === 'normal' || p.state === 'hold';
   switch (p.state) {
     case 'slide':
       p.vel.multiplyScalar(Math.exp(-2.3 * dt));
       slideContacts(p);
       p.desired.copy(p.vel); accel = 0; break;
     case 'dive':
-      p.vel.multiplyScalar(Math.exp(-1.2 * dt)); p.lift = Math.max(0, p.diveLift * Math.sin(Math.min(1, p.stateT / p.dur) * Math.PI));
+      p.vel.multiplyScalar(Math.exp(-1.2 * dt)); { const u = Math.min(1, p.stateT / p.dur); p.lift = Math.max(0, p.diveLift * (u < 0.45 ? Math.sin(u / 0.45 * Math.PI / 2) : Math.cos((u - 0.45) / 0.55 * Math.PI / 2))); }   // spring up fast (peak ~0.43 s), then fall
       accel = 0; break;
-    case 'fallen': p.desired.set(0, 0, 0); accel = 8; break;
+    case 'fallen': p.desired.set(0, 0, 0); accel = 8; run = true; break;
     case 'tackle': p.faceTarget = p.facing; if (!p.tackleDone && p.stateT > 0.12) { p.tackleDone = true; resolveTackle(p); } maxV = 6; accel = 6; break;
     case 'kick': case 'throw': maxV = 2.5; break;
     case 'header': p.lift = 0.45 * Math.sin(Math.min(1, p.stateT / p.dur) * Math.PI); maxV = 4; break;
     case 'stumble': maxV = 2.5; break;
   }
   if (p.state !== 'dive' && p.state !== 'header') p.lift = damp(p.lift, 0, 10, dt);
-  if (accel > 0) {
+  if (run) locomote(p, dt);
+  else if (accel > 0) {
     const dv = _v.subVectors(p.desired, p.vel); dv.y = 0;
     if (dv.length() > 0) { const l = dv.length(), m = Math.min(l, accel * dt); p.vel.addScaledVector(dv, m / l); }
     const sp = p.speed; if (sp > maxV) p.vel.multiplyScalar(maxV / sp);
@@ -2104,7 +2735,8 @@ function stepPlayer(p, dt) {
   if (p.sprint && sp > 6) p.stamina = Math.max(0, p.stamina - dt * (0.06 - p.info.pace * 0.0002));
   else p.stamina = Math.min(1, p.stamina + dt * (sp < 3 ? 0.035 : 0.015));
   // gait phase advances with distance so feet don't skate
-  p.phase += sp * dt / (1.4 + sp * 0.3) * Math.PI * 2;
+  // stride cycle length 0.9 + 0.38 v metres (~1.3 m at 1 m/s, ~3.9 m at 8 m/s): short steps when walking
+  p.phase += sp * dt / (0.9 + sp * 0.38) * Math.PI * 2;
   // animation record
   p.animT = p.dur > 0 ? clamp(p.stateT / p.dur, 0, 1) : 0;
   p.aux = 0;
@@ -2124,6 +2756,45 @@ function stepPlayer(p, dt) {
       p.aux = clamp(-p.yawRate * sp * 0.012, -0.28, 0.28);
   }
   if (ball.holder === p && p.state === 'normal') p.anim = ANIM.HOLD;
+}
+/* ---- locomotion model (TUNE knobs below) ----
+ * Momentum-based running instead of a fixed acceleration towards the wanted velocity. The change dv = desired - vel
+ * is split into a tangential part (along the current motion) and a lateral part (turning):
+ *   speeding up   a <= a0 * (1 - v / vTop), a0 = vTop / TAU      -> 0 to ~7 m/s in ~1.5 s for average pace
+ *   braking       a <= BRAKE (higher while a plant step is active)
+ *   turning       lateral a <= A_LAT, so the turning radius is v^2 / A_LAT (~10 m at full sprint); a sharp cut at
+ *                 speed therefore brakes first, then turns: the "plant step" (p.plant > 0 while it lasts, readable by animation)
+ * Backpedalling / side-stepping (moving away from where the body faces) is capped at 55-80 % of the run speed.
+ * The human-controlled player gets ~15-25 % snappier numbers so the stick still feels responsive.
+ * No joints here; direction signs: tangential + = along p.vel, lateral = perpendicular in the ground plane. */
+const LOCO = { TAU: 0.95, TAU_PACE: 0.004, A_FLOOR: 0.18, BRAKE: 8.5, PLANT_BRAKE: 12, A_LAT: 7.5, PLANT_ANGLE: 1.25, HUMAN_ACC: 1.18, HUMAN_LAT: 1.25, BACK: 0.55, SIDE: 0.8, GK_TAU: 0.6 };
+function locomote(p, dt) {
+  const human = p.controlled && !G.demo, sp = p.speed, vTop = p.maxSpeed(true);
+  // keepers are explosive over a few metres (set position, shuffle across the goal): shorter time constant
+  const tau = p.isGK ? LOCO.GK_TAU : (LOCO.TAU - (p.info.pace - 80) * LOCO.TAU_PACE) / (human ? LOCO.HUMAN_ACC : 1);
+  const a0 = vTop / Math.max(0.6, tau), aLat = LOCO.A_LAT * (human ? LOCO.HUMAN_LAT : 1) * (p.state === 'fallen' ? 0.5 : 1);
+  const dx = p.desired.x - p.vel.x, dz = p.desired.z - p.vel.z;
+  p.plant = Math.max(0, (p.plant || 0) - dt);
+  if (sp < 0.6) {                                    // from (nearly) standing: isotropic push-off
+    const l = Math.hypot(dx, dz), m = Math.min(l, a0 * dt);
+    if (l > 0) { p.vel.x += dx / l * m; p.vel.z += dz / l * m; }
+  } else {
+    const ux = p.vel.x / sp, uz = p.vel.z / sp, dsp = Math.hypot(p.desired.x, p.desired.z);
+    // a cut of more than ~70 degrees at running speed: plant the outside foot and brake hard
+    if (dsp > 1 && sp > 4 && (p.desired.x * ux + p.desired.z * uz) / dsp < Math.cos(LOCO.PLANT_ANGLE) && p.plant <= 0) p.plant = 0.22;
+    const t = dx * ux + dz * uz, lx = dx - t * ux, lz = dz - t * uz, ll = Math.hypot(lx, lz);
+    const brake = (p.plant > 0 ? LOCO.PLANT_BRAKE : LOCO.BRAKE) * (human ? LOCO.HUMAN_ACC : 1);
+    const at = t > 0 ? Math.min(t, a0 * Math.max(LOCO.A_FLOOR, 1 - sp / vTop) * dt) : Math.max(t, -brake * dt);
+    const al = Math.min(ll, aLat * dt * (p.plant > 0 ? 1.5 : 1));
+    p.vel.x += ux * at + (ll > 0 ? lx / ll * al : 0); p.vel.z += uz * at + (ll > 0 ? lz / ll * al : 0);
+  }
+  // body orientation: running backwards or sideways is slower
+  const ns = p.speed;
+  if (ns > 1.5 && !p.isGK) {
+    const c = (p.vel.x * Math.cos(p.facing) + p.vel.z * Math.sin(p.facing)) / ns;
+    const cap = p.maxSpeed(false) * (c > 0.5 ? 99 : c > 0 ? lerp(LOCO.SIDE, 1.35, c * 2) : lerp(LOCO.SIDE, LOCO.BACK, -c));
+    if (ns > cap) p.vel.multiplyScalar(Math.max(cap, ns - LOCO.BRAKE * dt) / ns);
+  }
 }
 function slideContacts(p) {
   const f = fwdOf(p), fx = p.pos.x + f.x * 0.55, fz = p.pos.z + f.z * 0.55;
@@ -2163,7 +2834,9 @@ function updatePossession() {
     const d = d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z), y = ball.pos.y;
     // fast shots/clearances clip players that stand in the way
     if (bspeed > 14 && d < 0.45 && y < 1.9 && ball.lastKick?.p !== p) {
-      ball.vel.set(-ball.vel.x * 0.25 + rand(-3, 3), Math.abs(ball.vel.y) * 0.3 + 1, -ball.vel.z * 0.25 + rand(-3, 3));
+      const k = Math.random() < 0.4 ? -rand(0.15, 0.35) : rand(0.3, 0.6), da = rand(-0.8, 0.8), c = Math.cos(da), sn = Math.sin(da);   // rebound back or deflect on
+      const vx = ball.vel.x * k, vz = ball.vel.z * k;
+      ball.vel.set(vx * c - vz * sn, Math.abs(ball.vel.y) * 0.3 + rand(0.5, 3.5), vx * sn + vz * c);
       ball.lastTouch = p; p.touchCD = 0.4; ball.shot = false; G.offside = null; Sound.touch(); cnt('block'); return;
     }
     const reach = y < 0.9 ? 0.72 : 0.55;
@@ -2171,26 +2844,55 @@ function updatePossession() {
   }
   if (!best) return;
   const p = best;
-  // headers & volleys: queued action or AI decides
-  if (ball.pos.y > 1.05) {
-    if (p.pending?.type === 'shoot' || (!p.controlled && ball.lofted)) { p.pending = null; doHeader(p); return; }
-    if (ball.pos.y > 1.8) return; // too high to control: let it drop
+  // headers & volleys: queued action or AI decides. The AI heads it when it is a chance at goal, a clearance in its
+  // own third, contested, or too high to chest down; otherwise it tries to control it.
+  const y = ball.pos.y;
+  if (offsideCheck(p)) return;          // any first touch (header, miscontrol, heavy touch) by an offside player
+  if (y > 1.05) {
+    let contested = false; for (const o of p.team.opp.players) if (d2(o.pos.x, o.pos.z, ball.pos.x, ball.pos.z) < 2.3) contested = true;
+    const T = p.team, attack = T.prog(ball.pos.x) > 0.72 && Math.abs(ball.pos.z) < G.P.boxHW + 2, defend = T.prog(ball.pos.x) < 0.3;
+    if (p.pending?.type === 'shoot' || (!p.controlled && ball.lofted && (attack || defend || contested || y > 1.6))) { p.pending = null; doHeader(p); return; }
+    if (y > 1.8) return; // too high to control: let it drop
   }
-  // control check for hard-hit balls
-  const rel = Math.hypot(ball.vel.x - p.vel.x, ball.vel.z - p.vel.z);
-  if (rel > 17 && Math.random() > 0.3 + p.stat('dribbling') * 0.004) {
-    ball.vel.set(ball.vel.x * -0.25 + rand(-2, 2), 1.5, ball.vel.z * -0.25 + rand(-2, 2)); ball.lastTouch = p; p.touchCD = 0.3; G.offside = null; Sound.touch(); cnt('ctrlfail'); return;
+  // first touch: difficulty grows with the ball's speed relative to the player, its height and pressure; good
+  // dribblers kill it dead, others take a heavy touch (ball runs 2-5 m away) or miscontrol it (deflects off)
+  const rel = Math.hypot(ball.vel.x - p.vel.x, ball.vel.z - p.vel.z) + Math.max(0, -ball.vel.y) * 0.4;
+  let pr = 9; for (const o of p.team.opp.players) pr = Math.min(pr, d2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
+  const skill = p.stat('dribbling') + (p.controlled && !G.demo ? 8 : 0);
+  // stretching to cut out a pass meant for someone else is harder than receiving one
+  const lk0 = ball.lastKick, stretch = lk0 && lk0.p.team !== p.team && G.t - lk0.t < 3 && rel > 7 ? 0.22 : 0;
+  const q = rel / (10 + skill * 0.1) + (y > 0.5 ? (y - 0.5) * 0.35 : 0) + (pr < 1.5 ? 0.12 : 0) + (p.sprint ? 0.08 : 0) + stretch;  // ~0.5 = routine, >1 = very hard
+  if (q > 0.62 && !p.isGK) {
+    const r = Math.random(), heavy = clamp((q - 0.62) * 0.9, 0, 0.7), fail = clamp((q - 1.0) * 0.7, 0, 0.5);
+    if (r < fail) {
+      // miscontrol: the ball comes off the shin / deflects away at an angle
+      const k = rand(0.25, 0.55) * (Math.random() < 0.5 ? -1 : 1) , da = rand(-1.2, 1.2), c = Math.cos(da), sn = Math.sin(da), vx = ball.vel.x * k, vz = ball.vel.z * k;
+      ball.vel.set(vx * c - vz * sn, rand(0.8, 2.5), vx * sn + vz * c); ball.lastTouch = p; p.touchCD = 0.3; G.offside = null; Sound.touch(); cnt('ctrlfail'); return;
+    }
+    if (r < fail + heavy) {
+      // heavy touch: the ball pops forward off the foot along its path and the player has to chase it
+      const bs = Math.hypot(ball.vel.x, ball.vel.z) || 1, k = rand(0.25, 0.45);
+      ball.vel.set(p.vel.x * 0.6 + ball.vel.x / bs * (rel * k + 1.5) + rand(-1, 1), y > 0.5 ? 1.2 : 0, p.vel.z * 0.6 + ball.vel.z / bs * (rel * k + 1.5) + rand(-1, 1));
+      ball.lastTouch = p; p.touchCD = 0.28; ball.receiver = p; G.offside = null; Sound.touch(); cnt('heavy');
+      // a heavy touch of a pass still counts as the pass reaching its man
+      const lk = ball.lastKick; if (lk && G.t - lk.t < 5 && lk.p !== p && lk.p.team === p.team && /pass|lofted|throw|cross/.test(lk.kind)) { G.passOK = (G.passOK || 0) + 1; ball.lastKick = { ...lk, kind: 'touch' }; }
+      return;
+    }
   }
   gainBall(p);
 }
-function gainBall(p) {
-  // offside: first touch by a player who was offside when the ball was played
+/** Offside: first touch by a player who was in an offside position when the ball was played. True = whistle. */
+function offsideCheck(p) {
   if (G.offside && G.state === 'play') {
-    if (G.offside.has(p) && ball.lastTouch?.team === p.team) { G.offside = null; stoppage('offside', p.team.opp, p.pos.clone()); return; }
+    if (G.offside.has(p) && ball.lastTouch?.team === p.team) { G.offside = null; stoppage('offside', p.team.opp, p.pos.clone()); return true; }
     G.offside = null;
   }
+  return false;
+}
+function gainBall(p) {
+  if (offsideCheck(p)) return;
   const lk = ball.lastKick;
-  if (lk && G.t - lk.t < 5 && (lk.kind === 'pass' || lk.kind === 'lofted' || lk.kind === 'throw') && lk.p !== p) { const k = lk.p.team === p.team ? 'passOK' : 'passLost'; G[k] = (G[k] || 0) + 1; }
+  if (lk && G.t - lk.t < 5 && (lk.kind === 'pass' || lk.kind === 'lofted' || lk.kind === 'throw' || lk.kind === 'cross') && lk.p !== p) { const k = lk.p.team === p.team ? 'passOK' : 'passLost'; G[k] = (G[k] || 0) + 1; }
   if (!p.team.isUser || G.demo) p.decideT = Math.max(p.decideT, 0.35 + p.team.diff.react * 0.5 + Math.random() * 0.5); // take a touch before deciding
   ball.owner = p; ball.lastTouch = p; ball.receiver = null; ball.shot = false; ball.lofted = false; ball.spin.set(0, 0, 0);
   if (ball.pos.y > 0.4) ball.vel.y = -1;
@@ -2213,56 +2915,91 @@ function inOwnBox(T, pos, extra = 0) {
 const gkCanHandle = p => inOwnBox(p.team, ball.pos) && inOwnBox(p.team, p.pos, 1);
 const rightOf = p => V3(-Math.sin(p.facing), 0, Math.cos(p.facing)); // player's right in world space
 
+/* Keeper tuning: reaction 0.22 s + 4 ms per point under 100 (gk 80 -> 0.3 s); positioning on the bisector of the
+ * angle ball-post-post, 0.8-4 m off the line, further out (sweeper) when the ball is in the other half, out to
+ * narrow the angle in 1v1s; high balls into the box are claimed when he gets there first; hard shots can be spilled. */
+const GKT = { REACT: 0.22, REACT_PT: 0.004, READ_ERR: 0.3, READ_PT: 0.012, LATE: 0.12, CLAIM_H: 2.75, FUMBLE_V: 19, FUMBLE_K: 0.012 };
 function gkThink(p, dt) {
   const T = p.team, gx = T.ownGoalX, g = Math.sign(gx), gk = p.stat('gk') * T.diff.gk;
 
   if (ball.holder === p) {                       // holding: wait, then distribute
-    p.desired.set(0, 0, 0); p.holdT = (p.holdT || 0) + dt;
+    p.desired.set(0, 0, 0); p.holdT = (p.holdT || 0) + dt; p.claim = null;
     p.faceTarget = T.side > 0 ? 0 : Math.PI;
-    if (G.state === 'play' && p.state === 'normal' && p.holdT > (T.isUser ? 1.2 : 1.6)) gkDistribute(p);
+    if (G.state === 'play' && p.state === 'normal' && p.holdT > (T.isUser ? 1.2 : 2.0)) gkDistribute(p);
     return;
   }
   if (p.state === 'dive' || p.state === 'fallen') return;
   if (p.state !== 'normal') { p.desired.set(0, 0, 0); return; }
   const bp = ball.pos, bv = ball.vel;
   // ---- read an incoming shot ----
-  if (!ball.owner && bv.x * g > 3) {
-    const t = (p.pos.x - bp.x) / bv.x;
+  if (!ball.owner && bv.x * g > 3 && (ball.shot || Math.hypot(bv.x, bv.z) > 12)) {
+    // where the ball crosses the keeper's plane, read from the predicted path (drag, curl and dip included)
+    let t = -1, zI = 0, yI = 0, q0 = bp;
+    for (let i = 0; i < 30; i++) {
+      const q = pred[i];
+      if ((q.x - p.pos.x) * g >= 0) { const f = clamp((p.pos.x - q0.x) / ((q.x - q0.x) || 1e-6), 0, 1); t = (i + f) * PRED_DT; zI = lerp(q0.z, q.z, f); yI = lerp(q0.y, q.y, f); break; }
+      q0 = q;
+    }
     if (t > 0 && t < 1.6) {
-      const zI = bp.z + bv.z * t; let yI = bp.y + bv.y * t - 0.5 * GRAV * t * t; if (yI < 0) yI = 0.3;
+      if (yI < 0.15) yI = 0.3;
       if (Math.abs(zI) < GOAL_HW + 1.3 && yI < 3) {
+        // each shot is read once with some error (worse keepers misjudge more; ~8 % of the time he is wrong-footed / late)
+        if (!p.shotSeen) { p.readErr = gauss() * (GKT.READ_ERR + (100 - gk) * GKT.READ_PT); p.reactX = (Math.random() < GKT.LATE ? 0.15 : 0) + Math.abs(gauss()) * 0.04; }
         p.shotSeen = (p.shotSeen || 0) + dt;
-        const lat = zI - p.pos.z, react = 0.1 + (100 - gk) / 100 * 0.3;
-        const stepReach = p.maxSpeed(true) * Math.max(0, t - 0.12) * 0.75 + 0.55;
+        const lat = zI + p.readErr * clamp(t / 0.5, 0.4, 1) - p.pos.z, react = GKT.REACT + (100 - gk) * GKT.REACT_PT + p.reactX;
+        const tm = Math.max(0, t - react), vT = p.maxSpeed(true), stepReach = vT * (tm - LOCO.GK_TAU * (1 - Math.exp(-tm / LOCO.GK_TAU))) * 0.75 + 0.45;   // distance covered from standing (LOCO model)
         if (Math.abs(lat) <= stepReach && yI < 2.0) { steerTo(p, p.pos.x, zI, true); p.faceTarget = Math.atan2(bp.z - p.pos.z, bp.x - p.pos.x); return; }
         if (p.shotSeen > react && t < 0.8) { gkDive(p, lat, yI, t, gk); return; }
         p.desired.set(0, 0, 0); return;
       }
     }
   } else p.shotSeen = 0;
+  // ---- claim a high ball (cross / long ball) dropping into the box ----
+  p.claim = null;
+  if (!ball.owner && ball.lofted && bp.y > 1.2) {
+    for (let i = 2; i < PRED_N; i++) {
+      const q = pred[i], tq = (i + 1) * PRED_DT;
+      if (q.y > GKT.CLAIM_H || q.y < 1.0 || pred[i - 1].y < q.y) continue;   // descending, catchable height
+      if (!inOwnBox(T, q, -1) || Math.abs(q.x - gx) > 12) break;
+      const dk = d2(p.pos.x, p.pos.z, q.x, q.z);
+      let first = true; for (const o of T.opp.players) if (d2(o.pos.x, o.pos.z, q.x, q.z) / 7.5 + 0.1 < dk / 7 && d2(o.pos.x, o.pos.z, q.x, q.z) < 2) first = false;
+      if (dk / (p.maxSpeed(true) * 0.85) + 0.25 < tq && first) { p.claim = { x: q.x, z: q.z, t: G.t + tq }; steerTo(p, q.x, q.z, true); p.faceTarget = Math.atan2(bp.z - p.pos.z, bp.x - p.pos.x); if (tq < 0.35) p.lift = Math.max(p.lift, 0.4); return; }
+      break;
+    }
+  }
   // ---- claim a loose ball in the box / smother a dribbler ----
   const loose = !ball.owner && !ball.holder;
   if ((loose && inOwnBox(T, bp) && T.chaser === p) || (ball.owner && ball.owner.team !== T && inOwnBox(T, bp, -4) && d2(p.pos.x, p.pos.z, bp.x, bp.z) < 7)) {
     const tgt = loose && p.icept ? p.icept : bp;
     steerTo(p, tgt.x, tgt.z, true); return;
   }
-  // ---- positioning on the arc between ball and goal centre ----
+  // ---- positioning on the bisector of the angle ball -> posts ----
   const dx = bp.x - gx, dz = bp.z, dist = Math.hypot(dx, dz) || 1;
-  let off = clamp(dist * 0.12, 0.6, 4.2);
-  if (ball.owner && ball.owner.team !== T && dist < 16) off = clamp(dist * 0.35, 1.2, 6); // narrow the angle in 1v1s
-  let tx = gx + dx / dist * off, tz = dz / dist * off;
-  if ((tx - gx) * -g < 0.4) tx = gx - g * 0.4;
-  tz = clamp(tz, -GOAL_HW - 0.5, GOAL_HW + 0.5);
-  steerTo(p, tx, tz, dist < 25);
+  const ax = gx - bp.x, az1 = -GOAL_HW - bp.z, az2 = GOAL_HW - bp.z, l1 = Math.hypot(ax, az1) || 1, l2 = Math.hypot(ax, az2) || 1;
+  let bx = ax / l1 + ax / l2, bz = az1 / l1 + az2 / l2; const bl = Math.hypot(bx, bz) || 1; bx /= bl; bz /= bl;
+  let off = clamp(dist * 0.1, 0.8, 4);
+  if (dist > 40) off = lerp(4, 9, clamp((dist - 40) / 25, 0, 1));                      // sweeper keeper
+  const o = ball.owner;
+  if (o && o.team !== T && dist < 13) {                                             // 1v1: come out to narrow the angle
+    let cover = 0; for (const q of T.players) if (q !== p && segDist(q.pos.x, q.pos.z, bp.x, bp.z, gx, 0).d < 1.5) cover++;
+    if (!cover) off = clamp(dist * 0.3, 1.5, 4);
+  }
+  let tx = gx - g * off, tz = Math.abs(bx) > 0.05 ? bp.z + bz * (tx - bp.x) / bx : 0;
+  if (Math.abs(bp.z) > GOAL_HW && dist < 25) tz += Math.sign(bp.z) * 0.25;           // a touch towards the near post
+  tz = clamp(tz, -GOAL_HW + 0.3, GOAL_HW - 0.3);
+  steerTo(p, tx, tz, dist < 25 || d2(p.pos.x, p.pos.z, tx, tz) > 4);
   p.faceTarget = Math.atan2(bp.z - p.pos.z, bp.x - p.pos.x);
 }
 function gkDive(p, lat, yI, t, gk) {
   p.setState('dive', 0.95); p.shotSeen = 0;
   p.diveSide = Math.sign(V3(0, 0, Math.sign(lat)).dot(rightOf(p))) || 1;
-  const vmax = (4.6 + gk * 0.035);
-  p.vel.set(0, 0, clamp(lat / Math.max(t, 0.22), -vmax, vmax));
-  p.diveLift = clamp(yI - 0.7, 0.05, 1.3);
-  p.diveDir = Math.sign(lat);
+  // the body (feet -> hands, 2.15 m) should pass through the ball: the feet slide only as far as needed so the
+  // ball meets the chest/arms ~1.2 m along the body; tilt follows the ball height (low = laid out, high = upright tip)
+  const vmax = (1.9 + gk * 0.02), al = Math.abs(lat), h = Math.min(al, 1.0), slide = (al - h) * Math.sign(lat);
+  p.diveLift = clamp(yI - 0.9, 0.05, 1.3);
+  p.diveTilt = clamp(Math.atan2(h, Math.max(0.15, yI - 0.2 - p.diveLift * 0.9)), 0.25, 1.4);
+  p.vel.set(0, 0, clamp(slide / Math.max(t, 0.25), -vmax, vmax));
+  p.diveDir = Math.sign(lat) || 1;
 }
 /** Hand/body contact for keepers (standing capsule, or the tilted body while diving). */
 const _a = V3(), _b = V3(), _c = V3();
@@ -2272,12 +3009,14 @@ function gkContact(p) {
   const T = p.team, g = Math.sign(T.ownGoalX);
   let radius;
   if (p.state === 'dive') {
-    const tilt = easeOut(Math.min(1, p.stateT / 0.3)) * 1.38;
+    const tilt = easeOut(Math.min(1, p.stateT / 0.3)) * (p.diveTilt ?? 1.38);
     _a.set(p.pos.x, 0.2 + p.lift, p.pos.z);
     _c.set(0, Math.cos(tilt), Math.sin(tilt) * p.diveDir);
     _b.copy(_a).addScaledVector(_c, 2.15); radius = 0.36;
   } else if (p.state === 'normal' || p.state === 'stumble') {
-    _a.set(p.pos.x, 0.1, p.pos.z); _b.set(p.pos.x, 2.25 + p.lift, p.pos.z); radius = 0.48;
+    _a.set(p.pos.x, 0.1, p.pos.z); _b.set(p.pos.x, 2.25 + p.lift + (p.claim ? 0.45 : 0), p.pos.z); radius = 0.48;   // arms up when claiming
+    // close-range shot (1v1): the keeper spreads himself (starfish / long barrier) and covers more of the goal
+    const lk = ball.lastKick; if (ball.shot && lk && lk.x !== undefined) radius += clamp((7 - d2(lk.x, lk.z, p.pos.x, p.pos.z)) / 7, 0, 1) * 0.55;
   } else return;
   // closest point on segment
   _c.subVectors(_b, _a); const L2 = _c.lengthSq();
@@ -2289,14 +3028,30 @@ function gkContact(p) {
     if (Math.random() < 0.55 + p.stat('gk') * 0.003) { o.setState('stumble', 0.5); gkCatch(p); } else p.touchCD = 0.5;
     return;
   }
-  const speed = ball.vel.length(), wasShot = ball.shot;
-  const catchP = clamp(0.32 + p.stat('gk') * 0.008 * T.diff.gk - speed * 0.012 + (p.state === 'dive' ? 0 : 0.32), 0.05, 0.97);
-  if (wasShot && ball.lastTouch?.team !== T) { statFor(T.opp).onTarget++; }
-  if (Math.random() < catchP || speed < 6) { gkCatch(p); if (wasShot && speed > 12) toast('GREAT SAVE!'); return; }
-  // parry: push it away from goal, up and wide
+  const speed = ball.vel.length(), wasShot = ball.shot && ball.lastTouch?.team !== T, gkS = p.stat('gk') * T.diff.gk;
+  if (wasShot) {
+    // on target only if it was really going in (saves of shots going wide do not count)
+    const bx = ball.pos.x, gx = T.ownGoalX, vx = ball.vel.x; let on = Math.abs(ball.pos.z) < GOAL_HW && ball.pos.y < GOAL_H;
+    if (vx * g > 0.5) { const t = (gx - bx) / vx; on = Math.abs(ball.pos.z + ball.vel.z * t) < GOAL_HW + 0.1 && ball.pos.y + ball.vel.y * t - 0.5 * GRAV * t * t < GOAL_H + 0.1; }
+    if (on) { statFor(T.opp).onTarget++; cnt('save'); }
+  }
+  let contested = false; for (const q of T.opp.players) if (d2(q.pos.x, q.pos.z, ball.pos.x, ball.pos.z) < 1.3) contested = true;
+  let catchP = clamp(0.12 + gkS * 0.008 - speed * 0.016 + (p.state === 'dive' ? 0 : 0.3) - (ball.pos.y > 2.0 ? 0.15 : 0), 0.05, 0.97);
+  if (!wasShot && ball.lofted && contested) catchP *= 0.7;                          // crowded: punch it clear
+  if (Math.random() < catchP || speed < 6) {
+    // hard shots held at the first attempt can still be spilled
+    if (wasShot && speed > GKT.FUMBLE_V && Math.random() < clamp((speed - GKT.FUMBLE_V) * GKT.FUMBLE_K + (85 - gkS) * 0.004, 0, 0.3)) {
+      ball.vel.set(-g * rand(1, 3.5), rand(0.3, 1.5), rand(-3, 3)); ball.lastTouch = p; ball.shot = false; p.touchCD = 0.55; G.offside = null; Sound.touch(); cnt('fumble'); toast('SPILLED!'); return;
+    }
+    gkCatch(p); if (wasShot && speed > 12) toast('GREAT SAVE!'); return;
+  }
+  // parry / punch: away from goal and out towards the flanks (or over the bar from high shots)
   const n = _v.subVectors(ball.pos, cp).normalize();
-  ball.vel.set(-g * Math.abs(ball.vel.x) * 0.3 + n.x * 2, Math.abs(ball.vel.y) * 0.35 + rand(1.5, 4.5), ball.vel.z * 0.3 + n.z * 6 + rand(-1.5, 1.5));
-  ball.lastTouch = p; ball.shot = false; p.touchCD = 0.7; G.offside = null; Sound.tackle();
+  const side = Math.sign(ball.pos.z - p.pos.z + n.z * 0.3) || p.diveDir || (Math.random() < 0.5 ? -1 : 1);
+  const high = ball.pos.y > 1.9 && Math.abs(T.ownGoalX - p.pos.x) < 2.5;
+  ball.vel.set(-g * (Math.abs(ball.vel.x) * (high ? 0.08 : 0.25) + rand(0.5, 3)), high ? rand(5.5, 7) : Math.abs(ball.vel.y) * 0.35 + rand(1.5, 4.5), side * rand(4, 9) + ball.vel.z * 0.2);
+  if (high) ball.vel.x = g * rand(2.5, 4);                     // tipped over: towards the byline
+  ball.lastTouch = p; ball.shot = false; p.touchCD = 0.7; G.offside = null; Sound.tackle(); cnt('parry');
   if (wasShot) { toast('PARRIED!'); Sound.ooh(); }
 }
 function gkCatch(p) {
@@ -2328,32 +3083,105 @@ function steerTo(p, tx, tz, sprint) {
   p.desired.set(dx / d * sp, 0, dz / d * sp); p.sprint = sprint && d > 3;
   return d;
 }
+/** Earliest point on the predicted ball path this player can reach. Accounts for reaction and for having to
+ *  accelerate from the current velocity (see LOCO: ~0.5 s lost from standing). */
 function intercept(p) {
   const sp = p.maxSpeed(true) * 0.95, react = 0.12;
   for (let i = 0; i < PRED_N; i++) {
     const q = pred[i], t = (i + 1) * PRED_DT;
     if (q.y > 2.0) continue;
-    const d = d2(p.pos.x, p.pos.z, q.x, q.z) - 0.55;
-    if (d / sp + react <= t) return { t, x: q.x, z: q.z };
+    const dx = q.x - p.pos.x, dz = q.z - p.pos.z, dd = Math.hypot(dx, dz), d = dd - 0.55;
+    const vt = dd > 0.01 ? (p.vel.x * dx + p.vel.z * dz) / dd : 0;
+    const acc = d > 0 ? 0.48 * clamp(1 - vt / sp, 0, 2) : 0;
+    if (d / sp + react + acc <= t) return { t, x: q.x, z: q.z };
   }
   const q = pred[PRED_N - 1];
   return { t: 4 + d2(p.pos.x, p.pos.z, q.x, q.z) / sp, x: q.x, z: q.z };
 }
 const possTeam = () => ball.owner?.team || ball.holder?.team || null;
 
+/** Chance quality (expected goals) of a shot from (x, z) at T's target goal: logistic in the angle the goal mouth
+ *  subtends and the distance (penalty spot ~0.2, 6 m central ~0.45, 20 m ~0.07, 30 m ~0.02), cut by defenders in the
+ *  shooting cone and by pressure on the shooter. */
+function xG(T, x, z, shooter = null) {
+  const gx = T.goalX, dx = Math.abs(gx - x), dist = Math.hypot(dx, z);
+  const ang = Math.abs(Math.atan2(GOAL_HW - z, dx) - Math.atan2(-GOAL_HW - z, dx));
+  let v = 1 / (1 + Math.exp(-(-1.1 + 1.4 * ang - 0.1 * dist)));
+  if (G.P.L < 80) v = 1 / (1 + Math.exp(-(-1.1 + 1.4 * ang - 0.13 * dist)));
+  let blockers = 0, press = 9;
+  for (const o of T.opp.players) {
+    if (o.isGK) continue;
+    const s = segDist(o.pos.x, o.pos.z, x, z, gx, 0); if (s.d < 0.8 + s.t * 0.6 && s.t > 0.03 && s.t < 0.9) blockers++;
+    press = Math.min(press, d2(o.pos.x, o.pos.z, x, z));
+  }
+  const gk = T.opp.gk, gkOut = d2(gk.pos.x, gk.pos.z, gx, 0);
+  v *= Math.pow(0.7, blockers) * (press < 1.5 ? 0.8 : 1) * (gkOut > 6 && dist > 14 ? 1.4 : 1);
+  return v;
+}
+
+/* ---- defensive shape (TUNE): the back line sits LINE_BASE + (ball progress - 0.2) * LINE_K of the pitch length from
+ * goal, drops LINE_DROP when the carrier is free to play it in behind, moves as one unit at LINE_UP (stepping up) /
+ * LINE_DOWN (dropping) pitch-fractions per second. Midfield block stays ~MID_GAP in front of it. */
+const SHAPE = { LINE_BASE: 0.12, LINE_K: 0.6, LINE_MIN: 0.1, LINE_MAX: 0.44, LINE_DROP: 0.05, LINE_UP: 0.04, LINE_DOWN: 0.075, MID_GAP: 0.12 };
+function updateLine(T, dt) {
+  const o = ball.owner || ball.holder, bp = T.prog(ball.pos.x);
+  let tgt = clamp(SHAPE.LINE_BASE + (bp - 0.2) * SHAPE.LINE_K, SHAPE.LINE_MIN, SHAPE.LINE_MAX);
+  if (o && o.team !== T) {
+    let pr = 9; for (const q of T.players) pr = Math.min(pr, d2(q.pos.x, q.pos.z, o.pos.x, o.pos.z));
+    const facingUp = Math.cos(o.facing) * o.team.side > 0.3;
+    if (pr > 4 && facingUp) tgt -= SHAPE.LINE_DROP;                  // no pressure on the ball: drop off
+  }
+  tgt = Math.min(tgt, bp - 0.03);
+  if (T.line === undefined) T.line = tgt;
+  const r = (tgt > T.line ? SHAPE.LINE_UP : SHAPE.LINE_DOWN) * dt;
+  T.line = clamp(T.line + clamp(tgt - T.line, -r, r), SHAPE.LINE_MIN - 0.04, SHAPE.LINE_MAX);
+}
 function formationPos(p, attacking) {
   const T = p.team, bp = T.prog(ball.pos.x), bz = clamp(ball.pos.z / (G.P.hw * T.side), -1, 1);
   let nx, nz;
-  if (attacking) { nx = p.slot.x + 0.14 + (bp - 0.45) * 0.55; nz = p.slot.z * 1.04 + bz * 0.18; }
-  else { nx = p.slot.x - 0.02 + (bp - 0.5) * 0.5; nz = p.slot.z * 0.72 + bz * 0.3; }
-  const lim = { DEF: [0.05, 0.62], MID: [0.12, 0.82], FWD: [0.25, 0.93], GK: [0, 0.1] }[p.role];
+  if (attacking) { nx = p.slot.x + 0.14 + (bp - 0.45) * 0.55; nz = Math.abs(p.slot.z) > 0.5 && p.role !== 'DEF' ? Math.sign(p.slot.z) * 0.9 : p.slot.z * 1.04 + bz * 0.18; }   // wingers hold the width
+  else {
+    nx = p.slot.x - 0.02 + (bp - 0.5) * 0.5; nz = p.slot.z * 0.66 + bz * 0.32;               // compact, shifted to the ball side
+    const L = T.line ?? nx;
+    if (p.role === 'DEF') nx = lerp(nx, L + (Math.abs(p.slot.z) > 0.5 && Math.sign(p.slot.z) === Math.sign(bz) ? 0.008 : 0), T.diff.line);
+    else if (p.role === 'MID') nx = Math.max(nx, L + SHAPE.MID_GAP);
+  }
+  const lim = { DEF: [0.04, 0.62], MID: [0.12, 0.82], FWD: [0.25, 0.93], GK: [0, 0.1] }[p.role];
   nx = clamp(nx, lim[0], lim[1]);
-  if (attacking && p.role !== 'DEF') nx = Math.min(nx, offsideLine(T) - 0.012);
+  // attackers play on the shoulder of the last defender: each picks a margin now and then, sometimes a touch too far
+  if (attacking && p.role !== 'DEF') {
+    if (!(G.t < (p.shoulderT ?? -1))) { p.shoulderT = G.t + rand(2.5, 5); p.shoulder = p.role === 'FWD' ? rand(-0.02, 0.004) : -0.012; }
+    const ol = offsideLine(T) + p.shoulder;
+    if (p.role === 'FWD') nx = Math.max(nx, lerp(nx, ol, 0.75));     // centre-forwards push right up to the line
+    nx = Math.min(nx, ol);
+  }
   if (!attacking && p.role === 'DEF') nx = Math.min(nx, bp - 0.02);
   return { x: T.wx(clamp(nx, 0.03, 0.97)), z: T.wz(clamp(nz, -0.95, 0.95)) };
 }
+/** Pressing triggers: the defending side only closes down hard when something invites it. Returns 0..1. */
+const PRESS = { IDLE_T: 1.2, IDLE_V: 1.5, HOLD_T: 2.5, HOLD_RAMP: 3 };
+function pressTrigger(T, o) {
+  const op = o.team, prog = op.prog(o.pos.x);
+  let t = 0;
+  if (Math.cos(o.facing) * op.side < -0.3) t += 0.5;                                  // back to goal
+  if (d2(o.pos.x, o.pos.z, ball.pos.x, ball.pos.z) > 1.1) t += 0.4;                    // loose / heavy touch
+  if (Math.abs(o.pos.z) > G.P.hw - 7) t += 0.35;                                       // trapped on the touchline
+  if (prog < 0.3) t += 0.35;                                                          // receiving deep: high press
+  if (G.t - (T.lostT ?? -9) < 4) t += 0.6;                                             // counter-press right after losing it
+  if (prog > 0.72) t += 0.4;                                                          // in our final third: engage
+  // a carrier who stands still or dawdles on the ball invites the challenge at every difficulty (TUNE: IDLE_*)
+  const idle = ((T.slowT || 0) > PRESS.IDLE_T ? 1 : 0) + clamp(((T.ownT || 0) - PRESS.HOLD_T) / PRESS.HOLD_RAMP, 0, 1) * 0.7;
+  return clamp(t * T.diff.press + idle, 0, 1);
+}
 function teamThink(T, dt) {
   const pt = possTeam(), has = pt === T, oppHas = pt === T.opp, loose = !pt;
+  if (T.hadBall && oppHas) T.lostT = G.t;
+  // how long the opposing carrier has had it, and how long he has been (nearly) standing still
+  const oc = oppHas ? ball.owner : null;
+  if (oc !== T.trkOwner) { T.trkOwner = oc; T.ownT = 0; T.slowT = 0; }
+  else if (oc) { T.ownT += dt; T.slowT = oc.speed < PRESS.IDLE_V ? T.slowT + dt : Math.max(0, T.slowT - dt * 2); }
+  if (pt) T.hadBall = has;
+  updateLine(T, dt);
   // the player who reaches a loose ball first goes for it
   T.chaser = null;
   if (loose) {
@@ -2366,15 +3194,29 @@ function teamThink(T, dt) {
       if (p.controlled) t += 0.25;   // let the human have it if they want it
       if (t < bt) { bt = t; best = p; }
     }
+    // a ball running out of play off an opponent is shepherded out, not chased (and kept in when it is ours)
+    if (best && ball.lastTouch && ball.lastTouch.team !== T && !best.isGK) {
+      let tOut = 99; for (let i = 0; i < PRED_N; i++) { const q = pred[i]; if (Math.abs(q.z) > G.P.hw + BALL_R || Math.abs(q.x) > G.P.hl + BALL_R) { tOut = (i + 1) * PRED_DT; break; } }
+      if (tOut < 99 && bt > tOut - 0.15) { best = null; cnt('letGo'); }
+    }
     T.chaser = best;
   }
-  // pressers on the ball carrier
-  T.pressers = [];
+  // pressers on the ball carrier: one contains (jockeys goal-side), more close down when a trigger fires
+  T.pressers = []; T.trigger = 0;
   if (oppHas && ball.owner) {
     const o = ball.owner;
     const cand = T.players.filter(p => !p.isGK && !p.controlled && p.state !== 'fallen').sort((a, b) => d2(a.pos.x, a.pos.z, o.pos.x, o.pos.z) - d2(b.pos.x, b.pos.z, o.pos.x, o.pos.z));
-    let n = T.isUser ? (Input.pressHeld ? 2 : 1) : T.diff.pressers;
-    if (T.isUser && !Input.pressHeld && G.controlled && d2(G.controlled.pos.x, G.controlled.pos.z, o.pos.x, o.pos.z) < 6) n = 0;
+    let n;
+    if (T.isUser) {
+      n = Input.pressHeld ? 2 : 1;
+      if (!Input.pressHeld && G.controlled && d2(G.controlled.pos.x, G.controlled.pos.z, o.pos.x, o.pos.z) < 6) n = 0;
+      T.trigger = Input.pressHeld ? 1 : 0.5;
+    } else {
+      T.trigger = pressTrigger(T, o);
+      n = T.diff.pressers + (T.trigger > 0.55 ? 1 : 0);
+      // a second presser only if he is actually close enough to help
+      if (n > 1 && cand[1] && d2(cand[1].pos.x, cand[1].pos.z, o.pos.x, o.pos.z) > 14) n = 1;
+    }
     T.pressers = cand.slice(0, n);
   }
   // supporting players (closest two to our carrier)
@@ -2390,10 +3232,11 @@ function teamThink(T, dt) {
     if (p.thinkT <= 0) { p.thinkT = 0.15 + Math.random() * 0.08; aiTarget(p, has, oppHas, support); }
     const d = steerTo(p, p.target.x, p.target.z, p.wantSprint);
     if (d < 1.5) p.faceTarget = Math.atan2(ball.pos.z - p.pos.z, ball.pos.x - p.pos.x);
-    // pressing players try to win the ball
+    // pressing players try to win the ball: committed when a trigger fired, patient (jockeying) otherwise
     if (T.pressers.includes(p) && ball.owner && ball.owner.team !== T && p.tackleCD <= 0) {
       const o = ball.owner, dd = d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z);
-      const rate = (T.isUser ? (Input.pressHeld ? 0.55 : 0.25) : T.diff.tackle) * dt * 3.2;
+      const commit = T.isUser ? 1 : 0.45 + T.trigger * 0.8;
+      const rate = (T.isUser ? (Input.pressHeld ? 0.55 : 0.25) : T.diff.tackle) * dt * 3.2 * commit;
       if (dd < 1.5 && !o.isGK && Math.random() < rate) {
         p.faceTarget = Math.atan2(ball.pos.z - p.pos.z, ball.pos.x - p.pos.x); p.facing = p.faceTarget;
         if (Math.random() < T.diff.slide && dd > 0.9) doSlide(p); else doTackle(p);
@@ -2407,35 +3250,51 @@ function aiTarget(p, has, oppHas, support) {
   if (T.pressers.includes(p) && ball.owner) {
     const o = ball.owner, gx = T.ownGoalX, dx = gx - o.pos.x, dz = -o.pos.z, dl = Math.hypot(dx, dz) || 1;
     const dd = d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z), close = dd < 3;
-    const contain = T.isUser && !Input.pressHeld ? 2.2 : 1.0;
-    p.target.set(close && contain < 2 ? ball.pos.x : o.pos.x + dx / dl * contain, 0, close && contain < 2 ? ball.pos.z : o.pos.z + dz / dl * contain);
-    p.wantSprint = dd > 2.5; return;
+    // contain = jockey distance goal-side of the carrier; a trigger closes it right down
+    const contain = T.isUser ? (Input.pressHeld ? 1.0 : 2.2) : lerp(2.4, 0.9, T.trigger) * (T.pressers[0] === p ? 1 : 1.6);
+    p.target.set(close && contain < 1.2 ? ball.pos.x : o.pos.x + dx / dl * contain, 0, close && contain < 1.2 ? ball.pos.z : o.pos.z + dz / dl * contain);
+    p.wantSprint = dd > 2.5 && (T.isUser || T.trigger > 0.3 || dd > 8); return;
   }
   let f = formationPos(p, has);
   if (has) {
+    const o = ball.owner, bp = T.prog(ball.pos.x), wide = Math.abs(ball.pos.z) > G.P.boxHW - 4;
     // forward runs in behind the defensive line
-    if ((p.role === 'FWD' || (p.role === 'MID' && Math.abs(p.slot.z) > 0.5)) && ball.owner && ball.owner !== p) {
+    if ((p.role === 'FWD' || (p.role === 'MID' && Math.abs(p.slot.z) > 0.5)) && o && o !== p) {
       if (G.t < p.runUntil) { f = p.runTarget; p.wantSprint = true; }
-      else if (Math.random() < 0.035 && T.prog(ball.pos.x) > 0.3 && G.t - (p.runUntil || 0) > 3) {
+      else if (Math.random() < 0.06 && bp > 0.35 && G.t - (p.runUntil || 0) > 3) {
         p.runUntil = G.t + 2.6;
         p.runTarget = { x: T.wx(Math.min(0.94, offsideLine(T) + 0.13)), z: T.wz(clamp(p.slot.z * 0.7 + rand(-0.15, 0.15), -0.8, 0.8)) };
       }
     }
-    // offer short options to the carrier
+    // offer short options to the carrier: one ahead-left, one ahead-right (or square / behind when he is pressed)
     const si = support.indexOf(p);
-    if (si >= 0 && ball.owner && G.t >= p.runUntil) {
-      const o = ball.owner, a = (si ? 0.85 : -0.85) + (T.side > 0 ? 0 : Math.PI);
+    if (si >= 0 && o && G.t >= p.runUntil) {
+      let pr = 9; for (const q of T.opp.players) pr = Math.min(pr, d2(q.pos.x, q.pos.z, o.pos.x, o.pos.z));
+      const ang = pr < 3 ? 1.5 : 0.85, a = (si ? ang : -ang) + (T.side > 0 ? 0 : Math.PI);
       const sx = o.pos.x + Math.cos(a) * 11, sz = clamp(o.pos.z + Math.sin(a) * 11, -G.P.hw + 2, G.P.hw - 2);
       f = { x: lerp(f.x, sx, 0.55), z: lerp(f.z, sz, 0.55) };
     }
-    // get into the box for crosses
-    if (p.role === 'FWD' && T.prog(ball.pos.x) > 0.75 && Math.abs(ball.pos.z) > G.P.boxHW - 4) f = { x: T.wx(0.9 + rand(-0.03, 0.02)), z: T.wz(p.slot.z * 0.6) };
+    // ball wide in the final third: attack the box - near post, far post, penalty spot (forwards + far-side winger)
+    if (o && bp > 0.72 && wide && G.t >= p.runUntil && (p.role === 'FWD' || (p.role === 'MID' && Math.sign(p.slot.z * T.side) !== Math.sign(ball.pos.z) && Math.abs(p.slot.z) > 0.5))) {
+      const s = Math.sign(ball.pos.z) || 1, k = p.role === 'MID' ? 2 : (p.i % 2);
+      const spot = [[0.93, 0.6], [0.92, -0.55], [0.9, -0.2]][k];
+      f = { x: T.wx(Math.min(spot[0], offsideLine(T) - 0.006)), z: s * spot[1] * G.P.boxHW * 0.55 };
+      p.wantSprint = true;
+    }
   } else if (oppHas || !has) {
-    // goal-side marking of the nearest attacker
+    // marking: midfielders pick up runners near their zone goal-side; defenders hold the line and only drop with
+    // a runner who has got behind it
     if (p.role !== 'FWD') {
       let mk = null, md = 11;
       for (const o of T.opp.players) { if (o.isGK || o === ball.owner) continue; const d = d2(o.pos.x, o.pos.z, f.x, f.z); if (d < md) { md = d; mk = o; } }
-      if (mk) { const gx = T.ownGoalX, dx = gx - mk.pos.x, dz = -mk.pos.z, dl = Math.hypot(dx, dz) || 1; f = { x: lerp(f.x, mk.pos.x + dx / dl * 1.8, 0.6), z: lerp(f.z, mk.pos.z + dz / dl * 1.8, 0.6) }; }
+      if (mk) {
+        const gx = T.ownGoalX, dx = gx - mk.pos.x, dz = -mk.pos.z, dl = Math.hypot(dx, dz) || 1;
+        const gs = { x: mk.pos.x + dx / dl * 1.8, z: mk.pos.z + dz / dl * 1.8 };
+        if (p.role === 'DEF') {
+          const behind = T.prog(mk.pos.x) < (T.line ?? 0.2) + 0.01;
+          f = behind ? { x: lerp(f.x, gs.x, 0.75), z: lerp(f.z, gs.z, 0.6) } : { x: f.x, z: lerp(f.z, gs.z, 0.45) };
+        } else f = { x: lerp(f.x, gs.x, 0.55), z: lerp(f.z, gs.z, 0.55) };
+      }
     }
     p.wantSprint = d2(p.pos.x, p.pos.z, f.x, f.z) > 9;
   }
@@ -2444,54 +3303,104 @@ function aiTarget(p, has, oppHas, support) {
   p.target.set(clamp(f.x, -G.P.hl + 0.5, G.P.hl - 0.5), 0, clamp(f.z, -G.P.hw + 0.5, G.P.hw - 0.5));
   if (!p.wantSprint) p.wantSprint = d2(p.pos.x, p.pos.z, p.target.x, p.target.z) > 12;
 }
-/** Rank pass options from carrier p. Returns {r, type, score, d} or null. */
+/** Value of having the ball at (x, z) for team T (0 own goal .. ~1.6 in front of the opposing goal). */
+function posValue(T, x, z) {
+  const pr = T.prog(x), dGoal = d2(x, z, T.goalX, 0);
+  return pr * pr * 1.1 + pr * 0.25 + clamp(1 - dGoal / 30, 0, 1) * 0.35 - Math.abs(z) / G.P.hw * 0.06;
+}
+/** Rank pass options from carrier p. Returns {r, type, score, d, risk} or null.
+ *  Each option = gain in position value x (1 - risk) - risk x cost of losing it there; risk comes from opponents who can
+ *  reach the passing lane before the ball does, and from pressure at the receiver. patience (DIFF) raises the cost of
+ *  risk, so good teams recycle the ball sideways/backwards instead of forcing it forward. */
 function evaluatePasses(p, fromKeeper = false) {
-  const T = p.team, opp = T.opp.players, line = offsideLine(T);
+  const T = p.team, opp = T.opp.players, line = offsideLine(T), pat = T.diff.patience;
   let best = null;
-  const pProg = T.prog(p.pos.x);
+  const pProg = T.prog(p.pos.x), here = posValue(T, p.pos.x, p.pos.z);
+  const lossCost = 0.25 + (1 - pProg) * 0.55;
+  const prevP = ball.lastKick && G.t - ball.lastKick.t < 3 ? ball.lastKick.p : null;
   for (const t of T.players) {
     if (t === p || t.state === 'fallen' || (t.isGK && !fromKeeper)) continue;
     if (t.isGK) continue;
     const lx = t.pos.x + t.vel.x * 0.6, lz = t.pos.z + t.vel.z * 0.6, d = d2(p.pos.x, p.pos.z, lx, lz);
     if (d < 5 || d > (fromKeeper ? 55 : 46)) continue;
-    if (settings.offside && T.prog(t.pos.x) > line + 0.005 && (T.diff !== DIFF.easy || Math.random() < 0.5)) continue;
-    let lane = 9, open = 9;
+    // offside awareness: a runner level-ish with the line is sometimes misjudged (more often on easy)
+    if (settings.offside && T.prog(t.pos.x) > line + 0.005 + (Math.random() < (T.diff === DIFF.easy ? 0.5 : 0.2) ? (t.runUntil > G.t ? 0.022 : 0.012) : 0)) continue;
+    // lane risk for a ground pass: ball time to each point on the lane vs the opponent's time to get there
+    const vb = 9 + d * 0.12;
+    let laneRisk = 0, open = 9, nearP = 9;
     for (const o of opp) {
-      const s = segDist(o.pos.x, o.pos.z, p.pos.x, p.pos.z, lx, lz); if (s.t > 0.05 && s.t < 0.98) lane = Math.min(lane, s.d);
-      open = Math.min(open, d2(o.pos.x, o.pos.z, lx, lz));
+      const s = segDist(o.pos.x, o.pos.z, p.pos.x, p.pos.z, lx, lz);
+      if (s.t > 0.04 && s.t < 0.97) { const tb = s.t * d / vb, to = Math.max(0, s.d - 0.7) / 6.5 + 0.3; laneRisk = Math.max(laneRisk, 1 / (1 + Math.exp(-(tb - to) * 5))); }
+      open = Math.min(open, d2(o.pos.x, o.pos.z, lx, lz)); nearP = Math.min(nearP, d2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
     }
-    const prog = T.prog(lx) - pProg;
-    let type = 'ground', score = prog * 3 + Math.min(lane, 5) * 0.1 + Math.min(open, 8) * 0.05 - Math.max(0, d - 30) * 0.02 - (lane < 2.0 ? 1.0 : 0) - (open < 1.5 ? 0.4 : 0);
-    if ((lane < 1.6 || fromKeeper) && d > 15 && open > 2.5) { const s2 = prog * 3 + Math.min(open, 8) * 0.06 - 0.15; if (s2 > score) { score = s2; type = 'lofted'; } }
-    if (t.runUntil > G.t && open > 2) { score += 0.3; type = lane < 1.4 ? 'lofted' : 'through'; }
-    if (pProg > 0.76 && Math.abs(p.pos.z) > G.P.boxHW - 3 && inOwnBox(T.opp, t.pos)) { score += 0.45; type = 'lofted'; }
-    if (!best || score > best.score) best = { r: t, type, score, d };
+    const recvRisk = clamp((2.2 - open) * 0.22, 0, 0.45);
+    const gain = posValue(T, lx, lz) - here + Math.min(open, 8) * 0.012;
+    const value = (gain, risk) => gain * (1 - risk) - risk * lossCost * (1 + pat * (pProg < 0.5 ? 1.6 : 0.7));   // braver in the opponent's half
+    let type = 'ground', risk = clamp(laneRisk + recvRisk, 0, 0.95), score = value(gain, risk) - (t === prevP ? 0.08 : 0);
+    // lofted: clears the lane, but is less accurate and harder to control; worth it for long switches or over a press
+    if (d > 15 && (laneRisk > 0.35 || fromKeeper || Math.abs(lz - p.pos.z) > 25)) {
+      const lr = clamp(0.2 + d * 0.004 + clamp((3.5 - open) * 0.15, 0, 0.5) + (nearP < 1.6 ? 0.2 : 0), 0, 0.95);
+      const s2 = value(gain + (Math.abs(lz - p.pos.z) > 25 ? 0.06 : 0), lr);
+      if (s2 > score) { score = s2; type = 'lofted'; risk = lr; }
+    }
+    if (t.runUntil > G.t && open > 2) { const tr = clamp(laneRisk * 0.8 + 0.15, 0, 0.9), s3 = value(gain + 0.12, tr); if (s3 > score) { score = s3; type = laneRisk > 0.5 && d > 15 ? 'lofted' : 'through'; risk = tr; } }
+    if (!best || score > best.score) best = { r: t, type, score, d, risk };
   }
   return best;
 }
+/* Shot selection (TUNE): shoot when xG >= DIFF.xgMin (lower on easy = more speculative), always from a big chance
+ * (xG > 0.22); a long shot below that with chance SHOOT_BASE + xG * SHOOT_Q per decision (arcade tempo). */
+const SHOOT_BASE = 0.45, SHOOT_Q = 8;   // per decision below xgMin (but xG > 0.012, ~33 m): P(shoot) = SHOOT_BASE + xG * SHOOT_Q
 function carrierThink(p, dt) {
   const T = p.team, gx = T.goalX;
   p.decideT -= dt;
   if (p.decideT <= 0 && p.state === 'normal') {
     p.decideT = T.diff.react * rand(0.7, 1.3);
-    const dGoal = d2(p.pos.x, p.pos.z, gx, 0);
+    const dGoal = d2(p.pos.x, p.pos.z, gx, 0), prog = T.prog(p.pos.x);
     let pressure = 99; for (const o of T.opp.players) pressure = Math.min(pressure, d2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
-    const shootR = (G.P.L < 80 ? 19 : 26) * T.diff.shootRange;
-    if (dGoal < shootR && T.prog(p.pos.x) > 0.62) {
-      let blockers = 0; for (const o of T.opp.players) if (!o.isGK) { const s = segDist(o.pos.x, o.pos.z, p.pos.x, p.pos.z, gx, 0); if (s.d < 1.2 && s.t > 0.05) blockers++; }
-      let prob = dGoal < 11 ? 0.95 : dGoal < 17 ? 0.7 : 0.35; prob -= blockers * 0.2; if (Math.abs(p.pos.z) > 15) prob *= 0.4;
-      if (Math.random() < prob) { doShoot(p, clamp(0.55 + dGoal / 55 + rand(0, 0.15), 0.5, 0.93), null, rand(-0.5, 0.5)); return; }
-    }
     const best = evaluatePasses(p);
+    // ---- shoot? ----
+    if (dGoal < 36 * T.diff.shootRange && prog > 0.6) {
+      const q = xG(T, p.pos.x, p.pos.z, p);
+      let mateBetter = false;                       // unselfish: square it if a team-mate has a far better chance
+      if (best && best.risk < 0.3) { const r = best.r; mateBetter = xG(T, r.pos.x, r.pos.z) > q * 1.8 + 0.05; }
+      const thr = T.diff.xgMin;
+      if (!mateBetter && (q > 0.22 || (q >= thr && Math.random() < 0.7 + q) || (q > 0.012 && Math.random() < SHOOT_BASE + q * SHOOT_Q))) {
+        cnt(q < thr ? 'longShot' : 'shotSel');
+        doShoot(p, clamp(0.55 + dGoal / 70 + rand(0, 0.12), 0.5, 0.86), null, rand(-0.5, 0.5)); return;
+      }
+    }
+    // ---- under pressure deep in our own half with no safe ball: clear it (long and towards the flanks) ----
+    if (prog < 0.25 && pressure < 2.2 && (!best || best.risk > 0.45) && Math.random() < 0.8 - T.diff.patience * 0.35) {
+      const a = Math.atan2(rand(0.25, 0.9) * (Math.sign(p.pos.z) || 1), T.side), s = rand(17, 24);
+      kickBall(p, V3(Math.cos(a) * s, rand(7, 11), Math.sin(a) * s), V3(), 'clear', 0.7); return;
+    }
+    // ---- pinned on our own touchline with no way out: put it into touch / down the line ----
+    if (prog < 0.45 && pressure < 1.7 && Math.abs(p.pos.z) > G.P.hw - 8 && (!best || best.risk > 0.5) && Math.random() < 0.5) {
+      const sz = Math.sign(p.pos.z), a = Math.atan2(sz * rand(0.15, 0.6), T.side), sp = rand(14, 20);
+      kickBall(p, V3(Math.cos(a) * sp, rand(3, 7), Math.sin(a) * sp), V3(), 'clear', 0.6); return;
+    }
+    // ---- cross from wide in the final third ----
+    if (prog > 0.72) cnt(Math.abs(p.pos.z) > G.P.boxHW - 3 ? 'wideF' : 'centF');
+    if (prog > 0.72 && Math.abs(p.pos.z) > G.P.boxHW - 3) {
+      const inBox = T.players.filter(t => t !== p && !t.isGK && inOwnBox(T.opp, t.pos, 6));
+      const nearLine = prog > 0.86, chance = (nearLine ? 0.75 : 0.35) + (pressure < 2.5 ? 0.25 : 0);
+      if (inBox.length && Math.random() < chance) {
+        const r = inBox.sort((a, b) => xG(T, b.pos.x, b.pos.z) - xG(T, a.pos.x, a.pos.z))[0];
+        const pt = r.pos.clone().addScaledVector(r.vel, 1.0); pt.x = T.wx(clamp(T.prog(pt.x), 0.86, 0.95)); pt.z = clamp(pt.z, -GOAL_HW - 4, GOAL_HW + 4);
+        doPass(p, { target: r, point: pt, type: 'cross' }); return;
+      }
+    }
     let space = 12; const f = fwdOf(p);
     for (const o of T.opp.players) { const dx = o.pos.x - p.pos.x, dz = o.pos.z - p.pos.z, d = Math.hypot(dx, dz); if (d < 12 && (dx * T.side) / d > 0.5) space = Math.min(space, d); }
-    const dribScore = clamp(space / 9, 0, 1) * 1.2 + (T.prog(p.pos.x) > 0.7 ? 0.2 : 0);
-    if (best && ((pressure < 2.0 && best.score > -0.15) || best.score > dribScore + 0.45 + rand(-0.2, 0.2))) { doPass(p, { target: best.r, type: best.type }); return; }
+    // carrying it: worth more with space ahead, less when pressed
+    const dribScore = clamp(space / 9, 0, 1) * 0.09 + (prog > 0.5 ? 0.05 : 0) + (prog > 0.62 && space > 3 ? 0.12 : 0)   // drive at the box - (pressure < 1.6 ? 0.12 : 0) - T.diff.patience * 0.03;
+    if (best && (best.score > dribScore + rand(-0.04, 0.04) || (pressure < 1.8 && best.risk < 0.5))) { doPass(p, { target: best.r, type: best.type }); return; }
     // dribble towards goal, steering around nearby opponents and away from the touchlines
     let dx = gx - p.pos.x, dz = -p.pos.z * 0.35; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
     for (const o of T.opp.players) { const ox = p.pos.x - o.pos.x, oz = p.pos.z - o.pos.z, d = Math.hypot(ox, oz); if (d < 6 && d > 0.01) { dx += ox / (d * d) * 2.2; dz += oz / (d * d) * 2.2; } }
-    if (Math.abs(p.pos.z) > G.P.hw - 4) dz -= Math.sign(p.pos.z) * 0.8;
-    const n = Math.hypot(dx, dz) || 1; p.dribDir = { x: dx / n, z: dz / n }; p.dribSprint = space > 6 && p.stamina > 0.3;
+    if (Math.abs(p.pos.z) > G.P.hw - 2.5) dz -= Math.sign(p.pos.z) * 0.8;
+    const n = Math.hypot(dx, dz) || 1; p.dribDir = { x: dx / n, z: dz / n }; p.dribSprint = space > 7 && p.stamina > 0.3 && prog > 0.35;
   }
   const dd = p.dribDir || { x: T.side, z: 0 }, sp = p.maxSpeed(p.dribSprint);
   p.desired.set(dd.x * sp, 0, dd.z * sp); p.sprint = p.dribSprint;
