@@ -2,3 +2,4 @@
 football-*.html
 scripts/.*.cjs
 scripts/.*.js
+scripts/.*.mjs
