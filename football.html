@@ -5980,7 +5980,7 @@ function bcReset() {
   $('lower3').classList.remove('on'); $('addBoard').classList.remove('on'); $('addT').textContent = '';
   Commentary.stop();
   const [H, A] = G.teams;
-  Commentary.say(line('intro', ['Welcome along. {h} against {a}, and the teams are out.', 'Good evening, and what a setting. {h} take on {a}.', 'The stage is set: {h} versus {a}. Let\'s see what this one brings.'], { h: H.club.name, a: A.club.name }), 2, 9);
+  Commentary.say(line('intro', ['Welcome along. {h} against {a}, and the teams are out.', (settings.time === 'night' ? 'Good evening, and what a setting under the lights. {h} take on {a}.' : 'Good afternoon, and what a setting. {h} take on {a}.'), 'The stage is set: {h} versus {a}. Let\'s see what this one brings.'], { h: H.club.name, a: A.club.name }), 2, 9);
 }
 function bcWatch() {
   Commentary.tick();
