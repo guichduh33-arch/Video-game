@@ -3068,8 +3068,16 @@ function gkDistribute(p) {
 function updateHeldBall() {
   const h = ball.holder; if (!h) return;
   if (G.sp && G.sp.taker === h && G.state === 'setpiece') return;
-  const f = fwdOf(h);
-  ball.pos.set(h.pos.x + f.x * 0.38, (h.state === 'dive' ? 0.6 : 1.05) + h.lift, h.pos.z + f.z * 0.38);
+  // keepers: follow the hands as last posed by the renderer (so a keeper who catches in a dive lies on the ball
+  // instead of the ball hanging a metre above him); fall back to a chest-height estimate when no pose is fresh
+  if (h.isGK && ball.handPos && G.t - ball.handT < 0.5) { ball.pos.copy(ball.handPos); ball.prev.copy(ball.pos); return; }
+  if (h.isGK && h.state === 'dive') {   // same body axis as gkContact: hands ~1.9 m along the tilted body
+    const tilt = easeOut(Math.min(1, h.stateT / 0.3)) * (h.diveTilt ?? 1.38);
+    ball.pos.set(h.pos.x, Math.max(BALL_R, 0.2 + h.lift + Math.cos(tilt) * 1.9), h.pos.z + Math.sin(tilt) * (h.diveDir || 1) * 1.9);
+    ball.prev.copy(ball.pos); return;
+  }
+  const f = fwdOf(h), y = h.state === 'fallen' ? 0.3 : 1.05 + h.lift;
+  ball.pos.set(h.pos.x + f.x * 0.38, y, h.pos.z + f.z * 0.38);
   ball.prev.copy(ball.pos);
 }
 
@@ -4437,6 +4445,7 @@ function update(dt) {
 /* ---- rendering ---- */
 const _rec = { x: 0, y: 0, z: 0, facing: 0, anim: 0, phase: 0, t: 0, speed: 0, aux: 0 };
 let frameN = 0;
+const _handA = V3(), _handB = V3();
 function render(dt) {
   const time = performance.now() / 1000, alpha = clamp((update.acc || 0) / DT, 0, 1), inReplay = G.state === 'replay';
   const bp = V3();
@@ -4452,6 +4461,16 @@ function render(dt) {
     const m = p.model; m.root.position.set(r.x, r.y, r.z); m.root.rotation.y = Math.PI / 2 - r.facing;
     applyPose(m, r, inReplay ? dt * 0.5 : dt * G.timeScale, time);
   });
+  // a keeper holding the ball in open play carries it in his hands, wherever the pose puts them (dive, lying, getting up)
+  const hk = ball.holder;
+  if (!inReplay && hk && hk.isGK && G.state !== 'setpiece') {
+    const hm = hk.model; hm.root.updateMatrixWorld(true);
+    const hl = hm.wrL.localToWorld(_handA.set(0, -0.09, 0.03)), hr = hm.wrR.localToWorld(_handB.set(0, -0.09, 0.03));
+    _handA.addVectors(hl, hr).multiplyScalar(0.5);
+    _handA.x += Math.cos(hk.facing) * 0.08; _handA.z += Math.sin(hk.facing) * 0.08; _handA.y = Math.max(BALL_R, _handA.y);
+    bp.copy(_handA); ballMesh.position.copy(bp); ball.pos.copy(bp); ball.prev.copy(bp);   // physics + replay follow the hands too
+    ball.handPos = ball.handPos || V3(); ball.handPos.copy(bp); ball.handT = G.t;
+  }
   updatePlayerBlobs(G.players);   // one instanced draw for all player blobs (low quality only)
   ballBlob.position.set(bp.x, 0.012, bp.z); const hb = bp.y - BALL_R; ballBlob.scale.setScalar(0.42 + hb * 0.12); ballBlob.material.opacity = clamp(1 - hb * 0.12, 0.2, 1);
   // controlled player marker
