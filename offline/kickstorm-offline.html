@@ -478,6 +478,13 @@ const SHOP_CAT = (() => {
   const ec = { pace: 99, shooting: 92, passing: 83, defending: 41, dribbling: 95, gk: 22 };
   out.push({ id: 'p49', name: 'N. Éclair', pos: 'FWD', num: num('FWD'), tier: 'legend', ovr: clamp(ovrOf(ec, 'FWD'), 90, 99), price: 9500, ...ec,
     skin: 1, hair: 1, style: 2, height: 1.0, boots: '#ff8a1f', isStar: true });
+  // two more hand-made, original legends: a small technical playmaker and a powerful all-round striker
+  const pm = { pace: 88, shooting: 91, passing: 95, defending: 38, dribbling: 98, gk: 20 };
+  out.push({ id: 'p50', name: 'J. Orlavi', pos: 'FWD', num: num('FWD'), tier: 'legend', ovr: clamp(ovrOf(pm, 'FWD'), 90, 99), price: 9800, ...pm,
+    skin: 0, hair: 3, style: 0, height: 0.95, boots: '#20e3d2', isStar: true });
+  const ps = { pace: 90, shooting: 97, passing: 83, defending: 42, dribbling: 90, gk: 22 };
+  out.push({ id: 'p51', name: 'A. Kestrond', pos: 'FWD', num: num('FWD'), tier: 'legend', ovr: clamp(ovrOf(ps, 'FWD'), 90, 99), price: 9600, ...ps,
+    skin: 2, hair: 0, style: 1, height: 1.04, boots: '#ff3b6b', isStar: true });
   return out;
 })();
 const SHOP_BY_ID = Object.fromEntries(SHOP_CAT.map(p => [p.id, p]));
