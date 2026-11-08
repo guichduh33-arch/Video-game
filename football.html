@@ -2653,37 +2653,77 @@ function doHeader(p) {
     kickBall(p, V3(Math.cos(a) * s, rand(4.5, 7.5), Math.sin(a) * s), V3(), 'header', 0.5); ball.shot = false;
   }
 }
+/* ---- tackling (TUNE: TACKLE) ----
+ * Standing tackle: the tackler faces and lunges at where the ball will be in LEAD s (ramping at LUNGE_ACC to LUNGE_V,
+ * only if within LUNGE_MAX; from further the press whiffs),
+ * then the foot (FOOT m in front of the body) gets a contact window WIN0..WIN1 s: the first frame the ball is within
+ * REACH of the foot the tackle is resolved. A whiff with the carrier close costs a stumble (MISS_STUMBLE s).
+ * Win chance: human HUMAN_BASE, AI AI_BASE + difficulty bonus, +/- STAT_K per point defending vs dribbling,
+ * minus a feint / sprinting-carrier malus. Winning it through the man from behind risks a foul (FOUL.WIN_BEHIND).
+ * Slide: launched at max(speed, SLIDE_MIN) + SLIDE_ADD m/s, decays at 2.3/s -> covers ~3.3 m in 0.8 s; the human's
+ * slide is aimed at the ball when it is within SLIDE_AIM m and roughly in front. */
+const TACKLE = { LEAD: 0.15, LUNGE_V: 7, LUNGE_ACC: 30, LUNGE_MAX: 2.8, MISS_DIST: 4.5, FOOT: 0.55, REACH: 1.0, WIN0: 0.06, WIN1: 0.36, MISS_STUMBLE: 0.4,
+  HUMAN_BASE: 0.62, AI_BASE: 0.45, STAT_K: 0.01, FEINT: 0.3, SPRINT_PEN: 0.06, SLIDE_MIN: 6, SLIDE_ADD: 3, SLIDE_AIM: 8 };
 function doTackle(p) {
   if (!p.canAct() || p.tackleCD > 0) return;
-  p.setState('tackle', 0.42); p.tackleDone = false; p.tackleCD = 0.7;
-  // lunge towards the ball if it is close enough
-  const dx = ball.pos.x - p.pos.x, dz = ball.pos.z - p.pos.z, d = Math.hypot(dx, dz);
-  if (d < 3.5 && d > 0.01) { p.facing = Math.atan2(dz, dx); p.vel.set(dx / d * 5.5, 0, dz / d * 5.5); p.desired.copy(p.vel); }
+  p.setState('tackle', 0.42); p.tackleDone = false; p.tackleCD = 0.55;
+  // face and lunge at where the ball is going to be
+  const d0 = d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z), lead = clamp(d0 / 5, TACKLE.LEAD * 0.7, TACKLE.LEAD * 3);   // further away = aim further ahead
+  const bv = ball.owner ? ball.owner.vel : ball.vel, tx = ball.pos.x + bv.x * lead, tz = ball.pos.z + bv.z * lead;
+  const dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz);
+  p.lungeV = 6;
+  if (d < 6 && d > 0.01) p.facing = Math.atan2(dz, dx);
+  // lunge only when the ball is within ~2.8 m; the speed ramps up (LUNGE_ACC) from the current velocity, so a press from
+  // too far whiffs and costs a stumble
+  if (d0 < TACKLE.LUNGE_MAX && d > 0.01) { const sp = clamp(d / 0.3, 3.5, TACKLE.LUNGE_V); p.lungeV = sp; p.desired.set(dx / d * sp, 0, dz / d * sp); }
+  else p.desired.set(0, 0, 0);
 }
 function doSlide(p) {
   if (!p.canAct() || p.tackleCD > 0) return;
-  p.setState('slide', 0.8); p.slideBall = false; p.slideFoul = false; p.tackleCD = 1.2;
-  const f = fwdOf(p); p.vel.copy(f).multiplyScalar(Math.max(p.speed, 5.5) + 2.6);
+  if (p.controlled && !G.demo) {             // the human's slide goes for the ball if it is roughly ahead
+    // aim where the slide (distance v0 (1 - e^-2.3t) / 2.3) meets the ball's path
+    // a dribbled ball moves with its carrier (its own velocity includes the dribble correction)
+    const bv = ball.owner ? ball.owner.vel : ball.vel, v0 = Math.max(p.speed, TACKLE.SLIDE_MIN) + TACKLE.SLIDE_ADD; let lead = 0.25;
+    for (let t = 0.05; t <= 0.7; t += 0.025) { const bx = ball.pos.x + bv.x * t, bz = ball.pos.z + bv.z * t; if (d2(p.pos.x, p.pos.z, bx, bz) - 0.5 <= v0 * (1 - Math.exp(-2.3 * t)) / 2.3) { lead = t + 0.05; break; } }   // meet the ball just ahead of it
+    const tx = ball.pos.x + bv.x * lead, tz = ball.pos.z + bv.z * lead, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz);
+    if (d < TACKLE.SLIDE_AIM && d > 0.01 && Math.abs(wrapA(Math.atan2(dz, dx) - p.facing)) < 2.4) p.facing = Math.atan2(dz, dx);
+  }
+  p.setState('slide', 0.8); p.slideBall = false; p.slideFoul = false; p.slideHurdle = null; p.tackleCD = 1.2;
+  const f = fwdOf(p); p.vel.copy(f).multiplyScalar(Math.max(p.speed, TACKLE.SLIDE_MIN) + TACKLE.SLIDE_ADD);
   Sound.tackle();
 }
+/** Tackle in progress: resolve on the first frame the ball comes within reach of the foot (or the carrier is on top of us). */
+function tackleStep(p) {
+  if (p.tackleDone || p.stateT < TACKLE.WIN0) return;
+  const f = fwdOf(p), fx = p.pos.x + f.x * TACKLE.FOOT, fz = p.pos.z + f.z * TACKLE.FOOT, o = ball.owner;
+  if (p.stateT < TACKLE.WIN1 && o && o.team !== p.team) p.facing = lerpA(p.facing, Math.atan2(ball.pos.z - p.pos.z, ball.pos.x - p.pos.x), 0.3);
+  const near = d2(fx, fz, ball.pos.x, ball.pos.z) < TACKLE.REACH || (o && o.team !== p.team && d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z) < 0.9);
+  if (near) { p.tackleDone = true; resolveTackle(p); return; }
+  if (p.stateT >= TACKLE.WIN1) {
+    p.tackleDone = true;
+    if (o && o.team !== p.team && d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z) < TACKLE.MISS_DIST) { p.setState('stumble', TACKLE.MISS_STUMBLE); cnt('tackleMiss'); }
+  }
+}
 /* foul chances (TUNE): failed tackle with contact from the front / from behind, won tackle through the man from behind */
-const FOUL = { FAIL_FRONT: 0.35, FAIL_BEHIND: 0.6, WIN_BEHIND: 0.3 };
+const FOUL = { FAIL_FRONT: 0.2, FAIL_BEHIND: 0.55, WIN_BEHIND: 0.35 };
 function resolveTackle(p) {
   const o = ball.owner, f = fwdOf(p); 
   const dx = ball.pos.x - p.pos.x, dz = ball.pos.z - p.pos.z, d = Math.hypot(dx, dz);
   const inFront = d < 1.25 || (dx * f.x + dz * f.z) / (d || 1) > -0.3;
-  if (o && o.team !== p.team && d < 1.9 && inFront && !o.isGK) {
-    const bonus = p.team.isUser ? 0 : p.team.diff.tackle - 0.55;
-    const chance = clamp(0.45 + (p.stat('defending') - o.stat('dribbling')) * 0.012 + bonus + (o.feintT > 0 ? -0.3 : 0), 0.12, 0.9);
+  if (o && o.team !== p.team && d < 2.0 && inFront && !o.isGK) {
+    const human = p.controlled && !G.demo, base = human ? TACKLE.HUMAN_BASE : TACKLE.AI_BASE + (p.team.isUser ? 0 : p.team.diff.tackle - 0.55);
+    const chance = clamp(base + (p.stat('defending') - o.stat('dribbling')) * TACKLE.STAT_K + (o.feintT > 0 ? -TACKLE.FEINT : 0) - (o.sprint ? TACKLE.SPRINT_PEN : 0), 0.12, 0.9);
+    // from behind = the tackler is on the carrier's back side (sign: + along the carrier's facing is in front of him)
+    const ox = p.pos.x - o.pos.x, oz = p.pos.z - o.pos.z, behindC = (Math.cos(o.facing) * ox + Math.sin(o.facing) * oz) / (Math.hypot(ox, oz) || 1);
     if (Math.random() < chance) {
-      const behind = (Math.cos(o.facing) * -dx + Math.sin(o.facing) * -dz) > 0.3;
+      const behind = behindC < -0.3;
       if (behind && Math.random() < FOUL.WIN_BEHIND) { p.setState('stumble', 0.3); cnt('tackleFoul'); callFoul(p, o); return; }
       const a = Math.atan2(f.z * 3.5 + dz * 1.5, f.x * 3.5 + dx * 1.5) + rand(-0.9, 0.9), s = rand(2.5, 7);   // the ball squirts loose
       ball.owner = null; ball.lastTouch = p; ball.vel.set(Math.cos(a) * s, 0, Math.sin(a) * s);
       o.setState('stumble', 0.55); o.touchCD = 0.5; p.touchCD = 0; Sound.tackle(); G.offside = null; cnt('tackleWin');
     } else {
-      p.setState('stumble', 0.45); cnt('tackleFail');
-      const behind = (Math.cos(o.facing) * -dx + Math.sin(o.facing) * -dz) > 0;
+      p.setState('stumble', TACKLE.MISS_STUMBLE + 0.05); cnt('tackleFail');
+      const behind = behindC < 0;
       if (d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z) < 1.6 && Math.random() < (behind ? FOUL.FAIL_BEHIND : FOUL.FAIL_FRONT)) callFoul(p, o);
     }
   } else if (!o && d < 1.4 && ball.pos.y < 0.6) { cnt('poke');
@@ -2692,14 +2732,20 @@ function resolveTackle(p) {
 }
 
 /* ---- per-step physics for a player: movement, stamina, actions in progress ---- */
+/* keeper scramble (TUNE): after AFTER s of a dive, a loose ball within DIST m makes him get up in GETUP s */
+const GK_SCRAMBLE = { AFTER: 0.42, DIST: 7, GETUP: 0.18 };
 function stepPlayer(p, dt) {
   p.stateT += dt; p.touchCD -= dt; p.tackleCD -= dt; p.feintT -= dt; p.burstT = Math.max(0, p.burstT - dt);
   if (p.pending && G.t - p.pending.t > 0.75) p.pending = null;
   const st = p.state;
   if (st !== 'normal' && st !== 'hold' && p.stateT >= p.dur) {
-    if (st === 'slide') p.setState('stumble', 0.35);
+    if (st === 'slide') { if ((!p.slideBall || p.slideHurdle) && !p.slideFoul) cnt('slideMiss'); p.setState('stumble', 0.35); }
     else if (st === 'dive') p.setState('fallen', 0.55);
     else p.setState('normal', 0);
+  }
+  // keeper scramble: on the ground after a dive with the ball loose and close -> cut the get-up short
+  if (p.isGK && (p.state === 'dive' && p.stateT > GK_SCRAMBLE.AFTER || p.state === 'fallen') && !ball.owner && !ball.holder && d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < GK_SCRAMBLE.DIST && ball.vel.length() < 12) {
+    if (p.state === 'dive') { p.setState('fallen', GK_SCRAMBLE.GETUP); cnt('gkScramble'); } else p.dur = Math.min(p.dur, p.stateT + GK_SCRAMBLE.GETUP);
   }
   let accel = ball.owner === p ? 15 : 22, maxV = 99, run = p.state === 'normal' || p.state === 'hold';
   switch (p.state) {
@@ -2711,7 +2757,7 @@ function stepPlayer(p, dt) {
       p.vel.multiplyScalar(Math.exp(-1.2 * dt)); { const u = Math.min(1, p.stateT / p.dur); p.lift = Math.max(0, p.diveLift * (u < 0.45 ? Math.sin(u / 0.45 * Math.PI / 2) : Math.cos((u - 0.45) / 0.55 * Math.PI / 2))); }   // spring up fast (peak ~0.43 s), then fall
       accel = 0; break;
     case 'fallen': p.desired.set(0, 0, 0); accel = 8; run = true; break;
-    case 'tackle': p.faceTarget = p.facing; if (!p.tackleDone && p.stateT > 0.12) { p.tackleDone = true; resolveTackle(p); } maxV = 6; accel = 6; break;
+    case 'tackle': tackleStep(p); p.faceTarget = p.facing; maxV = Math.max(6, p.lungeV || 6); accel = TACKLE.LUNGE_ACC; break;
     case 'kick': case 'throw': maxV = 2.5; break;
     case 'header': p.lift = 0.45 * Math.sin(Math.min(1, p.stateT / p.dur) * Math.PI); maxV = 4; break;
     case 'stumble': maxV = 2.5; break;
@@ -2796,19 +2842,42 @@ function locomote(p, dt) {
     if (ns > cap) p.vel.multiplyScalar(Math.max(cap, ns - LOCO.BRAKE * dt) / ns);
   }
 }
+/* Slide contact (TUNE: SLIDE). The ball is met somewhere along the sliding leg (hip -> 1.1 m past the boot). Against
+ * a carrier it is a skill roll, not automatic: BASE + boot contact (outer part of the leg) - hip/shin contact
+ * + ball knocked ahead of the carrier (easier) + angle (front good, side worse, behind bad) + STAT_K per point
+ * defending vs dribbling. A failed roll: the carrier hurdles it (keeps the ball) or, from the side/behind, gets
+ * clipped -> foul (FOUL_SIDE / FOUL_BEHIND / FOUL_FRONT). Boot into the man before the ball = foul. After the contact
+ * the slider cannot pass through the carrier's body. */
+const SLIDE = { BASE: 0.42, BOOT: 0.08, SHIN: -0.12, AHEAD: 0.05, FRONT: 0.08, SIDE: -0.08, BEHIND: -0.35, STAT_K: 0.012, FOUL_FRONT: 0.15, FOUL_SIDE: 0.25, FOUL_BEHIND: 0.75 };
 function slideContacts(p) {
   const f = fwdOf(p), fx = p.pos.x + f.x * 0.55, fz = p.pos.z + f.z * 0.55;
-  if (!p.slideBall && d2(fx, fz, ball.pos.x, ball.pos.z) < 0.95 && ball.pos.y < 0.6 && !ball.holder) {
+  const leg = segDist(ball.pos.x, ball.pos.z, p.pos.x, p.pos.z, p.pos.x + f.x * 1.1, p.pos.z + f.z * 1.1);
+  if (!p.slideBall && leg.d < 0.6 && ball.pos.y < 0.6 && !ball.holder) {
     p.slideBall = true; const o = ball.owner;
-    if (o && o.team !== p.team) { o.setState('stumble', 0.6); o.touchCD = 0.6; }
+    if (o && o.team !== p.team) {
+      // angle: where the slider is relative to the carrier at contact (+ in front of him along his facing, - behind)
+      const rx = p.pos.x - o.pos.x, rz = p.pos.z - o.pos.z, cf = (rx * Math.cos(o.facing) + rz * Math.sin(o.facing)) / (Math.hypot(rx, rz) || 1), ahead = d2(o.pos.x, o.pos.z, ball.pos.x, ball.pos.z) > 1.0;
+      const angle = cf > 0.5 ? SLIDE.FRONT : cf > -0.3 ? SLIDE.SIDE : SLIDE.BEHIND;
+      const chance = clamp(SLIDE.BASE + (leg.t > 0.4 ? SLIDE.BOOT : SLIDE.SHIN) + (ahead ? SLIDE.AHEAD : 0) + angle + (p.stat('defending') - o.stat('dribbling')) * SLIDE.STAT_K - (o.feintT > 0 ? 0.2 : 0), 0.08, 0.9);
+      if (Math.random() >= chance) {
+        const fp = cf > 0.5 ? SLIDE.FOUL_FRONT : cf > -0.3 ? SLIDE.FOUL_SIDE : SLIDE.FOUL_BEHIND;
+        if (Math.random() < fp) { p.slideFoul = true; o.setState('fallen', 1.1); o.vel.multiplyScalar(0.3); cnt('slideFoul'); callFoul(p, o); return; }
+        p.slideHurdle = o; cnt('slideHurdle'); return;              // he jumps it and keeps the ball
+      }
+      o.setState('stumble', 0.6); o.touchCD = 0.6; cnt('slideWin');
+    }
     ball.owner = null; ball.lastTouch = p; G.offside = null;
     ball.vel.set(f.x * 7 + rand(-2, 2), 0.5, f.z * 7 + rand(-2, 2)); p.touchCD = 0.5; Sound.tackle();
   }
   for (const o of p.team.opp.players) {
-    if (o.state === 'fallen' || o.state === 'dive' || o.isGK && ball.holder === o) continue;
-    if (d2(fx, fz, o.pos.x, o.pos.z) < 0.85) {
-      o.setState('fallen', 1.1); o.vel.multiplyScalar(0.3);
-      if (!p.slideBall && !p.slideFoul) { p.slideFoul = true; callFoul(p, o); }
+    if (o.state === 'fallen' || o.state === 'dive' || o.isGK && ball.holder === o || p.slideHurdle === o) continue;
+    const dB = d2(p.pos.x, p.pos.z, o.pos.x, o.pos.z);
+    if (p.slideBall && dB < 0.75 && dB > 0.01) {                // after the contact: no sliding through his body
+      const nx = (o.pos.x - p.pos.x) / dB, nz = (o.pos.z - p.pos.z) / dB, vn = p.vel.x * nx + p.vel.z * nz;
+      if (vn > 0) { p.vel.x -= nx * vn; p.vel.z -= nz * vn; }
+    }
+    if (d2(fx, fz, o.pos.x, o.pos.z) < 0.45) {
+      if (!p.slideBall && !p.slideFoul) { p.slideFoul = true; o.setState('fallen', 1.1); o.vel.multiplyScalar(0.3); cnt('slideFoul'); callFoul(p, o); }
     }
   }
 }
@@ -2831,6 +2900,8 @@ function updatePossession() {
   for (const p of G.players) {
     if (p.touchCD > 0 || p.state === 'fallen' || p.state === 'slide' || p.state === 'dive') continue;
     if (p.isGK && p.state === 'normal' && gkCanHandle(p)) continue; // keepers use their hands (see gkContact)
+    // the keeper is coming for it: a team-mate who is not closer leaves it to him
+    if (!p.isGK && p.team.chaser === p.team.gk && gkCanHandle(p.team.gk) && d2(p.team.gk.pos.x, p.team.gk.pos.z, ball.pos.x, ball.pos.z) < d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) + 0.4) continue;
     const d = d2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z), y = ball.pos.y;
     // fast shots/clearances clip players that stand in the way
     if (bspeed > 14 && d < 0.45 && y < 1.9 && ball.lastKick?.p !== p) {
@@ -2969,7 +3040,7 @@ function gkThink(p, dt) {
   }
   // ---- claim a loose ball in the box / smother a dribbler ----
   const loose = !ball.owner && !ball.holder;
-  if ((loose && inOwnBox(T, bp) && T.chaser === p) || (ball.owner && ball.owner.team !== T && inOwnBox(T, bp, -4) && d2(p.pos.x, p.pos.z, bp.x, bp.z) < 7)) {
+  if ((loose && inOwnBox(T, bp, GK_SWEEP.OUT) && T.chaser === p) || (ball.owner && ball.owner.team !== T && inOwnBox(T, bp, -4) && d2(p.pos.x, p.pos.z, bp.x, bp.z) < 7)) {
     const tgt = loose && p.icept ? p.icept : bp;
     steerTo(p, tgt.x, tgt.z, true); return;
   }
@@ -3038,7 +3109,7 @@ function gkContact(p) {
   let contested = false; for (const q of T.opp.players) if (d2(q.pos.x, q.pos.z, ball.pos.x, ball.pos.z) < 1.3) contested = true;
   let catchP = clamp(0.12 + gkS * 0.008 - speed * 0.016 + (p.state === 'dive' ? 0 : 0.3) - (ball.pos.y > 2.0 ? 0.15 : 0), 0.05, 0.97);
   if (!wasShot && ball.lofted && contested) catchP *= 0.7;                          // crowded: punch it clear
-  if (Math.random() < catchP || speed < 6) {
+  if (Math.random() < catchP || speed < (wasShot ? 6 : 9)) {   // loose balls / rebounds are gathered
     // hard shots held at the first attempt can still be spilled
     if (wasShot && speed > GKT.FUMBLE_V && Math.random() < clamp((speed - GKT.FUMBLE_V) * GKT.FUMBLE_K + (85 - gkS) * 0.004, 0, 0.3)) {
       ball.vel.set(-g * rand(1, 3.5), rand(0.3, 1.5), rand(-3, 3)); ball.lastTouch = p; ball.shot = false; p.touchCD = 0.55; G.offside = null; Sound.touch(); cnt('fumble'); toast('SPILLED!'); return;
@@ -3051,7 +3122,7 @@ function gkContact(p) {
   const high = ball.pos.y > 1.9 && Math.abs(T.ownGoalX - p.pos.x) < 2.5;
   ball.vel.set(-g * (Math.abs(ball.vel.x) * (high ? 0.08 : 0.25) + rand(0.5, 3)), high ? rand(5.5, 7) : Math.abs(ball.vel.y) * 0.35 + rand(1.5, 4.5), side * rand(4, 9) + ball.vel.z * 0.2);
   if (high) ball.vel.x = g * rand(2.5, 4);                     // tipped over: towards the byline
-  ball.lastTouch = p; ball.shot = false; p.touchCD = 0.7; G.offside = null; Sound.tackle(); cnt('parry');
+  ball.lastTouch = p; ball.shot = false; p.touchCD = 0.4; G.offside = null; Sound.tackle(); cnt('parry');
   if (wasShot) { toast('PARRIED!'); Sound.ooh(); }
 }
 function gkCatch(p) {
@@ -3181,6 +3252,8 @@ function pressTrigger(T, o) {
   const idle = ((T.slowT || 0) > PRESS.IDLE_T ? 1 : 0) + clamp(((T.ownT || 0) - PRESS.HOLD_T) / PRESS.HOLD_RAMP, 0, 1) * 0.7;
   return clamp(t * T.diff.press + idle, 0, 1);
 }
+/* keeper sweeping loose balls (TUNE): PRIO s head start inside the box; up to OUT m outside only if OUT_MARGIN s faster */
+const GK_SWEEP = { PRIO: 0.35, OUT: 2, OUT_MARGIN: 0.3 };
 function teamThink(T, dt) {
   const pt = possTeam(), has = pt === T, oppHas = pt === T.opp, loose = !pt;
   if (T.hadBall && oppHas) T.lostT = G.t;
@@ -3195,10 +3268,15 @@ function teamThink(T, dt) {
   if (loose) {
     let best = null, bt = 1e9;
     for (const p of T.players) {
-      if (p.state === 'fallen' || p.state === 'slide') continue;
+      if ((p.state === 'fallen' && !p.isGK) || p.state === 'slide') continue;
       const ic = intercept(p); p.icept = ic;
       let t = ic.t; if (ball.receiver === p) t -= 0.6;
-      if (p.isGK && !inOwnBox(T, ic)) continue;
+      if (p.isGK) {
+        // the keeper owns loose balls in his box (and just outside it if he clearly gets there first, feet only)
+        if (!inOwnBox(T, ic, GK_SWEEP.OUT)) continue;
+        if (p.state === 'dive' || p.state === 'fallen') t += Math.max(0, p.dur - p.stateT, GK_SCRAMBLE.GETUP);
+        t -= inOwnBox(T, ic) ? GK_SWEEP.PRIO : -GK_SWEEP.OUT_MARGIN;
+      }
       if (p.controlled) t += 0.25;   // let the human have it if they want it
       if (t < bt) { bt = t; best = p; }
     }
@@ -3854,6 +3932,11 @@ function handleEvents() {
     }
     if (G.state !== 'play' || !p) continue;
     const att = userAttacking(), j = joyWorld(), dir = j.mag > 0.2 ? V3(j.x, 0, j.z) : null;
+    // a button's meaning is fixed when it is pressed: a press that started as tackle / switch / press never turns into
+    // a shot / pass / through ball on release, even if the ball has been won in between
+    const bn = e.type.replace(/(Down|Up)$/, ''), pm = Input.pressMode || (Input.pressMode = {});
+    if (/Down$/.test(e.type)) pm[bn] = att;
+    else if (/Up$/.test(e.type) && pm[bn] !== true) { pm[bn] = undefined; continue; }
     switch (e.type) {
       case 'passDown': if (!att) switchPlayer(); break;
       case 'passUp': if (att) userAct(p, { type: e.hold < 0.22 ? 'ground' : 'lofted', dir, power: clamp(e.hold, 0, 1) }); break;
