@@ -33,10 +33,13 @@ Eight games live in this repo:
   Hold to fire a line at a crane hook, let go to fly over a rain-soaked red-moon skyline,
   climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
   Every touch of the street costs one of your five hearts. One file, no dependencies.
-- `redline3d.html` – **Redline 3D**: the same black-and-red hero in a full 3D city (Three.js).
-  Aim with the mouse, hold left click or Shift to fire a line at the building the red diamond
-  marks, let go to fly, climb any wall, dive (`C`) onto drones and rooftop gunmen, and fire a
-  red shockwave (`F`). Touch controls on phones: left thumb moves, right thumb looks, hold SWING.
+- `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js) with a
+  real sky, sun shadows, glass, concrete, brick and sandstone towers, sidewalks, parks, trees and
+  traffic. Pick **Day** (clear and quiet), **Sunset**, or **Rainy Night** on the title screen, or press
+  `T` in game. Aim with the mouse, hold left click or Shift to fire a line at the building the
+  diamond marks, let go to fly, climb any wall, dive (`C`) onto drones and rooftop gunmen, and fire
+  a shockwave (`F`). Sidewalks, parks and roofs are safe; the road costs a heart. Touch controls on
+  phones: left thumb moves, right thumb looks, hold SWING.
 - `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
