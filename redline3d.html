@@ -568,9 +568,9 @@ const RIG_POSES = {
 // three.js examples). Its clothes keep their folds and wrinkles (normal maps) but are re-dressed as Redline's
 // suit by the shader below: black fabric, red gloves and boots, red side stripes, a red bolt on the chest,
 // and a full mask with angled white lenses over the eyes. The motion-capture clips come from models/xbot.glb.
-const HERO_SCALE = 1.2;
+const HERO_SCALE = 1.2, JACKET_HEM = 0.93; // the coat is cut off at the hip so it reads as a short jacket
 const SUIT_GLSL = `
-uniform vec3 uChest, uEyeL, uEyeR; uniform float uStripes;
+uniform vec3 uChest, uEyeL, uEyeR; uniform float uStripes, uCut;
 varying float vPart; varying vec3 vP; varying vec3 vN;
 float gRed = 0.0, gLens = 0.0;
 float inBolt(vec2 v) {
@@ -602,6 +602,11 @@ vec3 suitColor() {
     vec2 q = vec2(vP.x - uChest.x, vP.y - uChest.y);
     if (n.z > 0.3 && abs(q.x) < 0.09 && abs(q.y) < 0.14) a = max(a, inBolt(q / 0.0125 + vec2(0.0, 4.5)));
   }
+  // short jacket: a red hem along the cut edge and a red zipper down the front
+  if (uCut > 0.0 && vPart < 0.5) {
+    a = max(a, 1.0 - step(0.022, vP.y - uCut));
+    if (n.z > 0.3 && vP.y < 1.42) a = max(a, 1.0 - smoothstep(0.004, 0.008, abs(vP.x)));
+  }
   vec3 col = mix(black, red, a); gRed = a;
   if (vPart > 2.5 && n.z > 0.15) {
     float rimL, rimR;
@@ -617,11 +622,12 @@ function makeSuitMaterial(src, uniforms) {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = 'attribute float aPart; varying float vPart; varying vec3 vP; varying vec3 vN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vPart = aPart; vP = position; vN = normal;');
     sh.fragmentShader = SUIT_GLSL + '\n' + sh.fragmentShader
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (vP.y < uCut) discard;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = suitColor();')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(mix(0.74, 0.42, gRed), 0.12, gLens);')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += gLens * vec3(0.35, 0.36, 0.4);');
   };
-  m.customProgramCacheKey = () => 'redline-human-suit-v2' + (src.normalMap ? '-n' : '');
+  m.customProgramCacheKey = () => 'redline-human-suit-v3' + (src.normalMap ? '-n' : '');
   return m;
 }
 function loadModel(name, extraUrls = []) {
@@ -672,7 +678,16 @@ function loadRig() {
         part[i] = /Hand/.test(bn) ? 1 : /Head|Neck/.test(bn) && /Body/.test(mat) ? 3 : 0;
       }
       gm.setAttribute('aPart', new THREE.BufferAttribute(part, 1));
-      o.material = makeSuitMaterial(o.material, { ...uniforms, uStripes: { value: /Bottom/.test(mat) ? 1 : 0 } });
+      const cut = /Top/.test(mat) ? JACKET_HEM : -10;
+      o.material = makeSuitMaterial(o.material, { ...uniforms, uStripes: { value: /Bottom/.test(mat) ? 1 : 0 }, uCut: { value: cut } });
+      if (cut > 0) { // the shadow loses the coat tails too
+        const dm = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+        dm.onBeforeCompile = sh => {
+          sh.vertexShader = 'varying float vY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vY = position.y;');
+          sh.fragmentShader = 'varying float vY;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (vY < ' + cut.toFixed(3) + ') discard;');
+        };
+        o.customDepthMaterial = dm;
+      }
     });
     root.scale.setScalar(HERO_SCALE);
     const mixer = new THREE.AnimationMixer(driver);

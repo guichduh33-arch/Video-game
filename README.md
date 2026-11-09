@@ -35,8 +35,8 @@ Eight games live in this repo:
   Every touch of the street costs one of your five hearts. One file, no dependencies.
 - `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js). The hero is
   a realistic human avatar (`models/hero.glb`, the Ready Player Me model from the three.js examples)
-  re-dressed by a shader as Redline: black suit with the clothes' folds kept, red gloves and boots, red
-  stripes, a red bolt on the chest and a full mask with angled white lenses. It is animated by a hidden
+  re-dressed by a shader as Redline: black suit with the clothes' folds kept, its long coat cut down to a
+  short jacket with a red hem and zipper, red gloves and boots, red stripes, a red bolt on the chest and a full mask with angled white lenses. It is animated by a hidden
   X Bot skeleton (`models/xbot.glb`) that plays the motion-capture clips and the code-made swing, climb
   and punch poses; each frame the avatar copies the driver's bone rotations (world-space retargeting). Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
