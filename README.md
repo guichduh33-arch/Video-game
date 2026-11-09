@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Six games live in this repo:
+Seven games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -29,6 +29,10 @@ Six games live in this repo:
 - `car.html` – **Apex Drift 3D**: an arcade racing game. Three laps against three AI
   rivals on a procedurally generated circuit, with handbrake drifting, nitro pickups,
   three cars and three track themes. See [Apex Drift 3D](#apex-drift-3d) below.
+- `redline.html` – **Redline: Night Swing**: an original black-and-red 2D swinging game.
+  Hold to fire a line at a crane hook, let go to fly over a rain-soaked red-moon skyline,
+  climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
+  Every touch of the street costs one of your five hearts. One file, no dependencies.
 - `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
