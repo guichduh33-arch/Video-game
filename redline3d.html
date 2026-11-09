@@ -75,6 +75,9 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #arrow{position:fixed;width:0;height:0;margin:-14px 0 0 -14px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:28px solid var(--red);z-index:6;pointer-events:none;filter:drop-shadow(0 0 2px #000)}
 #qualBtn{right:calc(176px + env(safe-area-inset-right));padding:0 10px}
 #bPunch{width:72px;height:72px;right:calc(214px + env(safe-area-inset-right));bottom:calc(40px + env(safe-area-inset-bottom))}
+#bKick{width:64px;height:64px;right:calc(218px + env(safe-area-inset-right));bottom:calc(124px + env(safe-area-inset-bottom))}
+#bFlip{width:60px;height:60px;right:calc(298px + env(safe-area-inset-right));bottom:calc(46px + env(safe-area-inset-bottom))}
+#bWeb{width:60px;height:60px;right:calc(124px + env(safe-area-inset-right));bottom:calc(190px + env(safe-area-inset-bottom))}
 @media (max-width: 820px){#bossBar{top:calc(172px + env(safe-area-inset-top));width:min(420px,60vw)}}
 @media (prefers-reduced-motion: reduce){#flash{display:none}}
 </style>
@@ -113,11 +116,12 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building the diamond marks. <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
-    <b>Q</b> or <b>right click</b>: punch (lunges at enemies in front of you). <b>F</b>: shockwave (uses 50 charge).<br>
+    <b>Q</b> or <b>right click</b>: punch. Keep pressing for a combo: punch, double punch, kick, spin kick. It lunges at enemies in front of you.<br>
+    <b>R</b> kick · <b>Z</b> power kick (sends enemies flying) · <b>V</b> backflip dodge · <b>X</b> web shot (webbed enemies freeze and take double damage) · <b>F</b> shockwave<br>
     <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, <b>the Warden</b> arrives.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
-    On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>.
+    On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
   <div class="stat" id="bestTitle"></div>
 </div>
@@ -148,6 +152,9 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <button class="tbtn" id="bDive">DIVE</button>
   <button class="tbtn" id="bJump">JUMP</button>
   <button class="tbtn" id="bPunch">PUNCH</button>
+  <button class="tbtn" id="bKick">KICK</button>
+  <button class="tbtn" id="bFlip">FLIP</button>
+  <button class="tbtn" id="bWeb">WEB</button>
   <button class="tbtn" id="bSwing">SWING</button>
 </div>
 
@@ -914,7 +921,7 @@ function cycleTime() { const order = ['day', 'sunset', 'night']; applyTime(order
 // ================= state =================
 let state = 'title';
 const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), state: 'ground', roof: null, wall: null, wn: new THREE.Vector2(),
-  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, face: new THREE.Vector3(0, 0, -1) };
+  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
 let enemies = [], shots = [], sparks = [], pops = [];
 let t = 0, bonus = 0, combo = 1, kills = 0, meters = 0, energy = 50, shake = 0, flash = 0, spawnT = 0;
 let yaw = 0, pitch = 0.32, lastLook = -10;
@@ -989,7 +996,11 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { if (state === 'play') input.jump = true; else if (state === 'title' || state === 'over') start(); }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') swingDown();
   if (e.code === 'Enter') { if (state === 'title' || state === 'over') start(); else if (state === 'pause') resume(); }
-  if (e.code === 'KeyF' || e.code === 'KeyX') pulse();
+  if (e.code === 'KeyF') pulse();
+  if (e.code === 'KeyX') webShot();
+  if (e.code === 'KeyR') attack('kick');
+  if (e.code === 'KeyZ') attack('power');
+  if (e.code === 'KeyV') backflip();
   if (e.code === 'KeyC' || e.code === 'ControlLeft') dive();
   if (e.code === 'KeyT') cycleTime();
   if (e.code === 'KeyQ') punch();
@@ -1036,6 +1047,10 @@ holdBtn($('bJump'), () => { if (state === 'play') input.jump = true; });
 holdBtn($('bDive'), () => dive());
 holdBtn($('bPulse'), () => pulse());
 holdBtn($('bPunch'), () => punch());
+let kickDown = 0;
+holdBtn($('bKick'), () => { kickDown = performance.now(); }, () => { if (kickDown) attack(performance.now() - kickDown > 350 ? 'power' : 'kick'); kickDown = 0; });
+holdBtn($('bFlip'), () => backflip());
+holdBtn($('bWeb'), () => webShot());
 
 $('startBtn').onclick = start; $('againBtn').onclick = start; $('resumeBtn').onclick = resume;
 $('pauseBtn').onclick = () => state === 'play' ? pause() : resume();
@@ -1125,6 +1140,7 @@ function takedown(e, byPulse) {
   shake = Math.max(shake, 0.4); sfx.hit(); burst(e.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 22, 14, 1);
 }
 function hurt(why) {
+  if (P.dodgeT > 0) { if (!P.dodgeShown) { P.dodgeShown = true; popup('DODGE!', P.pos.clone().add(new THREE.Vector3(0, 2.4, 0))); } return false; }
   if (P.inv > 0) return false;
   P.hp--; P.inv = 1.5; shake = 0.7; combo = 1; flash = 0.3; sfx.hurt(); updateHearts();
   popup(why, P.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), true);
@@ -1135,31 +1151,135 @@ function updateHearts() { $('hearts').innerHTML = Array.from({ length: 5 }, (_, 
 
 
 // ================= combat =================
+// Moves. Q / right click runs a 4-hit combo (punch, double punch, kick, spin kick); R kicks, Z power-kicks.
+const MOVES = {
+  punchR: { dmg: 1, range: 3.4, dur: 0.22, knock: 5, name: '' },
+  punchL: { dmg: 1, range: 3.4, dur: 0.22, knock: 5, name: 'DOUBLE PUNCH' },
+  kick:   { dmg: 2, range: 3.9, dur: 0.32, knock: 13, name: 'KICK' },
+  spin:   { dmg: 3, range: 4.3, dur: 0.45, knock: 18, name: 'SPIN KICK!', aoe: true },
+  power:  { dmg: 4, range: 4.8, dur: 0.6, knock: 34, up: 9, name: 'POWER KICK!', wind: 0.22 },
+};
+const COMBO = ['punchR', 'punchL', 'kick', 'spin'];
 function punch() {
-  if (state !== 'play' || P.punchCd > 0) return;
-  P.punchT = 0.25; P.punchCd = 0.3; sfx.punch();
+  if (state !== 'play' || (P.act && P.act.t < P.act.lock)) return;
+  P.comboIdx = t - P.lastAtk < 0.75 ? (P.comboIdx + 1) % COMBO.length : 0;
+  attack(COMBO[P.comboIdx], true);
+}
+function attack(kind, fromCombo) {
+  if (state !== 'play' || (P.act && P.act.t < P.act.lock)) return;
+  if (!fromCombo) P.comboIdx = -1;
+  const mv = MOVES[kind];
+  P.act = { kind, t: 0, dur: mv.dur, lock: mv.dur * 0.6, hitAt: mv.wind || 0.05, done: false };
+  P.punchT = mv.dur; P.lastAtk = t;
+  if (kind === 'power') sfx.charge(); else sfx.punch();
+}
+// lands the hit at the right moment of the animation
+function resolveHit() {
+  const act = P.act, mv = MOVES[act.kind]; act.done = true;
   const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const me = P.pos.clone().setY(P.pos.y + 1);
-  let hit = null, hd = 3.4, lunge = null, ld = 18;
   const targets = enemies.filter(e => !e.dead).map(e => ({ e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }));
   if (boss.active && !boss.dead) targets.push({ boss: true, p: boss.mesh.position.clone().setY(boss.mesh.position.y + 3), r: 3.2 });
+  const hits = []; let near = null, nd = mv.range, lunge = null, ld = 18;
   for (const tg of targets) {
     const d = tg.p.distanceTo(me) - (tg.r || 0);
-    if (d < hd) { hd = d; hit = tg; continue; }
+    if (d < mv.range) { if (mv.aoe) hits.push(tg); else if (d < nd) { nd = d; near = tg; } continue; }
     const dir = tg.p.clone().sub(me); const len = dir.length(); dir.y = 0; dir.normalize();
     if (len < ld && dir.dot(fwd) > 0.72) { ld = len; lunge = tg; }
   }
+  if (near) hits.push(near);
   for (const sh of shots) if (sh.mesh.position.distanceTo(me) < 3.2) { sh.life = 0; bonus += 25; popup('DEFLECT +25', sh.mesh.position); }
-  if (hit) {
-    P.face.copy(hit.p).sub(P.pos).setY(0).normalize();
-    if (hit.boss) bossDamage(2, 'punch'); else damageEnemy(hit.e, 1, 'punch');
-  } else if (lunge) {
+  if (hits.length) {
+    if (!mv.aoe) P.face.copy(hits[0].p).sub(P.pos).setY(0).normalize();
+    if (mv.name) popup(mv.name, P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), act.kind === 'power' || act.kind === 'spin');
+    for (const tg of hits) {
+      if (tg.boss) { bossDamage(mv.dmg + 1, 'punch'); continue; }
+      const e = tg.e, dmg = e.webbed > 0 ? mv.dmg * 2 : mv.dmg;
+      const push = tg.p.clone().sub(me).setY(0).normalize().multiplyScalar(mv.knock);
+      if (mv.up) push.y = mv.up;
+      e.knock = push; e.hitInv = 0;
+      damageEnemy(e, dmg, 'punch');
+    }
+    if (act.kind === 'power') { shake = Math.max(shake, 0.7); flash = 0.2; sfx.boom(); burst(me.clone().addScaledVector(P.face, 1.5), 20, 14, 1); }
+    else if (act.kind === 'spin' || act.kind === 'kick') { shake = Math.max(shake, 0.3); sfx.thud(); }
+  } else if (lunge && !mv.aoe) {
     // zip toward the target; arriving fast counts as a slam
     const dir = lunge.p.clone().sub(me).normalize();
     P.state = 'air'; P.roof = null; P.rope = null; P.dive = false; P.jumpT = 0;
     P.vel.copy(dir).multiplyScalar(34); P.vel.y += 3;
+    P.act.done = false; P.act.t = 0; P.act.hitAt = 0.3; P.punchT = 0.5; // swing again on arrival
     sfx.line();
   }
+}
+function backflip() {
+  if (state !== 'play' || P.flipCd > 0 || P.state === 'wall') return;
+  P.flipCd = 0.8; P.flipT = 0.55; P.dodgeT = 0.55; P.dodgeShown = false; P.act = null;
+  const back = P.face.clone().multiplyScalar(-1);
+  P.state = 'air'; P.roof = null; P.rope = null; P.dive = false; P.jumpT = 0;
+  P.vel.set(back.x * 10, 13, back.z * 10);
+  sfx.jump();
+}
+// web shot: a fast web ball that homes in on the enemy in front of you
+const webBall = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const webLine = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
+webBall.visible = webLine.visible = false; scene.add(webBall, webLine);
+const webGeo = new THREE.IcosahedronGeometry(1, 1), webMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9 });
+const webFill = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, depthWrite: false });
+let web = null;
+function webShot() {
+  if (state !== 'play' || P.webCd > 0) return;
+  P.webCd = 0.55; P.act = { kind: 'web', t: 0, dur: 0.28, lock: 0.12, done: true };
+  const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), from = heroHand();
+  let target = null, best = 46;
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const p = e.mesh.position.clone().setY(e.mesh.position.y + e.h), d = p.distanceTo(from), dir = p.clone().sub(from).setY(0).normalize();
+    if (d < best && dir.dot(fwd) > 0.55) { best = d; target = { e, p }; }
+  }
+  if (!target && boss.active && !boss.dead) { const p = boss.mesh.position.clone().setY(boss.mesh.position.y + 3); if (p.distanceTo(from) < 60) target = { boss: true, p }; }
+  const dir = target ? target.p.clone().sub(from).normalize() : camera.getWorldDirection(new THREE.Vector3());
+  if (target) P.face.copy(dir).setY(0).normalize();
+  web = { pos: from.clone(), vel: dir.multiplyScalar(80), life: 1.0, target };
+  webBall.position.copy(from); webBall.visible = webLine.visible = true;
+  sfx.line();
+}
+function wrapInWeb(e) {
+  if (!e.blob) {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(webGeo, webMat), new THREE.Mesh(webGeo, webFill));
+    const big = e.type === 'brute' ? 1.4 : e.type === 'drone' ? 1.1 : 1;
+    g.scale.set(0.55 * big, 1.05 * big, 0.55 * big); g.position.y = e.type === 'drone' ? 0 : 0.95 * big;
+    if (e.type === 'drone') g.scale.set(1.1, 0.6, 1.1);
+    e.mesh.add(g); e.blob = g;
+  }
+  e.webbed = 4; e.cd = Math.max(e.cd, 1.5);
+  popup('WEBBED!', e.mesh.position.clone().add(new THREE.Vector3(0, 2.6, 0)));
+}
+function updateWeb(h) {
+  if (!web) return;
+  web.life -= h;
+  if (web.target) {
+    const tp = web.target.boss ? boss.mesh.position.clone().setY(boss.mesh.position.y + 3) : web.target.e.mesh.position.clone().setY(web.target.e.mesh.position.y + web.target.e.h);
+    web.vel.lerp(tp.clone().sub(web.pos).setLength(80), Math.min(1, h * 10));
+  }
+  web.pos.addScaledVector(web.vel, h);
+  let end = web.life <= 0;
+  if (web.target && !end) {
+    const tg = web.target, tp = tg.boss ? boss.mesh.position.clone().setY(boss.mesh.position.y + 3) : tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
+    if (web.pos.distanceTo(tp) < (tg.boss ? 3 : 1.4)) {
+      end = true;
+      if (tg.boss) {
+        if (!boss.dead && (boss.webCd || 0) <= 0 && boss.stun <= 0) { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
+        else popup('RESISTED', tp);
+      } else if (!tg.e.dead) wrapInWeb(tg.e);
+    }
+  }
+  for (const sh of shots) if (sh.mesh.position.distanceTo(web.pos) < 1.6) { sh.life = 0; end = true; popup('WEBBED +25', sh.mesh.position); bonus += 25; }
+  for (const b of nearBuildings(web.pos.x, web.pos.z, 0)) if (web.pos.x > b.x0 && web.pos.x < b.x1 && web.pos.z > b.z0 && web.pos.z < b.z1 && web.pos.y < b.h) end = true;
+  if (end) { web = null; webBall.visible = webLine.visible = false; return; }
+  webBall.position.copy(web.pos);
+  const hand = heroHand(), dir = web.pos.clone().sub(hand), len = dir.length();
+  webLine.position.copy(hand); webLine.quaternion.setFromUnitVectors(UP, dir.normalize()); webLine.scale.set(1, len, 1);
 }
 function damageEnemy(e, dmg, how) {
   if (e.dead || e.hitInv > 0) return;
@@ -1240,7 +1360,7 @@ function updateBoss(h) {
     if (boss.dt > 2.6) { scene.remove(m); boss.active = false; boss.mesh = null; show('bossBar', false); }
     return;
   }
-  boss.hitInv -= h; boss.cd -= h;
+  boss.hitInv -= h; boss.cd -= h; boss.webCd = (boss.webCd || 0) - h;
   const dx = P.pos.x - m.position.x, dz = P.pos.z - m.position.z, dh = Math.hypot(dx, dz) || 1;
   const onRoof = P.pos.x > b.x0 - 1 && P.pos.x < b.x1 + 1 && P.pos.z > b.z0 - 1 && P.pos.z < b.z1 + 1 && Math.abs(P.pos.y - b.h) < 3;
   const fast = boss.phase === 2;
@@ -1446,6 +1566,9 @@ function update(h) {
   t += h; P.anim += h; P.jumpT += h;
   if (P.inv > 0) P.inv -= h;
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
+  P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
+  if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
+  updateWeb(h);
 
   if (input.swingPressed) {
     input.swingPressed = false;
@@ -1472,6 +1595,22 @@ function update(h) {
     if (e.dead) {
       e.dt += h; m.rotation.x += h * 8; m.rotation.z += h * 5; m.position.y -= h * 18 * e.dt; m.scale.setScalar(Math.max(0.01, 1 - e.dt));
       if (m.userData.laser) m.userData.laser.visible = false;
+      continue;
+    }
+    // knockback from kicks: enemies slide, and fall off their roof if pushed over the edge
+    if (e.knock) {
+      m.position.addScaledVector(e.knock, h); e.knock.multiplyScalar(Math.pow(0.03, h)); if (!e.b) e.knock.y -= 20 * h;
+      if (e.b && e.knock.y > 0) { e.knock.y -= 30 * h; m.position.y = Math.max(e.b.h, m.position.y); }
+      if (e.knock.lengthSq() < 0.4) { e.knock = null; if (e.b) m.position.y = e.b.h; else if (e.baseY !== undefined) e.baseY = m.position.y; }
+      if (e.b && (m.position.x < e.b.x0 || m.position.x > e.b.x1 || m.position.z < e.b.z0 || m.position.z > e.b.z1)) {
+        popup('OFF THE ROOF!', m.position.clone().add(new THREE.Vector3(0, 2.6, 0)), true); takedown(e); continue;
+      }
+    }
+    // webbed: frozen in place and harmless; fliers lose lift and drop
+    if (e.webbed > 0) {
+      e.webbed -= h; if (m.userData.laser) m.userData.laser.visible = false;
+      if (!e.b) { m.position.y -= 12 * h; if (e.webbed < 3.2) { popup('WEBBED DOWN!', m.position.clone().add(new THREE.Vector3(0, 2, 0)), true); takedown(e); continue; } }
+      if (e.webbed <= 0 && e.blob) { m.remove(e.blob); e.blob = null; }
       continue;
     }
     const ex = m.position.x, ey = m.position.y + e.h, ez = m.position.z;
@@ -1635,7 +1774,7 @@ function animateHero(dt) {
   hero.position.copy(P.pos);
   const hv = tmp.set(P.vel.x, 0, P.vel.z);
   if (P.state === 'wall') P.face.set(-P.wn.x, 0, -P.wn.y);
-  else if (hv.lengthSq() > 1) P.face.copy(hv).normalize();
+  else if (hv.lengthSq() > 1 && P.flipT <= 0 && !(P.act && P.act.t < P.act.dur)) P.face.copy(hv).normalize();
   const up = P.rope ? tmp2.subVectors(P.rope, P.pos).normalize() : tmp2.set(0, 1, 0);
   if (P.dive) up.set(P.face.x, -0.8, P.face.z).normalize();
   const z = P.face.clone().addScaledVector(up, -P.face.dot(up));
@@ -1669,7 +1808,29 @@ function animateHero(dt) {
     set(legL, upw ? -1.3 : -0.6, upw ? 2.0 : 0.6); set(legR, upw ? -0.6 : 0.4, upw ? 1.6 : 0.4);
     set(armL, -0.4, -0.3, 1.2); set(armR, 0.6, -0.3, -1.2); body.rotation.x = upw ? 0.25 : -0.1; body.position.y = 0;
   }
-  if (P.punchT > 0) set(armR, -1.6, 0.1);
+  body.rotation.y = 0; body.position.z = 0;
+  const act = P.act;
+  if (act && act.t < act.dur) {
+    const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
+    switch (act.kind) {
+      case 'punchR': set(armR, -1.6 * out - 0.1, 0); set(armL, 0.35, 0, 0.1); body.rotation.y = -0.4 * out; break;
+      case 'punchL': set(armL, -1.6 * out - 0.1, 0); set(armR, 0.35, 0, -0.1); body.rotation.y = 0.4 * out; break;
+      case 'kick': set(legR, -1.65 * out, 0); set(legL, 0.15, 0); set(armL, 0.5, 0, 0.6); set(armR, 0.5, 0, -0.6); body.rotation.x = -0.25 * out; break;
+      case 'spin': body.rotation.y = k * Math.PI * 2; set(legR, -1.5, 0, -0.35); set(legL, 0.1, 0); set(armL, 0, 0, 1.35); set(armR, 0, 0, -1.35); break;
+      case 'power': {
+        const w = 0.22 / act.dur;
+        if (k < w) { const c = k / w; set(legR, 0.9 * c, 0); set(armL, 0.9 * c, 0); set(armR, 0.9 * c, 0); body.rotation.x = 0.2 * c; }
+        else { const s2 = Math.sin(Math.min(1, (k - w) / (1 - w) * 1.8) * Math.PI); set(legR, -2.3 * s2, 0); set(legL, 0.2, 0); set(armL, 0.8, 0, 0.9); set(armR, 0.8, 0, -0.9); body.rotation.x = -0.35 * s2; }
+        break;
+      }
+      case 'web': set(armR, -1.57, 0); set(armL, -1.2, 0, 0.25); break;
+    }
+  }
+  if (P.flipT > 0) {
+    const k = 1 - P.flipT / 0.55, ang = -k * Math.PI * 2, cy = 0.8;
+    body.rotation.x = ang; body.position.y = cy - cy * Math.cos(ang); body.position.z = -cy * Math.sin(ang);
+    set(legL, -1.7, 0); set(legR, -1.7, 0); set(armL, -0.7, 0, 0.4); set(armR, -0.7, 0, -0.4);
+  }
   }
   if (P.rope) {
     const hand = heroHand();
@@ -1769,7 +1930,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true);
 // test hook
-window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, startBoss, boss, punch, spawnEnemy, RIG, camera, get hero() { return hero; } };
+window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, startBoss, boss, punch, attack, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; } };
 requestAnimationFrame(frame);
 </script>
 </body>

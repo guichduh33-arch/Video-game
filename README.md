@@ -38,8 +38,11 @@ Eight games live in this repo:
   pixel by pixel on tiny canvases (plain black fabric, red bolt on the chest, red gloves with knuckles,
   red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
-  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to
-  punch (it lunges at enemies in front of you), `C` to dive, `F` for a shockwave. Enemies: gunmen,
+  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing. `Q` or right click runs a combo
+  (punch, double punch, kick, spin kick) and lunges at enemies in front of you; `R` kicks, `Z` power-kicks
+  (enemies fly, and fall if knocked off their roof), `V` backflips to dodge (no damage during the flip),
+  `X` shoots a homing web (webbed enemies freeze and take double damage, webbed fliers drop, the Warden is
+  stunned once every 8 s), `C` dives and `F` fires a shockwave. Enemies: gunmen,
   drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
   fire, and jetpack troopers with homing rockets. After 10 takedowns **the Warden** arrives, a 4.5 m
   security mech on a rooftop under a red beacon: dodge its slam, then hit its glowing core while it is
