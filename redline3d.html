@@ -40,6 +40,14 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #pulseRow{display:flex;align-items:center;gap:8px;font-size:15px;letter-spacing:1px}
 #pulseBar{width:130px;height:10px;background:rgba(0,0,0,.6);border:1px solid #fff;position:relative}
 #pulseFill{height:100%;background:var(--red);width:50%}
+#lvRow{display:flex;align-items:center;gap:8px;font-size:15px;letter-spacing:1px;margin-top:8px}
+#xpBar{width:130px;height:8px;background:rgba(0,0,0,.6);border:1px solid #fff}
+#xpFill{height:100%;width:0;background:#ffd23f}
+.skills{font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.6;color:#eee;text-align:left;margin:16px auto 0;max-width:420px;text-shadow:1px 1px 2px #000}
+.skills div{display:flex;gap:10px}
+.skills b{font-family:var(--disp);font-weight:400;font-size:17px;letter-spacing:1px;min-width:46px;color:#ffd23f}
+.skills .lock{opacity:.45}
+.skills .lock b{color:#aaa}
 #pulseBar::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;background:#000}
 #combo{position:fixed;left:max(16px,env(safe-area-inset-left));top:calc(150px + env(safe-area-inset-top));text-align:left;z-index:5;pointer-events:none;text-shadow:2px 2px 0 #000}
 #combo b{display:block;font-size:42px;font-weight:400;color:var(--red);line-height:1}
@@ -94,6 +102,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <div id="meters">0 M SWUNG</div>
   <div id="hearts"></div>
   <div id="pulseRow"><div id="pulseBar"><div id="pulseFill"></div></div><span id="pulseLbl">PULSE</span></div>
+  <div id="lvRow"><div id="xpBar"><div id="xpFill"></div></div><span id="lvTxt">LV 1</span></div>
 </div>
 <div id="kills" class="hidden">TAKEDOWNS 0</div>
 <div id="combo" class="hidden"><b id="comboN">X2</b><span>SWING CHAIN</span></div>
@@ -116,20 +125,22 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building the diamond marks. <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
-    <b>Q</b> or <b>right click</b>: punch. Keep pressing for a combo: punch, double punch, kick, spin kick. It lunges at enemies in front of you.<br>
-    <b>R</b> kick · <b>Z</b> power kick (sends enemies flying) · <b>V</b> backflip dodge · <b>X</b> web shot (webbed enemies freeze and take double damage) · <b>F</b> shockwave<br>
+    <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
+    Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, <b>the Warden</b> arrives.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
   <div class="stat" id="bestTitle"></div>
+  <div class="skills" id="skillsTitle"></div>
 </div>
 
 <div id="pause" class="screen hidden">
   <h2>PAUSED</h2>
   <div style="height:24px"></div>
   <button class="big" id="resumeBtn">RESUME</button>
+  <div class="skills" id="skillsPause"></div>
 </div>
 
 <div id="over" class="screen hidden">
@@ -921,7 +932,7 @@ function cycleTime() { const order = ['day', 'sunset', 'night']; applyTime(order
 // ================= state =================
 let state = 'title';
 const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), state: 'ground', roof: null, wall: null, wn: new THREE.Vector2(),
-  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
+  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
 let enemies = [], shots = [], sparks = [], pops = [];
 let t = 0, bonus = 0, combo = 1, kills = 0, meters = 0, energy = 50, shake = 0, flash = 0, spawnT = 0;
 let yaw = 0, pitch = 0.32, lastLook = -10;
@@ -939,7 +950,7 @@ function reset() {
   enemies = []; shots = []; sparks = []; pops = [];
   if (boss.mesh) scene.remove(boss.mesh);
   Object.assign(boss, { active: false, level: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = false; show('bossBar', false);
-  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; energy = 50; shake = 0; flash = 0; spawnT = 0;
+  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
   const b = startBuilding();
   P.pos.set((b.x0 + b.x1) / 2, b.h, (b.z0 + b.z1) / 2); P.vel.set(0, 0, 0);
   P.state = 'ground'; P.roof = b; P.rope = null; P.hp = 5; P.inv = 0; P.dive = false; P.jumpT = 1;
@@ -998,8 +1009,8 @@ addEventListener('keydown', e => {
   if (e.code === 'Enter') { if (state === 'title' || state === 'over') start(); else if (state === 'pause') resume(); }
   if (e.code === 'KeyF') pulse();
   if (e.code === 'KeyX') webShot();
-  if (e.code === 'KeyR') attack('kick');
-  if (e.code === 'KeyZ') attack('power');
+  if (e.code === 'KeyR') kickPress();
+  if (e.code === 'KeyZ') powerKick();
   if (e.code === 'KeyV') backflip();
   if (e.code === 'KeyC' || e.code === 'ControlLeft') dive();
   if (e.code === 'KeyT') cycleTime();
@@ -1048,7 +1059,7 @@ holdBtn($('bDive'), () => dive());
 holdBtn($('bPulse'), () => pulse());
 holdBtn($('bPunch'), () => punch());
 let kickDown = 0;
-holdBtn($('bKick'), () => { kickDown = performance.now(); }, () => { if (kickDown) attack(performance.now() - kickDown > 350 ? 'power' : 'kick'); kickDown = 0; });
+holdBtn($('bKick'), () => { kickDown = performance.now(); }, () => { if (kickDown) { if (performance.now() - kickDown > 350) powerKick(); else kickPress(); } kickDown = 0; });
 holdBtn($('bFlip'), () => backflip());
 holdBtn($('bWeb'), () => webShot());
 
@@ -1068,7 +1079,7 @@ function start() {
 }
 function pause() {
   state = 'pause'; input.swing = false; input.keys.clear(); if (P.rope) letGo();
-  show('pause', true);
+  show('pause', true); renderSkills('skillsPause');
   if (document.pointerLockElement) document.exitPointerLock();
 }
 function resume() { state = 'play'; show('pause', false); last = performance.now(); lockMouse(); }
@@ -1080,7 +1091,7 @@ function gameOver() {
   $('oScore').textContent = sc.toLocaleString(); $('oDist').textContent = Math.floor(meters).toLocaleString();
   $('oKills').textContent = kills;
   $('oBest').innerHTML = sc >= best && sc > 0 ? '<em>NEW BEST!</em>' : 'BEST ' + best.toLocaleString();
-  show('over', true); setPlayUI(false);
+  show('over', true); setPlayUI(false); renderSkills('skillsTitle');
   if (document.pointerLockElement) document.exitPointerLock();
 }
 
@@ -1134,7 +1145,7 @@ function popup(text, pos, big) {
   document.body.appendChild(el); pops.push({ el, pos: pos.clone(), life: 1.1 });
 }
 function takedown(e, byPulse) {
-  e.dead = true; e.dt = 0; kills++;
+  e.dead = true; e.dt = 0; kills++; gainXP(40);
   const pts = 150 * combo; bonus += pts; energy = Math.min(100, energy + 14);
   popup((byPulse ? 'ZAP! +' : 'TAKEDOWN +') + pts, e.mesh.position.clone().add(new THREE.Vector3(0, 2.4, 0)));
   shake = Math.max(shake, 0.4); sfx.hit(); burst(e.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 22, 14, 1);
@@ -1151,25 +1162,82 @@ function updateHearts() { $('hearts').innerHTML = Array.from({ length: 5 }, (_, 
 
 
 // ================= combat =================
+// ---------- skills and XP: every level unlocks a move; progress is saved in this browser ----------
+const SKILLS = [
+  { lv: 1, id: 'punch', name: 'PUNCH', how: 'Q or right click' },
+  { lv: 1, id: 'web', name: 'WEB SHOT', how: 'X' },
+  { lv: 1, id: 'flip', name: 'FRONT FLIP + BASE JUMP', how: 'Space in the air · jump off a tall building' },
+  { lv: 2, id: 'kick', name: 'KICK', how: 'R · mix with punches: PUNCH KICK' },
+  { lv: 3, id: 'dpunch', name: 'DOUBLE PUNCH', how: 'Q, Q' },
+  { lv: 4, id: 'dkick', name: 'DOUBLE KICK', how: 'R, R · or Q, Q, R: DOUBLE PUNCH KICK' },
+  { lv: 5, id: 'backflip', name: 'BACKFLIP DODGE', how: 'V (no damage during the flip)' },
+  { lv: 6, id: 'power', name: 'POWER KICK', how: 'Z · hold KICK on a phone' },
+  { lv: 7, id: 'spin', name: 'SPIN KICK FINISHER', how: '4th hit of any combo' },
+  { lv: 8, id: 'cork', name: 'CORKSCREW', how: 'Space twice in the air' },
+];
+const LV_XP = [0, 100, 250, 450, 700, 1000, 1350, 1750];
+let xp = +store.get('redline3d-xp') || 0, lockedT = 0;
+function level() { let l = 1; for (let i = 1; i < LV_XP.length; i++) if (xp >= LV_XP[i]) l = i + 1; return l; }
+const skillLv = id => SKILLS.find(k => k.id === id).lv;
+const has = id => level() >= skillLv(id);
+function locked(id) {
+  if (t - lockedT < 1) return; lockedT = t;
+  popup('LOCKED · REACH LEVEL ' + skillLv(id), P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)));
+}
+function gainXP(n) {
+  const before = level(); xp += n; store.set('redline3d-xp', xp);
+  const after = level();
+  if (after > before) {
+    const sk = SKILLS.filter(k => k.lv > before && k.lv <= after).pop();
+    banner('LEVEL ' + after + ' · NEW SKILL', sk.name + ' · ' + sk.how); sfx.heart(); flash = 0.15;
+  }
+}
+function renderSkills(id) {
+  const lv = level();
+  $(id).innerHTML = '<div><b>LV ' + lv + '</b><span>' + xp + ' XP' + (lv < LV_XP.length ? ' · next level at ' + LV_XP[lv] : ' · max level') + '</span></div>' +
+    SKILLS.map(k => `<div class="${k.lv > lv ? 'lock' : ''}"><b>LV ${k.lv}</b><span>${k.name} · ${k.how}</span></div>`).join('');
+}
+
 // Moves. Q / right click runs a 4-hit combo (punch, double punch, kick, spin kick); R kicks, Z power-kicks.
 const MOVES = {
-  punchR: { dmg: 1, range: 3.4, dur: 0.22, knock: 5, name: '' },
-  punchL: { dmg: 1, range: 3.4, dur: 0.22, knock: 5, name: 'DOUBLE PUNCH' },
-  kick:   { dmg: 2, range: 3.9, dur: 0.32, knock: 13, name: 'KICK' },
-  spin:   { dmg: 3, range: 4.3, dur: 0.45, knock: 18, name: 'SPIN KICK!', aoe: true },
-  power:  { dmg: 4, range: 4.8, dur: 0.6, knock: 34, up: 9, name: 'POWER KICK!', wind: 0.22 },
+  punchR: { dmg: 1, range: 3.4, dur: 0.22, knock: 5 },
+  punchL: { dmg: 1, range: 3.4, dur: 0.22, knock: 5 },
+  kick:   { dmg: 2, range: 3.9, dur: 0.3, knock: 13 },
+  kickL:  { dmg: 2, range: 3.9, dur: 0.3, knock: 13 },
+  spin:   { dmg: 3, range: 4.3, dur: 0.45, knock: 18, aoe: true },
+  power:  { dmg: 4, range: 4.8, dur: 0.6, knock: 34, up: 9, wind: 0.22 },
 };
-const COMBO = ['punchR', 'punchL', 'kick', 'spin'];
-function punch() {
-  if (state !== 'play' || (P.act && P.act.t < P.act.lock)) return;
-  P.comboIdx = t - P.lastAtk < 0.75 ? (P.comboIdx + 1) % COMBO.length : 0;
-  attack(COMBO[P.comboIdx], true);
+// punches and kicks share one combo chain; the last moves name the combo
+function comboName(m) {
+  const j = m.join(',');
+  if (j.endsWith('punchR,punchL,kick')) return 'DOUBLE PUNCH KICK';
+  if (j.endsWith('kick,kickL')) return 'DOUBLE KICK';
+  if (j.endsWith('punchR,punchL')) return 'DOUBLE PUNCH';
+  if (/punch[RL],kick$/.test(j)) return 'PUNCH KICK';
+  if (/kick[L]?,punchR$/.test(j)) return 'KICK PUNCH';
+  return '';
 }
-function attack(kind, fromCombo) {
+function comboPress(btn) {
   if (state !== 'play' || (P.act && P.act.t < P.act.lock)) return;
-  if (!fromCombo) P.comboIdx = -1;
+  const cont = t - P.lastAtk < 0.75;
+  if (!cont) P.moves = [];
+  const prev = P.moves[P.moves.length - 1];
+  let kind;
+  if (P.moves.length >= 3 && has('spin')) kind = 'spin';
+  else if (btn === 'Q') kind = prev === 'punchR' && has('dpunch') ? 'punchL' : 'punchR';
+  else kind = prev === 'kick' && has('dkick') ? 'kickL' : 'kick';
+  P.moves.push(kind);
+  const name = kind === 'spin' ? 'SPIN KICK!' : comboName(P.moves);
+  if (kind === 'spin') P.moves = [];
+  attack(kind, name);
+}
+function punch() { comboPress('Q'); }
+function kickPress() { if (!has('kick')) return locked('kick'); comboPress('R'); }
+function powerKick() { if (!has('power')) return locked('power'); attack('power', 'POWER KICK!'); }
+function attack(kind, name) {
+  if (state !== 'play' || (P.act && P.act.t < P.act.lock)) return;
   const mv = MOVES[kind];
-  P.act = { kind, t: 0, dur: mv.dur, lock: mv.dur * 0.6, hitAt: mv.wind || 0.05, done: false };
+  P.act = { kind, name, t: 0, dur: mv.dur, lock: mv.dur * 0.6, hitAt: mv.wind || 0.05, done: false };
   P.punchT = mv.dur; P.lastAtk = t;
   if (kind === 'power') sfx.charge(); else sfx.punch();
 }
@@ -1191,7 +1259,7 @@ function resolveHit() {
   for (const sh of shots) if (sh.mesh.position.distanceTo(me) < 3.2) { sh.life = 0; bonus += 25; popup('DEFLECT +25', sh.mesh.position); }
   if (hits.length) {
     if (!mv.aoe) P.face.copy(hits[0].p).sub(P.pos).setY(0).normalize();
-    if (mv.name) popup(mv.name, P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), act.kind === 'power' || act.kind === 'spin');
+    if (act.name) { popup(act.name, P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), act.kind === 'power' || act.kind === 'spin'); gainXP(4); }
     for (const tg of hits) {
       if (tg.boss) { bossDamage(mv.dmg + 1, 'punch'); continue; }
       const e = tg.e, dmg = e.webbed > 0 ? mv.dmg * 2 : mv.dmg;
@@ -1211,8 +1279,18 @@ function resolveHit() {
     sfx.line();
   }
 }
+function airTrick() {
+  if (P.trick || P.flipT > 0) return;
+  const kind = P.lastTrick === 'flip' && has('cork') && t - P.lastTrickT < 1.5 ? 'cork' : 'flip';
+  P.trick = { kind, t: 0, dur: kind === 'cork' ? 0.75 : 0.55 };
+  P.lastTrick = kind; P.lastTrickT = t; P.vel.y = Math.max(P.vel.y, 5);
+  bonus += 40 * combo; gainXP(kind === 'cork' ? 15 : 8);
+  popup(kind === 'cork' ? 'CORKSCREW!' : 'FRONT FLIP!', P.pos.clone().add(new THREE.Vector3(0, 2.6, 0)));
+  sfx.jump();
+}
 function backflip() {
   if (state !== 'play' || P.flipCd > 0 || P.state === 'wall') return;
+  if (!has('backflip')) return locked('backflip');
   P.flipCd = 0.8; P.flipT = 0.55; P.dodgeT = 0.55; P.dodgeShown = false; P.act = null;
   const back = P.face.clone().multiplyScalar(-1);
   P.state = 'air'; P.roof = null; P.rope = null; P.dive = false; P.jumpT = 0;
@@ -1344,7 +1422,7 @@ function bossDamage(d, how) {
 }
 function bossDefeated() {
   boss.dead = true; boss.dt = 0; boss.hp = 0; kills++;
-  const pts = 5000 * boss.level; bonus += pts;
+  const pts = 5000 * boss.level; bonus += pts; gainXP(300);
   P.hp = 5; updateHearts(); energy = 100;
   banner('WARDEN DOWN', '+' + pts.toLocaleString() + ' · HEALTH RESTORED');
   sfx.boom(); shake = 1.2; flash = 0.5;
@@ -1569,6 +1647,19 @@ function update(h) {
   P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
   updateWeb(h);
+  // tricks: Space in the air flips; leaving a tall roof starts a base jump
+  if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
+  if (P.trick) { P.trick.t += h; if (P.trick.t >= P.trick.dur) P.trick = null; }
+  if (P.state === 'ground') P.baseReady = P.roof && !P.roof.slab && P.roof.h > 20;
+  else if (P.rope || P.state === 'wall') P.baseReady = false;
+  if (P.state === 'air' && P.baseReady && P.vel.y < -3 && !P.trick && P.flipT <= 0) {
+    const overRoof = nearBuildings(P.pos.x, P.pos.z, 1).some(b => !b.slab && P.pos.x > b.x0 - 1 && P.pos.x < b.x1 + 1 && P.pos.z > b.z0 - 1 && P.pos.z < b.z1 + 1 && b.h > P.pos.y - 8);
+    if (!overRoof) {
+      P.baseReady = false; P.trick = { kind: 'base', t: 0, dur: 1.1 };
+      popup('BASE JUMP!', P.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), true); bonus += 100 * combo; gainXP(20); sfx.line();
+    }
+  }
+  if (meters - P.xpMeters >= 25) { P.xpMeters += 25; gainXP(1); }
 
   if (input.swingPressed) {
     input.swingPressed = false;
@@ -1815,6 +1906,7 @@ function animateHero(dt) {
     switch (act.kind) {
       case 'punchR': set(armR, -1.6 * out - 0.1, 0); set(armL, 0.35, 0, 0.1); body.rotation.y = -0.4 * out; break;
       case 'punchL': set(armL, -1.6 * out - 0.1, 0); set(armR, 0.35, 0, -0.1); body.rotation.y = 0.4 * out; break;
+      case 'kickL': set(legL, -1.65 * out, 0); set(legR, 0.15, 0); set(armL, 0.5, 0, 0.6); set(armR, 0.5, 0, -0.6); body.rotation.x = -0.25 * out; break;
       case 'kick': set(legR, -1.65 * out, 0); set(legL, 0.15, 0); set(armL, 0.5, 0, 0.6); set(armR, 0.5, 0, -0.6); body.rotation.x = -0.25 * out; break;
       case 'spin': body.rotation.y = k * Math.PI * 2; set(legR, -1.5, 0, -0.35); set(legL, 0.1, 0); set(armL, 0, 0, 1.35); set(armR, 0, 0, -1.35); break;
       case 'power': {
@@ -1826,6 +1918,18 @@ function animateHero(dt) {
       case 'web': set(armR, -1.57, 0); set(armL, -1.2, 0, 0.25); break;
     }
   }
+  // rotate the body about its middle (0.8 m up), not about the feet
+  const rotX = ang => { body.rotation.x = ang; body.position.y = 0.8 - 0.8 * Math.cos(ang); body.position.z = -0.8 * Math.sin(ang); };
+  const tuck = () => { set(legL, -1.7, 0); set(legR, -1.7, 0); set(armL, -0.7, 0, 0.4); set(armR, -0.7, 0, -0.4); };
+  const swan = s3 => { rotX(1.15 * s3); set(armL, -0.2, 0, 1.5 * s3); set(armR, -0.2, 0, -1.5 * s3); set(legL, 0.25 * s3, 0, 0.12); set(legR, 0.25 * s3, 0, -0.12); };
+  const tr = P.trick;
+  if (tr) {
+    const k = tr.t / tr.dur;
+    if (tr.kind === 'flip') { rotX(k * Math.PI * 2); tuck(); }
+    else if (tr.kind === 'cork') { rotX(k * Math.PI * 2); body.rotation.y = k * Math.PI * 4; set(armL, 0, 0, 1.4); set(armR, 0, 0, -1.4); set(legL, -0.4, 0); set(legR, 0.3, 0); }
+    else if (k < 0.5) { rotX(k / 0.5 * Math.PI * 2); tuck(); }          // base jump: a front flip off the edge...
+    else swan((k - 0.5) / 0.5);                                         // ...opening into a swan dive
+  } else if (P.state === 'air' && !P.rope && !P.dive && P.vel.y < -12 && !(act && act.t < act.dur) && P.flipT <= 0) swan(1); // free fall
   if (P.flipT > 0) {
     const k = 1 - P.flipT / 0.55, ang = -k * Math.PI * 2, cy = 0.8;
     body.rotation.x = ang; body.position.y = cy - cy * Math.cos(ang); body.position.z = -cy * Math.sin(ang);
@@ -1871,6 +1975,7 @@ function updateHUD() {
   $('pulseFill').style.width = energy + '%';
   $('pulseFill').style.background = energy >= 50 ? '#ff1a2e' : '#7a0010';
   setText('pulseLbl', energy >= 50 ? 'PULSE READY' : 'PULSE');
+  { const lv = level(), lo = LV_XP[lv - 1], hi = LV_XP[lv]; setText('lvTxt', 'LV ' + lv); $('xpFill').style.width = (hi ? (xp - lo) / (hi - lo) * 100 : 100) + '%'; }
   show('combo', combo > 1); if (combo > 1) setText('comboN', 'X' + combo);
   let showM = false;
   if (!P.rope && P.state !== 'wall') {
@@ -1928,9 +2033,9 @@ reset();
 camTarget.copy(P.pos);
 const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
-$('loading').remove(); show('title', true);
+$('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, startBoss, boss, punch, attack, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; } };
+window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; } };
 requestAnimationFrame(frame);
 </script>
 </body>

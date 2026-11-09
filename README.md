@@ -38,11 +38,12 @@ Eight games live in this repo:
   pixel by pixel on tiny canvases (plain black fabric, red bolt on the chest, red gloves with knuckles,
   red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
-  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing. `Q` or right click runs a combo
-  (punch, double punch, kick, spin kick) and lunges at enemies in front of you; `R` kicks, `Z` power-kicks
-  (enemies fly, and fall if knocked off their roof), `V` backflips to dodge (no damage during the flip),
-  `X` shoots a homing web (webbed enemies freeze and take double damage, webbed fliers drop, the Warden is
-  stunned once every 8 s), `C` dives and `F` fires a shockwave. Enemies: gunmen,
+  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to punch, `R` to
+  kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
+  web shot, `C` to dive, `F` for a shockwave, Space in the air for a front flip. Jump off a tall building for a
+  **base jump**: a front flip off the edge that opens into a swan dive. Takedowns, combos, tricks, swinging and
+  the boss earn XP, saved in the browser; each level unlocks a skill: 2 kick, 3 double punch, 4 double kick,
+  5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
   drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
   fire, and jetpack troopers with homing rockets. After 10 takedowns **the Warden** arrives, a 4.5 m
   security mech on a rooftop under a red beacon: dodge its slam, then hit its glowing core while it is
