@@ -43,7 +43,7 @@ Open `football.html`. A single HTML file: Three.js 0.160 is loaded from jsDelivr
 map, and everything else (players, stadium, crowd, crests, ball texture, sound) is generated in code.
 
 - **Modes:** Quick Match against the CPU, 11v11 (4-4-2 / 4-3-3) or 5v5, halves of 3, 5 or 8 minutes,
-  Easy / Normal / Hard, day or night, optional offside, Low / High graphics.
+  Beginner / Easy / Normal / Hard / Impossible, day or night, optional offside, Low / High graphics.
 - **Touch controls:** floating joystick on the left. On the right: PASS (tap = ground, hold = lofted),
   SHOOT (hold to charge), SPRINT, THRU (through ball). When defending these become SWITCH, TACKLE
   (with SPRINT = slide) and PRESS. Swipe on the right half for skills (down = quick turn,

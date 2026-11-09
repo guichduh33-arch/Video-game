@@ -413,10 +413,16 @@ const saveSettings = () => store.set(LS_SET, settings);
 const DIFF = {
   easy:   { react: 0.65, speed: 0.92, passErr: 0.11, shotErr: 0.16, pressers: 1, tackle: 0.35, gk: 0.82, shootRange: 0.8, slide: 0.05, patience: 0.25, xgMin: 0.025, line: 0.5, press: 0.4 },
   normal: { react: 0.38, speed: 1.0,  passErr: 0.06, shotErr: 0.10, pressers: 1, tackle: 0.55, gk: 1.0,  shootRange: 1.0, slide: 0.12, patience: 0.45, xgMin: 0.03, line: 0.8, press: 0.7 },
-  hard:   { react: 0.2,  speed: 1.05, passErr: 0.03, shotErr: 0.065, pressers: 2, tackle: 0.75, gk: 1.12, shootRange: 1.15, slide: 0.2, patience: 0.6, xgMin: 0.035, line: 0.95, press: 0.9 }
+  hard:   { react: 0.2,  speed: 1.05, passErr: 0.03, shotErr: 0.065, pressers: 2, tackle: 0.75, gk: 1.12, shootRange: 1.15, slide: 0.2, patience: 0.6, xgMin: 0.035, line: 0.95, press: 0.9 },
+  // the two extremes: Beginner barely presses, decides slowly and misplaces passes; Impossible reacts instantly,
+  // presses with three, hardly misses a pass and has a keeper at his best
+  beginner:   { react: 0.95, speed: 0.86, passErr: 0.17, shotErr: 0.24, pressers: 1, tackle: 0.2, gk: 0.68, shootRange: 0.65, slide: 0.02, patience: 0.15, xgMin: 0.06, line: 0.35, press: 0.2 },
+  impossible: { react: 0.1,  speed: 1.1,  passErr: 0.015, shotErr: 0.04, pressers: 3, tackle: 0.9, gk: 1.25, shootRange: 1.25, slide: 0.25, patience: 0.7, xgMin: 0.035, line: 1.0, press: 1.0 }
 };
 /* width = how much a side uses the flanks (wide outlets, overlaps, switches of play), 0..1 */
-DIFF.easy.width = 0.6; DIFF.normal.width = 0.85; DIFF.hard.width = 1.0;
+DIFF.beginner.width = 0.45; DIFF.easy.width = 0.6; DIFF.normal.width = 0.85; DIFF.hard.width = 1.0; DIFF.impossible.width = 1.0;
+const DIFF_ORDER = ['beginner', 'easy', 'normal', 'hard', 'impossible'];
+if (!DIFF[settings.difficulty]) settings.difficulty = 'normal';   // a stale or unknown saved value falls back safely
 const TEAMMATE_DIFF = DIFF.normal; // the user's AI teammates always play at "normal"
 /* ---- fatigue (TUNE: FATIGUE) ----
  * Two layers: p.stamina (0..1, the HUD bar) drains while sprinting and recovers while walking, but never above
@@ -550,7 +556,7 @@ saveShop();   // write the repaired values straight back, so a corrupt entry nev
 /** Coins for a finished match: result + goals + clean sheet, scaled by difficulty. */
 function matchCoins(gf, ga, difficulty) {
   const base = (gf > ga ? 400 : gf === ga ? 200 : 100) + gf * 60 + (ga === 0 ? 100 : 0);
-  return Math.round(base * ({ easy: 0.75, normal: 1, hard: 1.5 }[difficulty] || 1));
+  return Math.round(base * ({ beginner: 0.5, easy: 0.75, normal: 1, hard: 1.5, impossible: 2.5 }[difficulty] || 1));
 }
 /** Which formation slot each active bought player takes (user team only). roster[i] belongs to slot i.
  *  Per role: the best active players (by overall) replace the weakest club players; never more than the role has slots.
@@ -4671,7 +4677,7 @@ function evaluatePasses(p, fromKeeper = false) {
     const lx = t.pos.x + t.vel.x * 0.6, lz = t.pos.z + t.vel.z * 0.6, d = d2(p.pos.x, p.pos.z, lx, lz);
     if (d < 5 || d > (fromKeeper ? 55 : 46)) continue;
     // offside awareness: a runner level-ish with the line is sometimes misjudged (more often on easy)
-    if (settings.offside && T.prog(t.pos.x) > line + 0.005 + (Math.random() < (T.diff === DIFF.easy ? 0.5 : 0.2) ? (t.runUntil > G.t ? 0.022 : 0.012) : 0)) continue;
+    if (settings.offside && T.prog(t.pos.x) > line + 0.005 + (Math.random() < (T.diff === DIFF.beginner ? 0.6 : T.diff === DIFF.easy ? 0.5 : T.diff === DIFF.impossible ? 0.05 : 0.2) ? (t.runUntil > G.t ? 0.022 : 0.012) : 0)) continue;
     // lane risk for a ground pass: ball time to each point on the lane vs the opponent's time to get there
     const vb = 9 + d * 0.12;
     let laneRisk = 0, open = 9, nearP = 9;
@@ -6155,7 +6161,7 @@ function refreshSelect() {
   $('vsRow').innerHTML = `<img src="${crestURL(H, 64)}">${H.name} <span style="opacity:.6">vs</span> ${A.name}<img src="${crestURL(A, 64)}"> <span style="font-size:12px;opacity:.7;margin-left:8px">${settings.difficulty.toUpperCase()} · ${settings.halfLen} MIN HALVES · ${settings.mode === '5' ? '5v5' : '11v11'}</span>`;
 }
 const OPTIONS = [
-  ['Difficulty', 'difficulty', [['easy', 'EASY'], ['normal', 'NORMAL'], ['hard', 'HARD']]],
+  ['Difficulty', 'difficulty', [['beginner', 'BEGINNER'], ['easy', 'EASY'], ['normal', 'NORMAL'], ['hard', 'HARD'], ['impossible', 'IMPOSSIBLE']]],
   ['Half length', 'halfLen', [[3, '3 MIN'], [5, '5 MIN'], [8, '8 MIN']]],
   ['Players', 'mode', [['11', '11 v 11'], ['5', '5 v 5']]],
   ['Formation', 'formation', [['442', '4-4-2'], ['433', '4-3-3']]],
@@ -6229,7 +6235,7 @@ function showBreak(full) {
   $('brStats').innerHTML = `<tr><td>${H.club.name}</td><td class="m"></td><td>${A.club.name}</td></tr>` + statsTable();
   const aw = full && G.lastAward, bc = $('brCoins'); bc.classList.toggle('hidden', !aw);
   if (aw) {
-    const res = aw.hs > aw.as ? 'WIN 400' : aw.hs === aw.as ? 'DRAW 200' : 'LOSS 100', mul = { easy: '×0.75', normal: '×1', hard: '×1.5' }[aw.diff];
+    const res = aw.hs > aw.as ? 'WIN 400' : aw.hs === aw.as ? 'DRAW 200' : 'LOSS 100', mul = { beginner: '×0.5', easy: '×0.75', normal: '×1', hard: '×1.5', impossible: '×2.5' }[aw.diff];
     bc.innerHTML = `+${fmtC(aw.gain)} 🪙 <span style="opacity:.8;font-size:16px">· BALANCE ${fmtC(aw.balance)}</span><small>${res} · ${aw.hs} GOAL${aw.hs === 1 ? '' : 'S'} +${aw.hs * 60}${aw.as === 0 ? ' · CLEAN SHEET +100' : ''} · ${aw.diff.toUpperCase()} ${mul}</small>`;
   }
   const bb = $('brBtns'); bb.innerHTML = '';
