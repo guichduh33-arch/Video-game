@@ -1860,7 +1860,12 @@ function updateCamera(dt) {
     if (near.some(b => !b.slab && cx > b.x0 - 0.4 && cx < b.x1 + 0.4 && cz > b.z0 - 0.4 && cz < b.z1 + 0.4 && cy < b.h + 1.2)) { reach = Math.max(1.2, k - 0.6); break; }
   }
   camDist += (reach - camDist) * Math.min(1, dt * (reach < camDist ? 20 : 3));
-  head.visible = torso.visible = !(firstPerson && state === 'play'); // first person shows only arms and legs
+  const fpv = firstPerson && state === 'play';
+  head.visible = torso.visible = !fpv; // first person hides the body; limbs only show when they act
+  const kicking = !!(P.act && P.act.t < P.act.dur && /kick|spin|power/.test(P.act.kind));
+  legL.pivot.visible = legR.pivot.visible = !fpv || kicking; // ...and the legs only during kicks, so they never block the view while swinging
+  const handsBusy = !!(P.act && P.act.t < P.act.dur) && !kicking; // punches and web shots
+  armL.pivot.visible = armR.pivot.visible = !fpv || handsBusy;   // the arms only while they hit or shoot, never while swinging
   if (firstPerson && state === 'play') {
     const el = clamp(-pitch * 1.1, -1.45, 1.45), look3 = new THREE.Vector3(-Math.sin(yaw) * Math.cos(el), Math.sin(el), -Math.cos(yaw) * Math.cos(el));
     // a little behind the eyes, so punches, kicks and webs come into view in front of you
