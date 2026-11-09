@@ -35,8 +35,8 @@ Eight games live in this repo:
   Every touch of the street costs one of your five hearts. One file, no dependencies.
 - `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js). The hero is
   a blocky voxel figure (about 1.6 m) with a round head: pixel-art torso, arms and legs drawn
-  pixel by pixel on tiny canvases (black fabric, red bolt on the chest, red gloves with knuckles,
-  red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
+  pixel by pixel on tiny canvases (plain black fabric, red bolt on the chest, red gloves with knuckles,
+  red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
   (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to
   punch (it lunges at enemies in front of you), `C` to dive, `F` for a shockwave. Enemies: gunmen,

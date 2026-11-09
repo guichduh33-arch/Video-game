@@ -114,7 +114,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building the diamond marks. <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
     <b>Q</b> or <b>right click</b>: punch (lunges at enemies in front of you). <b>F</b>: shockwave (uses 50 charge).<br>
-    <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> mute<br>
+    <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, <b>the Warden</b> arrives.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>.
@@ -540,8 +540,8 @@ function pixTex(w, h, draw) {
   const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
-// fabric: black with a light dither so the faces are not flat
-const fabric = (px, w, h, seed) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const r = Math.abs(Math.sin((x + 1) * 12.9898 + (y + 1) * 78.233 + seed) * 43758.5453) % 1; px(x, y, r < 0.18 ? PAL.k2 : r < 0.6 ? PAL.k1 : PAL.k0); } };
+// fabric: plain black
+const fabric = (px, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) px(x, y, PAL.k1); }; // plain black, no speckles
 const pixMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.75, metalness: 0.05 });
 // box faces in three.js order: +x, -x, +y, -y, +z (front), -z (back)
 function pixBox(wPx, hPx, dPx, faces) {
@@ -820,7 +820,7 @@ ring2.visible = false; scene.add(ring2);
 let ringT = 0;
 
 // ================= audio =================
-let AC = null, noiseBuf = null, muted = store.get('redline-muted') === '1', rainNode = null;
+let AC = null, noiseBuf = null, muted = store.get('redline-muted') !== '0', rainNode = null;
 function audio() {
   if (AC) return AC;
   try {
