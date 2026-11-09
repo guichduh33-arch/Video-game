@@ -658,6 +658,16 @@ const armL = blockLimb(body, 6 * PX, 24 * PX, armFaces), armR = blockLimb(body, 
 const legL = blockLimb(body, 2 * PX, 12 * PX, [legFace(1, 7), legFace(0, 8), legTop, sole, legFace(0, 10, true), legFace(0, 11)]);
 const legR = blockLimb(body, -2 * PX, 12 * PX, [legFace(0, 12), legFace(2, 13), legTop, sole, legFace(0, 14, true), legFace(0, 15)]);
 const RIG = { ready: false };
+// first-person swing hand: one red glove in the lower right of the view that reaches toward the web anchor
+const fpHand = new THREE.Group();
+{
+  const fistMat = pixMat(fist), gloveMat = pixMat(armFront), sleeve = new THREE.MeshStandardMaterial({ color: PAL.k1, roughness: 0.75 });
+  const f = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), [gloveMat, gloveMat, fistMat, fistMat, fistMat, gloveMat]); f.position.z = 0.02;
+  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.105, 0.05), new THREE.MeshStandardMaterial({ color: PAL.r0, roughness: 0.6 })); cuff.position.z = -0.06;
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.095, 0.34), sleeve); arm.position.z = -0.25;
+  fpHand.add(f, cuff, arm); fpHand.userData.tip = new THREE.Object3D(); fpHand.userData.tip.position.z = 0.08; fpHand.add(fpHand.userData.tip);
+  fpHand.visible = false; camera.add(fpHand); scene.add(camera);
+}
 function heroHand() { return armR.end.getWorldPosition(new THREE.Vector3()); }
 const ropeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
 ropeMesh.visible = false; scene.add(ropeMesh);
@@ -1872,7 +1882,16 @@ function updateCamera(dt) {
     head.getWorldPosition(camera.position); camera.position.y -= 0.02; camera.position.x += Math.sin(yaw) * 0.32; camera.position.z += Math.cos(yaw) * 0.32;
     if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.15));
     camera.lookAt(camera.position.clone().add(look3));
+    // one hand while swinging: placed in the lower right, pointing at the anchor, with the web line from its fist
+    fpHand.visible = !!P.rope;
+    if (P.rope) {
+      fpHand.position.set(0.24, -0.2 + Math.sin(t * 9) * 0.008, -0.5);
+      camera.updateMatrixWorld(true); fpHand.lookAt(P.rope); fpHand.updateMatrixWorld(true);
+      const hand = fpHand.userData.tip.getWorldPosition(new THREE.Vector3()), dir = tmp.subVectors(P.rope, hand), len = dir.length();
+      ropeMesh.position.copy(hand); ropeMesh.quaternion.setFromUnitVectors(UP, dir.normalize()); ropeMesh.scale.set(0.6, len, 0.6); ropeMesh.visible = true;
+    }
   } else {
+  fpHand.visible = false;
   camera.position.copy(camTarget).addScaledVector(off, camDist);
   if (camera.position.y < 1.5) camera.position.y = 1.5;
   if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.5));
