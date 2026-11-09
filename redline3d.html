@@ -527,7 +527,7 @@ function limb(parent, x, y, len, r, lowerMat, endMesh) {
   const end = add(endMesh, knee, 0, -len, 0);
   return { pivot, knee, end };
 }
-let hero = new THREE.Group(); scene.add(hero);
+let hero = new THREE.Group(); hero.scale.setScalar(1.2); scene.add(hero);
 const body = new THREE.Group(); hero.add(body);
 add(cap(0.19, 0.3, matSuit), body, 0, 1.24, 0).scale.set(1.28, 1, 0.78);
 add(cap(0.15, 0.1, matSuit), body, 0, 0.9, 0).scale.set(1.18, 1, 0.82);
@@ -551,7 +551,7 @@ const armL = limb(body, 0.32, 1.45, 0.3, 0.06, matSuit, glove()), armR = limb(bo
 const legL = limb(body, 0.12, 0.82, 0.4, 0.078, matRed, boot()), legR = limb(body, -0.12, 0.82, 0.4, 0.078, matRed, boot());
 hero.traverse(o => { if (o.isMesh) o.castShadow = true; });
 
-// The rigged, motion-captured male body (models/soldier.glb) replaces the capsule hero once it loads.
+// The rigged, motion-captured body (models/xbot.glb, reshaped and suited) replaces the capsule hero once it loads.
 const RIG = { ready: false, bones: {}, actions: {}, pose: {}, groundBlend: 1, root: null, mixer: null };
 const RIG_CTRL = ['Spine', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg'];
 const rigSuit = new THREE.MeshPhysicalMaterial({ color: 0x15151a, roughness: 0.55, metalness: 0.05, clearcoat: 0.3, clearcoatRoughness: 0.45, sheen: 0.5, sheenRoughness: 0.6, sheenColor: new THREE.Color(0x3a3a58) });
@@ -564,49 +564,120 @@ const RIG_POSES = {
   swingBody: { LeftArm: E(0.5, 0.2, -1.1), LeftForeArm: E(0, -0.9, 0), RightForeArm: E(0, 0.15, 0), LeftUpLeg: E(-0.7, 0, 0.15), RightUpLeg: E(-0.35, 0, -0.15), LeftLeg: E(1.1, 0, 0), RightLeg: E(0.7, 0, 0), Spine: E(0.35, 0, 0), Head: E(-0.35, 0, 0) },
   punchGuard: { LeftArm: E(0.9, -0.3, -0.9), LeftForeArm: E(0, -1.9, 0) },
 };
-// The hero suit: the model's tan armor plates become glossy black, its cloth deep red and its stripes bright red.
-// The texture's scuffs and wear are kept, so it still reads as a real, worn suit.
-function makeHeroSuit(src) {
-  const m = new THREE.MeshPhysicalMaterial({ map: src.map, roughness: 0.5, metalness: 0.08, clearcoat: 0.55, clearcoatRoughness: 0.3, envMapIntensity: 0.6 });
+// The body (models/xbot.glb) is a neutral mannequin; reshape it into a lean, athletic male build
+// (same reshaping as 3d.html). Skinning follows the moved vertices automatically.
+function reshapeMale(geo) {
+  const p = geo.attributes.position;
+  const sm = (a, b, v) => clamp((v - a) / (b - a), 0, 1);
+  for (let i = 0; i < p.count; i++) {
+    let x = p.getX(i), y = p.getY(i), z = p.getZ(i); const ax = Math.abs(x);
+    const torsoCol = ax < 0.26, arm = ax >= 0.24 && y > 1.28 && y < 1.58;
+    x *= 1.06;
+    // chest: no bust, a deep barrel chest instead
+    if (y > 1.1 && y < 1.5 && torsoCol) { const k = sm(1.1, 1.22, y) * (1 - sm(1.42, 1.5, y)); if (z > 0.02) z = 0.02 + (z - 0.02) * (1 - 0.8 * k * (1 - sm(0.16, 0.24, ax))); z *= 1 + 0.14 * k; }
+    // ribcage, lats and shoulders: a wide V
+    if (y > 1.12 && y < 1.56 && torsoCol) { const k = sm(1.12, 1.32, y) * (1 - sm(1.5, 1.56, y)); x *= 1 + 0.34 * k * sm(0.03, 0.14, ax); }
+    // waist and belly: straight sides, thicker through
+    if (y > 0.96 && y < 1.2 && torsoCol) { const k = sm(0.96, 1.03, y) * (1 - sm(1.14, 1.2, y)); x *= 1 + 0.3 * k; if (z > 0.03) z = 0.03 + (z - 0.03) * (1 - 0.5 * k); else z *= 1 + 0.1 * k; } // flat stomach, no belly bulge
+    // hips and glutes: narrow and flat, squared off
+    if (y > 0.72 && y < 1.06) { const k = sm(0.72, 0.86, y) * (1 - sm(1.0, 1.06, y)); if (torsoCol) x *= 1 - 0.3 * k; if (z < -0.01) z = -0.01 + (z + 0.01) * (1 - 0.8 * k); if (z > 0.02) z = 0.02 + (z - 0.02) * (1 - 0.6 * k); }
+    // legs: straight, columnar, thicker calves
+    if (y > 0.12 && y < 0.95 && torsoCol) { const k = sm(0.12, 0.3, y) * (1 - sm(0.85, 0.95, y)); const cx = Math.sign(x) * 0.09; x = cx + (x - cx) * (1 - 0.18 * k + 0.12 * sm(0.3, 0.5, y) * (1 - sm(0.5, 0.65, y))); z *= 1 - 0.06 * k; }
+    // arms: much thicker, big forearms
+    if (arm) { const k = sm(0.24, 0.36, ax); const cy = 1.438; y = cy + (y - cy) * (1 + 0.38 * k); z *= 1 + 0.38 * k; }
+    // hands a touch bigger
+    if (ax > 0.7 && y > 1.3 && y < 1.55) { const cx = Math.sign(x) * 0.72; x = cx + (x - cx) * 1.12; const cy = 1.438; y = cy + (y - cy) * 1.12; }
+    // neck thick, jaw/skull a little broader
+    if (y > 1.47 && y < 1.6 && ax < 0.1 && Math.abs(z) < 0.12) { const k = sm(1.47, 1.5, y) * (1 - sm(1.57, 1.6, y)); x *= 1 + 0.35 * k; z *= 1 + 0.3 * k; }
+    if (y > 1.58 && ax < 0.16) { const k = sm(1.58, 1.64, y) * (1 - sm(1.72, 1.8, y)); x *= 1 + 0.08 * k; }
+    p.setXYZ(i, x, y, z);
+  }
+  p.needsUpdate = true; geo.computeVertexNormals(); geo.computeBoundingSphere();
+}
+// Redline's suit, painted in the shader from bind-pose positions (meters, T-pose, +z forward):
+// matte black knit fabric, red gloves, boots, shoulder panels and side stripes, a red lightning bolt
+// on the chest, and a full mask with angled white lenses in red rims.
+const HERO_SCALE = 1.2;
+const SUIT_GLSL = `
+varying vec3 vBind; varying vec3 vBindN;
+float gRed = 0.0, gLens = 0.0;
+float inBolt(vec2 v) {
+  vec2 P[7]; P[0] = vec2(-2.0, 12.0); P[1] = vec2(4.0, 12.0); P[2] = vec2(0.0, 5.0); P[3] = vec2(4.0, 5.0); P[4] = vec2(-3.0, -3.0); P[5] = vec2(0.0, 3.0); P[6] = vec2(-4.0, 3.0);
+  bool c = false; int j = 6;
+  for (int i = 0; i < 7; i++) {
+    if (((P[i].y > v.y) != (P[j].y > v.y)) && (v.x < (P[j].x - P[i].x) * (v.y - P[i].y) / (P[j].y - P[i].y) + P[i].x)) c = !c;
+    j = i;
+  }
+  return c ? 1.0 : 0.0;
+}
+vec3 suitColor() {
+  vec3 p = vBind, nb = normalize(vBindN); float ax = abs(p.x);
+  vec2 k = vec2(p.x * 2.0 + p.z * 1.6, p.y) * 210.0;
+  float knit = 0.5 + 0.5 * sin(k.x) * sin(k.y + sin(k.x * 0.5));
+  vec3 black = vec3(0.016, 0.016, 0.021) * (0.8 + 0.4 * knit);
+  vec3 red = vec3(0.6, 0.018, 0.04) * (0.9 + 0.2 * knit);
+  float a = 0.0;
+  // gloves and boots
+  a = max(a, smoothstep(0.615, 0.635, ax) * step(1.15, p.y));
+  a = max(a, 1.0 - smoothstep(0.33, 0.35, p.y - 0.05 * p.z));
+  // side stripes down the torso and the outside of each leg
+  float side = nb.x * sign(p.x);
+  bool torso = p.y > 1.0 && p.y < 1.42 && ax < 0.28, leg = p.y > 0.33 && p.y < 0.98 && ax < 0.22;
+  if (torso || leg) a = max(a, 1.0 - smoothstep(0.035, 0.07, abs(side - 0.95)));
+  // stripe along the top of each arm, and shoulder panels
+  if (ax > 0.24 && ax < 0.62 && p.y > 1.25) a = max(a, smoothstep(0.86, 0.93, nb.y));
+  if (ax > 0.15 && ax < 0.36 && p.y > 1.42 && p.y < 1.6) a = max(a, smoothstep(0.3, 0.5, nb.y));
+  // chest bolt
+  if (p.z > 0.0 && nb.z > 0.25 && p.y > 1.2 && p.y < 1.5) a = max(a, inBolt(vec2(p.x, p.y - 1.315) / 0.0115 + vec2(0.0, 4.5)));
+  vec3 col = mix(black, red, a);
+  gRed = a;
+  // mask: angled lenses, white with a red rim
+  vec3 d = p - vec3(0.0, 1.60, -0.01);
+  if (length(d) < 0.2 && d.z > 0.0 && nb.z > 0.2) {
+    for (int i = 0; i < 2; i++) {
+      float s = i == 0 ? -1.0 : 1.0;
+      vec2 e = vec2(d.x - s * 0.046, d.y - 0.014); float ang = s * 0.42;
+      vec2 u = vec2(e.x * cos(ang) + e.y * sin(ang), -e.x * sin(ang) + e.y * cos(ang));
+      float sharp = 1.0 + 0.45 * clamp(s * u.x / 0.05, -1.0, 1.0);
+      float rim = pow(abs(u.x) / (0.062 * sharp), 2.6) + pow(abs(u.y) / 0.036, 2.0);
+      float lens = pow(abs(u.x) / (0.05 * sharp), 2.6) + pow(abs(u.y) / 0.025, 2.0);
+      if (rim < 1.0) { col = vec3(0.62, 0.02, 0.045); gRed = 1.0; }
+      if (lens < 1.0) { col = vec3(0.92, 0.94, 0.97); gLens = 1.0; }
+    }
+  }
+  return col;
+}`;
+function makeSuitMaterial() {
+  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.72, metalness: 0, sheen: 0.9, sheenRoughness: 0.45, sheenColor: new THREE.Color(0x5a5a70), clearcoat: 0.08, clearcoatRoughness: 0.6, envMapIntensity: 0.7 });
   m.onBeforeCompile = sh => {
-    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
-      {
-        vec3 c = diffuseColor.rgb;
-        float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn;
-        float lum = dot(c, vec3(0.299, 0.587, 0.114)), sat = mx > 0.0 ? d / mx : 0.0, hue = 0.0;
-        if (d > 1e-4) { if (mx == c.r) hue = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) hue = (c.b - c.r) / d + 2.0; else hue = (c.r - c.g) / d + 4.0; hue /= 6.0; }
-        float isRed = step(0.5, sat) * max(step(hue, 0.025), step(0.95, hue)) * step(0.06, mx);
-        float isGreen = step(0.12, sat) * step(0.12, hue) * step(hue, 0.45);
-        float isTan = step(0.15, sat) * step(0.025, hue) * step(hue, 0.12) * step(0.2, mx) * (1.0 - isRed);
-        vec3 outc = c * 0.3;
-        outc = mix(outc, vec3(0.40, 0.012, 0.03) * (0.45 + lum * 3.5), isGreen);
-        outc = mix(outc, vec3(0.016, 0.016, 0.02) * (0.6 + 0.8 * lum / 0.5), isTan);
-        outc = mix(outc, vec3(0.8, 0.015, 0.045), isRed);
-        diffuseColor.rgb = outc;
-      }`);
+    sh.vertexShader = 'varying vec3 vBind; varying vec3 vBindN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vBind = position; vBindN = normal;');
+    sh.fragmentShader = SUIT_GLSL + '\n' + sh.fragmentShader
+      .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = suitColor();')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(mix(0.74, 0.42, gRed), 0.12, gLens);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += gLens * vec3(0.35, 0.36, 0.4);');
   };
-  m.customProgramCacheKey = () => 'redline-suit-v2';
+  m.customProgramCacheKey = () => 'redline-fabric-suit-v1';
   return m;
 }
-const visorMat = new THREE.MeshPhysicalMaterial({ color: 0x0a0a0c, metalness: 0.9, roughness: 0.08, clearcoat: 1, emissive: 0xff1a2e, emissiveIntensity: 0.45 });
 function loadRig() {
   const L = new GLTFLoader();
-  const urls = ['models/soldier.glb', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Soldier.glb'];
+  const urls = ['models/xbot.glb', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb'];
   const tryUrl = i => new Promise((res, rej) => L.load(urls[i], res, undefined, e => i + 1 < urls.length ? tryUrl(i + 1).then(res, rej) : rej(e)));
-  // last resort: the same model embedded as base64 in models/soldier.js (for hosts that do not serve .glb)
+  // last resort: the same model embedded as base64 in models/xbot.js (for hosts that do not serve .glb)
   const fromScript = () => new Promise((res, rej) => {
-    const sc = document.createElement('script'); sc.src = 'models/soldier.js';
-    sc.onload = () => { try { const bin = atob(window.SOLDIER_GLB_B64), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); L.parse(buf.buffer, '', res, rej); } catch (e) { rej(e); } };
+    const sc = document.createElement('script'); sc.src = 'models/xbot.js';
+    sc.onload = () => { try { const bin = atob(window.XBOT_GLB_B64), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); L.parse(buf.buffer, '', res, rej); } catch (e) { rej(e); } };
     sc.onerror = rej; document.head.appendChild(sc);
   });
   tryUrl(0).catch(fromScript).then(g => {
-    const model = g.scene, root = new THREE.Group(); root.add(model);
-    model.rotation.y = Math.PI; // this model faces -z; the game's characters face +z
-    model.updateMatrixWorld(true);
+    const model = g.scene, root = new THREE.Group(); root.add(model); model.updateMatrixWorld(true);
+    const suit = makeSuitMaterial();
     model.traverse(o => {
-      if (o.isSkinnedMesh) { o.castShadow = true; o.frustumCulled = false; o.material = /visor/i.test(o.name + o.material.name) ? visorMat : makeHeroSuit(o.material); }
+      // both the body and its joint pieces wear the same fabric, so no robot seams show
+      if (o.isSkinnedMesh) { o.castShadow = true; o.frustumCulled = false; reshapeMale(o.geometry); o.material = suit; }
       if (o.isBone) { const n = o.name.replace(/^mixamorig:?/, ''); RIG.bones[n] = o; }
     });
+    root.scale.setScalar(HERO_SCALE);
     const mixer = new THREE.AnimationMixer(model);
     const clip = n => g.animations.find(c => c.name.toLowerCase() === n);
     for (const name of ['idle', 'walk', 'run']) { const a = mixer.clipAction(clip(name)); a.play(); a.setEffectiveWeight(name === 'idle' ? 1 : 0); RIG.actions[name] = a; }
@@ -1611,7 +1682,7 @@ function updateCars(dt) {
 
 // ================= camera / animation =================
 const camTarget = new THREE.Vector3();
-let camDist = 8;
+let camDist = 5.6;
 function updateCamera(dt) {
   const hs = Math.hypot(P.vel.x, P.vel.z);
   if (state === 'play' && t - lastLook > 1.4 && hs > 8 && P.state === 'air') {
@@ -1619,8 +1690,8 @@ function updateCamera(dt) {
     let diff = target - yaw; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     yaw += diff * Math.min(1, dt * 1.4);
   }
-  camTarget.lerp(tmp.copy(hero.position).add(new THREE.Vector3(0, 1.5, 0)), Math.min(1, dt * 12));
-  const dist = 8 + Math.min(4, P.vel.length() * 0.06);
+  camTarget.lerp(tmp.copy(hero.position).add(new THREE.Vector3(0, 1.85, 0)), Math.min(1, dt * 12));
+  const dist = 5.6 + Math.min(4, P.vel.length() * 0.07);
   const off = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   let reach = dist;
   const near = nearBuildings(camTarget.x, camTarget.z, dist + 1);

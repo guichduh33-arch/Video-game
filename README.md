@@ -34,9 +34,10 @@ Eight games live in this repo:
   climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
   Every touch of the street costs one of your five hearts. One file, no dependencies.
 - `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js). The hero is
-  a rigged, motion-captured male body (`models/soldier.glb`, the "Vanguard" character from the three.js
-  examples) recolored by a shader into black armor with red accents and a glowing red visor; its idle,
-  walk and run clips play on the ground, and code poses it for swinging, climbing and punching. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
+  the rigged, motion-captured body from `models/xbot.glb`, reshaped to an athletic male build and
+  painted by a shader as Redline's suit: matte black knit fabric with a cloth sheen, red gloves, boots,
+  shoulder panels and side stripes, a red lightning bolt on the chest, and a mask with angled white
+  lenses. Idle, walk and run clips play on the ground; code poses it for swinging, climbing and punching. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
   (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to
   punch (it lunges at enemies in front of you), `C` to dive, `F` for a shockwave. Enemies: gunmen,
