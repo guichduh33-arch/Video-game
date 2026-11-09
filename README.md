@@ -34,10 +34,11 @@ Eight games live in this repo:
   climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
   Every touch of the street costs one of your five hearts. One file, no dependencies.
 - `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js). The hero is
-  the rigged, motion-captured body from `models/xbot.glb`, reshaped to an athletic male build and
-  painted by a shader as Redline's suit: matte black knit fabric with a cloth sheen, red gloves, boots,
-  shoulder panels and side stripes, a red lightning bolt on the chest, and a mask with angled white
-  lenses. Idle, walk and run clips play on the ground; code poses it for swinging, climbing and punching. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
+  a realistic human avatar (`models/hero.glb`, the Ready Player Me model from the three.js examples)
+  re-dressed by a shader as Redline: black suit with the clothes' folds kept, red gloves and boots, red
+  stripes, a red bolt on the chest and a full mask with angled white lenses. It is animated by a hidden
+  X Bot skeleton (`models/xbot.glb`) that plays the motion-capture clips and the code-made swing, climb
+  and punch poses; each frame the avatar copies the driver's bone rotations (world-space retargeting). Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
   (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to
   punch (it lunges at enemies in front of you), `C` to dive, `F` for a shockwave. Enemies: gunmen,
