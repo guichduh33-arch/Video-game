@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Seven games live in this repo:
+Eight games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -33,6 +33,10 @@ Seven games live in this repo:
   Hold to fire a line at a crane hook, let go to fly over a rain-soaked red-moon skyline,
   climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
   Every touch of the street costs one of your five hearts. One file, no dependencies.
+- `redline3d.html` – **Redline 3D**: the same black-and-red hero in a full 3D city (Three.js).
+  Aim with the mouse, hold left click or Shift to fire a line at the building the red diamond
+  marks, let go to fly, climb any wall, dive (`C`) onto drones and rooftop gunmen, and fire a
+  red shockwave (`F`). Touch controls on phones: left thumb moves, right thumb looks, hold SWING.
 - `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
