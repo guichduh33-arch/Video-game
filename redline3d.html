@@ -129,7 +129,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
-    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, <b>the Warden</b> arrives.<br>
+    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
@@ -193,7 +193,7 @@ const pick = a => a[Math.random() * a.length | 0];
 const rng = (s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; })(20261109);
 
 // world constants (meters)
-const N = 14, BLOCK = 46, STREETW = 18, CELL = BLOCK + STREETW, HALF = N * CELL / 2, WALK = 2.2, CURB = 0.25;
+const N = 22, BLOCK = 46, STREETW = 18, CELL = BLOCK + STREETW, HALF = N * CELL / 2, WALK = 2.2, CURB = 0.25;
 const G = 32, RUN = 15, CLIMB = 14, MAXV = 75, PUMP = 17, AIR = 10, R = 0.45;
 
 // ================= renderer / scene =================
@@ -351,7 +351,7 @@ function buildCity() {
         const lx = slab.x0 + (slab.x1 - slab.x0) * f, lz = slab.z0 + (slab.z1 - slab.z0) * f;
         lampPos.push([lx, slab.z0 + 0.5, Math.PI], [lx, slab.z1 - 0.5, 0], [slab.x0 + 0.5, lz, -Math.PI / 2], [slab.x1 - 0.5, lz, Math.PI / 2]);
       }
-      const park = c < 0.85 && rng() < 0.09;
+      const park = c < 0.85 && rng() < (c < 0.45 ? 0.13 : 0.07);
       if (park) {
         top(grass, x0 + 1, x0 + BLOCK - 1, z0 + 1, z0 + BLOCK - 1, CURB + 0.02, 6);
         for (let k = 0; k < 16; k++) treesPos.push([x0 + 4 + rng() * (BLOCK - 8), z0 + 4 + rng() * (BLOCK - 8), 0.9 + rng() * 0.5]);
@@ -371,7 +371,8 @@ function buildCity() {
         const gap = lots.length > 1 ? 1.2 : 0;
         const bx0 = x0 + a * BLOCK + (a > 0 ? gap : 0), bx1 = x0 + cc * BLOCK - (cc < 1 ? gap : 0);
         const bz0 = z0 + b * BLOCK + (b > 0 ? gap : 0), bz1 = z0 + d * BLOCK - (d < 1 ? gap : 0);
-        const h = Math.round((22 + rng() * 38 + c * c * rng() * 120) / 4) * 4;
+        // districts: low-rise outskirts, mid-rise midtown, supertall downtown core
+        const h = Math.round((c < 0.35 ? 14 + rng() * 22 : 22 + rng() * 38 + c * c * rng() * 120 + Math.pow(c, 5) * rng() * 130) / 4) * 4;
         const r = rng();
         const style = h > 80 ? (r < 0.75 ? 'glass' : 'concrete') : r < 0.3 ? 'brick' : r < 0.55 ? 'concrete' : r < 0.8 ? 'sand' : 'glass';
         const bd = { x0: bx0, x1: bx1, z0: bz0, z1: bz1, h, style };
@@ -797,6 +798,37 @@ function makeWarden() {
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }
+function makeSkyreaver() {
+  const g = new THREE.Group(), u = g.userData;
+  const rb = (w, h, d, r, mat) => new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r), mat);
+  add(rb(2.6, 1.3, 5.2, 0.5, wardenArmor), g, 0, 0, 0);
+  add(rb(1.9, 0.8, 1.6, 0.35, wardenDark), g, 0, 0.35, 1.9);
+  add(rb(1.4, 0.3, 0.6, 0.12, matGlow), g, 0, 0.45, 2.55);                 // red cockpit visor
+  add(rb(1.2, 0.5, 2.0, 0.2, wardenPaint), g, 0, 0.65, -1.4);              // spine plate
+  add(rb(0.5, 0.9, 1.6, 0.15, wardenDark), g, 0, 0.9, -2.6);               // tail fin
+  u.core = add(ball(0.55, coreMat), g, 0, -0.75, 0.2);                     // belly core
+  add(new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.1, 10, 28), wardenDark), g, 0, -0.68, 0.2).rotation.x = Math.PI / 2;
+  u.rotors = [];
+  for (const s of [-1, 1]) {
+    add(rb(2.2, 0.3, 0.8, 0.12, wardenDark), g, s * 2.2, 0.1, 0.2);          // wing
+    add(new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.25, 0.5, 24, 1, true), wardenPaint), g, s * 3.6, 0.15, 0.2);
+    const rot = add(new THREE.Group(), g, s * 3.6, 0.15, 0.2);
+    for (let k = 0; k < 3; k++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.04, 0.22), wardenDark); bl.rotation.y = k * Math.PI / 3; rot.add(bl); }
+    u.rotors.push(rot);
+    add(rb(0.6, 0.5, 1.2, 0.1, wardenArmor), g, s * 1.5, -0.6, 0.9);        // missile pods
+  }
+  g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  return g;
+}
+function makeMauler() {
+  const g = new THREE.Group(), body = makeBrute(); body.scale.setScalar(2.4); g.add(body);
+  g.userData.core = add(ball(0.32, coreMat), g, 0, 3.35, 0.72);           // power pack on the chest
+  add(new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.08, 10, 24), wardenDark), g, 0, 3.35, 0.78);
+  for (const s of [-1, 1]) add(new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.5, 0.9, 3, 0.1), wardenPaint), g, s * 1.2, 4.25, -0.05); // shoulder armor
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+const crateGeo = new RoundedBoxGeometry(1.4, 1.0, 1.4, 2, 0.08), crateMat = new THREE.MeshStandardMaterial({ color: 0x8a8d90, metalness: 0.6, roughness: 0.45 });
 const carColors = [0xf2f2f2, 0xb8bcc2, 0x1d2a44, 0xe0b400, 0xe0b400, 0x8c1c1c, 0x22262b, 0x2f5f3a, 0x4d6f9a].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.3, metalness: 0.55 }));
 const carGlass = new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 0.1, metalness: 0.8 });
 const tire = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
@@ -931,7 +963,8 @@ function applyTime(mode) {
   lampPool.visible = mode !== 'day'; lampPool.material.opacity = mode === 'night' ? 0.5 : 0.18;
   for (const m of facadeMats) m.emissiveIntensity = T.win;
   headMat.emissiveIntensity = mode === 'day' ? 0.2 : 3; tailMat.emissiveIntensity = mode === 'day' ? 0.3 : 2.5;
-  rain.visible = T.rain; stars.visible = moon.visible = mode === 'night';
+  rain.visible = T.rain; stars.visible = moon.visible = mode === 'night'; clouds.visible = mode !== 'night';
+  for (const sp of clouds.children) sp.material.color.setHex(mode === 'sunset' ? 0xffc9a8 : 0xffffff);
   antLights.visible = mode !== 'day';
   if (envRT) envRT.dispose();
   envRT = pmrem.fromScene(envScene, 0, 0.1, 2000); scene.environment = envRT.texture;
@@ -961,7 +994,7 @@ function reset() {
   clearList(enemies); clearList(shots); clearList(sparks); pops.forEach(p => p.el.remove());
   enemies = []; shots = []; sparks = []; pops = [];
   if (boss.mesh) scene.remove(boss.mesh);
-  Object.assign(boss, { active: false, level: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = false; show('bossBar', false);
+  Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
   t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
   const b = startBuilding();
   P.pos.set((b.x0 + b.x1) / 2, b.h, (b.z0 + b.z1) / 2); P.vel.set(0, 0, 0);
@@ -1268,7 +1301,7 @@ function resolveHit() {
   const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const me = P.pos.clone().setY(P.pos.y + 1);
   const targets = enemies.filter(e => !e.dead).map(e => ({ e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }));
-  if (boss.active && !boss.dead) targets.push({ boss: true, p: boss.mesh.position.clone().setY(boss.mesh.position.y + 3), r: 3.2 });
+  if (boss.active && !boss.dead) targets.push({ boss: true, p: bossCore(), r: 3.2 });
   const hits = []; let near = null, nd = mv.range, lunge = null, ld = 18;
   for (const tg of targets) {
     const d = tg.p.distanceTo(me) - (tg.r || 0);
@@ -1335,10 +1368,10 @@ function webShot() {
     const p = e.mesh.position.clone().setY(e.mesh.position.y + e.h), d = p.distanceTo(from), dir = p.clone().sub(from).setY(0).normalize();
     if (d < best && dir.dot(fwd) > 0.55) { best = d; target = { e, p }; }
   }
-  if (!target && boss.active && !boss.dead) { const p = boss.mesh.position.clone().setY(boss.mesh.position.y + 3); if (p.distanceTo(from) < 60) target = { boss: true, p }; }
+  if (!target && boss.active && !boss.dead) { const p = bossCore(); if (p.distanceTo(from) < 60) target = { boss: true, p }; }
   const dir = target ? target.p.clone().sub(from).normalize() : camera.getWorldDirection(new THREE.Vector3());
   if (target) P.face.copy(dir).setY(0).normalize();
-  web = { pos: from.clone(), vel: dir.multiplyScalar(80), life: 1.0, target };
+  web = { pos: from.clone(), vel: dir.multiplyScalar(80), life: target && target.boss ? 1.6 : 1.0, target };
   webBall.position.copy(from); webBall.visible = webLine.visible = true;
   sfx.line();
 }
@@ -1358,17 +1391,22 @@ function updateWeb(h) {
   if (!web) return;
   web.life -= h;
   if (web.target) {
-    const tp = web.target.boss ? boss.mesh.position.clone().setY(boss.mesh.position.y + 3) : web.target.e.mesh.position.clone().setY(web.target.e.mesh.position.y + web.target.e.h);
+    const tp = web.target.boss ? bossCore() : web.target.e.mesh.position.clone().setY(web.target.e.mesh.position.y + web.target.e.h);
     web.vel.lerp(tp.clone().sub(web.pos).setLength(80), Math.min(1, h * 10));
   }
   web.pos.addScaledVector(web.vel, h);
   let end = web.life <= 0;
   if (web.target && !end) {
-    const tg = web.target, tp = tg.boss ? boss.mesh.position.clone().setY(boss.mesh.position.y + 3) : tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
-    if (web.pos.distanceTo(tp) < (tg.boss ? 3 : 1.4)) {
+    const tg = web.target, tp = tg.boss ? bossCore() : tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
+    if (web.pos.distanceTo(tp) < (tg.boss ? 4 : 1.4)) {
       end = true;
       if (tg.boss) {
-        if (!boss.dead && (boss.webCd || 0) <= 0 && boss.stun <= 0) { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
+        if (boss.dead) {}
+        else if (boss.kind === 'sky' && boss.state !== 'crash') {
+          boss.webs++; popup('WEB ' + boss.webs + '/3', tp, true);
+          if (boss.webs >= 3) { boss.state = 'crash'; boss.stun = 4.5; bossLaser.visible = false; popup('IT IS GOING DOWN!', tp, true); sfx.boom(); }
+        }
+        else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
         else popup('RESISTED', tp);
       } else if (!tg.e.dead) wrapInWeb(tg.e);
     }
@@ -1412,6 +1450,15 @@ beacon.visible = false; scene.add(beacon);
 const slamRing = new THREE.Mesh(new THREE.RingGeometry(9.6, 10.5, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.6, depthWrite: false }));
 const slamFill = new THREE.Mesh(new THREE.CircleGeometry(10.5, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.15, depthWrite: false }));
 slamRing.visible = slamFill.visible = false; scene.add(slamRing, slamFill);
+// three bosses take turns; each comes back tougher (MK 2, MK 3...)
+const BOSS_KINDS = ['warden', 'sky', 'mauler'];
+const BOSS_INFO = {
+  warden: { name: 'THE WARDEN', hp: 120, coreY: 3, hitR: 3.8, bodyR: 2.4, tip: 'Lure it into a slam, then hit the glowing core.' },
+  sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
+  mauler: { name: 'THE MAULER', hp: 140, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
+};
+const bossCore = () => boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
+const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
 function startBoss() {
   let best = null, bs = 1e9;
   for (const b of buildings) {
@@ -1420,41 +1467,45 @@ function startBoss() {
     if (d > 50 && Math.abs(d - 120) < bs) { bs = Math.abs(d - 120); best = b; }
   }
   if (!best) { boss.nextAt = kills + 3; return; }
-  boss.level++;
-  const mesh = makeWarden(), cx = (best.x0 + best.x1) / 2, cz = (best.z0 + best.z1) / 2;
-  mesh.position.set(cx, best.h, cz); scene.add(mesh);
-  Object.assign(boss, { active: true, dead: false, b: best, mesh, maxHp: 120 + 60 * (boss.level - 1), state: 'idle', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, vt: 0, n: 0 });
+  const kind = BOSS_KINDS[(boss.count || 0) % BOSS_KINDS.length]; boss.count = (boss.count || 0) + 1;
+  boss.level = Math.ceil(boss.count / BOSS_KINDS.length);
+  const info = BOSS_INFO[kind], cx = (best.x0 + best.x1) / 2, cz = (best.z0 + best.z1) / 2;
+  const mesh = kind === 'sky' ? makeSkyreaver() : kind === 'mauler' ? makeMauler() : makeWarden();
+  mesh.position.set(cx, best.h + (kind === 'sky' ? 16 : 0), cz); scene.add(mesh);
+  Object.assign(boss, { kind, active: true, dead: false, b: best, mesh, maxHp: info.hp + info.hp / 2 * (boss.level - 1), state: kind === 'sky' ? 'fly' : 'idle', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, vt: 0, n: 0, webs: 0, ang: 0, coreY: info.coreY, hitR: info.hitR, bodyR: info.bodyR });
   boss.hp = boss.maxHp;
   beacon.position.set(cx, best.h + 250, cz); beacon.visible = true;
-  banner(boss.level > 1 ? 'THE WARDEN MK ' + boss.level : 'THE WARDEN', 'BOSS FIGHT · FOLLOW THE BEACON');
-  setText('bossName', boss.level > 1 ? 'THE WARDEN MK ' + boss.level : 'THE WARDEN');
+  banner(bossLabel(), 'BOSS FIGHT · FOLLOW THE BEACON');
+  setText('bossName', bossLabel());
   show('bossBar', true); sfx.alarm();
 }
 function bossDamage(d, how) {
   if (!boss.active || boss.dead || boss.hitInv > 0) return;
   boss.hitInv = 0.25;
-  const crit = boss.stun > 0, dmg = Math.max(1, Math.round(d * (crit ? 2 : 0.5)));
+  const crit = boss.stun > 0, dmg = Math.max(1, Math.round(d * (crit ? 2 : boss.kind === 'sky' ? 0.35 : 0.5)));
   boss.hp -= dmg; bonus += dmg * 10;
-  const at = boss.mesh.position.clone().add(new THREE.Vector3(0, 3.6, 0));
+  const at = bossCore().add(new THREE.Vector3(0, 0.8, 0));
   popup((crit ? 'CRITICAL -' : 'ARMOR -') + dmg, at, crit);
   burst(at, crit ? 18 : 8, crit ? 14 : 8, 1); sfx.clang(crit); shake = Math.max(shake, crit ? 0.5 : 0.25);
-  if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) { boss.phase = 2; banner('PHASE 2', 'FASTER · CHARGES · CALLS BACKUP'); for (let i = 0; i < 3; i++) spawnEnemy('drone'); }
+  if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) { boss.phase = 2; banner('PHASE 2', 'FASTER · ANGRIER · CALLS BACKUP'); for (let i = 0; i < 3; i++) spawnEnemy(boss.kind === 'mauler' ? 'brute' : 'drone'); }
   if (boss.hp <= 0) bossDefeated();
 }
 function bossDefeated() {
   boss.dead = true; boss.dt = 0; boss.hp = 0; kills++;
   const pts = 5000 * boss.level; bonus += pts; gainXP(300);
   P.hp = 5; updateHearts(); energy = 100;
-  banner('WARDEN DOWN', '+' + pts.toLocaleString() + ' · HEALTH RESTORED');
+  banner(BOSS_INFO[boss.kind].name.replace('THE ', '') + ' DOWN', '+' + pts.toLocaleString() + ' · HEALTH RESTORED');
   sfx.boom(); shake = 1.2; flash = 0.5;
-  beacon.visible = slamRing.visible = slamFill.visible = false;
+  beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false;
   boss.nextAt = kills + 15;
 }
 function updateBoss(h) {
   if (!boss.active) { if (kills >= boss.nextAt) startBoss(); return; }
-  const m = boss.mesh, b = boss.b, u = m.userData, [aL, aR] = u.arms;
+  const m = boss.mesh, b = boss.b, u = m.userData, [aL, aR] = u.arms || [];
   if (boss.dead) {
-    boss.dt += h; m.rotation.x = Math.min(1.45, boss.dt * 0.9); m.position.y = b.h - Math.max(0, boss.dt - 1.4) * 3;
+    boss.dt += h;
+    if (boss.kind === 'sky') { m.position.y = Math.max(b.h + 1, m.position.y - h * 18); m.rotation.z += h * 3; }
+    else { m.rotation.x = Math.min(1.45, boss.dt * 0.9); m.position.y = b.h - Math.max(0, boss.dt - 1.4) * 3; }
     if (Math.random() < h * 14) burst(m.position.clone().add(new THREE.Vector3(rand(-2, 2), rand(1, 4), rand(-2, 2))), 12, 12, 1);
     if (boss.dt > 2.6) { scene.remove(m); boss.active = false; boss.mesh = null; show('bossBar', false); }
     return;
@@ -1463,6 +1514,8 @@ function updateBoss(h) {
   const dx = P.pos.x - m.position.x, dz = P.pos.z - m.position.z, dh = Math.hypot(dx, dz) || 1;
   const onRoof = P.pos.x > b.x0 - 1 && P.pos.x < b.x1 + 1 && P.pos.z > b.z0 - 1 && P.pos.z < b.z1 + 1 && Math.abs(P.pos.y - b.h) < 3;
   const fast = boss.phase === 2;
+  if (boss.kind === 'sky') { updateSkyreaver(h, dx, dz, dh, fast); bossContact(dx, dz, dh, onRoof); return; }
+  if (boss.kind === 'mauler') { updateMauler(h, dx, dz, dh, onRoof, fast); bossContact(dx, dz, dh, onRoof); return; }
   if (boss.state !== 'charge' || boss.wind > 0) {
     let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
     m.rotation.y += d * Math.min(1, h * (boss.stun > 0 ? 0.4 : 2.5));
@@ -1525,13 +1578,133 @@ function updateBoss(h) {
       break;
     }
   }
-  // fast hits and dives land on the core
-  const core = m.position.clone().setY(m.position.y + 3), me = P.pos.clone().setY(P.pos.y + 1);
-  if (me.distanceTo(core) < 3.8 && (P.vel.length() > 20 || P.dive)) {
+  bossContact(dx, dz, dh, onRoof);
+}
+// fast hits and dives land on the core; you cannot walk through a boss
+function bossContact(dx, dz, dh, onRoof) {
+  const m = boss.mesh, me = P.pos.clone().setY(P.pos.y + 1);
+  if (me.distanceTo(bossCore()) < boss.hitR && (P.vel.length() > 20 || P.dive)) {
     bossDamage(P.dive ? 10 : 6, 'slam');
     P.vel.set(-dx / dh * 12, 14, -dz / dh * 12); P.state = 'air'; P.roof = null; P.dive = false; P.rope = null; P.jumpT = 0;
   }
-  if (onRoof && dh < 2.4) { P.pos.x = m.position.x + dx / dh * 2.4; P.pos.z = m.position.z + dz / dh * 2.4; }
+  if (boss.bodyR && onRoof && dh < boss.bodyR) { P.pos.x = m.position.x + dx / dh * boss.bodyR; P.pos.z = m.position.z + dz / dh * boss.bodyR; }
+}
+const bossLaser = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xff2030, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
+bossLaser.visible = false; bossLaser.frustumCulled = false; scene.add(bossLaser);
+// THE SKYREAVER: circles above the arena, fires missile barrages and a sweeping laser; three webs bring it down
+function updateSkyreaver(h, dx, dz, dh, fast) {
+  const m = boss.mesh, b = boss.b, u = m.userData, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+  for (const r of u.rotors) r.rotation.y += h * 30;
+  coreMat.emissiveIntensity = boss.stun > 0 ? 5 + Math.sin(t * 20) * 2.5 : 1.3;
+  let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); m.rotation.y += d * Math.min(1, h * 2);
+  if (boss.state === 'crash') {
+    m.position.y += (b.h + 1.3 - m.position.y) * Math.min(1, h * 5); m.rotation.z = Math.sin(t * 4) * 0.12;
+    boss.stun -= h;
+    if (boss.stun <= 0) { boss.state = 'fly'; boss.webs = 0; boss.cd = 2; m.rotation.z = 0; }
+    return;
+  }
+  // orbit
+  boss.ang += h * (fast ? 0.42 : 0.28);
+  const tx = cx + Math.cos(boss.ang) * 28, tz = cz + Math.sin(boss.ang) * 28, ty = b.h + 16 + Math.sin(t * 1.3) * 2;
+  m.position.x += (tx - m.position.x) * Math.min(1, h * 1.5); m.position.z += (tz - m.position.z) * Math.min(1, h * 1.5); m.position.y += (ty - m.position.y) * Math.min(1, h * 1.5);
+  m.rotation.z = -Math.cos(boss.ang) * 0.15;
+  boss.cd -= 0; // cd already ticks in updateBoss
+  if (boss.state === 'fly' && boss.cd <= 0) {
+    if (P.pos.distanceTo(m.position) > 170) { boss.cd = 1; return; }
+    if (boss.useLaser) { boss.state = 'laserWind'; boss.wind = 1.1; boss.aim = P.pos.clone().setY(P.pos.y + 1); sfx.charge(); }
+    else { boss.state = 'barrage'; boss.n = fast ? 8 : 5; boss.vt = 0.2; }
+    boss.useLaser = !boss.useLaser;
+  }
+  const emit = m.localToWorld(new THREE.Vector3(0, -0.6, 2.2));
+  if (boss.state === 'barrage') {
+    boss.vt -= h;
+    if (boss.vt <= 0 && boss.n > 0) { boss.n--; boss.vt = 0.22; fireMissile(m.localToWorld(new THREE.Vector3(boss.n % 2 ? 2.6 : -2.6, -0.3, 0.5)), new THREE.Vector3(rand(-6, 6), -4, rand(-6, 6)), 22 + boss.level * 2, 1.5); }
+    if (boss.n <= 0 && boss.vt <= 0) { boss.state = 'fly'; boss.cd = fast ? 2.2 : 3.4; }
+  } else if (boss.state === 'laserWind' || boss.state === 'laser') {
+    const firing = boss.state === 'laser';
+    if (!firing) { boss.aim.lerp(P.pos.clone().setY(P.pos.y + 1), Math.min(1, h * 2.2)); boss.wind -= h; if (boss.wind <= 0) { boss.state = 'laser'; boss.wind = 0.7; sfx.snipe(); } }
+    else { boss.aim.lerp(P.pos.clone().setY(P.pos.y + 1), Math.min(1, h * (fast ? 1.4 : 0.8))); boss.wind -= h; }
+    const dir = boss.aim.clone().sub(emit).normalize(), len = 140;
+    bossLaser.visible = true; bossLaser.position.copy(emit); bossLaser.quaternion.setFromUnitVectors(UP, dir);
+    const wdt = firing ? 0.45 : 0.04; bossLaser.scale.set(wdt, len, wdt); bossLaser.material.opacity = firing ? 0.85 : 0.35 + Math.sin(t * 30) * 0.2;
+    if (firing) {
+      const pc = P.pos.clone().setY(P.pos.y + 1), along = pc.clone().sub(emit).dot(dir);
+      if (along > 0 && pc.distanceTo(emit.clone().addScaledVector(dir, along)) < 1.3) hurt('LASER!');
+      if (boss.wind <= 0) { boss.state = 'fly'; boss.cd = fast ? 2 : 3; bossLaser.visible = false; }
+    }
+  }
+}
+// THE MAULER: a giant brute that leaps roof to roof, slams where he lands and throws rooftop units
+function updateMauler(h, dx, dz, dh, onRoof, fast) {
+  const m = boss.mesh, b = boss.b;
+  coreMat.emissiveIntensity = boss.stun > 0 ? 5 + Math.sin(t * 20) * 2.5 : 1.3;
+  if (boss.state !== 'leap') { let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); m.rotation.y += d * Math.min(1, h * (boss.stun > 0 ? 0.4 : 3)); }
+  const slamAt = (x, z, r) => {
+    shake = Math.max(shake, 1); sfx.boom();
+    ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.set(x, boss.b.h + 0.3, z); ring2.position.copy(ringMesh.position);
+    burst(new THREE.Vector3(x, boss.b.h + 0.5, z), 30, 16, 1);
+    const hd = Math.hypot(P.pos.x - x, P.pos.z - z) || 1;
+    if (P.state === 'ground' && P.roof === boss.b && hd < r && hurt('CRUSHED!')) { P.state = 'air'; P.roof = null; P.vel.set((P.pos.x - x) / hd * 16, 16, (P.pos.z - z) / hd * 16); P.jumpT = 0; }
+    slamRing.visible = slamFill.visible = false;
+  };
+  switch (boss.state) {
+    case 'idle': {
+      m.position.y = b.h + Math.abs(Math.sin(t * 5)) * 0.1;
+      if (onRoof && dh > 5) { const sp = fast ? 6.5 : 4.5; m.position.x = clamp(m.position.x + dx / dh * sp * h, b.x0 + 3, b.x1 - 3); m.position.z = clamp(m.position.z + dz / dh * sp * h, b.z0 + 3, b.z1 - 3); }
+      if (boss.cd > 0) break;
+      if (onRoof && dh < 9) { boss.state = 'stomp'; boss.wind = fast ? 0.7 : 0.95; slamRing.visible = slamFill.visible = true; slamRing.position.set(m.position.x, b.h + 0.06, m.position.z); slamFill.position.copy(slamRing.position); sfx.charge(); break; }
+      // leap toward the roof the player is on, or the tall roof nearest to them
+      let target = P.state === 'ground' && P.roof && !P.roof.slab && P.roof.x1 - P.roof.x0 > 12 && P.roof.z1 - P.roof.z0 > 12 ? P.roof : null;
+      if (!target) { let bd = 1e9; for (const o of nearBuildings(P.pos.x, P.pos.z, 40)) { if (o.slab || o.x1 - o.x0 < 14 || o.z1 - o.z0 < 14) continue; const dd = Math.hypot((o.x0 + o.x1) / 2 - P.pos.x, (o.z0 + o.z1) / 2 - P.pos.z); if (dd < bd) { bd = dd; target = o; } } }
+      if (target && target !== b && Math.hypot((target.x0 + target.x1) / 2 - m.position.x, (target.z0 + target.z1) / 2 - m.position.z) < 160) {
+        const lx = clamp(P.pos.x, target.x0 + 3, target.x1 - 3), lz = clamp(P.pos.z, target.z0 + 3, target.z1 - 3);
+        boss.leap = { from: m.position.clone(), to: new THREE.Vector3(lx, target.h, lz), t: 0, dur: 1.6, target };
+        boss.state = 'leap'; slamRing.visible = slamFill.visible = true; slamRing.position.set(lx, target.h + 0.06, lz); slamFill.position.copy(slamRing.position); sfx.charge();
+        break;
+      }
+      if (dh > 18) { boss.state = 'throw'; boss.wind = 0.6; break; }
+      boss.cd = 1;
+      break;
+    }
+    case 'stomp': {
+      boss.wind -= h; m.scale.y = 1 - Math.sin(Math.min(1, 1 - boss.wind) * Math.PI) * 0.08;
+      slamRing.material.opacity = 0.45 + Math.sin(t * 25) * 0.3; slamFill.material.opacity = 0.2;
+      if (boss.wind <= 0) { m.scale.y = 1; slamAt(m.position.x, m.position.z, 9); boss.state = 'stunned'; boss.stun = 1.8; boss.cd = 1.2; popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true); }
+      break;
+    }
+    case 'leap': {
+      const L = boss.leap; L.t += h; const k = Math.min(1, L.t / L.dur);
+      m.position.lerpVectors(L.from, L.to, k); m.position.y += Math.sin(k * Math.PI) * 30;
+      m.rotation.x = Math.sin(k * Math.PI) * -0.4;
+      slamRing.material.opacity = 0.45 + Math.sin(t * 25) * 0.3; slamFill.material.opacity = 0.1 + k * 0.25;
+      if (k >= 1) {
+        m.rotation.x = 0; boss.b = L.target; slamAt(L.to.x, L.to.z, 10.5);
+        beacon.position.set((L.target.x0 + L.target.x1) / 2, L.target.h + 250, (L.target.z0 + L.target.z1) / 2);
+        boss.state = 'stunned'; boss.stun = fast ? 1.8 : 2.4; boss.cd = 1.6;
+        popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true);
+      }
+      break;
+    }
+    case 'throw': {
+      boss.wind -= h; m.rotation.x = -0.25 * Math.sin(Math.min(1, (0.6 - boss.wind) / 0.6) * Math.PI);
+      if (boss.wind <= 0) {
+        const n = fast ? 3 : 1;
+        for (let i = 0; i < n; i++) {
+          const from = m.localToWorld(new THREE.Vector3(0, 4.6, 0.6)), aim = P.pos.clone().addScaledVector(P.vel, 0.8).add(new THREE.Vector3(rand(-3, 3) * i, 1, rand(-3, 3) * i));
+          const T = 1.3, vel = aim.sub(from).divideScalar(T); vel.y += 0.5 * 22 * T;
+          const mesh = new THREE.Mesh(crateGeo, crateMat); mesh.position.copy(from); mesh.castShadow = true; scene.add(mesh);
+          shots.push({ mesh, vel, life: 4, r: 1.7, grav: true, name: 'CRATE!' });
+        }
+        sfx.thud(); boss.state = 'idle'; boss.cd = fast ? 1.6 : 2.6; m.rotation.x = 0;
+      }
+      break;
+    }
+    case 'stunned': {
+      boss.stun -= h; m.rotation.z = Math.sin(t * 3) * 0.05; m.position.y = b.h;
+      if (boss.stun <= 0) { boss.state = 'idle'; m.rotation.z = 0; }
+      break;
+    }
+  }
 }
 
 // ================= spawning =================
@@ -1803,7 +1976,8 @@ function update(h) {
       s.mesh.userData.flame.scale.set(1, 1, 0.7 + Math.random() * 0.6);
     }
     sp.addScaledVector(s.vel, h); s.life -= h;
-    if (sp.distanceTo(pc) < s.r) { s.life = 0; hurt(s.missile ? 'ROCKET!' : 'HIT'); }
+    if (s.grav) { s.vel.y -= 22 * h; s.mesh.rotation.x += h * 4; s.mesh.rotation.z += h * 3; }
+    if (sp.distanceTo(pc) < s.r) { s.life = 0; hurt(s.name || (s.missile ? 'ROCKET!' : 'HIT')); }
     if (sp.y < 0.3) s.life = 0;
     else for (const b of nearBuildings(sp.x, sp.z, 0)) if (sp.x > b.x0 && sp.x < b.x1 && sp.z > b.z0 && sp.z < b.z1 && sp.y < b.h) { s.life = 0; break; }
     if (s.life <= 0) { if (s.missile) { burst(sp, 14, 10, 1); sfx.thud(); } scene.remove(s.mesh); }
@@ -1841,7 +2015,89 @@ function update(h) {
   energy = Math.min(100, energy + 2.5 * h);
 }
 
+// ---------- city life: people on the sidewalks, traffic lights, clouds ----------
+const PEDS = 170, peds = [];
+const pedBody = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.21, 0.78, 4, 10).translate(0, 0.62, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }), PEDS);
+const pedLegs = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.17, 0.5, 4, 8).translate(0, 0.33, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), PEDS);
+const pedHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.13, 12, 8).translate(0, 1.6, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 }), PEDS);
+for (const m of [pedBody, pedLegs, pedHead]) { m.castShadow = true; m.frustumCulled = false; scene.add(m); }
+{
+  const tops = [0x2f3d55, 0x7a2f2f, 0xd9d4c7, 0x3e4a38, 0x222226, 0xc9772a, 0x5a6f8a, 0x8a5a7a, 0xe0e0e0], bottoms = [0x2c3a58, 0x222226, 0x5a4632, 0x6b6b6b, 0x3a3a44], skins = [0xe0b48f, 0xc48c66, 0x8d5b3e, 0x5c3a28, 0xf0c8a0];
+  const col = new THREE.Color();
+  for (let k = 0; k < PEDS; k++) {
+    pedBody.setColorAt(k, col.setHex(pick(tops))); pedLegs.setColorAt(k, col.setHex(pick(bottoms))); pedHead.setColorAt(k, col.setHex(pick(skins)));
+    peds.push({ s: 0, i: 0, j: 0, dir: 1, speed: 1, ph: Math.random() * 6, scale: rand(0.9, 1.1) });
+  }
+}
+function placePed(p) {
+  p.i = clamp(Math.floor((P.pos.x + HALF) / CELL) + Math.round(rand(-3, 3)), 0, N - 1); p.j = clamp(Math.floor((P.pos.z + HALF) / CELL) + Math.round(rand(-3, 3)), 0, N - 1);
+  p.s = Math.random() * 4 * (BLOCK + 1.2); p.dir = Math.random() < 0.5 ? 1 : -1; p.speed = rand(1.1, 1.7);
+}
+const _pm = new THREE.Matrix4(), _pq = new THREE.Quaternion(), _ps = new THREE.Vector3(), _pp = new THREE.Vector3(), _py = new THREE.Vector3(0, 1, 0);
+function updatePeds(dt) {
+  for (let k = 0; k < PEDS; k++) {
+    const p = peds[k];
+    if (!p.init) { placePed(p); p.init = true; }
+    p.s += p.dir * p.speed * dt; p.ph += dt * p.speed * 6;
+    // walk around the block on the sidewalk, between the curb lamps and the buildings
+    const x0 = -HALF + p.i * CELL + STREETW / 2 - 0.6, z0 = -HALF + p.j * CELL + STREETW / 2 - 0.6, side = BLOCK + 1.2, per = side * 4;
+    const s2 = ((p.s % per) + per) % per; let x, z, ang;
+    if (s2 < side) { x = x0 + s2; z = z0; ang = Math.PI / 2; }
+    else if (s2 < side * 2) { x = x0 + side; z = z0 + s2 - side; ang = 0; }
+    else if (s2 < side * 3) { x = x0 + side - (s2 - side * 2); z = z0 + side; ang = -Math.PI / 2; }
+    else { x = x0; z = z0 + side - (s2 - side * 3); ang = Math.PI; }
+    if (p.dir < 0) ang += Math.PI;
+    if (Math.hypot(x - P.pos.x, z - P.pos.z) > 230) { placePed(p); continue; }
+    _pq.setFromAxisAngle(_py, ang); _ps.set(p.scale, p.scale * (1 + Math.abs(Math.sin(p.ph)) * 0.03), p.scale);
+    _pm.compose(_pp.set(x, CURB, z), _pq, _ps); pedBody.setMatrixAt(k, _pm); pedHead.setMatrixAt(k, _pm);
+    _ps.set(p.scale * (1 + Math.sin(p.ph) * 0.12), p.scale, p.scale); _pm.compose(_pp, _pq, _ps); pedLegs.setMatrixAt(k, _pm);
+  }
+  pedBody.instanceMatrix.needsUpdate = pedLegs.instanceMatrix.needsUpdate = pedHead.instanceMatrix.needsUpdate = true;
+}
+// traffic lights on every corner of every intersection; north-south and east-west take turns
+const tlPos = [];
+for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) {
+  const sx = -HALF + i * CELL, sz = -HALF + j * CELL, o = STREETW / 2 + 0.6;
+  tlPos.push([sx - o, sz - o, 0, 0], [sx + o, sz + o, Math.PI, 0], [sx + o, sz - o, -Math.PI / 2, 1], [sx - o, sz + o, Math.PI / 2, 1]);
+}
+const tlPole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 3.6, 6).translate(0, 1.8, 0), new THREE.MeshStandardMaterial({ color: 0x2d3033, metalness: 0.6, roughness: 0.5 }), tlPos.length);
+const tlBox = new THREE.InstancedMesh(new THREE.BoxGeometry(0.32, 0.9, 0.26).translate(0, 3.5, 0.12), new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.6 }), tlPos.length);
+const tlLamp = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 10, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }), tlPos.length);
+{
+  const q = new THREE.Quaternion(), m4 = new THREE.Matrix4();
+  tlPos.forEach(([x, z, ry], k) => { q.setFromAxisAngle(_py, ry); m4.compose(new THREE.Vector3(x, CURB, z), q, new THREE.Vector3(1, 1, 1)); tlPole.setMatrixAt(k, m4); tlBox.setMatrixAt(k, m4); });
+  tlPole.castShadow = true; scene.add(tlPole, tlBox, tlLamp);
+}
+let tlPhase = -1;
+function updateTrafficLights() {
+  const cyc = (performance.now() / 1000) % 16, ph = cyc < 6 ? 0 : cyc < 8 ? 1 : cyc < 14 ? 2 : 3; // NS green, NS yellow, EW green, EW yellow
+  if (ph === tlPhase) return; tlPhase = ph;
+  const q = new THREE.Quaternion(), m4 = new THREE.Matrix4(), col = new THREE.Color(), off = new THREE.Vector3();
+  tlPos.forEach(([x, z, ry, axis], k) => {
+    const mine = axis === 0 ? ph : (ph + 2) % 4;                 // 0 green, 1 yellow, 2-3 red
+    const c = mine === 0 ? 0x2aff6a : mine === 1 ? 0xffc21a : 0xff2a2a, y = mine === 0 ? 3.22 : mine === 1 ? 3.5 : 3.78;
+    q.setFromAxisAngle(_py, ry); off.set(0, y, 0.27).applyQuaternion(q);
+    m4.compose(new THREE.Vector3(x, CURB, z).add(off), q, new THREE.Vector3(1, 1, 1)); tlLamp.setMatrixAt(k, m4); tlLamp.setColorAt(k, col.setHex(c));
+  });
+  tlLamp.instanceMatrix.needsUpdate = true; tlLamp.instanceColor.needsUpdate = true;
+}
+// soft clouds high above the city, drifting with the wind (day and sunset)
+const clouds = new THREE.Group(); scene.add(clouds);
+{
+  const tex = canvasTex(256, 128, g => {
+    for (let k = 0; k < 22; k++) {
+      const x = 40 + Math.random() * 176, y = 50 + Math.random() * 40, r = 18 + Math.random() * 34, gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+    }
+  });
+  for (let k = 0; k < 34; k++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, opacity: rand(0.55, 0.9) }));
+    const w = rand(260, 520); sp.scale.set(w, w * 0.4, 1); sp.position.set(rand(-1600, 1600), rand(330, 480), rand(-1600, 1600)); clouds.add(sp);
+  }
+}
 function updateCars(dt) {
+  updatePeds(dt); updateTrafficLights();
+  for (const sp of clouds.children) { sp.position.x += dt * 4; if (sp.position.x > 1700) sp.position.x -= 3400; }
   for (const c of cars) {
     c.along += c.dir * c.speed * dt;
     const off = Math.abs(c.along) > HALF + 40 || Math.abs(c.along - (c.axis === 'x' ? P.pos.x : P.pos.z)) > 170;
@@ -2035,7 +2291,7 @@ function updateHUD() {
   if (boss.active && !boss.dead) {
     $('bossFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
     const hot = boss.stun > 0;
-    setText('bossTip', hot ? 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!' : boss.state === 'slam' ? 'GET OUT OF THE RED CIRCLE!' : 'Lure it into a slam, then hit the glowing core.');
+    setText('bossTip', hot ? 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!' : /slam|stomp|leap/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
     $('bossTip').classList.toggle('hot', hot);
     const bp = boss.mesh.position.clone(); bp.y += 4; vproj.copy(bp).project(camera);
     let x = vproj.x, y = vproj.y; const behind = vproj.z > 1;
@@ -2081,7 +2337,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body };
+window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>

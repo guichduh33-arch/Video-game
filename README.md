@@ -48,9 +48,14 @@ Eight games live in this repo:
   the boss earn XP, saved in the browser; each level unlocks a skill: 2 kick, 3 double punch, 4 double kick,
   5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
   drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
-  fire, and jetpack troopers with homing rockets. After 10 takedowns **the Warden** arrives, a 4.5 m
-  security mech on a rooftop under a red beacon: dodge its slam, then hit its glowing core while it is
-  stunned. It gets a second phase at half health, and a tougher Warden returns every 15 takedowns.
+  fire, and jetpack troopers with homing rockets. After 10 takedowns, then every 15, a boss arrives under a red beacon, in turn:
+  **the Warden** (a 4.5 m rooftop mech: dodge its slam, then hit its glowing core while it is stunned),
+  **the Skyreaver** (a gunship circling above the arena with missile barrages and a tracking laser; three
+  web shots bring it down onto the roof) and **the Mauler** (a giant brute who leaps roof to roof, slams
+  where he lands and throws rooftop units; he is stuck for a moment after each landing). Each returns as
+  MK 2, MK 3... with more health. The city is 22 x 22 blocks (about 1.4 km): low-rise outskirts with more
+  parks, midtown, and a supertall downtown core, with people walking the sidewalks, traffic lights that
+  cycle at every intersection, and drifting clouds by day.
 - `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
