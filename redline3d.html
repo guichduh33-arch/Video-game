@@ -527,229 +527,118 @@ function limb(parent, x, y, len, r, lowerMat, endMesh) {
   const end = add(endMesh, knee, 0, -len, 0);
   return { pivot, knee, end };
 }
-let hero = new THREE.Group(); hero.scale.setScalar(1.2); scene.add(hero);
-const body = new THREE.Group(); hero.add(body);
-add(cap(0.19, 0.3, matSuit), body, 0, 1.24, 0).scale.set(1.28, 1, 0.78);
-add(cap(0.15, 0.1, matSuit), body, 0, 0.9, 0).scale.set(1.18, 1, 0.82);
-add(cap(0.06, 0.06, matSuit), body, 0, 1.55, 0);
-for (const s of [-1, 1]) add(ball(0.09, matRed), body, s * 0.27, 1.44, 0);
-add(cap(0.035, 0.32, matRed), body, 0, 1.24, -0.15).scale.set(1, 1, 0.5); // spine stripe
-const head = add(ball(0.155, matSuit), body, 0, 1.72, 0.01); head.scale.set(0.95, 1.08, 1);
-for (const s of [-1, 1]) {
-  const rim = add(ball(0.052, matRed), head, s * 0.062, 0.02, 0.128); rim.scale.set(1.35, 0.85, 0.35); rim.rotation.z = s * -0.45;
-  const lens = add(ball(0.046, matLens), head, s * 0.062, 0.02, 0.138); lens.scale.set(1.25, 0.72, 0.3); lens.rotation.z = s * -0.45;
+// ---------- Redline, the blocky hero ----------
+// A voxel-style body (pixel-art boxes: torso, arms, legs; 1 pixel = 5 cm, about 1.6 m tall) with a round head.
+// The body textures are tiny canvases drawn pixel by pixel and shown with nearest filtering, so every pixel
+// stays a crisp square. The head is a sphere whose mask texture is drawn large and smooth, so the eyes are sharp.
+const PX = 0.05;
+const PAL = { k0: '#0b0b0e', k1: '#141419', k2: '#1d1d24', r0: '#8f0c1c', r1: '#c4122a', r2: '#e8263c', r3: '#ff5a66', sole: '#2a2a2e', w: '#f2f2f2' };
+function pixTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
+  draw(px, w, h);
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
-{
-  const sh = new THREE.Shape();
-  [[-2, 12], [4, 12], [0, 5], [4, 5], [-3, -3], [0, 3], [-4, 3]].forEach(([x, y], k) => k ? sh.lineTo(x, y) : sh.moveTo(x, y));
-  const bolt = new THREE.Mesh(new THREE.ShapeGeometry(sh), matRed);
-  bolt.scale.setScalar(0.017); bolt.position.set(0.01, 1.2, 0.153); body.add(bolt);
+// fabric: black with a light dither so the faces are not flat
+const fabric = (px, w, h, seed) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const r = Math.abs(Math.sin((x + 1) * 12.9898 + (y + 1) * 78.233 + seed) * 43758.5453) % 1; px(x, y, r < 0.18 ? PAL.k2 : r < 0.6 ? PAL.k1 : PAL.k0); } };
+const pixMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.75, metalness: 0.05 });
+// box faces in three.js order: +x, -x, +y, -y, +z (front), -z (back)
+function pixBox(wPx, hPx, dPx, faces) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(wPx * PX, hPx * PX, dPx * PX), faces.map(pixMat));
+  m.castShadow = true; return m;
 }
-const glove = () => ball(0.07, matRed);
-const boot = () => { const m = cap(0.075, 0.13, matRed); m.rotation.x = Math.PI / 2; m.position.z = 0.05; const g = new THREE.Group(); g.add(m); return g; };
-const armL = limb(body, 0.32, 1.45, 0.3, 0.06, matSuit, glove()), armR = limb(body, -0.32, 1.45, 0.3, 0.06, matSuit, glove());
-const legL = limb(body, 0.12, 0.82, 0.4, 0.078, matRed, boot()), legR = limb(body, -0.12, 0.82, 0.4, 0.078, matRed, boot());
-hero.traverse(o => { if (o.isMesh) o.castShadow = true; });
-
-// The rigged human avatar (models/hero.glb) replaces the capsule hero once it loads.
-const RIG = { ready: false, bones: {}, actions: {}, pose: {}, groundBlend: 1, root: null, mixer: null };
-const RIG_CTRL = ['Spine', 'Head', 'LeftArm', 'RightArm', 'LeftForeArm', 'RightForeArm', 'LeftHand', 'RightHand', 'LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg'];
-const rigSuit = new THREE.MeshPhysicalMaterial({ color: 0x15151a, roughness: 0.55, metalness: 0.05, clearcoat: 0.3, clearcoatRoughness: 0.45, sheen: 0.5, sheenRoughness: 0.6, sheenColor: new THREE.Color(0x3a3a58) });
-const rigRed = new THREE.MeshPhysicalMaterial({ color: 0xc10f26, roughness: 0.38, metalness: 0.05, clearcoat: 0.5, clearcoatRoughness: 0.3 });
-const E = (x, y, z) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, 'XYZ'));
-const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3(), _qp = new THREE.Quaternion(), AX_R = new THREE.Vector3(-1, 0, 0);
-function aimQuat(bone, target, axis) { bone.getWorldPosition(_v1); _v2.copy(target).sub(_v1); bone.parent.getWorldQuaternion(_qp); _v2.applyQuaternion(_qp.invert()).normalize(); return new THREE.Quaternion().setFromUnitVectors(axis, _v2); }
-const RIG_POSES = {
-  fall: { LeftArm: E(0.2, -0.5, 0.35), RightArm: E(0.2, 0.5, -0.35), LeftForeArm: E(0, -0.6, 0), RightForeArm: E(0, 0.6, 0), LeftUpLeg: E(-0.45, 0, 0.1), RightUpLeg: E(-0.25, 0, -0.1), LeftLeg: E(0.9, 0, 0), RightLeg: E(0.6, 0, 0), Spine: E(0.15, 0, 0), Head: E(-0.15, 0, 0) },
-  swingBody: { LeftArm: E(0.5, 0.2, -1.1), LeftForeArm: E(0, -0.9, 0), RightForeArm: E(0, 0.15, 0), LeftUpLeg: E(-0.7, 0, 0.15), RightUpLeg: E(-0.35, 0, -0.15), LeftLeg: E(1.1, 0, 0), RightLeg: E(0.7, 0, 0), Spine: E(0.35, 0, 0), Head: E(-0.35, 0, 0) },
-  punchGuard: { LeftArm: E(0.9, -0.3, -0.9), LeftForeArm: E(0, -1.9, 0) },
+// torso: 8 x 12 x 4, red bolt on the chest, red belt
+const torsoFront = pixTex(8, 12, (px, w, h) => {
+  fabric(px, w, h, 1);
+  const bolt = ['....##..', '...##...', '..##....', '.#####..', '...##...', '..##....', '.##.....'];
+  bolt.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') px(x, y + 1, y < 3 ? PAL.r2 : PAL.r1); }));
+  for (let x = 0; x < 8; x++) px(x, 10, x === 3 || x === 4 ? PAL.r3 : PAL.r0);
+});
+const torsoBack = pixTex(8, 12, (px, w, h) => { fabric(px, w, h, 2); for (let y = 1; y < 10; y++) px(3, y, PAL.r0), px(4, y, PAL.r0); for (let x = 0; x < 8; x++) px(x, 10, PAL.r0); });
+const torsoSide = pixTex(4, 12, (px, w, h) => { fabric(px, w, h, 3); for (let y = 0; y < 12; y++) px(1, y, PAL.r1), px(2, y, PAL.r1); px(1, 10, PAL.r0); px(2, 10, PAL.r0); });
+const torsoTop = pixTex(8, 4, (px, w, h) => { fabric(px, w, h, 4); for (let x = 0; x < 8; x++) px(x, 0, PAL.r0); });
+// arms: 4 x 12 x 4; shoulder cap, then the glove (cuff, knuckles, finger lines)
+const glove = (px, y0, front) => {
+  for (let y = y0; y < 12; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.r1);
+  for (let x = 0; x < 4; x++) px(x, y0, PAL.r0);                       // cuff seam
+  for (let x = 0; x < 4; x++) px(x, y0 + 1, PAL.r2);                   // cuff highlight
+  if (front) { for (let x = 0; x < 4; x++) px(x, 9, PAL.r3); px(1, 10, PAL.r0); px(2, 10, PAL.r0); px(1, 11, PAL.r0); px(2, 11, PAL.r0); } // knuckles and fingers
+  else { px(0, 11, PAL.r0); px(3, 11, PAL.r0); }
 };
-// Redline's body is a realistic, athletic male avatar (models/hero.glb, a Ready Player Me model from the
-// three.js examples). Its clothes keep their folds and wrinkles (normal maps) but are re-dressed as Redline's
-// suit by the shader below: black fabric, red gloves and boots, red side stripes, a red bolt on the chest,
-// and a full mask with angled white lenses over the eyes. The motion-capture clips come from models/xbot.glb.
-const HERO_SCALE = 1.2, JACKET_HEM = 0.93; // the coat is cut off at the hip so it reads as a short jacket
-const SUIT_GLSL = `
-uniform vec3 uChest, uEyeL, uEyeR; uniform float uStripes, uCut;
-varying float vPart; varying vec3 vP; varying vec3 vN;
-float gRed = 0.0, gLens = 0.0;
-float inBolt(vec2 v) {
-  vec2 P[7]; P[0] = vec2(-2.0, 12.0); P[1] = vec2(4.0, 12.0); P[2] = vec2(0.0, 5.0); P[3] = vec2(4.0, 5.0); P[4] = vec2(-3.0, -3.0); P[5] = vec2(0.0, 3.0); P[6] = vec2(-4.0, 3.0);
-  bool c = false; int j = 6;
-  for (int i = 0; i < 7; i++) {
-    if (((P[i].y > v.y) != (P[j].y > v.y)) && (v.x < (P[j].x - P[i].x) * (v.y - P[i].y) / (P[j].y - P[i].y) + P[i].x)) c = !c;
-    j = i;
-  }
-  return c ? 1.0 : 0.0;
-}
-float lensAt(vec3 eye, float s, out float rimOut) {
-  vec2 e = vec2(vP.x - eye.x - s * 0.006, vP.y - eye.y - 0.004); float ang = s * -0.38;
-  vec2 u = vec2(e.x * cos(ang) + e.y * sin(ang), -e.x * sin(ang) + e.y * cos(ang));
-  float sharp = 1.0 + 0.4 * clamp(-s * u.x / 0.03, -1.0, 1.0);
-  rimOut = pow(abs(u.x) / (0.036 * sharp), 2.4) + pow(abs(u.y) / 0.022, 2.0);
-  return pow(abs(u.x) / (0.029 * sharp), 2.4) + pow(abs(u.y) / 0.016, 2.0);
-}
-vec3 suitColor() {
-  vec3 n = normalize(vN);
-  vec2 k = vec2(vP.x * 2.0 + vP.z * 1.6, vP.y) * 240.0;
-  float knit = 0.5 + 0.5 * sin(k.x) * sin(k.y + sin(k.x * 0.5));
-  vec3 black = vec3(0.017, 0.017, 0.022) * (0.8 + 0.4 * knit);
-  vec3 red = vec3(0.6, 0.018, 0.04) * (0.9 + 0.2 * knit);
-  float a = (vPart > 0.5 && vPart < 2.5) ? 1.0 : 0.0;
-  if (vPart < 0.5) {
-    float side = n.x * sign(vP.x);
-    if (uStripes > 0.5 && vP.y > 0.2 && vP.y < 1.45 && abs(vP.x) < 0.3) a = max(a, 1.0 - smoothstep(0.03, 0.07, abs(side - 0.95)));
-    vec2 q = vec2(vP.x - uChest.x, vP.y - uChest.y);
-    if (n.z > 0.3 && abs(q.x) < 0.09 && abs(q.y) < 0.14) a = max(a, inBolt(q / 0.0125 + vec2(0.0, 4.5)));
-  }
-  // short jacket: a red hem along the cut edge and a red zipper down the front
-  if (uCut > 0.0 && vPart < 0.5) {
-    a = max(a, 1.0 - step(0.022, vP.y - uCut));
-    if (n.z > 0.3 && vP.y < 1.42) a = max(a, 1.0 - smoothstep(0.004, 0.008, abs(vP.x)));
-  }
-  vec3 col = mix(black, red, a); gRed = a;
-  if (vPart > 2.5 && n.z > 0.15) {
-    float rimL, rimR;
-    float lL = lensAt(uEyeL, sign(uEyeL.x), rimL), lR = lensAt(uEyeR, sign(uEyeR.x), rimR);
-    if (min(rimL, rimR) < 1.0) { col = vec3(0.62, 0.02, 0.045); gRed = 1.0; }
-    if (min(lL, lR) < 1.0) { col = vec3(0.92, 0.94, 0.97); gLens = 1.0; }
-  }
-  return col;
-}`;
-function makeSuitMaterial(src, uniforms) {
-  const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, normalMap: src.normalMap || null, roughness: 0.72, metalness: 0, sheen: 0.9, sheenRoughness: 0.45, sheenColor: new THREE.Color(0x5a5a70), clearcoat: 0.08, clearcoatRoughness: 0.6, envMapIntensity: 0.7 });
-  m.onBeforeCompile = sh => {
-    Object.assign(sh.uniforms, uniforms);
-    sh.vertexShader = 'attribute float aPart; varying float vPart; varying vec3 vP; varying vec3 vN;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vPart = aPart; vP = position; vN = normal;');
-    sh.fragmentShader = SUIT_GLSL + '\n' + sh.fragmentShader
-      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (vP.y < uCut) discard;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = suitColor();')
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(mix(0.74, 0.42, gRed), 0.12, gLens);')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += gLens * vec3(0.35, 0.36, 0.4);');
+const armSide = front => pixTex(4, 12, (px, w, h) => { fabric(px, w, h, front ? 5 : 6); for (let x = 0; x < 4; x++) px(x, 0, PAL.r1), px(x, 1, PAL.r0); glove(px, 7, front); });
+const armFront = armSide(true), armOther = armSide(false);
+const armTop = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px(x, y, (x + y) % 3 ? PAL.r1 : PAL.r2); });
+const fist = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.r1); px(0, 0, PAL.r0); px(3, 0, PAL.r0); px(1, 3, PAL.r0); px(2, 3, PAL.r0); px(1, 1, PAL.r2); px(2, 1, PAL.r2); });
+// legs: 4 x 12 x 4; red stripe on the outside, red boots with a dark sole
+const legFace = (stripe, seed, front) => pixTex(4, 12, (px, w, h) => {
+  fabric(px, w, h, seed);
+  if (stripe) for (let y = 0; y < 8; y++) px(stripe === 1 ? 1 : 2, y, PAL.r1), px(stripe === 1 ? 2 : 1, y, y % 2 ? PAL.r0 : PAL.r1);
+  for (let y = 8; y < 12; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.r1);
+  for (let x = 0; x < 4; x++) px(x, 8, PAL.r2), px(x, 11, PAL.sole);
+  if (front) { px(1, 9, PAL.r3); px(2, 9, PAL.r3); }
+});
+const legTop = pixTex(4, 4, (px, w, h) => fabric(px, w, h, 9));
+const sole = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.sole); });
+
+// the round head: a glossy black mask with large, smooth, angled lenses
+function maskTexture() {
+  const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#101014'; g.fillRect(0, 0, W, H);
+  // a faint seam from the forehead over the top, and a red stripe down the back of the head
+  g.fillStyle = '#1a1a20'; g.fillRect(W * 0.25 - 3, 0, 6, H * 0.36);
+  g.fillStyle = '#b3102a'; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
+  // a thin red line from the brow up over the forehead
+  g.fillStyle = '#c4122a'; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
+  // Redline's eyes: two separate rounded lenses, tilted slightly inward, white with a red rim and a shine
+  const lens = (s, grow) => {
+    const cx = W * 0.25 + s * 0.05 * W, cy = H * 0.475, w = 0.036 * W + grow, h = 0.034 * H + grow * 0.5, r = Math.min(w, h) * 0.95;
+    g.save(); g.translate(cx, cy); g.rotate(s * -0.2);
+    g.beginPath(); g.roundRect(-w, -h, w * 2, h * 2, r); g.restore();
   };
-  m.customProgramCacheKey = () => 'redline-human-suit-v3' + (src.normalMap ? '-n' : '');
-  return m;
-}
-function loadModel(name, extraUrls = []) {
-  const L = new GLTFLoader(), urls = ['models/' + name + '.glb', ...extraUrls];
-  const tryUrl = i => new Promise((res, rej) => L.load(urls[i], res, undefined, e => i + 1 < urls.length ? tryUrl(i + 1).then(res, rej) : rej(e)));
-  // last resort: the model embedded as base64 in models/<name>.js (for hosts that do not serve .glb)
-  const fromScript = () => new Promise((res, rej) => {
-    const sc = document.createElement('script'); sc.src = 'models/' + name + '.js';
-    sc.onload = () => { try { const bin = atob(window['GLB_' + name]), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); L.parse(buf.buffer, '', res, rej); } catch (e) { rej(e); } };
-    sc.onerror = rej; document.head.appendChild(sc);
-  });
-  return tryUrl(0).catch(fromScript);
-}
-const C = (n, q) => q; // poses are authored for the driver skeleton, so no conversion is needed
-// The motion runs on a hidden X Bot skeleton (the "driver"), where the clips and the hand-made swing, climb and
-// punch poses were authored. Every frame each avatar bone copies its driver bone's world rotation, corrected by
-// the difference between the two rest poses: avatarWorld = driverWorld * driverRest^-1 * avatarRest.
-function loadRig() {
-  Promise.all([loadModel('hero'), loadModel('xbot', ['https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb'])]).then(([g, anim]) => {
-    const avatar = g.scene, driver = anim.scene, root = new THREE.Group();
-    root.add(avatar, driver); driver.visible = false; root.updateMatrixWorld(true);
-    const centerOf = nm => { let c = null; avatar.traverse(o => { if (o.isMesh && o.name === nm) { o.geometry.computeBoundingBox(); c = o.geometry.boundingBox.getCenter(new THREE.Vector3()); } }); return c; };
-    const eyeL = centerOf('EyeLeft') || new THREE.Vector3(0.032, 1.67, 0.08), eyeR = centerOf('EyeRight') || new THREE.Vector3(-0.032, 1.67, 0.08);
-    const abones = {}; RIG.order = [];
-    avatar.traverse(o => { if (o.isBone) { abones[o.name] = o; RIG.order.push(o.name); } });
-    driver.traverse(o => { if (o.isBone) RIG.bones[o.name.replace(/^mixamorig:?/, '')] = o; });
-    RIG.order = RIG.order.filter(n => RIG.bones[n]);
-    RIG.offset = {};
-    for (const n of RIG.order) RIG.offset[n] = RIG.bones[n].getWorldQuaternion(new THREE.Quaternion()).invert().multiply(abones[n].getWorldQuaternion(new THREE.Quaternion()));
-    RIG.abones = abones;
-    RIG.hipsRestA = abones.Hips.position.clone();
-    RIG.hipsRestD = RIG.bones.Hips.getWorldPosition(new THREE.Vector3());
-    const chest = abones.Spine2.getWorldPosition(new THREE.Vector3());
-    const uniforms = { uChest: { value: new THREE.Vector3(0, chest.y + 0.06, 0) }, uEyeL: { value: eyeL }, uEyeR: { value: eyeR } };
-    avatar.traverse(o => {
-      if (!o.isSkinnedMesh) return;
-      const mat = o.material.name || '';
-      if (/Eye|Teeth|Beard|Headwear/.test(mat)) { o.visible = false; return; }
-      o.castShadow = true; o.frustumCulled = false;
-      // which part of the suit each vertex belongs to: 0 suit, 1 glove, 2 boot, 3 mask
-      const gm = o.geometry, n = gm.attributes.position.count, part = new Float32Array(n);
-      const si = gm.attributes.skinIndex, sw = gm.attributes.skinWeight, bones = o.skeleton.bones;
-      for (let i = 0; i < n; i++) {
-        if (/Footwear/.test(mat)) { part[i] = 2; continue; }
-        if (/Skin/.test(mat)) { part[i] = 3; continue; }
-        const ws = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)], is = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)]; let best = is[0], bw = -1; for (let c = 0; c < 4; c++) if (ws[c] > bw) { bw = ws[c]; best = is[c]; }
-        const bn = bones[best].name;
-        part[i] = /Hand/.test(bn) ? 1 : /Head|Neck/.test(bn) && /Body/.test(mat) ? 3 : 0;
-      }
-      gm.setAttribute('aPart', new THREE.BufferAttribute(part, 1));
-      const cut = /Top/.test(mat) ? JACKET_HEM : -10;
-      o.material = makeSuitMaterial(o.material, { ...uniforms, uStripes: { value: /Bottom/.test(mat) ? 1 : 0 }, uCut: { value: cut } });
-      if (cut > 0) { // the shadow loses the coat tails too
-        const dm = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-        dm.onBeforeCompile = sh => {
-          sh.vertexShader = 'varying float vY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vY = position.y;');
-          sh.fragmentShader = 'varying float vY;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n if (vY < ' + cut.toFixed(3) + ') discard;');
-        };
-        o.customDepthMaterial = dm;
-      }
-    });
-    root.scale.setScalar(HERO_SCALE);
-    const mixer = new THREE.AnimationMixer(driver);
-    for (const name of ['idle', 'walk', 'run']) { const a = mixer.clipAction(anim.animations.find(c => c.name === name)); a.play(); a.setEffectiveWeight(name === 'idle' ? 1 : 0); RIG.actions[name] = a; }
-    for (const nm of RIG_CTRL) RIG.pose[nm] = RIG.bones[nm].quaternion.clone();
-    Object.assign(RIG, { root, mixer, ready: true });
-    root.position.copy(hero.position); root.quaternion.copy(hero.quaternion);
-    scene.remove(hero); hero = root; scene.add(root);
-  }).catch(e => console.warn('rigged hero unavailable, keeping the capsule hero', e));
-}
-const _wq = {}, _tq = new THREE.Quaternion(), _pq = new THREE.Quaternion(), _hp = new THREE.Vector3();
-function syncAvatar() {
-  RIG.root.updateMatrixWorld(true);
-  for (const n of RIG.order) {
-    const ab = RIG.abones[n];
-    RIG.bones[n].getWorldQuaternion(_tq).multiply(RIG.offset[n]);
-    (_wq[n] || (_wq[n] = new THREE.Quaternion())).copy(_tq);
-    const par = ab.parent;
-    if (par && _wq[par.name] && RIG.abones[par.name] === par) _pq.copy(_wq[par.name]); else par.getWorldQuaternion(_pq);
-    ab.quaternion.copy(_pq.invert().multiply(_tq));
+  for (const s of [-1, 1]) {
+    lens(s, 16); g.fillStyle = '#d0142c'; g.fill();           // red rim
+    lens(s, 6); g.fillStyle = '#050505'; g.fill();            // black frame
+    lens(s, 0);
+    const gr = g.createLinearGradient(0, H * 0.44, 0, H * 0.51);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#d6dfe9');
+    g.fillStyle = gr; g.fill();                               // white lens
+    g.save(); lens(s, 0); g.clip();
+    g.fillStyle = 'rgba(255,255,255,0.95)';
+    g.beginPath(); g.ellipse(W * 0.25 + s * 0.05 * W - 0.014 * W, H * 0.458, 0.01 * W, 0.006 * H, -0.3, 0, Math.PI * 2); g.fill(); // shine
+    g.restore();
   }
-  // hip bob and crouch follow the driver
-  RIG.root.worldToLocal(RIG.bones.Hips.getWorldPosition(_hp)); _hp.sub(RIG.hipsRestD);
-  RIG.abones.Hips.position.copy(RIG.hipsRestA).add(_hp);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
 }
-function animateRig(dt) {
-  poseDriver(dt);
-  syncAvatar();
+const maskMap = maskTexture();
+// glow only where the lenses are white
+const lensGlow = (() => {
+  const W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.drawImage(maskMap.image, 0, 0, W, H);
+  const d = g.getImageData(0, 0, W, H); for (let i = 0; i < d.data.length; i += 4) { const v = d.data[i] > 200 && d.data[i + 1] > 200 ? 255 : 0; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; }
+  g.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
+const matHead = new THREE.MeshStandardMaterial({ map: maskMap, roughness: 0.32, metalness: 0.1, emissive: 0xffffff, emissiveMap: lensGlow, emissiveIntensity: 0.25 });
+
+let hero = new THREE.Group(); scene.add(hero);
+const body = new THREE.Group(); hero.add(body);
+function blockLimb(parent, x, y, faces, wPx = 4, lenPx = 12) {
+  const pivot = new THREE.Group(); pivot.position.set(x, y, 0); parent.add(pivot);
+  const box = pixBox(wPx, lenPx, 4, faces); box.position.y = -lenPx * PX / 2; pivot.add(box);
+  const knee = new THREE.Group(); knee.position.y = -lenPx * PX; pivot.add(knee); // no elbows or knees, like a voxel figure
+  const end = new THREE.Group(); end.position.y = -lenPx * PX; pivot.add(end);
+  return { pivot, knee, end };
 }
-function poseDriver(dt) {
-  const b = RIG.bones, sp = Math.hypot(P.vel.x, P.vel.z), ss = THREE.MathUtils.smoothstep;
-  const punchTarget = () => P.pos.clone().addScaledVector(P.face, 3).setY(P.pos.y + 1.45);
-  if (P.state === 'ground') {
-    const walkW = ss(sp, 0.4, 2.5) * (1 - ss(sp, 5, 8.5)), runW = ss(sp, 5, 8.5), idleW = Math.max(0, 1 - walkW - runW);
-    RIG.actions.idle.setEffectiveWeight(idleW); RIG.actions.walk.setEffectiveWeight(walkW); RIG.actions.run.setEffectiveWeight(runW);
-    RIG.actions.walk.setEffectiveTimeScale(clamp(sp / 2.2, 0.8, 1.7)); RIG.actions.run.setEffectiveTimeScale(clamp(sp / 7, 0.9, 2.2));
-    RIG.mixer.update(dt);
-    RIG.groundBlend = Math.min(1, RIG.groundBlend + dt * 4);
-    for (const n of RIG_CTRL) { if (RIG.groundBlend < 1) b[n].quaternion.slerp(RIG.pose[n], 1 - RIG.groundBlend); RIG.pose[n].copy(b[n].quaternion); }
-    if (P.punchT > 0) {
-      b.RightArm.quaternion.slerp(aimQuat(b.RightArm, punchTarget(), (RIG.armAxis || AX_R)), 0.85); b.RightForeArm.quaternion.slerp(C('RightForeArm', E(0, 0.15, 0)), 0.85);
-      b.LeftArm.quaternion.slerp(C('LeftArm', RIG_POSES.punchGuard.LeftArm), 0.6); b.LeftForeArm.quaternion.slerp(C('LeftForeArm', RIG_POSES.punchGuard.LeftForeArm), 0.6);
-      for (const n of ['RightArm', 'RightForeArm', 'LeftArm', 'LeftForeArm']) RIG.pose[n].copy(b[n].quaternion);
-    }
-    return;
-  }
-  RIG.groundBlend = 0;
-  let pose = RIG_POSES.fall;
-  if (P.state === 'wall') {
-    const c = Math.sin(P.pos.y * 2.4), s2 = Math.cos(P.pos.y * 2.4);
-    pose = { LeftArm: E(-0.1 - c * 0.5, -0.35, 0.95), RightArm: E(-0.1 + c * 0.5, 0.35, -0.95), LeftForeArm: E(0, -0.75 - s2 * 0.25, -0.35), RightForeArm: E(0, 0.75 - s2 * 0.25, 0.35),
-      LeftUpLeg: E(-0.55 + c * 0.4, 0.6, 0.75), RightUpLeg: E(-0.55 - c * 0.4, -0.6, -0.75), LeftLeg: E(1.25 - c * 0.35, 0, 0), RightLeg: E(1.25 + c * 0.35, 0, 0), Spine: E(0.15, c * 0.1, 0), Head: E(-0.95, 0, 0), LeftHand: E(-0.5, 0, 0.3), RightHand: E(-0.5, 0, -0.3) };
-  } else if (P.rope) pose = RIG_POSES.swingBody;
-  const k = Math.min(1, dt * 9);
-  for (const n of RIG_CTRL) { const tq = pose[n]; if (tq) RIG.pose[n].slerp(C(n, tq), k); }
-  for (const n of RIG_CTRL) b[n].quaternion.copy(RIG.pose[n]);
-  if (P.rope) { RIG.pose.RightArm.slerp(aimQuat(b.RightArm, P.rope, (RIG.armAxis || AX_R)), Math.min(1, dt * 16)); RIG.pose.RightForeArm.slerp(C('RightForeArm', E(0, 0, 0)), k); RIG.pose.RightHand.slerp(C('RightHand', E(0, 0, 0)), k); }
-  else if (P.state !== 'wall') { const f = clamp(-P.vel.y / 25, 0, 1); RIG.pose.LeftArm.slerp(C('LeftArm', E(0.2 + f * 0.6, -0.5, 0.35 - f * 1.2)), k); RIG.pose.RightArm.slerp(C('RightArm', E(0.2 + f * 0.6, 0.5, -0.35 + f * 1.2)), k); }
-  if (P.punchT > 0) { RIG.pose.RightArm.slerp(aimQuat(b.RightArm, punchTarget(), (RIG.armAxis || AX_R)), 0.7); RIG.pose.RightForeArm.slerp(C('RightForeArm', E(0, 0.2, 0)), 0.7); }
-  for (const n of RIG_CTRL) b[n].quaternion.copy(RIG.pose[n]);
-}
-function heroHand() { return RIG.ready ? RIG.abones.RightHand.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
+const torso = pixBox(8, 12, 4, [torsoSide, torsoSide, torsoTop, torsoTop, torsoFront, torsoBack]); torso.position.y = 18 * PX; body.add(torso);
+const head = new THREE.Mesh(new THREE.SphereGeometry(4.6 * PX, 48, 32), matHead); head.position.y = 28.6 * PX; head.castShadow = true; body.add(head);
+const armFaces = [armOther, armOther, armTop, fist, armFront, armOther];
+const armL = blockLimb(body, 6 * PX, 24 * PX, armFaces), armR = blockLimb(body, -6 * PX, 24 * PX, armFaces);
+const legL = blockLimb(body, 2 * PX, 12 * PX, [legFace(1, 7), legFace(0, 8), legTop, sole, legFace(0, 10, true), legFace(0, 11)]);
+const legR = blockLimb(body, -2 * PX, 12 * PX, [legFace(0, 12), legFace(2, 13), legTop, sole, legFace(0, 14, true), legFace(0, 15)]);
+const RIG = { ready: false };
+function heroHand() { return armR.end.getWorldPosition(new THREE.Vector3()); }
 const ropeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
 ropeMesh.visible = false; scene.add(ropeMesh);
 const trailN = 24, trailPos = new Float32Array(trailN * 3);
@@ -1712,7 +1601,7 @@ function updateCars(dt) {
 
 // ================= camera / animation =================
 const camTarget = new THREE.Vector3();
-let camDist = 5.6;
+let camDist = 5.2;
 function updateCamera(dt) {
   const hs = Math.hypot(P.vel.x, P.vel.z);
   if (state === 'play' && t - lastLook > 1.4 && hs > 8 && P.state === 'air') {
@@ -1720,8 +1609,8 @@ function updateCamera(dt) {
     let diff = target - yaw; diff = Math.atan2(Math.sin(diff), Math.cos(diff));
     yaw += diff * Math.min(1, dt * 1.4);
   }
-  camTarget.lerp(tmp.copy(hero.position).add(new THREE.Vector3(0, 1.85, 0)), Math.min(1, dt * 12));
-  const dist = 5.6 + Math.min(4, P.vel.length() * 0.07);
+  camTarget.lerp(tmp.copy(hero.position).add(new THREE.Vector3(0, 1.3, 0)), Math.min(1, dt * 12));
+  const dist = 5.2 + Math.min(4, P.vel.length() * 0.07);
   const off = new THREE.Vector3(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
   let reach = dist;
   const near = nearBuildings(camTarget.x, camTarget.z, dist + 1);
@@ -1874,7 +1763,6 @@ function frame(now) {
 for (let i = 0; i < 36; i++) { const m = makeCar(); scene.add(m); cars.push({ mesh: m }); }
 applyTime(timeMode);
 setQuality(quality);
-loadRig();
 reset();
 camTarget.copy(P.pos);
 const best = +store.get('redline3d-best') || 0;
