@@ -597,7 +597,13 @@ function loadRig() {
   const L = new GLTFLoader();
   const urls = ['models/xbot.glb', 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r160/examples/models/gltf/Xbot.glb'];
   const tryUrl = i => new Promise((res, rej) => L.load(urls[i], res, undefined, e => i + 1 < urls.length ? tryUrl(i + 1).then(res, rej) : rej(e)));
-  tryUrl(0).then(g => {
+  // last resort: the same model embedded as base64 in models/xbot.js (for hosts that do not serve .glb)
+  const fromScript = () => new Promise((res, rej) => {
+    const sc = document.createElement('script'); sc.src = 'models/xbot.js';
+    sc.onload = () => { try { const bin = atob(window.XBOT_GLB_B64), buf = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i); L.parse(buf.buffer, '', res, rej); } catch (e) { rej(e); } };
+    sc.onerror = rej; document.head.appendChild(sc);
+  });
+  tryUrl(0).catch(fromScript).then(g => {
     const model = g.scene, root = new THREE.Group(); root.add(model); model.updateMatrixWorld(true);
     model.traverse(o => {
       if (o.isSkinnedMesh) { o.castShadow = true; o.frustumCulled = false; const red = /Joints/i.test(o.material.name); reshapeMale(o.geometry); o.material = red ? rigRed : rigSuit; }
