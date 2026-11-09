@@ -417,7 +417,8 @@ const DIFF = {
   // the two extremes: Beginner barely presses, decides slowly and misplaces passes; Impossible reacts instantly,
   // presses with three, hardly misses a pass and has a keeper at his best
   beginner:   { react: 0.95, speed: 0.86, passErr: 0.17, shotErr: 0.24, pressers: 1, tackle: 0.2, gk: 0.68, shootRange: 0.65, slide: 0.02, patience: 0.15, xgMin: 0.06, line: 0.35, press: 0.2 },
-  impossible: { react: 0.1,  speed: 1.1,  passErr: 0.015, shotErr: 0.04, pressers: 3, tackle: 0.9, gk: 1.25, shootRange: 1.25, slide: 0.25, patience: 0.7, xgMin: 0.035, line: 1.0, press: 1.0 }
+  // Impossible also boosts every CPU player's stats (statBoost) and the CPU side never tires (tireless)
+  impossible: { react: 0.05, speed: 1.16, passErr: 0.006, shotErr: 0.022, pressers: 3, tackle: 1.0, gk: 1.42, shootRange: 1.35, slide: 0.3, patience: 0.75, xgMin: 0.022, line: 1.0, press: 1.0, statBoost: 10, tireless: true }
 };
 /* width = how much a side uses the flanks (wide outlets, overlaps, switches of play), 0..1 */
 DIFF.beginner.width = 0.45; DIFF.easy.width = 0.6; DIFF.normal.width = 0.85; DIFF.hard.width = 1.0; DIFF.impossible.width = 1.0;
@@ -432,7 +433,7 @@ const TEAMMATE_DIFF = DIFF.normal; // the user's AI teammates always play at "no
  * -ACC, first touch +TOUCH difficulty, pass error +PASS, shot error +SHOT; AI pressing eases off with team tiredness. */
 /* Tuned so a hard-working player loses ~5-8 % of top speed late in the 2nd half (worst ~10-12 %), ~2-4 % late in the 1st. */
 const FATIGUE = { BASE: 0.000055, WORK: 0.00011, CAP_MIN: 0.55, HALF_REC: 0.6, ONSET: 0.92, SPAN: 0.45, SPEED: 0.15, ACC: 0.18, TOUCH: 0.14, PASS: 0.04, SHOT: 0.09, PRESS: 0.35, REC_WALK: 0.035, REC_JOG: 0.022 };
-const tiredOf = p => clamp((FATIGUE.ONSET - p.stamina) / FATIGUE.SPAN, 0, 1);
+const tiredOf = p => (p.team && p.team.diff && p.team.diff.tireless) ? 0 : clamp((FATIGUE.ONSET - p.stamina) / FATIGUE.SPAN, 0, 1);
 
 /* =====================================================================
    2. CLUBS (all fictional), ROSTERS, CRESTS
@@ -3573,7 +3574,7 @@ class Player {
     let v = 7.5 + (clamp(this.info.pace, 40, 99) - 55) * 0.0476;
     if (!sprint) v *= 0.74;
     // fatigue: gentle loss of top speed once the stamina bar is low, steeper when nearly empty
-    v *= 1 - FATIGUE.SPEED * tiredOf(this) - (this.stamina < 0.2 ? (0.2 - this.stamina) * 0.8 : 0);
+    v *= 1 - FATIGUE.SPEED * tiredOf(this) - (this.stamina < 0.2 && !this.team.diff.tireless ? (0.2 - this.stamina) * 0.8 : 0);
     if (ball.owner === this) v *= sprint ? 0.86 : 0.9;
     if (!this.team.isUser) v *= this.team.diff.speed;
     if (this.burstT > 0) v *= 1.12;
@@ -3610,6 +3611,8 @@ function buildTeams() {
     // transfer-market players join the human's club only (never the CPU side, never in demo): each takes the slot of the weakest club player in his role
     if (T.isUser) { try { const { map } = shopAssign(roster, FORMATIONS[T.formation]); for (const i in map) roster[i] = { ...map[i], shop: true }; T.shopCount = Object.keys(map).length; } catch (e) { console.warn('shop players skipped', e); } }
     resolveNumbers(roster);
+    // Impossible: every CPU player gets a stat boost (capped at 99)
+    if (!T.isUser && T.diff.statBoost) roster.forEach(r => { for (const k of ['pace', 'shooting', 'passing', 'defending', 'dribbling', 'gk']) if (typeof r[k] === 'number') r[k] = Math.min(99, r[k] + T.diff.statBoost); });
     FORMATIONS[T.formation].forEach((slot, i) => {
       const gkKit = { shirt: club.gk, trim: '#111111', shorts: '#202020', socks: club.gk, boots: roster[i].boots || '#111111', gloves: '#f0f0f0' };
       const k = slot[0] === 'GK' ? gkKit : { ...kit, boots: roster[i].boots || boots[(i * 3 + ti) % boots.length] };
