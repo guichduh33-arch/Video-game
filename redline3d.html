@@ -1653,7 +1653,7 @@ function backflip() {
   sfx.jump();
 }
 // web shot: a fast web ball that homes in on the enemy in front of you
-const webBall = new THREE.Mesh(new THREE.SphereGeometry(0.45, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+const webBall = new THREE.Mesh(new THREE.SphereGeometry(0.8, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
 const webLine = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
 webBall.visible = webLine.visible = false; scene.add(webBall, webLine);
 const webGeo = new THREE.IcosahedronGeometry(1, 1), webMat = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9 });
@@ -1678,7 +1678,7 @@ function webShot() {
 }
 // web wall: hold the web button, let go, and a wall of web stands in front of you
 let webHold = 0, webWall = null;
-const WALL_W = 22, WALL_H = 12;
+const WALL_W = 50, WALL_H = 26;
 function webDown() { if (state === 'play' && !webHold) webHold = performance.now(); }
 function webUp() {
   if (!webHold) return;
@@ -1691,11 +1691,11 @@ function makeWebWall() {
   P.wallCd = 2; P.act = { kind: 'web', t: 0, dur: 0.4, lock: 0.2, done: true };
   if (webWall) scene.remove(webWall.mesh);
   const g = new THREE.Group();
-  const grid = new THREE.Mesh(new THREE.PlaneGeometry(WALL_W, WALL_H, 28, 15), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(WALL_W, WALL_H, 50, 26), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
   const fill = new THREE.Mesh(new THREE.PlaneGeometry(WALL_W, WALL_H), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
   g.add(grid, fill);
   const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  const c = P.pos.clone().addScaledVector(fwd, 8); const base = P.pos.y - 0.6;
+  const c = P.pos.clone().addScaledVector(fwd, 14); const base = P.pos.y - 0.6;
   g.position.set(c.x, base + WALL_H / 2, c.z); g.rotation.y = yaw;
   scene.add(g);
   webWall = { mesh: g, c, fwd, right, base, life: 9 };
