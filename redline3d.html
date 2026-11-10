@@ -1155,25 +1155,42 @@ function aimDir() {
   if (m.lengthSq() > 0.05) return m.normalize();
   return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
 }
-// The web sticks to building walls only, anywhere on a facade: aim for a point about 26 m ahead and 22 m up,
-// and take the closest spot on a wall that is at least 3 m above you (a little under the roof, not on its edge).
+// The web sticks to building walls only (never the sky, never a corner), from any height and in any direction.
+// Pass 1 prefers a wall that reaches above you ahead of you. If none, pass 2 takes the closest wall of any building
+// around you (even one lower than you, high above the roofs); you drop, the web goes taut and you swing under the spot.
+function wallPoint(b, D, p) {
+  let cx = clamp(D.x, b.x0, b.x1), cz = clamp(D.z, b.z0, b.z1);
+  if (cx > b.x0 && cx < b.x1 && cz > b.z0 && cz < b.z1) {      // aim point is over the building: use the nearest wall
+    const dl = cx - b.x0, dr = b.x1 - cx, dn = cz - b.z0, df = b.z1 - cz, m = Math.min(dl, dr, dn, df);
+    if (m === dl) cx = b.x0; else if (m === dr) cx = b.x1; else if (m === dn) cz = b.z0; else cz = b.z1;
+  }
+  const onX = cx === b.x0 || cx === b.x1, onZ = cz === b.z0 || cz === b.z1;
+  const inset = (v, lo, hi) => hi - lo > 6 ? clamp(v, lo + 2, hi - 2) : (lo + hi) / 2;
+  if (onX && onZ) { // a corner: take the wall that faces you and slide in off the edge
+    if (Math.abs(p.x - cx) >= Math.abs(p.z - cz)) cz = inset(p.z, b.z0, b.z1); else cx = inset(p.x, b.x0, b.x1);
+  } else if (onX) cz = inset(cz, b.z0, b.z1); else if (onZ) cx = inset(cx, b.x0, b.x1);
+  return [cx, cz];
+}
 function findAnchor() {
   const f = aimDir(), p = P.pos;
   const D = new THREE.Vector3(p.x + f.x * 26, p.y + 22, p.z + f.z * 26);
+  const list = nearBuildings(p.x + f.x * 30, p.z + f.z * 30, 110).filter(b => !b.slab);
   let best = null, bs = 1e9;
-  for (const b of nearBuildings(D.x, D.z, 70)) {
-    if (b.slab || b.h < p.y + 5) continue;
-    const ay = Math.min(D.y, b.h - 1.5);                       // on the facade, below the roof line
-    let ax = clamp(D.x, b.x0, b.x1), az = clamp(D.z, b.z0, b.z1);
-    if (ax > b.x0 && ax < b.x1 && az > b.z0 && az < b.z1) {   // aim point is over the building: use the wall facing you
-      const dl = ax - b.x0, dr = b.x1 - ax, dn = az - b.z0, df = b.z1 - az, m = Math.min(dl, dr, dn, df);
-      if (m === dl) ax = b.x0; else if (m === dr) ax = b.x1; else if (m === dn) az = b.z0; else az = b.z1;
-    }
-    const dx = ax - p.x, dy = ay - p.y, dz = az - p.z;
-    if (dy < 3) continue;
-    const d = Math.hypot(dx, dy, dz); if (d < 6 || d > 110) continue;
-    if (dx * f.x + dz * f.z < 1) continue;
+  for (const b of list) {                                        // pass 1: a wall above you, ahead of you
+    if (b.h < p.y + 5) continue;
+    const [ax, az] = wallPoint(b, D, p), ay = Math.min(D.y, b.h - 1.5);
+    const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
+    if (dy < 3 || d < 6 || d > 110 || dx * f.x + dz * f.z < 1) continue;
     const sc = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
+    if (sc < bs) { bs = sc; best = new THREE.Vector3(ax, ay, az); }
+  }
+  if (best) return best;
+  for (const b of list) {                                        // pass 2: the closest wall of any building, any direction
+    if (b.h < 8 || (p.x > b.x0 - 1 && p.x < b.x1 + 1 && p.z > b.z0 - 1 && p.z < b.z1 + 1)) continue; // not the roof under you
+    const [ax, az] = wallPoint(b, p, p), ay = Math.min(Math.max(p.y + 6, 12), b.h - 1.5);
+    const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
+    if (d < 4 || d > 260) continue;
+    const sc = d - 0.35 * (dx * f.x + dz * f.z);                 // closest, with a lean toward where you are heading
     if (sc < bs) { bs = sc; best = new THREE.Vector3(ax, ay, az); }
   }
   return best;
@@ -2354,7 +2371,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>
