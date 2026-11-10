@@ -1836,46 +1836,75 @@ function tgPos(tg) {
   if (tg.car) return tg.car.mesh.position.clone().setY(0.9);
   return tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
 }
-const grabs = [];
+const grabs = [], STUCK_T = 10;
+const groundSplatMat = new THREE.MeshBasicMaterial({ map: webSplatTex, transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 });
+function groundLevel() { return (P.state === 'ground' || P.state === 'wall') && P.roof ? (P.roof.h || 0) : 0; }
 function startGrab(tg) {
   if (grabs.length >= 4) { const o = grabs.shift(); endGrab(o); }
-  const g = { tg, st: 'pull', t: 0, vy: 0, silk: makeSilk(3, 0.85), cocoon: null };
+  const g = { tg, st: 'pull', t: 0, ang: 0, spin: 0, silk: makeSilk(3, 0.85), cocoon: null, splat: null, slamFrom: null, slamTo: null };
   if (tg.ped) { g.pos = tgPos(tg).clone(); tg.ped.gp = g.pos; }
   else if (tg.car) { g.pos = tgPos(tg).clone(); tg.car.gp = g.pos; }
   if (tg.ped || tg.car) {
     const c = new THREE.Group(); c.add(new THREE.Mesh(webGeo, webMat), new THREE.Mesh(webGeo, webFill));
-    c.scale.set(tg.car ? 2.4 : 0.6, tg.car ? 1.5 : 1.1, tg.car ? 4.4 : 0.6); scene.add(c); g.cocoon = c;
+    c.scale.set(tg.car ? 2.4 : 0.6, tg.car ? 1.5 : 1.1, tg.car ? 4.4 : 0.6); g.base = c.scale.clone(); scene.add(c); g.cocoon = c;
   }
-  popup('GRABBED!', tgPos(tg).clone().add(new THREE.Vector3(0, 2, 0)), true); bonus += 50; sfx.thud();
+  P.act = { kind: 'web', t: 0, dur: 0.6, lock: 0.1, done: true };   // big yank
+  const at = tgPos(tg).clone();
+  burst(at, 22, 12, 0); shake = Math.max(shake, 0.35); flash = Math.max(flash, 0.12);
+  popup('GRABBED!', at.clone().add(new THREE.Vector3(0, 2, 0)), true); bonus += 50; sfx.thud();
   grabs.push(g);
 }
 function endGrab(g) {
-  scene.remove(g.silk); if (g.cocoon) scene.remove(g.cocoon);
+  scene.remove(g.silk); if (g.cocoon) scene.remove(g.cocoon); if (g.splat) scene.remove(g.splat);
   const tg = g.tg;
   if (tg.ped) { tg.ped.gp = null; tg.ped.init = false; }
-  if (tg.car) { tg.car.gp = null; placeCar(tg.car, false); }
+  if (tg.car) { tg.car.gp = null; tg.car.mesh.rotation.x = tg.car.mesh.rotation.z = 0; placeCar(tg.car, false); }
+  if (tg.e) { tg.e.mesh.rotation.x = tg.e.mesh.rotation.z = 0; if (tg.e.webbed > 0.5) tg.e.webbed = 0.5; }
 }
 function updateGrabs(h) {
-  const hand = heroHand(), fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-  const hold = P.pos.clone().addScaledVector(fwd, 3).add(new THREE.Vector3(0, 3, 0));
+  const hand = heroHand(), fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), now = performance.now() / 1000;
   for (let i = grabs.length - 1; i >= 0; i--) {
     const g = grabs[i], tg = g.tg; g.t += h;
     const obj = tg.e ? tg.e.mesh.position : g.pos;
     if (tg.e && tg.e.dead) { endGrab(g); grabs.splice(i, 1); continue; }
-    if (g.st === 'pull') {
-      const d = hold.clone().sub(obj), l = d.length();
-      if (l < 1.2 || g.t > 2) { g.st = 'hold'; g.t = 0; } else obj.addScaledVector(d, Math.min(l, 48 * h) / l);
-    } else if (g.st === 'hold') {
-      obj.lerp(hold.clone().add(new THREE.Vector3(Math.sin(g.t * 3) * 0.4, Math.sin(g.t * 4) * 0.25, 0)), Math.min(1, h * 8));
-      if (g.t > 1.6) { g.st = 'drop'; g.vy = 0; }
-    } else {
-      g.vy -= 30 * h; obj.y += g.vy * h;
-      const floor = tg.e ? Math.max(0, P.pos.y - 8) : 0.4;
-      if (obj.y <= floor || g.t > 6) { endGrab(g); grabs.splice(i, 1); continue; }
+    const tumble = (sp) => { g.spin += sp * h; const m = tg.e ? tg.e.mesh : tg.car ? tg.car.mesh : null; if (m) { m.rotation.z = Math.sin(g.spin) * 0.6; m.rotation.x = Math.cos(g.spin * 0.8) * 0.4; if (tg.car) m.rotation.y += sp * h * 0.5; } };
+    let silkAmp = 0.12;
+    if (g.st === 'pull') {            // 1. the yank: whipped in tumbling toward you
+      const hold = P.pos.clone().add(new THREE.Vector3(Math.cos(g.ang) * 3.6, 4.4, Math.sin(g.ang) * 3.6)), d = hold.clone().sub(obj), l = d.length();
+      tumble(16); silkAmp = 0.5;
+      if (l < 1.5 || g.t > 1.2) { g.st = 'lasso'; g.t = 0; P.act = { kind: 'web', t: 0, dur: 0.5, lock: 0.1, done: true }; sfx.line(); } else obj.addScaledVector(d, Math.min(l, 55 * h) / l);
+    } else if (g.st === 'lasso') {    // 2. swung round your head like a lasso
+      g.ang += 9 * h; tumble(14); silkAmp = 0.35;
+      const tgt = P.pos.clone().add(new THREE.Vector3(Math.cos(g.ang) * 3.6, 4.4 + Math.sin(g.t * 6) * 0.3, Math.sin(g.ang) * 3.6));
+      obj.lerp(tgt, Math.min(1, h * 20));
+      if (g.t > 1.0) {
+        g.st = 'slam'; g.t = 0; g.slamFrom = obj.clone();
+        g.slamTo = P.pos.clone().addScaledVector(fwd, 4.5); g.slamTo.y = groundLevel() + (tg.e ? 0 : 0.9);
+        P.act = { kind: 'web', t: 0, dur: 0.45, lock: 0.1, done: true }; P.face.copy(fwd); sfx.line();
+      }
+    } else if (g.st === 'slam') {     // 3. slammed down onto the ground
+      const k = Math.min(1, g.t / 0.28), e = k * k;
+      obj.lerpVectors(g.slamFrom, g.slamTo, e); tumble(6); silkAmp = 0.05;
+      if (k >= 1) {
+        g.st = 'stuck'; g.t = 0; const at = g.slamTo.clone(); at.y = groundLevel() + 0.15;
+        burst(at, 40, 18, 1); shake = Math.max(shake, 0.8); flash = Math.max(flash, 0.2); sfx.boom();
+        popup('STUCK ' + STUCK_T + 's!', at.clone().add(new THREE.Vector3(0, 3, 0)), true); bonus += 100; gainXP(5);
+        const sp = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), groundSplatMat.clone()); sp.rotation.x = -Math.PI / 2; const sz = tg.car ? 11 : 7; sp.scale.set(sz, sz, 1); sp.position.copy(at); scene.add(sp); g.splat = sp;
+        if (tg.e) { tg.e.mesh.rotation.x = tg.e.mesh.rotation.z = 0; }
+        if (tg.e) tg.e.hitInv = 0;
+        if (tg.car) { tg.car.mesh.rotation.x = tg.car.mesh.rotation.z = 0; }
+      }
+    } else {                          // 4. stuck to the ground for 10 s, struggling harder at the end
+      const left = STUCK_T - g.t, str = left < 2.5 ? 0.12 : 0.03;
+      silkAmp = 0;
+      if (tg.e) { tg.e.webbed = 5; obj.y = g.slamTo.y; }
+      if (g.cocoon) g.cocoon.scale.set(g.base.x * (1 + Math.sin(now * (left < 2.5 ? 40 : 14)) * str), g.base.y, g.base.z);
+      if (g.splat) g.splat.material.opacity = Math.min(1, left / 1.5);
+      if (left <= 0) { burst(obj.clone(), 26, 14, 1); popup('FREE', obj.clone().add(new THREE.Vector3(0, 2.5, 0))); sfx.thud(); endGrab(g); grabs.splice(i, 1); continue; }
     }
-    if (g.cocoon) g.cocoon.position.copy(obj).add(new THREE.Vector3(0, tg.car ? 0.2 : 0, 0));
-    if (tg.e && tg.e.webbed < 2) tg.e.webbed = 2;
-    if (g.st !== 'drop') updateSilk(g.silk, hand, obj.clone().add(new THREE.Vector3(0, 0.8, 0)), performance.now() / 1000, 0.12); else g.silk.visible = false;
+    if (g.cocoon) { g.cocoon.position.copy(obj).add(new THREE.Vector3(0, tg.car ? 0.2 : 0, 0)); if (g.st !== 'stuck') g.cocoon.rotation.set(g.spin * 0.7, g.spin, 0); else g.cocoon.rotation.set(0, 0, 0); if (g.st !== 'stuck') g.cocoon.scale.copy(g.base); }
+    if (tg.e && g.st !== 'stuck' && tg.e.webbed < 5) tg.e.webbed = 5;
+    if (g.st !== 'stuck') updateSilk(g.silk, hand, obj.clone().add(new THREE.Vector3(0, tg.e ? 1 : 0.8, 0)), now, silkAmp); else g.silk.visible = false;
   }
 }
 function wrapInWeb(e) {
