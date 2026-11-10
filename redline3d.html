@@ -13,9 +13,11 @@
 html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;
   font-family:var(--disp);color:var(--paper);-webkit-tap-highlight-color:transparent}
 canvas{display:block;position:fixed;inset:0;width:100vw;height:100vh}
-.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:20;
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;z-index:20;
   background:radial-gradient(ellipse at center,rgba(0,0,0,.25),rgba(0,0,0,.78));padding:16px;box-sizing:border-box;overflow:auto}
 .hidden{display:none!important}
+.screen>:first-child{margin-top:auto}
+.screen>:last-child{margin-bottom:auto}
 h1{font-size:clamp(60px,15vw,150px);margin:0;line-height:.85;letter-spacing:3px;font-weight:400;color:var(--paper);text-shadow:5px 5px 0 var(--red),10px 10px 0 #000}
 h1 span{color:var(--red);text-shadow:5px 5px 0 #fff,10px 10px 0 #000}
 h2{font-size:clamp(48px,11vw,96px);margin:0;font-weight:400;color:var(--red);text-shadow:4px 4px 0 #fff,8px 8px 0 #000;letter-spacing:3px}
@@ -91,6 +93,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #healBar{width:130px;height:6px;margin:-4px 0 8px 4px;background:rgba(0,0,0,.6);border:1px solid #66ffaa}
 #healFill{height:100%;width:0;background:#66ffaa}
 @media (max-width: 820px){#bossBar{top:calc(172px + env(safe-area-inset-top));width:min(420px,60vw)}}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:25;transition:opacity .7s}
 @media (prefers-reduced-motion: reduce){#flash{display:none}}
 </style>
 <script type="importmap">
@@ -100,6 +103,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 <body>
 <div id="loading">LOADING CITY…</div>
 <div id="flash"></div>
+<div id="fade"></div>
 
 <div id="hud" class="hidden">
   <div id="score">0</div>
@@ -120,6 +124,10 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 <div id="title" class="screen hidden">
   <h1>RED<span>LINE</span></h1>
   <div class="tag">3D · CITY SWING</div>
+  <div class="times" id="worldPick">
+    <button data-world="1" class="on">WORLD 1 · CITY</button>
+    <button data-world="2">WORLD 2 · SEA PORT (FINAL)</button>
+  </div>
   <div class="times" id="timePick">
     <button data-time="day" class="on">DAY</button>
     <button data-time="sunset">SUNSET</button>
@@ -135,6 +143,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
+    Beat the three bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
@@ -150,11 +159,12 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 </div>
 
 <div id="over" class="screen hidden">
-  <h2>LINE CUT</h2>
+  <h2 id="overTitle">LINE CUT</h2>
   <div style="height:16px"></div>
   <div class="stat">SCORE <em id="oScore">0</em></div>
   <div class="stat">SWUNG <em id="oDist">0</em> M</div>
   <div class="stat">TAKEDOWNS <em id="oKills">0</em></div>
+  <div class="stat" id="oNote" style="font-size:20px"></div>
   <div class="stat" id="oBest"></div>
   <div style="height:22px"></div>
   <button class="big" id="againBtn">AGAIN</button>
@@ -201,6 +211,11 @@ const rng = (s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ 
 // world constants (meters)
 const N = 22, BLOCK = 46, STREETW = 18, CELL = BLOCK + STREETW, HALF = N * CELL / 2, WALK = 2.2, CURB = 0.25;
 const G = 32, RUN = 15, CLIMB = 14, MAXV = 75, PUMP = 17, AIR = 10, R = 0.45;
+// two worlds: 1 = the city, 2 = the sea port (the final world, with the Sea Eater). World 2 is built far away at SEA.x.
+let world = 1;
+const SEA = { x: 7000, z: 0, R: 470 };
+let selWorld = +store.get('redline3d-world') === 2 ? 2 : 1;
+const wx = x => world === 2 ? clamp(x, SEA.x - SEA.R, SEA.x + SEA.R) : clamp(x, -HALF, HALF), wz = z => world === 2 ? clamp(z, SEA.z - SEA.R, SEA.z + SEA.R) : clamp(z, -HALF, HALF);
 
 // ================= renderer / scene =================
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -303,8 +318,33 @@ const STYLES = {
     win: [44, 18, 84, 110], mat: { roughness: 0.85, metalness: 0 }
   }
 };
+// facades for the sea port: painted steel with an orange safety stripe, and red ship hulls with portholes
+const SEA_STYLES = {
+  steel: {
+    wall(g) {
+      g.fillStyle = '#56636f'; g.fillRect(0, 0, 512, 512);
+      g.fillStyle = 'rgba(0,0,0,.22)'; for (let i = 0; i < 8; i++) { g.fillRect(i * 64 - 1, 0, 2, 512); g.fillRect(0, i * 64 - 1, 512, 2); }
+      g.fillStyle = 'rgba(255,255,255,.2)'; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillRect(x * 64 + 6, y * 64 + 6, 3, 3); g.fillRect(x * 64 + 55, y * 64 + 55, 3, 3); }
+      g.fillStyle = '#d9731f'; for (const f of [0, 2]) g.fillRect(0, f * 128 + 112, 512, 10);
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+        g.fillStyle = '#14202a'; g.fillRect(x * 128 + 20, y * 128 + 34, 88, 46);
+        g.fillStyle = 'rgba(130,180,210,.35)'; g.fillRect(x * 128 + 20, y * 128 + 34, 88, 14);
+      }
+    },
+    win: [20, 34, 108, 80], mat: { roughness: 0.6, metalness: 0.35 }
+  },
+  hull: {
+    wall(g) {
+      g.fillStyle = '#8f2a24'; g.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.18})`; g.fillRect(Math.random() * 512, 0, 2 + Math.random() * 3, 512); }
+      g.fillStyle = 'rgba(0,0,0,.28)'; for (let i = 0; i < 8; i++) g.fillRect(0, i * 64 - 1, 512, 2);
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 8; x++) { g.fillStyle = '#f0f0f0'; g.beginPath(); g.arc(x * 64 + 32, y * 128 + 54, 12, 0, 7); g.fill(); g.fillStyle = '#243746'; g.beginPath(); g.arc(x * 64 + 32, y * 128 + 54, 8.5, 0, 7); g.fill(); }
+    },
+    win: [14, 40, 114, 70], mat: { roughness: 0.7, metalness: 0.2 }
+  }
+};
 function facadeTextures(style) {
-  const s = STYLES[style];
+  const s = STYLES[style] || SEA_STYLES[style];
   const map = canvasTex(512, 512, g => s.wall(g));
   const emissive = canvasTex(512, 512, g => {
     g.fillStyle = '#000'; g.fillRect(0, 0, 512, 512);
@@ -322,7 +362,8 @@ function facadeTextures(style) {
 
 // ================= city =================
 const blocks = [];  // blocks[i][j] = solid boxes (buildings and sidewalk slabs)
-const buildings = [];
+const cityBuildings = [];
+let buildings = cityBuildings;
 const treesPos = [];
 let antLights, lampHeadMat, lampPool; const facadeMats = [], lampPos = [];
 function buildCity() {
@@ -529,13 +570,109 @@ const rainSeed = Array.from({ length: RAIN }, () => [rand(-45, 45), rand(-35, 35
 const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: 0xaab8cc, transparent: true, opacity: 0.35 }));
 rain.frustumCulled = false; scene.add(rain);
 
+const SEA_CELL = 64, seaGrid = new Map(); let seaQ = 0;
 function nearBuildings(x, z, r) {
+  if (world === 2) {
+    const o2 = [], q = ++seaQ;
+    const i0 = Math.floor((x - r - SEA.x) / SEA_CELL), i1 = Math.floor((x + r - SEA.x) / SEA_CELL), j0 = Math.floor((z - r - SEA.z) / SEA_CELL), j1 = Math.floor((z + r - SEA.z) / SEA_CELL);
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const a = seaGrid.get(i + ',' + j); if (a) for (const b of a) if (b._q !== q) { b._q = q; o2.push(b); } }
+    return o2;
+  }
   const out = [];
   const i0 = clamp(Math.floor((x - r + HALF) / CELL), 0, N - 1), i1 = clamp(Math.floor((x + r + HALF) / CELL), 0, N - 1);
   const j0 = clamp(Math.floor((z - r + HALF) / CELL), 0, N - 1), j1 = clamp(Math.floor((z + r + HALF) / CELL), 0, N - 1);
   for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (const b of blocks[i][j]) out.push(b);
   return out;
 }
+
+// ================= WORLD 2: the sea port =================
+let seaBuilt = false, seaGroup = null;
+const seaBuildings = [], seaUniforms = { uTime: { value: 0 } };
+function ensureSea() {
+  if (seaBuilt) return; seaBuilt = true;
+  const grp = new THREE.Group(); seaGroup = grp; scene.add(grp);
+  const r2 = (sd => () => { sd |= 0; sd = sd + 0x6D2B79F5 | 0; let q = Math.imul(sd ^ sd >>> 15, 1 | sd); q = q + Math.imul(q ^ q >>> 7, 61 | q) ^ q; return ((q ^ q >>> 14) >>> 0) / 4294967296; })(90210);
+  const R2 = (a, b) => a + r2() * (b - a);
+  const acc = () => ({ pos: [], nor: [], uv: [] });
+  const geo = { steel: acc(), concrete: acc(), glass: acc(), hull: acc() }, roof = acc(), deck = acc();
+  const quad = (o, a, b, c, d, n, u0, v0, u1, v1) => {
+    const Pq = [a, b, c, a, c, d], U = [[u0, v0], [u1, v0], [u1, v1], [u0, v0], [u1, v1], [u0, v1]];
+    for (let k = 0; k < 6; k++) { o.pos.push(...Pq[k]); o.nor.push(...n); o.uv.push(...U[k]); }
+  };
+  const sides = (o, x0, x1, z0, z1, y0, y1, ou = 0, ov = 0, sc = 16) => {
+    const w = x1 - x0, d = z1 - z0, hv = (y1 - y0) / sc, vb = ov + y0 / sc;
+    quad(o, [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], [0, 0, 1], ou, vb, ou + w / sc, vb + hv);
+    quad(o, [x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [1, 0, 0], ou, vb, ou + d / sc, vb + hv);
+    quad(o, [x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [0, 0, -1], ou, vb, ou + w / sc, vb + hv);
+    quad(o, [x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], [-1, 0, 0], ou, vb, ou + d / sc, vb + hv);
+  };
+  const top = (o, x0, x1, z0, z1, y, sc = 8) => quad(o, [x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], [0, 1, 0], x0 / sc, z1 / sc, x1 / sc, z0 / sc);
+  const box = (o, x0, x1, z0, z1, y0, y1) => { sides(o, x0, x1, z0, z1, y0, y1, 0, 0, 4); top(o, x0, x1, z0, z1, y1, 4); };
+  // one structure: centre (cx, cz) relative to the bay, size w x d, height h
+  const addB = (cx, cz, w, d, h, style, slab) => {
+    const x0 = SEA.x + cx - w / 2, x1 = SEA.x + cx + w / 2, z0 = SEA.z + cz - d / 2, z1 = SEA.z + cz + d / 2;
+    const bd = { x0, x1, z0, z1, h, style }; if (slab) bd.slab = true; seaBuildings.push(bd);
+    if (slab) { top(deck, x0, x1, z0, z1, h, 4); sides(deck, x0, x1, z0, z1, 0, h, 0, 0, 4); }
+    else {
+      sides(geo[style], x0, x1, z0, z1, 0, h, Math.floor(r2() * 4) * 0.25, Math.floor(r2() * 4) * 0.25);
+      top(roof, x0, x1, z0, z1, h);
+      const pw = 0.35, ph = 0.9;
+      box(roof, x0, x1, z0, z0 + pw, h, h + ph); box(roof, x0, x1, z1 - pw, z1, h, h + ph); box(roof, x0, x0 + pw, z0, z1, h, h + ph); box(roof, x1 - pw, x1, z0, z1, h, h + ph);
+      if (w > 12 && d > 12) for (let k = 0, n = 1 + (r2() * 3 | 0); k < n; k++) { const bw = 2 + r2() * 3, bd2 = 2 + r2() * 3, ax = x0 + 2 + r2() * Math.max(0, w - 4 - bw), az = z0 + 2 + r2() * Math.max(0, d - 4 - bd2); box(roof, ax, ax + bw, az, az + bd2, h, h + 1 + r2() * 1.5); }
+    }
+    for (let i = Math.floor((x0 - SEA.x) / SEA_CELL); i <= Math.floor((x1 - SEA.x) / SEA_CELL); i++) for (let j = Math.floor((z0 - SEA.z) / SEA_CELL); j <= Math.floor((z1 - SEA.z) / SEA_CELL); j++) { const key = i + ',' + j; if (!seaGrid.has(key)) seaGrid.set(key, []); seaGrid.get(key).push(bd); }
+  };
+  // structures on a loose grid around a clear bay in the middle (that is where the Sea Eater rises)
+  const cell = 78, spots = [], at = {};
+  for (let gi = -5; gi <= 5; gi++) for (let gj = -5; gj <= 5; gj++) {
+    const cx = gi * cell + R2(-12, 12), cz = gj * cell + R2(-12, 12), rr = Math.hypot(cx, cz);
+    if (rr < 125 || rr > 430 || r2() < 0.22) continue;
+    const kq = r2(), kind = kq < 0.42 ? 'tower' : kq < 0.64 ? 'rig' : kq < 0.84 ? 'ship' : 'mast';
+    const sp = { gi, gj, cx, cz, kind }; spots.push(sp); at[gi + ',' + gj] = sp;
+  }
+  const styles3 = ['steel', 'concrete', 'glass'];
+  for (const sp of spots) {
+    const { cx, cz } = sp;
+    if (sp.kind === 'tower') { const w = R2(15, 25), d = R2(15, 25); addB(cx, cz, w + 12, d + 12, 2.2, 'concrete', true); addB(cx, cz, w, d, R2(34, 112), styles3[r2() * 3 | 0]); }
+    else if (sp.kind === 'rig') { addB(cx, cz, 54, 54, 2.2, 'concrete', true); addB(cx, cz, 40, 40, 11, 'steel'); addB(cx + R2(-8, 8), cz + R2(-8, 8), 6, 6, R2(55, 95), 'steel'); }
+    else if (sp.kind === 'mast') { addB(cx, cz, 16, 16, 2.2, 'concrete', true); addB(cx, cz, 4, 4, R2(60, 110), 'steel'); }
+    else { const alongX = r2() < 0.5, len = 64, wid = 15, hw = alongX ? len : wid, hd = alongX ? wid : len; addB(cx, cz, hw, hd, 7.5, 'hull'); addB(alongX ? cx + len * 0.3 : cx, alongX ? cz : cz + len * 0.3, 12, 12, R2(18, 26), 'steel'); }
+  }
+  // piers join neighbouring structures (low decks you can walk on)
+  for (const sp of spots) for (const [di, dj] of [[1, 0], [0, 1]]) {
+    const nb = at[(sp.gi + di) + ',' + (sp.gj + dj)]; if (!nb || sp.kind === 'ship' || nb.kind === 'ship' || r2() < 0.35) continue;
+    if (di) addB((sp.cx + nb.cx) / 2, (sp.cz + nb.cz) / 2, Math.abs(nb.cx - sp.cx), 7, 2.2, 'concrete', true);
+    else addB((sp.cx + nb.cx) / 2, (sp.cz + nb.cz) / 2, 7, Math.abs(nb.cz - sp.cz), 2.2, 'concrete', true);
+  }
+  const mk = o => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(o.pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(o.nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(o.uv, 2)); return g; };
+  const addMesh = (o, m) => { if (!o.pos.length) return; const me = new THREE.Mesh(mk(o), m); me.castShadow = me.receiveShadow = true; grp.add(me); };
+  for (const k in geo) {
+    const tx = facadeTextures(k), m = new THREE.MeshStandardMaterial({ map: tx.map, emissive: 0xffffff, emissiveMap: tx.emissive, emissiveIntensity: TIMES[timeMode].win, ...(STYLES[k] || SEA_STYLES[k]).mat });
+    facadeMats.push(m); addMesh(geo[k], m);
+  }
+  addMesh(roof, new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#6f6f6c'; g.fillRect(0, 0, w, h); speckle(g, w, h, 6000, 0.25); }), roughness: 1 }));
+  addMesh(deck, new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#4b5057'; g.fillRect(0, 0, w, h); speckle(g, w, h, 4000, 0.15); g.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 0; i < 4; i++) { g.fillRect(i * 64, 0, 2, h); g.fillRect(0, i * 64, w, 2); } g.fillStyle = 'rgba(230,180,40,.5)'; g.fillRect(0, 4, w, 3); }), roughness: 0.85 }));
+  // the sea: a big plane with waves in the vertex shader (the bay is where the boss rises)
+  const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x0b4d70, roughness: 0.14, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.3 });
+  waterMat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = seaUniforms.uTime;
+    sh.vertexShader = 'uniform float uTime;\nfloat seaH(vec2 p){ return sin(p.x*0.045+uTime*0.9)*0.45 + sin(p.y*0.06+uTime*1.1)*0.35 + sin((p.x+p.y)*0.11+uTime*1.7)*0.16; }\n' + sh.vertexShader
+      .replace('#include <beginnormal_vertex>', `vec2 wp = position.xz + vec2(${SEA.x.toFixed(1)}, ${SEA.z.toFixed(1)});
+        float e = 0.8; vec3 objectNormal = normalize(vec3(seaH(wp - vec2(e, 0.0)) - seaH(wp + vec2(e, 0.0)), 2.0 * e, seaH(wp - vec2(0.0, e)) - seaH(wp + vec2(0.0, e))));
+        #ifdef USE_TANGENT
+          vec3 objectTangent = vec3( tangent.xyz );
+        #endif`)
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed.y += seaH(wp);');
+  };
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(3600, 3600, 150, 150).rotateX(-Math.PI / 2), waterMat);
+  water.position.set(SEA.x, 0, SEA.z); water.receiveShadow = true; grp.add(water);
+  // buoys
+  const buoys = new THREE.InstancedMesh(new THREE.SphereGeometry(0.9, 10, 8), new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0x551100, roughness: 0.5 }), 90), bm = new THREE.Matrix4();
+  for (let i = 0; i < 90; i++) { const a = r2() * 6.283, rr = R2(70, 440); bm.makeTranslation(SEA.x + Math.cos(a) * rr, 0.3, SEA.z + Math.sin(a) * rr); buoys.setMatrixAt(i, bm); }
+  grp.add(buoys);
+  grp.visible = false;
+}
+function seaTick(dt) { seaUniforms.uTime.value += dt; }
 
 // ================= hero model (rounded) =================
 const RED = 0xff1a2e;
@@ -993,24 +1130,29 @@ const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), UP = new THREE.Vect
 
 function startBuilding() {
   let best = null, bd = 1e9;
+  if (world === 2) {   // a mid-height tower on the west side of the harbour
+    for (const b of buildings) { if (b.slab || b.h < 45 || b.h > 95) continue; const d = Math.hypot((b.x0 + b.x1) / 2 - (SEA.x - 260), (b.z0 + b.z1) / 2 - SEA.z); if (d < bd) { bd = d; best = b; } }
+    return best || buildings.find(b => !b.slab);
+  }
   for (const b of buildings) { const d = Math.hypot((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2) - b.h * 0.3; if (b.h > 45 && b.h < 90 && d < bd) { bd = d; best = b; } }
   return best;
 }
 function clearList(list) { for (const o of list) if (o.mesh) { scene.remove(o.mesh); if (o.mesh.userData.laser) scene.remove(o.mesh.userData.laser); } }
 function reset() {
+  buildings = world === 2 ? (ensureSea(), seaBuildings) : cityBuildings; if (seaGroup) seaGroup.visible = world === 2;
   clearList(enemies); clearList(shots); clearList(sparks); pops.forEach(p => p.el.remove());
   enemies = []; shots = []; sparks = []; pops = [];
   if (boss.mesh) scene.remove(boss.mesh);
-  Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
+  Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null, arriveT: 0 }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
   t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; badAnchors.length = 0; P.heal = null; if (typeof healAura !== 'undefined') healAura.visible = false; P.zip = null; P.zipCd = 0; P.stallT = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
   const b = startBuilding();
   P.pos.set((b.x0 + b.x1) / 2, b.h, (b.z0 + b.z1) / 2); P.vel.set(0, 0, 0);
   P.state = 'ground'; P.roof = b; P.rope = null; P.hp = 5; P.inv = 0; P.dive = false; P.jumpT = 1;
-  yaw = Math.atan2(P.pos.x, P.pos.z) + Math.PI;
+  yaw = Math.atan2(P.pos.x - (world === 2 ? SEA.x : 0), P.pos.z - (world === 2 ? SEA.z : 0)) + Math.PI;
   P.face.set(-Math.sin(yaw), 0, -Math.cos(yaw));
   hero.position.copy(P.pos);
   for (let i = 0; i < 40; i++) spawnSpark(true);
-  for (const c of cars) placeCar(c, true);
+  if (world === 1) for (const c of cars) placeCar(c, true);
   updateHearts();
 }
 function difficulty() { return clamp(t / 360 + kills / 70, 0, 1); }
@@ -1126,6 +1268,9 @@ holdBtn($('bWeb'), () => webShot());
 holdBtn($('bHeal'), () => startHeal());
 
 $('startBtn').onclick = start; $('againBtn').onclick = start; $('resumeBtn').onclick = resume;
+const markWorld = () => document.querySelectorAll('#worldPick button').forEach(b => b.classList.toggle('on', +b.dataset.world === selWorld));
+document.querySelectorAll('#worldPick button').forEach(b => b.onclick = () => { selWorld = +b.dataset.world; store.set('redline3d-world', String(selWorld)); markWorld(); });
+markWorld();
 $('pauseBtn').onclick = () => state === 'play' ? pause() : resume();
 $('timeBtn').onclick = () => cycleTime();
 $('qualBtn').onclick = () => setQuality(quality === 'high' ? 'low' : 'high');
@@ -1136,7 +1281,7 @@ addEventListener('blur', () => { if (state === 'play') pause(); });
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
 function start() {
-  audio(); reset(); state = 'play'; if (firstPerson) pitch = 0;
+  audio(); world = selWorld; reset(); state = 'play'; if (firstPerson) pitch = 0;
   show('title', false); show('over', false); show('pause', false); setPlayUI(true);
   lockMouse();
 }
@@ -1147,8 +1292,10 @@ function pause() {
 }
 function resume() { state = 'play'; show('pause', false); last = performance.now(); lockMouse(); }
 function score() { return Math.floor(meters) + bonus; }
-function gameOver() {
+function gameOver(win) {
   state = 'over'; input.swing = false; input.keys.clear();
+  $('overTitle').textContent = win ? 'YOU WIN!' : 'LINE CUT'; $('oNote').textContent = win ? 'THE SEA EATER IS DEFEATED · WORLD 2 COMPLETE' : '';
+  if (win) store.set('redline3d-won', '1');
   const sc = score(), best = Math.max(+store.get('redline3d-best') || 0, sc);
   store.set('redline3d-best', best);
   $('oScore').textContent = sc.toLocaleString(); $('oDist').textContent = Math.floor(meters).toLocaleString();
@@ -1156,6 +1303,22 @@ function gameOver() {
   $('oBest').innerHTML = sc >= best && sc > 0 ? '<em>NEW BEST!</em>' : 'BEST ' + best.toLocaleString();
   show('over', true); setPlayUI(false); renderSkills('skillsTitle');
   if (document.pointerLockElement) document.exitPointerLock();
+}
+
+function victory() { gameOver(true); }
+// beating the third boss of the city opens the way to world 2
+function travelToSea() {
+  if (world !== 1 || state !== 'play') return;
+  banner('WORLD 1 COMPLETE', 'TRAVELING TO WORLD 2 · SEA PORT'); sfx.heart();
+  setTimeout(() => {
+    if (state !== 'play') return;
+    state = 'travel'; $('fade').style.opacity = 1;
+    setTimeout(() => {
+      const keep = { bonus, kills, meters, t };
+      world = 2; reset(); bonus = keep.bonus; kills = keep.kills; meters = keep.meters; t = keep.t; boss.arriveT = t; energy = 100; state = 'play'; last = performance.now();
+      $('fade').style.opacity = 0; store.set('redline3d-world2', '1'); banner('WORLD 2 · SEA PORT', 'FINAL WORLD · BEAT THE SEA EATER');
+    }, 800);
+  }, 1600);
 }
 
 // ================= actions =================
@@ -1292,7 +1455,7 @@ function pulse() {
   ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.copy(P.pos).y += 1; ring2.position.copy(ringMesh.position);
   for (const e of enemies) if (!e.dead && e.mesh.position.distanceTo(P.pos) < 24) { e.hitInv = 0; damageEnemy(e, 3, 'pulse'); }
   for (const s of shots) if (s.mesh.position.distanceTo(P.pos) < 24) s.life = 0;
-  if (boss.active && !boss.dead && boss.mesh.position.distanceTo(P.pos) < 28) { boss.hitInv = 0; bossDamage(8, 'pulse'); }
+  if (boss.active && !boss.dead && bossCore().distanceTo(P.pos) < 30) { boss.hitInv = 0; bossDamage(8, 'pulse'); }
 }
 function popup(text, pos, big) {
   const el = document.createElement('div'); el.className = 'pop'; el.textContent = text;
@@ -1540,7 +1703,7 @@ function updateWeb(h) {
           boss.webs++; popup('WEB ' + boss.webs + '/3', tp, true);
           if (boss.webs >= 3) { boss.state = 'crash'; boss.stun = 4.5; bossLaser.visible = false; popup('IT IS GOING DOWN!', tp, true); sfx.boom(); }
         }
-        else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
+        else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap' && boss.state !== 'emerge') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
         else popup('RESISTED', tp);
       } else if (!tg.e.dead) wrapInWeb(tg.e);
     }
@@ -1587,11 +1750,12 @@ slamRing.visible = slamFill.visible = false; scene.add(slamRing, slamFill);
 // three bosses take turns; each comes back tougher (MK 2, MK 3...)
 const BOSS_KINDS = ['warden', 'sky', 'mauler'];
 const BOSS_INFO = {
+  seaeater: { name: 'THE SEA EATER', hp: 240, coreY: 0, hitR: 8.5, bodyR: 0, tip: 'Dodge the arms and the bite. When the maw opens, fly in and hit the glowing core!' },
   warden: { name: 'THE WARDEN', hp: 120, coreY: 3, hitR: 3.8, bodyR: 2.4, tip: 'Lure it into a slam, then hit the glowing core.' },
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   mauler: { name: 'THE MAULER', hp: 140, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
-const bossCore = () => boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
+const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.localToWorld(new THREE.Vector3(0, MAW_Y, MAW_Z - 17)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
 function startBoss() {
   let best = null, bs = 1e9;
@@ -1632,9 +1796,11 @@ function bossDefeated() {
   sfx.boom(); shake = 1.2; flash = 0.5;
   beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false;
   boss.nextAt = kills + 15;
+  if (boss.kind !== 'seaeater' && world === 1 && boss.count >= BOSS_KINDS.length) setTimeout(travelToSea, 2600);
 }
 function updateBoss(h) {
-  if (!boss.active) { if (kills >= boss.nextAt) startBoss(); return; }
+  if (!boss.active) { if (world === 2) { if (!boss.count && t - (boss.arriveT || 0) > 6) startSeaEater(); } else if (kills >= boss.nextAt) startBoss(); return; }
+  if (boss.kind === 'seaeater') { updateSeaEater(boss.dead ? h : h); return; }
   const m = boss.mesh, b = boss.b, u = m.userData, [aL, aR] = u.arms || [];
   if (boss.dead) {
     boss.dt += h;
@@ -1841,13 +2007,309 @@ function updateMauler(h, dx, dz, dh, onRoof, fast) {
   }
 }
 
+// ================= the Sea Eater (final boss, world 2) =================
+// A colossal sea beast. Its mouth is not a fish mouth: four hinged armour plates, studded with fangs, peel open like a
+// flower to show a red throat, an inner ring of teeth and a glowing core (the weak spot). Six armoured tentacle arms
+// with glowing joints, spikes and hooked claws slam down on the structures around the bay.
+const seaSkin = new THREE.MeshStandardMaterial({ color: 0x214a58, roughness: 0.6, metalness: 0.2 });
+const seaArmor = new THREE.MeshStandardMaterial({ color: 0x1b3947, roughness: 0.42, metalness: 0.6 });
+const seaBone = new THREE.MeshStandardMaterial({ color: 0xece3cb, roughness: 0.5, metalness: 0.05 });
+const seaGlow = new THREE.MeshStandardMaterial({ color: 0x401505, emissive: 0xff6a20, emissiveIntensity: 2.4 });
+const seaThroat = new THREE.MeshStandardMaterial({ color: 0x300707, emissive: 0x9a1a05, emissiveIntensity: 1.3, side: THREE.DoubleSide });
+const seaCoreMat = new THREE.MeshStandardMaterial({ color: 0x400800, emissive: 0xff5a14, emissiveIntensity: 3.5 });
+const armSEG = 16, ARM_N = 6, ARM_REACH = 140, MAW_Z = 35.5, MAW_Y = 9;
+const ARM_BASES = [[-24, 12, 10], [24, 12, 10], [-27, 10, -6], [27, 10, -6], [-18, 14, -24], [18, 14, -24]];
+const orbGeo = new THREE.SphereGeometry(1.3, 14, 10), acidMat = new THREE.MeshBasicMaterial({ color: 0xb6ff3a });
+const tele = [0, 1].map(() => {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.6, depthWrite: false }));
+  const fill = new THREE.Mesh(new THREE.CircleGeometry(9.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.15, depthWrite: false }));
+  ring.visible = fill.visible = false; scene.add(ring, fill); return { ring, fill };
+});
+const waveMesh = new THREE.Mesh(new THREE.RingGeometry(0.93, 1, 96).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xa8ecff, transparent: true, opacity: 0.8, depthWrite: false, side: THREE.DoubleSide }));
+waveMesh.visible = false; scene.add(waveMesh);
+const seaBossObjs = {};
+function groundAt(x, z) { let y = 0; for (const b of nearBuildings(x, z, 1)) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && b.h > y) y = b.h; return y; }
+
+function makeSeaEater() {
+  const g = new THREE.Group(), u = g.userData, V = (x, y, z) => new THREE.Vector3(x, y, z);
+  // body: a big lumpy dome rising from the water
+  const bodyGeo = new THREE.SphereGeometry(1, 64, 40), bp = bodyGeo.attributes.position;
+  for (let i = 0; i < bp.count; i++) { const x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i), n = Math.sin(x * 5.1 + 1.3) * Math.sin(y * 4.3 + 2.1) * Math.sin(z * 5.7) * 0.07 + Math.sin(x * 11 + z * 9) * 0.025, k = 1 + n; bp.setXYZ(i, x * k, y * k, z * k); }
+  bodyGeo.computeVertexNormals();
+  const body = new THREE.Mesh(bodyGeo, seaSkin); body.scale.set(30, 24, 36); body.position.set(0, 2, 0); g.add(body);
+  // armour plates and spikes along the back
+  const plates = new THREE.InstancedMesh(new RoundedBoxGeometry(6, 1.6, 9, 2, 0.4), seaArmor, 17), spikes = new THREE.InstancedMesh(new THREE.ConeGeometry(1.1, 5, 6), seaBone, 17), mm = new THREE.Matrix4(), qq = new THREE.Quaternion();
+  for (let i = 0; i < 17; i++) {
+    const z = -27 + i * 3.2, f = Math.sqrt(Math.max(0.05, 1 - (z / 36) * (z / 36))), y = 2 + 24 * f, dydz = -24 * (z / 1296) / f, nrm = V(0, 1, -dydz).normalize();
+    qq.setFromUnitVectors(V(0, 1, 0), nrm); mm.compose(V(0, y + 0.3, z), qq, V(1.1 - Math.abs(z) / 60, 1, 1)); plates.setMatrixAt(i, mm);
+    mm.compose(V(0, y + 1.5, z), qq, V(1, 1, 1).multiplyScalar(0.7 + 0.5 * f)); spikes.setMatrixAt(i, mm);
+  }
+  g.add(plates, spikes);
+  // bioluminescent dots
+  const dots = new THREE.InstancedMesh(new THREE.SphereGeometry(0.7, 8, 6), new THREE.MeshStandardMaterial({ color: 0x103a30, emissive: 0x37ffd2, emissiveIntensity: 2.2 }), 80);
+  for (let i = 0; i < 80; i++) { const th = Math.random() * 6.283, ph = Math.acos(Math.random() * 1.1 - 0.1), x = Math.sin(ph) * Math.cos(th), y = Math.cos(ph), z = Math.sin(ph) * Math.sin(th); mm.compose(V(x * 30.4, 2 + y * 24.4, z * 36.4), qq.identity(), V(1, 1, 1).multiplyScalar(0.5 + Math.random() * 0.9)); dots.setMatrixAt(i, mm); }
+  g.add(dots);
+  // eyes
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(3.4, 20, 14), new THREE.MeshStandardMaterial({ color: 0x402000, emissive: 0xffb020, emissiveIntensity: 2.2 })); eye.position.set(sx * 19, 19, 22); g.add(eye);
+    const slit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: 0x090200 })); slit.scale.set(0.45, 3, 0.4); slit.position.set(sx * 19, 19, 25.2); g.add(slit);
+    const brow = new THREE.Mesh(new RoundedBoxGeometry(8.5, 1.6, 3.4, 2, 0.4), seaArmor); brow.position.set(sx * 19, 23, 22.5); brow.rotation.z = -sx * 0.25; g.add(brow);
+  }
+  // snout collar, then the maw
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(15.5, 20, 12, 36).rotateX(Math.PI / 2), seaSkin); collar.position.set(0, MAW_Y, 29); g.add(collar);
+  const maw = new THREE.Group(); maw.position.set(0, MAW_Y, MAW_Z); g.add(maw);
+  maw.add(new THREE.Mesh(new THREE.TorusGeometry(13.3, 2.0, 14, 48), seaArmor));
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(11.6, 0.35, 8, 48), seaGlow); lip.position.z = 0.6; maw.add(lip);
+  const throat = new THREE.Mesh(new THREE.CylinderGeometry(12, 6.5, 18, 32, 1, true).rotateX(Math.PI / 2), seaThroat); throat.position.z = -9; maw.add(throat);
+  for (const [zz, rr] of [[-3.5, 11.4], [-7.5, 9.8], [-11.5, 8.3], [-15, 7]]) { const t = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.28, 8, 40), seaGlow); t.position.z = zz; maw.add(t); }
+  const core = new THREE.Mesh(new THREE.SphereGeometry(4.3, 24, 16), seaCoreMat); core.position.z = -17; maw.add(core);
+  const inner = new THREE.Group(); inner.position.z = -11; maw.add(inner);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, cone = new THREE.Mesh(new THREE.ConeGeometry(0.9, 4.2, 8), seaBone), dir = V(-Math.cos(a), -Math.sin(a), 0.45).normalize(); cone.position.set(Math.cos(a) * 9.4, Math.sin(a) * 9.4, 0); cone.quaternion.setFromUnitVectors(V(0, 1, 0), dir); inner.add(cone); }
+  // four petal jaws hinged on the ring; a hinge rotation about its own y axis swings the plate forward
+  const jaws = [], plateShape = new THREE.Shape(); plateShape.moveTo(0, -5.5); plateShape.lineTo(14, -1.8); plateShape.lineTo(14.6, 0); plateShape.lineTo(14, 1.8); plateShape.lineTo(0, 5.5); plateShape.lineTo(0, -5.5);
+  const plateGeo = new THREE.ExtrudeGeometry(plateShape, { depth: 2.2, bevelEnabled: true, bevelThickness: 0.4, bevelSize: 0.4, bevelSegments: 2 }); plateGeo.translate(0, 0, -1.1);
+  const fangGeo = new THREE.ConeGeometry(0.85, 3.6, 8).rotateX(Math.PI / 2);
+  for (let i = 0; i < 4; i++) {
+    const th = i * Math.PI / 2, outer = new THREE.Group(); outer.position.set(Math.cos(th) * 13, Math.sin(th) * 13, 0); outer.rotation.z = th + Math.PI; maw.add(outer);
+    const hinge = new THREE.Group(); outer.add(hinge); hinge.add(new THREE.Mesh(plateGeo, seaArmor));
+    for (let k = 0; k < 5; k++) for (const sy of [-1, 1]) { const tt = 0.1 + k * 0.2, f = new THREE.Mesh(fangGeo, seaBone); f.position.set(1 + tt * 12.5, sy * (5.1 - tt * 3.4), 1.3); f.scale.setScalar(0.8 + tt * 0.5); hinge.add(f); }
+    for (const yy of [-1.1, 0, 1.1]) { const f = new THREE.Mesh(fangGeo, seaBone); f.position.set(14.2, yy, 1.3); f.scale.setScalar(1.25); hinge.add(f); }
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(9, 0.3, 0.6), seaGlow); lamp.position.set(7, 0, 1.4); hinge.add(lamp);
+    jaws.push(hinge);
+  }
+  u.jaws = jaws; u.inner = inner; u.core = core;
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+  // six armoured tentacle arms, drawn every frame as instanced segments, glowing joints, spikes and claws
+  const seg = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1.12, 1, 12, 1), seaArmor, ARM_N * armSEG);
+  const ring = new THREE.InstancedMesh(new THREE.TorusGeometry(1, 0.2, 8, 20).rotateX(Math.PI / 2), seaGlow, ARM_N * armSEG);
+  const spike = new THREE.InstancedMesh(new THREE.ConeGeometry(0.5, 2.2, 6), seaBone, ARM_N * armSEG * 2);
+  const claw = new THREE.InstancedMesh(new THREE.ConeGeometry(0.55, 4.5, 6), seaBone, ARM_N * 3);
+  for (const m of [seg, ring, spike, claw]) { m.frustumCulled = false; m.castShadow = false; }
+  u.armObjs = { seg, ring, spike, claw };
+  return g;
+}
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _n = new THREE.Vector3(), _bi = new THREE.Vector3(), _s = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _m = new THREE.Matrix4();
+const bez = (P0, P1, P2, P3, k, out) => { const u = 1 - k; return out.set(0, 0, 0).addScaledVector(P0, u * u * u).addScaledVector(P1, 3 * u * u * k).addScaledVector(P2, 3 * u * k * k).addScaledVector(P3, k * k * k); };
+function writeArm(k, P0, P1, P2, P3) {
+  const o = seaBossObjs.arms; if (!o) return;
+  const pts = []; for (let j = 0; j <= armSEG; j++) pts.push(bez(P0, P1, P2, P3, j / armSEG, new THREE.Vector3()));
+  for (let j = 0; j < armSEG; j++) {
+    const a = pts[j], b = pts[j + 1]; _a.copy(b).sub(a); const len = _a.length() || 0.01; _a.divideScalar(len);
+    const r = 3.3 + (0.9 - 3.3) * ((j + 0.5) / armSEG);
+    _q.setFromUnitVectors(_up, _a);
+    _m.compose(_c.copy(a).add(b).multiplyScalar(0.5), _q, _s.set(r, len * 1.05, r)); o.seg.setMatrixAt(k * armSEG + j, _m);
+    _m.compose(a, _q, _s.set(r * 1.18, r * 1.18, r * 1.18)); o.ring.setMatrixAt(k * armSEG + j, _m);
+    _n.copy(_up).addScaledVector(_a, -_up.dot(_a)); if (_n.lengthSq() < 1e-4) _n.set(1, 0, 0); _n.normalize(); _bi.crossVectors(_a, _n);
+    for (let sd = 0; sd < 2; sd++) {
+      _b.copy(_n).multiplyScalar(Math.cos(0.6)).addScaledVector(_bi, (sd ? 1 : -1) * Math.sin(0.6)).normalize();
+      _q2.setFromUnitVectors(_up, _b); const sp = j < 2 ? 0.0001 : 0.5 + r * 0.45;
+      _m.compose(_c.copy(a).add(pts[j + 1]).multiplyScalar(0.5).addScaledVector(_b, r * 0.92), _q2, _s.set(sp, sp, sp)); o.spike.setMatrixAt((k * armSEG + j) * 2 + sd, _m);
+    }
+  }
+  const e = pts[armSEG], tg = e.clone().sub(pts[armSEG - 1]).normalize(); _n.copy(_up).addScaledVector(tg, -_up.dot(tg)); if (_n.lengthSq() < 1e-4) _n.set(1, 0, 0); _n.normalize(); _bi.crossVectors(tg, _n);
+  const cd = [tg.clone().addScaledVector(_n, 0.6), tg.clone().addScaledVector(_n, -0.35).addScaledVector(_bi, 0.55), tg.clone().addScaledVector(_n, -0.35).addScaledVector(_bi, -0.55)];
+  for (let c = 0; c < 3; c++) { cd[c].normalize(); _q2.setFromUnitVectors(_up, cd[c]); _m.compose(_c.copy(e).addScaledVector(tg, 0.6), _q2, _s.set(1.3, 1.3, 1.3)); o.claw.setMatrixAt(k * 3 + c, _m); }
+}
+function nearestArm(x, z, not) {
+  const m = boss.mesh; let best = null, bd = 1e9;
+  for (const a of boss.arms) { if (a === not || a.mode !== 'idle') continue; const w = m.localToWorld(a.base.clone()), d = Math.hypot(w.x - x, w.z - z); if (d < bd) { bd = d; best = a; } }
+  return best;
+}
+function startSeaEater() {
+  const mesh = makeSeaEater(); mesh.position.set(SEA.x, -34, SEA.z); scene.add(mesh);
+  const o = mesh.userData.armObjs; scene.add(o.seg, o.ring, o.spike, o.claw); seaBossObjs.arms = o;
+  const arms = ARM_BASES.map((b, i) => ({ base: new THREE.Vector3(...b), tip: new THREE.Vector3(), mode: 'idle', t: 0, target: new THREE.Vector3(), ph: i * 1.7 }));
+  Object.assign(boss, { kind: 'seaeater', active: true, dead: false, b: null, mesh, arms, maxHp: 240, hp: 240, state: 'emerge', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, tt: 0, n: 0, vt: 0, webs: 0, webCd: 0, count: 1, level: 1, coreY: 0, hitR: 8.5, bodyR: 0, slams: 0, mouth: 0, mouthT: 1, last: '', force: null, wave: null, slamArms: [] });
+  mesh.updateMatrixWorld(true);
+  arms.forEach(a => a.tip.copy(mesh.localToWorld(a.base.clone())).add(new THREE.Vector3(0, 6, 0)));
+  beacon.position.set(SEA.x, 250, SEA.z); beacon.visible = true;
+  banner('THE SEA EATER', 'FINAL BOSS · WORLD 2'); setText('bossName', 'THE SEA EATER'); show('bossBar', true); sfx.alarm();
+}
+function removeSeaEater() {
+  if (boss.mesh) scene.remove(boss.mesh);
+  const o = seaBossObjs.arms; if (o) { scene.remove(o.seg, o.ring, o.spike, o.claw); seaBossObjs.arms = null; }
+  for (const t of tele) t.ring.visible = t.fill.visible = false; waveMesh.visible = false;
+}
+const mawWorld = () => boss.mesh.localToWorld(new THREE.Vector3(0, MAW_Y, MAW_Z));
+function seaImpact(arm) {
+  const tg = arm.target; shake = Math.max(shake, 1); sfx.boom();
+  ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.set(tg.x, tg.y + 0.3, tg.z); ring2.position.copy(ringMesh.position);
+  burst(new THREE.Vector3(tg.x, tg.y + 0.6, tg.z), 26, 15, 1);
+  const hd = Math.hypot(P.pos.x - tg.x, P.pos.z - tg.z) || 1;
+  if (hd < 9.5 && P.pos.y < tg.y + 14 && hurt('TENTACLE!')) { P.state = 'air'; P.roof = null; P.rope = null; P.vel.set((P.pos.x - tg.x) / hd * 18, 16, (P.pos.z - tg.z) / hd * 18); P.jumpT = 0; }
+}
+function updateSeaEater(h) {
+  const m = boss.mesh, u = m.userData, pp = P.pos;
+  m.updateMatrixWorld(true);
+  boss.hitInv -= h; boss.cd -= h; boss.webCd = (boss.webCd || 0) - h; boss.tt += h;
+  const dx = pp.x - m.position.x, dz = pp.z - m.position.z, dh = Math.hypot(dx, dz) || 1, fast = boss.phase === 2;
+  const set = st => { boss.state = st; };
+  // ---- the fall ----
+  if (boss.dead) {
+    boss.dt += h; boss.mouthT = 1; for (const t of tele) t.ring.visible = t.fill.visible = false; waveMesh.visible = false;
+    m.position.y -= (boss.dt > 1.5 ? 9 : 1.2) * h; m.rotation.x += 0.03 * h; shake = Math.max(shake, 0.25);
+    if (Math.random() < h * 16) burst(m.position.clone().add(new THREE.Vector3(rand(-20, 20), rand(0, 24), rand(-20, 20))), 14, 14, 1);
+    seaAnimate(h);
+    if (boss.dt > 6) { removeSeaEater(); boss.active = false; boss.mesh = null; show('bossBar', false); victory(); }
+    return;
+  }
+  // ---- facing, bobbing and drifting toward you (inside the bay) ----
+  let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
+  if (boss.state !== 'lunge') m.rotation.y += d * Math.min(1, h * (boss.state === 'emerge' ? 0.3 : boss.state === 'rear' ? 2.2 : 1.4));
+  const ox = pp.x - SEA.x, oz = pp.z - SEA.z, od = Math.hypot(ox, oz) || 1, kk = Math.min(1, 80 / od);
+  const wantX = SEA.x + ox * kk * 0.85, wantZ = SEA.z + oz * kk * 0.85;
+  if (['idle', 'slam', 'slamHit', 'recover', 'spit', 'wave', 'waveRun', 'gape', 'stunned'].includes(boss.state)) {
+    const sp = fast ? 0.55 : 0.4; m.position.x += (wantX - m.position.x) * Math.min(1, h * sp); m.position.z += (wantZ - m.position.z) * Math.min(1, h * sp);
+    m.position.y += (Math.sin(boss.tt * 1.4) * 0.8 - m.position.y) * Math.min(1, h * 3);
+  }
+  const hideTele = () => { for (const t of tele) t.ring.visible = t.fill.visible = false; };
+  const showTele = (i, x, y, z, sc) => { const t = tele[i]; t.ring.visible = t.fill.visible = true; t.ring.position.set(x, y, z); t.fill.position.copy(t.ring.position); t.ring.scale.setScalar(sc); t.fill.scale.setScalar(sc); t.ring.material.opacity = 0.45 + Math.sin(boss.tt * 25) * 0.3; };
+  switch (boss.state) {
+    case 'emerge': {
+      boss.dt += h; const k = Math.min(1, boss.dt / 3.4), e = 1 - Math.pow(1 - k, 3);
+      m.position.y = -34 + 34 * e; boss.mouthT = 1; boss.hitInv = 1; shake = Math.max(shake, 0.35 * (1 - k));
+      if (k >= 1) { set('idle'); boss.cd = 1.2; boss.mouthT = 0; banner('FIGHT!', 'WEB THE MAW · HIT THE CORE'); }
+      break;
+    }
+    case 'idle': {
+      hideTele(); boss.mouthT = 0;
+      if (boss.cd > 0 && !boss.force) break;
+      const opts = [];
+      if (dh < 150) opts.push('slam', 'slam', 'slam');
+      if (dh < 145 && pp.y < 48) opts.push('bite', 'bite');
+      opts.push('spit', 'spit'); if (fast) opts.push('wave', 'wave');
+      let pick = boss.force; boss.force = null;
+      if (!pick) { const f = opts.filter(o => o !== boss.last); pick = (f.length ? f : opts)[Math.random() * (f.length ? f.length : opts.length) | 0]; }
+      boss.last = pick;
+      if (pick === 'slam') {
+        const tgt = (px, pz) => { const ddx = px - m.position.x, ddz = pz - m.position.z, dd = Math.hypot(ddx, ddz) || 1, k2 = dd > 138 ? 138 / dd : 1, x = m.position.x + ddx * k2, z = m.position.z + ddz * k2; return new THREE.Vector3(x, groundAt(x, z), z); };
+        const picks = [], a1 = nearestArm(pp.x, pp.z); if (a1) { a1.target.copy(tgt(pp.x, pp.z)); a1.mode = 'up'; picks.push(a1); }
+        if (fast) { const a2 = nearestArm(pp.x + P.vel.x, pp.z + P.vel.z, a1); if (a2) { a2.target.copy(tgt(pp.x + P.vel.x * 1.1, pp.z + P.vel.z * 1.1)); a2.mode = 'up'; picks.push(a2); } }
+        boss.slamArms = picks; boss.wind = fast ? 0.95 : 1.3; set('slam'); sfx.charge();
+      } else if (pick === 'bite') { boss.wind = fast ? 1.0 : 1.35; boss.bite = new THREE.Vector3(pp.x, 0, pp.z); set('rear'); sfx.charge(); }
+      else if (pick === 'spit') { boss.n = fast ? 7 : 5; boss.vt = 0.5; set('spit'); }
+      else { boss.wind = 0.9; set('wave'); sfx.charge(); }
+      break;
+    }
+    case 'slam': {
+      boss.wind -= h; boss.slamArms.forEach((a, i) => showTele(i, a.target.x, a.target.y + (a.target.y > 0 ? 0.2 : 0.5), a.target.z, 1));
+      if (boss.wind <= 0) { for (const a of boss.slamArms) a.mode = 'slam'; hideTele(); boss.t2 = 0.7; set('slamHit'); }
+      break;
+    }
+    case 'slamHit': { boss.t2 -= h; if (boss.t2 <= 0) { boss.slams++; if (boss.slams >= 3) { boss.slams = 0; boss.stun = 3; set('gape'); popup('OVEREXTENDED! HIT THE CORE!', bossCore().add(new THREE.Vector3(0, 8, 0)), true); } else { boss.wind = 0.7; set('recover'); } } break; }
+    case 'recover': { boss.wind -= h; if (boss.wind <= 0) { boss.cd = fast ? 1.3 : 2.2; set('idle'); } break; }
+    case 'rear': {
+      boss.wind -= h; boss.mouthT = 1;
+      if (boss.wind > 0.4) boss.bite.set(pp.x, 0, pp.z);
+      const bd2 = Math.hypot(boss.bite.x - m.position.x, boss.bite.z - m.position.z) || 1, k3 = Math.min(1, 125 / bd2);
+      boss.bite.set(m.position.x + (boss.bite.x - m.position.x) * k3, 0, m.position.z + (boss.bite.z - m.position.z) * k3);
+      showTele(0, boss.bite.x, Math.max(groundAt(boss.bite.x, boss.bite.z), 0) + 0.4, boss.bite.z, 1.75);
+      m.position.y += (5 - m.position.y) * Math.min(1, h * 3);
+      if (boss.wind <= 0) {
+        const dir = new THREE.Vector3(boss.bite.x - m.position.x, 0, boss.bite.z - m.position.z).normalize(), to = new THREE.Vector3(boss.bite.x, 3, boss.bite.z).addScaledVector(dir, -MAW_Z);
+        const cx = to.x - SEA.x, cz = to.z - SEA.z, cr = Math.hypot(cx, cz); if (cr > 110) { to.x = SEA.x + cx * 110 / cr; to.z = SEA.z + cz * 110 / cr; }
+        boss.from = m.position.clone(); boss.to = to; boss.lt = 0; set('lunge'); sfx.boom();
+      }
+      break;
+    }
+    case 'lunge': {
+      boss.lt += h / 0.32; const k4 = Math.min(1, boss.lt), e2 = k4 * k4 * (3 - 2 * k4);
+      m.position.lerpVectors(boss.from, boss.to, e2); shake = Math.max(shake, 0.4);
+      if (k4 >= 1) {
+        hideTele(); boss.mouthT = 0; boss.mouth = Math.min(boss.mouth, 0.6); m.updateMatrixWorld(true);
+        const mw = mawWorld(), hd = Math.hypot(pp.x - mw.x, pp.z - mw.z);
+        if (hd < 17 && pp.y < 40 && hurt('CHOMP!')) { const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y)); P.state = 'air'; P.roof = null; P.rope = null; P.vel.set(fw.x * 26, 20, fw.z * 26); P.jumpT = 0; }
+        shake = 1; sfx.boom(); boss.wind = 0.3; set('chomp');
+      }
+      break;
+    }
+    case 'chomp': { boss.wind -= h; if (boss.wind <= 0) { boss.stun = 3.2; boss.slams = 0; set('gape'); popup('MAW OPEN! DIVE IN!', bossCore().add(new THREE.Vector3(0, 8, 0)), true); } break; }
+    case 'gape': case 'stunned': {
+      hideTele(); boss.mouthT = 1; boss.stun -= h; for (const a of boss.arms) if (a.mode === 'up' || a.mode === 'slam') a.mode = 'idle';
+      if (boss.stun <= 0) { boss.cd = 1.4; set('idle'); }
+      break;
+    }
+    case 'spit': {
+      boss.mouthT = 0.75; boss.vt -= h;
+      if (boss.vt <= 0 && boss.n > 0) {
+        boss.n--; boss.vt = 0.28; m.updateMatrixWorld(true);
+        const from = mawWorld(), aim = pp.clone().addScaledVector(P.vel, 0.6).add(new THREE.Vector3(rand(-3, 3), 1, rand(-3, 3))), dist = from.distanceTo(aim), T = Math.max(0.9, dist / 55);
+        const vel = aim.sub(from).divideScalar(T); vel.y += 0.5 * 22 * T;
+        const mesh = new THREE.Mesh(orbGeo, acidMat); mesh.position.copy(from); scene.add(mesh);
+        shots.push({ mesh, vel, life: 5, r: 2.1, grav: true, name: 'ACID!' }); sfx.snipe();
+      }
+      if (boss.n <= 0 && boss.vt <= -0.3) { boss.cd = fast ? 1.2 : 2.0; set('idle'); }
+      break;
+    }
+    case 'wave': {
+      boss.wind -= h; boss.mouthT = 0; shake = Math.max(shake, 0.2);
+      if (boss.wind <= 0) { boss.wave = { r: 30, hit: false }; waveMesh.visible = true; sfx.boom(); shake = 0.9; set('waveRun'); }
+      break;
+    }
+    case 'waveRun': {
+      const w = boss.wave; w.r += 78 * h; waveMesh.position.set(m.position.x, 1.2, m.position.z); waveMesh.scale.set(w.r, 1, w.r); waveMesh.material.opacity = 0.85 * Math.max(0.2, 1 - w.r / 360);
+      const pd = Math.hypot(pp.x - m.position.x, pp.z - m.position.z);
+      if (!w.hit && Math.abs(pd - w.r) < 5 && pp.y < 6) { w.hit = true; if (hurt('WAVE!')) { P.state = 'air'; P.roof = null; P.rope = null; P.vel.set(P.vel.x, 22, P.vel.z); P.jumpT = 0; } }
+      if (w.r > 360) { waveMesh.visible = false; boss.cd = 1.5; set('idle'); }
+      break;
+    }
+  }
+  seaAnimate(h);
+  // ---- the core is only reachable through an open mouth ----
+  if (boss.mouth > 0.6 && boss.state !== 'emerge') {
+    const core = bossCore(), me = pp.clone().setY(pp.y + 1);
+    if (me.distanceTo(core) < boss.hitR && (P.vel.length() > 20 || P.dive)) {
+      bossDamage(P.dive ? 10 : 6, 'slam');
+      const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y));
+      P.vel.set(fw.x * 22, 12, fw.z * 22); P.state = 'air'; P.roof = null; P.dive = false; P.rope = null; P.jumpT = 0;
+    }
+  }
+}
+// jaws, glow and the six arms, every frame
+function seaAnimate(h) {
+  const m = boss.mesh, u = m.userData;
+  boss.mouth += (boss.mouthT - boss.mouth) * Math.min(1, h * (boss.state === 'chomp' ? 30 : 5));
+  const op = boss.mouth;
+  u.jaws.forEach((j, i) => { j.rotation.y = -op * 1.25 + Math.sin(boss.tt * 3 + i) * 0.03 * op; });
+  u.inner.rotation.z += h * (0.6 + op * 1.5);
+  seaCoreMat.emissiveIntensity = boss.stun > 0 ? 6 + Math.sin(boss.tt * 20) * 2.5 : 2.2 + op * 1.5;
+  seaGlow.emissiveIntensity = 2.2 + Math.sin(boss.tt * 3) * 0.5 + (boss.state === 'rear' || boss.state === 'slam' ? 1.5 : 0);
+  m.updateMatrixWorld(true);
+  const L = ARM_REACH, up = _up;
+  boss.arms.forEach((a, k) => {
+    const baseW = m.localToWorld(a.base.clone());
+    let want, rate = 3;
+    if (a.mode === 'idle') {
+      const out = new THREE.Vector3(baseW.x - m.position.x, 0, baseW.z - m.position.z).normalize(), tang = new THREE.Vector3(-out.z, 0, out.x);
+      want = baseW.clone().addScaledVector(out, 58).addScaledVector(tang, Math.sin(boss.tt * 1.1 + a.ph) * 20); want.y = 4 + (Math.sin(boss.tt * 1.7 + a.ph * 2) * 0.5 + 0.5) * 10 + (boss.dead ? -4 : 0);
+    } else if (a.mode === 'up') { want = a.target.clone().add(new THREE.Vector3(0, 70, 0)); rate = 6; }
+    else if (a.mode === 'slam') { want = a.target; rate = 0; }
+    else { want = a.target; rate = 0; }
+    if (a.mode === 'slam') {
+      _a.copy(a.target).sub(a.tip); const dd = _a.length(), st = Math.min(dd, 330 * h);
+      if (dd > 0.01) a.tip.addScaledVector(_a.divideScalar(dd), st);
+      if (dd - st < 0.5) { seaImpact(a); a.mode = 'down'; a.t = 0; }
+    } else if (a.mode === 'down') { a.tip.copy(a.target); a.t += h; if (a.t > 1.4) a.mode = 'idle'; }
+    else a.tip.lerp(want, Math.min(1, h * rate));
+    // keep the tip within reach of the shoulder
+    _a.copy(a.tip).sub(baseW); const len = _a.length(); if (len > L) a.tip.copy(baseW).addScaledVector(_a, L / len);
+    const dv = a.tip.clone().sub(baseW), dl = dv.length(), arch = clamp(dl * 0.3, 5, 40) * (a.mode === 'slam' ? 0.45 : a.mode === 'down' ? 0.25 : 1);
+    const P1 = baseW.clone().addScaledVector(dv, 0.28).addScaledVector(up, arch * 1.5), P2 = baseW.clone().addScaledVector(dv, 0.72).addScaledVector(up, arch * 0.6);
+    writeArm(k, baseW, P1, P2, a.tip);
+  });
+  const o = seaBossObjs.arms; if (o) for (const k of ['seg', 'ring', 'spike', 'claw']) o[k].instanceMatrix.needsUpdate = true;
+}
+
 // ================= spawning =================
 function spawnSpark(anywhere) {
   const r = anywhere ? rand(10, 150) : rand(90, 150), a = Math.random() * Math.PI * 2;
   let x = P.pos.x + Math.cos(a) * r, z = P.pos.z + Math.sin(a) * r;
-  const snap = v => -HALF + Math.round((v + HALF) / CELL) * CELL;
-  if (Math.random() < 0.5) x = snap(x); else z = snap(z);
-  x = clamp(x, -HALF, HALF); z = clamp(z, -HALF, HALF);
+  if (world === 2) { x = wx(x); z = wz(z); }
+  else {
+    const snap = v => -HALF + Math.round((v + HALF) / CELL) * CELL;
+    if (Math.random() < 0.5) x = snap(x); else z = snap(z);
+    x = clamp(x, -HALF, HALF); z = clamp(z, -HALF, HALF);
+  }
   const heart = Math.random() < 0.03;
   const mesh = new THREE.Mesh(heart ? heartGeo : sparkGeo, heart ? heartMat : sparkMat);
   mesh.position.set(x, rand(12, 34), z); scene.add(mesh);
@@ -1874,7 +2336,7 @@ function spawnEnemy(force) {
   } else {
     const a = Math.random() * Math.PI * 2, r = rand(70, 120);
     const mesh = type === 'jet' ? makeJet() : makeDrone();
-    mesh.position.set(clamp(P.pos.x + Math.cos(a) * r, -HALF, HALF), clamp(P.pos.y + rand(4, 18), 28, 110), clamp(P.pos.z + Math.sin(a) * r, -HALF, HALF));
+    mesh.position.set(wx(P.pos.x + Math.cos(a) * r), clamp(P.pos.y + rand(4, 18), 28, 110), wz(P.pos.z + Math.sin(a) * r));
     scene.add(mesh);
     enemies.push({ type, mesh, cd: rand(2, 4), t: Math.random() * 9, dead: false, h: type === 'jet' ? 1 : 0, hp: type === 'jet' ? 2 : 1, hitInv: 0, ang: a, baseY: mesh.position.y, speed: 5 + 5 * d });
   }
@@ -1965,14 +2427,19 @@ function physics(h) {
   if (P.state === 'air' && p.y <= 0) {
     p.y = 0.01; P.rope = null; P.dive = false;
     const wasInv = P.inv > 0;
-    hurt('WATCH THE ROAD!');
+    hurt(world === 2 ? 'SPLASH!' : 'WATCH THE ROAD!');
     if (state !== 'play') return;
     if (wasInv) combo = 1;
     v.y = 30; P.jumpT = 0; burst(p, 16, 10, 1);
   }
-  const lim = HALF + 30;
-  if (Math.abs(p.x) > lim) { p.x = Math.sign(p.x) * lim; v.x = -Math.sign(p.x) * Math.abs(v.x) * 0.5; }
-  if (Math.abs(p.z) > lim) { p.z = Math.sign(p.z) * lim; v.z = -Math.sign(p.z) * Math.abs(v.z) * 0.5; }
+  if (world === 2) {   // a round world: push back in at the edge of the sea
+    const ox = p.x - SEA.x, oz = p.z - SEA.z, rr = Math.hypot(ox, oz);
+    if (rr > SEA.R) { const k = SEA.R / rr; p.x = SEA.x + ox * k; p.z = SEA.z + oz * k; const vr = (v.x * ox + v.z * oz) / rr; if (vr > 0) { v.x -= vr * ox / rr * 1.5; v.z -= vr * oz / rr * 1.5; } }
+  } else {
+    const lim = HALF + 30;
+    if (Math.abs(p.x) > lim) { p.x = Math.sign(p.x) * lim; v.x = -Math.sign(p.x) * Math.abs(v.x) * 0.5; }
+    if (Math.abs(p.z) > lim) { p.z = Math.sign(p.z) * lim; v.z = -Math.sign(p.z) * Math.abs(v.z) * 0.5; }
+  }
 }
 
 // ================= update =================
@@ -2238,8 +2705,10 @@ const clouds = new THREE.Group(); scene.add(clouds);
   }
 }
 function updateCars(dt) {
-  updatePeds(dt); updateTrafficLights();
   for (const sp of clouds.children) { sp.position.x += dt * 4; if (sp.position.x > 1700) sp.position.x -= 3400; }
+  clouds.position.set(world === 2 ? SEA.x : 0, 0, world === 2 ? SEA.z : 0);
+  if (world === 2) { seaTick(dt); return; }
+  updatePeds(dt); updateTrafficLights();
   for (const c of cars) {
     c.along += c.dir * c.speed * dt;
     const off = Math.abs(c.along) > HALF + 40 || Math.abs(c.along - (c.axis === 'x' ? P.pos.x : P.pos.z)) > 170;
@@ -2427,7 +2896,7 @@ function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).text
 function updateHUD() {
   setText('score', score().toLocaleString());
   setText('meters', Math.floor(meters).toLocaleString() + ' M SWUNG');
-  setText('kills', 'TAKEDOWNS ' + kills);
+  setText('kills', (world === 2 ? 'WORLD 2 · ' : '') + 'TAKEDOWNS ' + kills);
   $('pulseFill').style.width = energy + '%';
   $('pulseFill').style.background = energy >= 50 ? '#ff1a2e' : '#7a0010';
   setText('pulseLbl', (energy >= 50 ? 'PULSE READY' : 'PULSE') + (!P.heal && P.hp < 5 && energy >= HEAL_COST ? ' · H HEAL' : P.heal ? ' · HEALING…' : ''));
@@ -2447,7 +2916,7 @@ function updateHUD() {
   if (boss.active && !boss.dead) {
     $('bossFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
     const hot = boss.stun > 0;
-    setText('bossTip', hot ? 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!' : /slam|stomp|leap/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
+    setText('bossTip', hot ? (boss.kind === 'seaeater' ? 'MAW OPEN! DIVE IN AND HIT THE GLOWING CORE!' : 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!') : /slam|stomp|leap|rear/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : /wave/.test(boss.state) ? 'A WAVE IS COMING: GET HIGHER THAN THE WATER!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
     $('bossTip').classList.toggle('hot', hot);
     const bp = boss.mesh.position.clone(); bp.y += 4; vproj.copy(bp).project(camera);
     let x = vproj.x, y = vproj.y; const behind = vproj.z > 1;
@@ -2493,7 +2962,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>

@@ -65,6 +65,15 @@ Eight games live in this repo:
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
   below.
 
+**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its three bosses (the Warden, the Skyreaver and the
+Mauler) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
+water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
+world on the title screen. The Sea Eater is a colossal beast with six armoured tentacle arms (glowing joints, spikes and
+hooked claws) and a four-plate petal mouth full of fangs that opens onto a red throat and a glowing core. Its arms slam
+down on the structures around the bay (watch the red circles), it lunges to bite, spits acid and, at half health, sends
+a wave across the water. The core is only exposed while the maw is open: after a bite, after three slams in a row, or
+when you web it; then dive in and hit the core. Beat it to win.
+
 ## Spider-Man 2: Brooklyn Nights
 
 Open `spiderman2.html`. It is built on the 3D engine, so everything from Brooklyn
