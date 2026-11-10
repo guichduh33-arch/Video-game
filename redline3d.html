@@ -138,7 +138,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the exact spot). <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
-    <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot (<b>hold X</b> longer = bigger web wall) · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
+    <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot - grabs anything, even people and cars (<b>hold X</b> longer = bigger web wall) · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
@@ -1740,6 +1740,13 @@ function webShot() {
     if (d < best && dir.dot(fwd) > 0.55) { best = d; target = { e, p }; }
   }
   if (!target && boss.active && !boss.dead) { const p = bossCore(); if (p.distanceTo(from) < 60) target = { boss: true, p }; }
+  if (!target && world === 1) {   // nothing hostile in front: the web can grab anything, even people and cars
+    const co = camera.getWorldPosition(new THREE.Vector3()), cd = camera.getWorldDirection(new THREE.Vector3()), v = new THREE.Vector3();
+    let bd = 3.2;
+    const test = (pos, r, t) => { v.copy(pos).sub(co); const al = v.dot(cd); if (al < 2 || al > 70) return; const d = v.addScaledVector(cd, -al).length() - r; if (d < bd) { bd = d; target = Object.assign({ p: pos.clone() }, t); } };
+    for (const pd of peds) { if (pd.init && !pd.gp) test(_pp.set(pd.wx, CURB + 0.9, pd.wz), 0.4, { ped: pd }); }
+    for (const c of cars) { if (!c.gp) test(c.mesh.position.clone().setY(0.9), 1.6, { car: c }); }
+  }
   const dir = target ? target.p.clone().sub(from).normalize() : camera.getWorldDirection(new THREE.Vector3());
   if (target) P.face.copy(dir).setY(0).normalize();
   web = { pos: from.clone(), vel: dir.multiplyScalar(80), life: target && target.boss ? 1.6 : 1.0, target };
@@ -1822,6 +1829,55 @@ function updateWebWall(h) {
     }
   }
 }
+// grab: the web sticks to anything (enemies, people, cars), yanks it to you, dangles it, then drops it
+function tgPos(tg) {
+  if (tg.boss) return bossCore();
+  if (tg.ped) return tg.gp ? tg.gp : new THREE.Vector3(tg.ped.wx, CURB + 0.9, tg.ped.wz);
+  if (tg.car) return tg.car.mesh.position.clone().setY(0.9);
+  return tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
+}
+const grabs = [];
+function startGrab(tg) {
+  if (grabs.length >= 4) { const o = grabs.shift(); endGrab(o); }
+  const g = { tg, st: 'pull', t: 0, vy: 0, silk: makeSilk(3, 0.85), cocoon: null };
+  if (tg.ped) { g.pos = tgPos(tg).clone(); tg.ped.gp = g.pos; }
+  else if (tg.car) { g.pos = tgPos(tg).clone(); tg.car.gp = g.pos; }
+  if (tg.ped || tg.car) {
+    const c = new THREE.Group(); c.add(new THREE.Mesh(webGeo, webMat), new THREE.Mesh(webGeo, webFill));
+    c.scale.set(tg.car ? 2.4 : 0.6, tg.car ? 1.5 : 1.1, tg.car ? 4.4 : 0.6); scene.add(c); g.cocoon = c;
+  }
+  popup('GRABBED!', tgPos(tg).clone().add(new THREE.Vector3(0, 2, 0)), true); bonus += 50; sfx.thud();
+  grabs.push(g);
+}
+function endGrab(g) {
+  scene.remove(g.silk); if (g.cocoon) scene.remove(g.cocoon);
+  const tg = g.tg;
+  if (tg.ped) { tg.ped.gp = null; tg.ped.init = false; }
+  if (tg.car) { tg.car.gp = null; placeCar(tg.car, false); }
+}
+function updateGrabs(h) {
+  const hand = heroHand(), fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const hold = P.pos.clone().addScaledVector(fwd, 3).add(new THREE.Vector3(0, 3, 0));
+  for (let i = grabs.length - 1; i >= 0; i--) {
+    const g = grabs[i], tg = g.tg; g.t += h;
+    const obj = tg.e ? tg.e.mesh.position : g.pos;
+    if (tg.e && tg.e.dead) { endGrab(g); grabs.splice(i, 1); continue; }
+    if (g.st === 'pull') {
+      const d = hold.clone().sub(obj), l = d.length();
+      if (l < 1.2 || g.t > 2) { g.st = 'hold'; g.t = 0; } else obj.addScaledVector(d, Math.min(l, 48 * h) / l);
+    } else if (g.st === 'hold') {
+      obj.lerp(hold.clone().add(new THREE.Vector3(Math.sin(g.t * 3) * 0.4, Math.sin(g.t * 4) * 0.25, 0)), Math.min(1, h * 8));
+      if (g.t > 1.6) { g.st = 'drop'; g.vy = 0; }
+    } else {
+      g.vy -= 30 * h; obj.y += g.vy * h;
+      const floor = tg.e ? Math.max(0, P.pos.y - 8) : 0.4;
+      if (obj.y <= floor || g.t > 6) { endGrab(g); grabs.splice(i, 1); continue; }
+    }
+    if (g.cocoon) g.cocoon.position.copy(obj).add(new THREE.Vector3(0, tg.car ? 0.2 : 0, 0));
+    if (tg.e && tg.e.webbed < 2) tg.e.webbed = 2;
+    if (g.st !== 'drop') updateSilk(g.silk, hand, obj.clone().add(new THREE.Vector3(0, 0.8, 0)), performance.now() / 1000, 0.12); else g.silk.visible = false;
+  }
+}
 function wrapInWeb(e) {
   if (!e.blob) {
     const g = new THREE.Group();
@@ -1838,14 +1894,14 @@ function updateWeb(h) {
   if (!web) return;
   web.life -= h;
   if (web.target) {
-    const tp = web.target.boss ? bossCore() : web.target.e.mesh.position.clone().setY(web.target.e.mesh.position.y + web.target.e.h);
+    const tp = tgPos(web.target);
     web.vel.lerp(tp.clone().sub(web.pos).setLength(80), Math.min(1, h * 10));
   }
   web.pos.addScaledVector(web.vel, h);
   let end = web.life <= 0;
   if (web.target && !end) {
-    const tg = web.target, tp = tg.boss ? bossCore() : tg.e.mesh.position.clone().setY(tg.e.mesh.position.y + tg.e.h);
-    if (web.pos.distanceTo(tp) < (tg.boss ? 4 : 1.4)) {
+    const tg = web.target, tp = tgPos(tg);
+    if (web.pos.distanceTo(tp) < (tg.boss ? 4 : tg.car ? 2.8 : 1.4)) {
       end = true;
       if (tg.boss) {
         if (boss.dead) {}
@@ -1856,7 +1912,8 @@ function updateWeb(h) {
         else if (boss.kind === 'seaeater') { if (boss.state !== 'emerge') bossDamage(8, 'web'); }
         else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap' && boss.state !== 'emerge') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
         else popup('RESISTED', tp);
-      } else if (!tg.e.dead) wrapInWeb(tg.e);
+      } else if (tg.ped || tg.car) startGrab(tg);
+      else if (!tg.e.dead) { wrapInWeb(tg.e); startGrab(tg); }
     }
   }
   for (const sh of shots) if (sh.mesh.position.distanceTo(web.pos) < 1.6) { sh.life = 0; end = true; popup('WEBBED +25', sh.mesh.position); bonus += 25; }
@@ -2643,7 +2700,7 @@ function update(h) {
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
   P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
-  updateWeb(h); updateWebWall(h); updateHeal(h);
+  updateWeb(h); updateGrabs(h); updateWebWall(h); updateHeal(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
   if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
   if (P.trick) { P.trick.t += h; if (P.trick.t >= P.trick.dur) P.trick = null; }
@@ -2842,6 +2899,7 @@ function updatePeds(dt) {
   for (let k = 0; k < PEDS; k++) {
     const p = peds[k];
     if (!p.init) { placePed(p); p.init = true; }
+    if (p.gp) { _pq.setFromAxisAngle(_py, p.ph * 0.2); _ps.set(p.scale, p.scale, p.scale); _pm.compose(_pp.copy(p.gp).setY(p.gp.y - 0.9), _pq, _ps); pedBody.setMatrixAt(k, _pm); pedHead.setMatrixAt(k, _pm); pedLegs.setMatrixAt(k, _pm); p.ph += dt * 8; continue; }
     p.s += p.dir * p.speed * dt; p.ph += dt * p.speed * 6;
     // walk around the block on the sidewalk, between the curb lamps and the buildings
     const x0 = -HALF + p.i * CELL + STREETW / 2 - 0.6, z0 = -HALF + p.j * CELL + STREETW / 2 - 0.6, side = BLOCK + 1.2, per = side * 4;
@@ -2852,6 +2910,7 @@ function updatePeds(dt) {
     else { x = x0; z = z0 + side - (s2 - side * 3); ang = Math.PI; }
     if (p.dir < 0) ang += Math.PI;
     if (Math.hypot(x - P.pos.x, z - P.pos.z) > 230) { placePed(p); continue; }
+    p.wx = x; p.wz = z;
     _pq.setFromAxisAngle(_py, ang); _ps.set(p.scale, p.scale * (1 + Math.abs(Math.sin(p.ph)) * 0.03), p.scale);
     _pm.compose(_pp.set(x, CURB, z), _pq, _ps); pedBody.setMatrixAt(k, _pm); pedHead.setMatrixAt(k, _pm);
     _ps.set(p.scale * (1 + Math.sin(p.ph) * 0.12), p.scale, p.scale); _pm.compose(_pp, _pq, _ps); pedLegs.setMatrixAt(k, _pm);
@@ -2905,6 +2964,7 @@ function updateCars(dt) {
   if (world === 2) { seaTick(dt); return; }
   updatePeds(dt); updateTrafficLights();
   for (const c of cars) {
+    if (c.gp) { c.mesh.position.copy(c.gp).setY(c.gp.y - 0.9); continue; }
     c.along += c.dir * c.speed * dt;
     const off = Math.abs(c.along) > HALF + 40 || Math.abs(c.along - (c.axis === 'x' ? P.pos.x : P.pos.z)) > 170;
     if (off) placeCar(c, false);
@@ -3160,7 +3220,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>
