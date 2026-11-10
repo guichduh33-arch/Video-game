@@ -138,7 +138,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the exact spot). <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
-    <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
+    <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot (<b>hold X</b> then release = web wall) · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
@@ -1123,7 +1123,7 @@ function cycleTime() { const order = ['day', 'sunset', 'night']; applyTime(order
 // ================= state =================
 let state = 'title';
 const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), state: 'ground', roof: null, wall: null, wn: new THREE.Vector2(),
-  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, heal: null, zip: null, zipCd: 0, stallT: 0, avgV: 0, zipCount: 0, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
+  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, heal: null, zip: null, zipCd: 0, stallT: 0, avgV: 0, zipCount: 0, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, wallCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
 let enemies = [], shots = [], sparks = [], pops = [];
 let t = 0, bonus = 0, combo = 1, kills = 0, meters = 0, energy = 50, shake = 0, flash = 0, spawnT = 0;
 let yaw = 0, pitch = 0.32, lastLook = -10;
@@ -1211,7 +1211,7 @@ addEventListener('keydown', e => {
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') swingDown();
   if (e.code === 'Enter') { if (state === 'title' || state === 'over') start(); else if (state === 'pause') resume(); }
   if (e.code === 'KeyF') pulse();
-  if (e.code === 'KeyX') webShot();
+  if (e.code === 'KeyX') webDown();
   if (e.code === 'KeyR') kickPress();
   if (e.code === 'KeyZ') powerKick();
   if (e.code === 'KeyV') backflip();
@@ -1227,6 +1227,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => {
   input.keys.delete(e.code);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'KeyE') swingUp();
+  if (e.code === 'KeyX') webUp();
 });
 
 const touch = { stickId: null, sx: 0, sy: 0, lookId: null, lx: 0, ly: 0 };
@@ -1266,7 +1267,7 @@ holdBtn($('bPunch'), () => punch());
 let kickDown = 0;
 holdBtn($('bKick'), () => { kickDown = performance.now(); }, () => { if (kickDown) { if (performance.now() - kickDown > 350) powerKick(); else kickPress(); } kickDown = 0; });
 holdBtn($('bFlip'), () => backflip());
-holdBtn($('bWeb'), () => webShot());
+holdBtn($('bWeb'), webDown, webUp);
 holdBtn($('bHeal'), () => startHeal());
 
 $('startBtn').onclick = start; $('againBtn').onclick = start; $('resumeBtn').onclick = resume;
@@ -1674,6 +1675,55 @@ function webShot() {
   web = { pos: from.clone(), vel: dir.multiplyScalar(80), life: target && target.boss ? 1.6 : 1.0, target };
   webBall.position.copy(from); webBall.visible = webLine.visible = true;
   sfx.line();
+}
+// web wall: hold the web button, let go, and a wall of web stands in front of you
+let webHold = 0, webWall = null;
+const WALL_W = 9, WALL_H = 5.5;
+function webDown() { if (state === 'play' && !webHold) webHold = performance.now(); }
+function webUp() {
+  if (!webHold) return;
+  const held = performance.now() - webHold; webHold = 0;
+  if (state !== 'play') return;
+  if (held > 380) makeWebWall(); else webShot();
+}
+function makeWebWall() {
+  if (P.wallCd > 0) return;
+  P.wallCd = 2; P.act = { kind: 'web', t: 0, dur: 0.4, lock: 0.2, done: true };
+  if (webWall) scene.remove(webWall.mesh);
+  const g = new THREE.Group();
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(WALL_W, WALL_H, 12, 7), new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+  const fill = new THREE.Mesh(new THREE.PlaneGeometry(WALL_W, WALL_H), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide }));
+  g.add(grid, fill);
+  const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+  const c = P.pos.clone().addScaledVector(fwd, 5); const base = P.pos.y - 0.6;
+  g.position.set(c.x, base + WALL_H / 2, c.z); g.rotation.y = yaw;
+  scene.add(g);
+  webWall = { mesh: g, c, fwd, right, base, life: 9 };
+  sfx.line(); popup('WEB WALL!', g.position.clone().add(new THREE.Vector3(0, WALL_H / 2 + 0.6, 0)), true);
+}
+function inWall(w, p, pad) {
+  const d = p.clone().sub(w.c);
+  return Math.abs(d.dot(w.fwd)) < 1 + pad && Math.abs(d.dot(w.right)) < WALL_W / 2 + pad && p.y > w.base - 1 && p.y < w.base + WALL_H + pad;
+}
+function updateWebWall(h) {
+  if (webHold && !webWall && performance.now() - webHold > 380 && !P.wallReady) { P.wallReady = true; popup('WALL READY - RELEASE', P.pos.clone().add(new THREE.Vector3(0, 2.8, 0))); }
+  if (!webHold) P.wallReady = false;
+  if (P.wallCd > 0) P.wallCd -= h;
+  const w = webWall; if (!w) return;
+  w.life -= h;
+  w.mesh.children[1].material.opacity = 0.22 * Math.min(1, w.life / 1.5);
+  w.mesh.children[0].material.opacity = 0.9 * Math.min(1, w.life / 1.5);
+  if (w.life <= 0) { scene.remove(w.mesh); webWall = null; return; }
+  for (const sh of shots) if (sh.life > 0 && inWall(w, sh.mesh.position, 0.5)) { sh.life = 0; popup('BLOCKED +25', sh.mesh.position); bonus += 25; }
+  for (const e of enemies) {
+    if (e.dead) continue;
+    if (inWall(w, e.mesh.position.clone().setY(e.mesh.position.y + 1), 0.8)) {
+      if (!e.webbed || e.webbed < 1) wrapInWeb(e);
+      e.webbed = Math.max(e.webbed, 2);
+      const d = e.mesh.position.clone().sub(w.c), side = Math.sign(d.dot(w.fwd)) || 1;
+      e.mesh.position.addScaledVector(w.fwd, side * 6 * h);
+    }
+  }
 }
 function wrapInWeb(e) {
   if (!e.blob) {
@@ -2495,7 +2545,7 @@ function update(h) {
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
   P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
-  updateWeb(h); updateHeal(h);
+  updateWeb(h); updateWebWall(h); updateHeal(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
   if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
   if (P.trick) { P.trick.t += h; if (P.trick.t >= P.trick.dur) P.trick = null; }
@@ -3012,7 +3062,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>
