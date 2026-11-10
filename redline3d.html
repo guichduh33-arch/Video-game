@@ -124,7 +124,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <button class="big" id="startBtn">SWING</button>
   <div class="help">
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
-    <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the spot). <b>Let go</b> to fly.<br>
+    <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the exact spot). <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
     <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
@@ -1197,8 +1197,8 @@ function findAnchor() {
     }
     if (hit) {
       const H = o.clone().addScaledVector(d, hit.t), [ax, az] = wallPoint(hit.b, H, p);
-      // same wall you are looking at, but never hooked lower than a good swing height above you (unless the building is lower)
-      const ay = clamp(Math.min(hit.b.h - 1.5, Math.max(H.y, p.y + 12)), 3, hit.b.h - 1.5);
+      // exactly the spot under the crosshair (on the wall, below the roof line); the diamond is drawn here too
+      const ay = clamp(H.y, 3, hit.b.h - 1.5);
       const dist = Math.hypot(ax - p.x, ay - p.y, az - p.z);
       if (dist >= 6 && dist <= 260) return new THREE.Vector3(ax, ay, az);
     }
