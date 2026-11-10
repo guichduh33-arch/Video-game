@@ -1178,11 +1178,15 @@ function wallPoint(b, D, p) {
   }
   const onX = cx === b.x0 || cx === b.x1, onZ = cz === b.z0 || cz === b.z1;
   const inset = (v, lo, hi) => hi - lo > 6 ? clamp(v, lo + 2, hi - 2) : (lo + hi) / 2;
+  let xPlane = onX;
   if (onX && onZ) { // a corner: take the wall that faces you and slide in off the edge
-    if (Math.abs(p.x - cx) >= Math.abs(p.z - cz)) cz = inset(p.z, b.z0, b.z1); else cx = inset(p.x, b.x0, b.x1);
+    if (Math.abs(p.x - cx) >= Math.abs(p.z - cz)) cz = inset(p.z, b.z0, b.z1); else { cx = inset(p.x, b.x0, b.x1); xPlane = false; }
   } else if (onX) cz = inset(cz, b.z0, b.z1); else if (onZ) cx = inset(cx, b.x0, b.x1);
-  return [cx, cz];
+  // the direction the wall faces (out of the building), used to keep your swing from crashing into it
+  const nx = xPlane ? (Math.abs(cx - b.x0) < 1e-6 ? -1 : 1) : 0, nz = xPlane ? 0 : (Math.abs(cz - b.z0) < 1e-6 ? -1 : 1);
+  return [cx, cz, nx, nz];
 }
+const anchorAt = (x, y, z, nx, nz) => { const v = new THREE.Vector3(x, y, z); v.n = new THREE.Vector3(nx, 0, nz); return v; };
 function findAnchor() {
   const f = aimDir(), p = P.pos;
   // 1) the wall under your crosshair: cast the view ray and take the first building it hits
@@ -1196,11 +1200,11 @@ function findAnchor() {
       if (r && r.t < 420 && (!hit || r.t < hit.t)) hit = { b, t: r.t };
     }
     if (hit) {
-      const H = o.clone().addScaledVector(d, hit.t), [ax, az] = wallPoint(hit.b, H, p);
+      const H = o.clone().addScaledVector(d, hit.t), [ax, az, wnx, wnz] = wallPoint(hit.b, H, p);
       // exactly the spot under the crosshair (on the wall, below the roof line); the diamond is drawn here too
       const ay = clamp(H.y, 3, hit.b.h - 1.5);
       const dist = Math.hypot(ax - p.x, ay - p.y, az - p.z);
-      if (dist >= 6 && dist <= 260) return new THREE.Vector3(ax, ay, az);
+      if (dist >= 1 && dist <= 260) return anchorAt(ax, ay, az, wnx, wnz);   // even a wall right next to you
     }
   }
   // 2) looking at sky or nothing in range: the closest suitable wall instead
@@ -1209,20 +1213,20 @@ function findAnchor() {
   let best = null, bs = 1e9;
   for (const b of list) {                                        // pass 1: a wall above you, ahead of you
     if (b.h < p.y + 5) continue;
-    const [ax, az] = wallPoint(b, D, p), ay = Math.min(D.y, b.h - 1.5);
+    const [ax, az, wnx, wnz] = wallPoint(b, D, p), ay = Math.min(D.y, b.h - 1.5);
     const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
     if (dy < 3 || d < 6 || d > 110 || dx * f.x + dz * f.z < 1) continue;
     const sc = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
-    if (sc < bs) { bs = sc; best = new THREE.Vector3(ax, ay, az); }
+    if (sc < bs) { bs = sc; best = anchorAt(ax, ay, az, wnx, wnz); }
   }
   if (best) return best;
   for (const b of list) {                                        // pass 2: the closest wall of any building, any direction
     if (b.h < 8 || (p.x > b.x0 - 1 && p.x < b.x1 + 1 && p.z > b.z0 - 1 && p.z < b.z1 + 1)) continue; // not the roof under you
-    const [ax, az] = wallPoint(b, p, p), ay = Math.min(Math.max(p.y + 6, 12), b.h - 1.5);
+    const [ax, az, wnx, wnz] = wallPoint(b, p, p), ay = Math.min(Math.max(p.y + 6, 12), b.h - 1.5);
     const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
     if (d < 4 || d > 260) continue;
     const sc = d - 0.35 * (dx * f.x + dz * f.z);                 // closest, with a lean toward where you are heading
-    if (sc < bs) { bs = sc; best = new THREE.Vector3(ax, ay, az); }
+    if (sc < bs) { bs = sc; best = anchorAt(ax, ay, az, wnx, wnz); }
   }
   return best;
 }
@@ -1819,7 +1823,8 @@ function collide(prevY) {
     const m = Math.min(dl, dr, dn, df); let nx = 0, nz = 0;
     if (m === dl) { p.x = b.x0 - R; nx = -1; } else if (m === dr) { p.x = b.x1 + R; nx = 1; }
     else if (m === dn) { p.z = b.z0 - R; nz = -1; } else { p.z = b.z1 + R; nz = 1; }
-    if (P.state === 'ground') { const vn = P.vel.x * nx + P.vel.z * nz; if (vn < 0) { P.vel.x -= vn * nx; P.vel.z -= vn * nz; } }
+    if (P.state === 'ground' || P.rope) { const vn = P.vel.x * nx + P.vel.z * nz; if (vn < 0) { P.vel.x -= vn * nx; P.vel.z -= vn * nz; } }
+    if (P.rope) continue;               // swinging: slide along the wall and keep the web
     grabWall(b, nx, nz);
   }
 }
@@ -1860,6 +1865,8 @@ function physics(h) {
       if (dir.lengthSq() > 1e-4) v.addScaledVector(dir.normalize(), PUMP * h);
     }
     P.ropeLen = Math.max(6, P.ropeLen - (P.ropeLen > a.y - 3 ? 26 : 3) * h);
+    // the web is stuck to a wall, so the swing would arc straight into it; the building pushes you back out so you keep swinging
+    if (a.n) { const out = (p.x - a.x) * a.n.x + (p.z - a.z) * a.n.z; if (out < 9) { const k = 34 * (1 - Math.max(out, 0) / 9); v.x += a.n.x * k * h; v.z += a.n.z * k * h; } }
   } else v.addScaledVector(mv, AIR * h);
   v.multiplyScalar(1 - 0.03 * h);
   const sp = v.length(); if (sp > MAXV) v.multiplyScalar(MAXV / sp);
