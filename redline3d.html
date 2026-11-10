@@ -669,7 +669,7 @@ const fpHand = new THREE.Group();
   fpHand.add(f, cuff, arm); fpHand.userData.tip = new THREE.Object3D(); fpHand.userData.tip.position.z = 0.08; fpHand.add(fpHand.userData.tip);
   fpHand.visible = false; camera.add(fpHand); scene.add(camera);
 }
-function heroHand() { return armR.end.getWorldPosition(new THREE.Vector3()); }
+function heroHand() { return firstPerson && state === 'play' && fpHand.visible ? fpHand.userData.tip.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
 const ropeMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf2f2f2 }));
 ropeMesh.visible = false; scene.add(ropeMesh);
 const trailN = 24, trailPos = new Float32Array(trailN * 3);
@@ -2130,19 +2130,30 @@ function updateCamera(dt) {
   head.visible = torso.visible = !fpv; // first person hides the body; limbs only show when they act
   const kicking = !!(P.act && P.act.t < P.act.dur && /kick|spin|power/.test(P.act.kind));
   legL.pivot.visible = legR.pivot.visible = !fpv || kicking; // ...and the legs only during kicks, so they never block the view while swinging
-  const handsBusy = !!(P.act && P.act.t < P.act.dur) && !kicking; // punches and web shots
-  armL.pivot.visible = armR.pivot.visible = !fpv || handsBusy;   // the arms only while they hit or shoot, never while swinging
+  armL.pivot.visible = armR.pivot.visible = !fpv; // in first person the single view hand below stands in for the arms
   if (firstPerson && state === 'play') {
     const el = clamp(-pitch * 1.1, -1.45, 1.45), look3 = new THREE.Vector3(-Math.sin(yaw) * Math.cos(el), Math.sin(el), -Math.cos(yaw) * Math.cos(el));
     // a little behind the eyes, so punches, kicks and webs come into view in front of you
     head.getWorldPosition(camera.position); camera.position.y -= 0.02; camera.position.x += Math.sin(yaw) * 0.32; camera.position.z += Math.cos(yaw) * 0.32;
     if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.15));
     camera.lookAt(camera.position.clone().add(look3));
-    // one hand while swinging: placed in the lower right, pointing at the anchor, with the web line from its fist
-    fpHand.visible = !!P.rope;
+    // one hand, always: it rests in the lower right, bobs as you walk, jabs on punches,
+    // points ahead for web shots and reaches toward the anchor while swinging
+    fpHand.visible = true;
+    camera.updateMatrixWorld(true);
+    const act = P.act && P.act.t < P.act.dur ? P.act : null, moving = P.state === 'ground' && Math.hypot(P.vel.x, P.vel.z) > 1.5;
+    const bob = moving ? Math.sin(P.anim * 13) * 0.018 : Math.sin(t * 2) * 0.004;
+    let hx = 0.26, hy = -0.24 + bob, hz = -0.5;
+    if (P.rope) { hx = 0.24; hy = -0.2 + Math.sin(t * 9) * 0.008; }
+    else if (act && /punch|spin|web/.test(act.kind)) {
+      const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
+      hx = 0.26 - 0.14 * out; hy = -0.24 + 0.1 * out; hz = -0.5 - 0.32 * out;
+    } else if (act) { hy = -0.3; hz = -0.42; }                   // kicks: the hand pulls back for balance
+    fpHand.position.set(hx, hy, hz);
+    if (P.rope) fpHand.lookAt(P.rope);
+    else fpHand.lookAt(camera.localToWorld(new THREE.Vector3(hx * 0.3, hy * 0.3 + (act && act.kind === 'web' ? 0.4 : 0.15), -6)));
+    fpHand.updateMatrixWorld(true);
     if (P.rope) {
-      fpHand.position.set(0.24, -0.2 + Math.sin(t * 9) * 0.008, -0.5);
-      camera.updateMatrixWorld(true); fpHand.lookAt(P.rope); fpHand.updateMatrixWorld(true);
       const hand = fpHand.userData.tip.getWorldPosition(new THREE.Vector3()), dir = tmp.subVectors(P.rope, hand), len = dir.length();
       ropeMesh.position.copy(hand); ropeMesh.quaternion.setFromUnitVectors(UP, dir.normalize()); ropeMesh.scale.set(0.6, len, 0.6); ropeMesh.visible = true;
     }

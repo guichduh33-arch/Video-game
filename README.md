@@ -41,9 +41,9 @@ Eight games live in this repo:
   (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing, `Q` or right click to punch, `R` to
   kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
   web shot, `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches
-  between third person and first person, where the camera looks out from behind Redline's eyes; his arms show
-  only when he punches or shoots webs and his legs only when he kicks, so nothing blocks the view while swinging; while
-  swinging, one red glove in the lower right reaches toward the anchor and the web line comes out of it. Jump off a tall building for a
+  between third person and first person, where the camera looks out from behind Redline's eyes; one red glove
+  always sits in the lower right: it bobs as you walk, jabs on punches, points ahead for web shots and reaches
+  toward the anchor while swinging (the web line comes out of it); the legs show only during kicks. Jump off a tall building for a
   **base jump**: a front flip off the edge that opens into a swan dive. Takedowns, combos, tricks, swinging and
   the boss earn XP, saved in the browser; each level unlocks a skill: 2 kick, 3 double punch, 4 double kick,
   5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
