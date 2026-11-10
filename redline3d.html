@@ -1170,6 +1170,9 @@ function findAnchor() {
     const s = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
     if (s < bs) { bs = s; best = new THREE.Vector3(ax, ay, az); }
   }
+  // no building in reach (parks, wide streets, high above the roofs): the web catches the sky ahead
+  // and above, so you can swing anywhere; buildings are still preferred when they are close enough
+  if (!best) { best = new THREE.Vector3(p.x + f.x * 22, Math.max(p.y + 20, 30), p.z + f.z * 22); best.sky = true; }
   return best;
 }
 function attach() {
