@@ -69,8 +69,8 @@ Eight games live in this repo:
 Mauler) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
 water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
 world on the title screen. The Sea Eater is a colossal beast shaped like a smooth, rounded dome rising out of the sea: pale blue-gray with small round dots,
-no eyes, horns or ridges. Its mouth is a very wide, smooth black arch right on the front, with its bottom edge at the water line
-(no teeth or spikes) and a light strip along its floor like a tongue lying on the water. The mouth is always open; the core hides
+no eyes, horns or ridges. Its mouth is a smooth black arch on the front, sunk partly under the water so the sea cuts across it
+(no teeth or spikes). The mouth is always open; the core hides
 under the water inside it and rises into view when it can be hit. It has two arms, one at each side, each with a shoulder,
 biceps, elbow, forearm and a hand with four fingers and a thumb.
 The arms slam down on the structures around the
