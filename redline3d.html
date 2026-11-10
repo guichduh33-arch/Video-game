@@ -124,7 +124,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <button class="big" id="startBtn">SWING</button>
   <div class="help">
     <b>Mouse</b> to look (click the game to lock the mouse). <b>WASD</b> to move, <b>Space</b> to jump.<br>
-    <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building the diamond marks. <b>Let go</b> to fly.<br>
+    <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the spot). <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
     <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
@@ -1150,10 +1150,22 @@ function gameOver() {
 }
 
 // ================= actions =================
-function aimDir() {
-  const m = moveVec();
-  if (m.lengthSq() > 0.05) return m.normalize();
-  return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+// the web goes where you look, not where you run
+function aimDir() { return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)); }
+function lookDir() {
+  const el = firstPerson ? clamp(-pitch * 1.1, -1.45, 1.45) : -pitch;   // same elevation the camera uses
+  return new THREE.Vector3(-Math.sin(yaw) * Math.cos(el), Math.sin(el), -Math.cos(yaw) * Math.cos(el));
+}
+// ray against a building's box: distance to the face it enters, and which axis that face is on
+function rayBox(o, d, b) {
+  let tmin = 0, tmax = 1e9, face = null;
+  for (const [a, lo, hi] of [['x', b.x0, b.x1], ['y', 0, b.h], ['z', b.z0, b.z1]]) {
+    if (Math.abs(d[a]) < 1e-9) { if (o[a] < lo || o[a] > hi) return null; continue; }
+    let t1 = (lo - o[a]) / d[a], t2 = (hi - o[a]) / d[a]; if (t1 > t2) [t1, t2] = [t2, t1];
+    if (t1 > tmin) { tmin = t1; face = a; }
+    tmax = Math.min(tmax, t2); if (tmin > tmax) return null;
+  }
+  return face ? { t: tmin, face } : null;
 }
 // The web sticks to building walls only (never the sky, never a corner), from any height and in any direction.
 // Pass 1 prefers a wall that reaches above you ahead of you. If none, pass 2 takes the closest wall of any building
@@ -1173,6 +1185,25 @@ function wallPoint(b, D, p) {
 }
 function findAnchor() {
   const f = aimDir(), p = P.pos;
+  // 1) the wall under your crosshair: cast the view ray and take the first building it hits
+  {
+    const o = camera.position, d = lookDir(), seen = new Set();
+    for (let k = 0; k <= 420; k += 60) for (const b of nearBuildings(o.x + d.x * k, o.z + d.z * k, 70)) if (!b.slab) seen.add(b);
+    let hit = null;
+    for (const b of seen) {
+      if (p.x > b.x0 - 1 && p.x < b.x1 + 1 && p.z > b.z0 - 1 && p.z < b.z1 + 1 && p.y > b.h - 3) continue; // not the roof you stand on
+      const r = rayBox(o, d, b);
+      if (r && r.t < 420 && (!hit || r.t < hit.t)) hit = { b, t: r.t };
+    }
+    if (hit) {
+      const H = o.clone().addScaledVector(d, hit.t), [ax, az] = wallPoint(hit.b, H, p);
+      // same wall you are looking at, but never hooked lower than a good swing height above you (unless the building is lower)
+      const ay = clamp(Math.min(hit.b.h - 1.5, Math.max(H.y, p.y + 12)), 3, hit.b.h - 1.5);
+      const dist = Math.hypot(ax - p.x, ay - p.y, az - p.z);
+      if (dist >= 6 && dist <= 260) return new THREE.Vector3(ax, ay, az);
+    }
+  }
+  // 2) looking at sky or nothing in range: the closest suitable wall instead
   const D = new THREE.Vector3(p.x + f.x * 26, p.y + 22, p.z + f.z * 26);
   const list = nearBuildings(p.x + f.x * 30, p.z + f.z * 30, 110).filter(b => !b.slab);
   let best = null, bs = 1e9;
@@ -2371,7 +2402,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>

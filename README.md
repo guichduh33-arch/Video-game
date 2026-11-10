@@ -38,8 +38,9 @@ Eight games live in this repo:
   pixel by pixel on tiny canvases (plain black fabric, red bolt on the chest, red gloves with knuckles,
   red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
-  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing (the web sticks to a building wall, never the sky or a corner, from any height: it prefers a wall above you and
-  falls back to the closest wall of any building, even from far above the roofs), `Q` or right click to punch, `R` to
+  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing (the web goes where you look: it flies along the view ray, up and down included, and sticks to the first
+  building wall that ray hits, never the sky or a corner; if you look at nothing in range it falls back to the
+  closest suitable wall, even from far above the roofs), `Q` or right click to punch, `R` to
   kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
   web shot, `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches
   between third person and first person, where the camera looks out from behind Redline's eyes; one red glove
