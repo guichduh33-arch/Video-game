@@ -39,7 +39,9 @@ Eight games live in this repo:
   red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
   towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
   (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing (the web goes where you look: it flies along the view ray, up and down included, and sticks to the exact spot
-  on the first building wall that ray hits (the red diamond marks it), never the sky or a corner (the wall gently pushes your swing back out and you slide along it instead of losing the web); if you look at nothing in range it falls back to the
+  on the first building wall that ray hits (the red diamond marks it), never the sky or a corner (the wall gently pushes your swing back out and you slide along it instead of losing the web). If a swing stalls
+  for half a second you get a **web zip**: he is whipped along the web almost instantly to a spot beside the wall and flung
+  along it, so you never crawl; if you look at nothing in range it falls back to the
   closest suitable wall, even from far above the roofs), `Q` or right click to punch, `R` to
   kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
   web shot, `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches

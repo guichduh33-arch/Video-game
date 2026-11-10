@@ -977,7 +977,7 @@ function cycleTime() { const order = ['day', 'sunset', 'night']; applyTime(order
 // ================= state =================
 let state = 'title';
 const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), state: 'ground', roof: null, wall: null, wn: new THREE.Vector2(),
-  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
+  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, zip: null, zipCd: 0, stallT: 0, avgV: 0, zipCount: 0, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
 let enemies = [], shots = [], sparks = [], pops = [];
 let t = 0, bonus = 0, combo = 1, kills = 0, meters = 0, energy = 50, shake = 0, flash = 0, spawnT = 0;
 let yaw = 0, pitch = 0.32, lastLook = -10;
@@ -995,7 +995,7 @@ function reset() {
   enemies = []; shots = []; sparks = []; pops = [];
   if (boss.mesh) scene.remove(boss.mesh);
   Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
-  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
+  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; badAnchors.length = 0; P.zip = null; P.zipCd = 0; P.stallT = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
   const b = startBuilding();
   P.pos.set((b.x0 + b.x1) / 2, b.h, (b.z0 + b.z1) / 2); P.vel.set(0, 0, 0);
   P.state = 'ground'; P.roof = b; P.rope = null; P.hp = 5; P.inv = 0; P.dive = false; P.jumpT = 1;
@@ -1186,6 +1186,11 @@ function wallPoint(b, D, p) {
   const nx = xPlane ? (Math.abs(cx - b.x0) < 1e-6 ? -1 : 1) : 0, nz = xPlane ? 0 : (Math.abs(cz - b.z0) < 1e-6 ? -1 : 1);
   return [cx, cz, nx, nz];
 }
+// a wall facing a narrow gap between two buildings has no room to swing in front of it
+// (it must stay open down the whole height you will hang and swing through, not just at the anchor)
+const badAnchors = [];   // spots where a swing got stuck; skipped for a few seconds
+const openFront = (ax, ay, az, nx, nz) => !badAnchors.some(q => q.until > t && Math.hypot(q.x - ax, q.y - ay, q.z - az) < 8) &&
+  [3, 7].every(k => { const x = ax + nx * k, z = az + nz * k; return !nearBuildings(x, z, 0.5).some(o => !o.slab && x > o.x0 && x < o.x1 && z > o.z0 && z < o.z1 && o.h > Math.max(ay - 16, 2)); });
 const anchorAt = (x, y, z, nx, nz) => { const v = new THREE.Vector3(x, y, z); v.n = new THREE.Vector3(nx, 0, nz); return v; };
 function findAnchor() {
   const f = aimDir(), p = P.pos;
@@ -1204,7 +1209,7 @@ function findAnchor() {
       // exactly the spot under the crosshair (on the wall, below the roof line); the diamond is drawn here too
       const ay = clamp(H.y, 3, hit.b.h - 1.5);
       const dist = Math.hypot(ax - p.x, ay - p.y, az - p.z);
-      if (dist >= 1 && dist <= 260) return anchorAt(ax, ay, az, wnx, wnz);   // even a wall right next to you
+      if (dist >= 1 && dist <= 260 && openFront(ax, ay, az, wnx, wnz)) return anchorAt(ax, ay, az, wnx, wnz);   // even a wall right next to you
     }
   }
   // 2) looking at sky or nothing in range: the closest suitable wall instead
@@ -1215,7 +1220,7 @@ function findAnchor() {
     if (b.h < p.y + 5) continue;
     const [ax, az, wnx, wnz] = wallPoint(b, D, p), ay = Math.min(D.y, b.h - 1.5);
     const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
-    if (dy < 3 || d < 6 || d > 110 || dx * f.x + dz * f.z < 1) continue;
+    if (dy < 3 || d < 6 || d > 110 || dx * f.x + dz * f.z < 1 || !openFront(ax, ay, az, wnx, wnz)) continue;
     const sc = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
     if (sc < bs) { bs = sc; best = anchorAt(ax, ay, az, wnx, wnz); }
   }
@@ -1224,11 +1229,40 @@ function findAnchor() {
     if (b.h < 8 || (p.x > b.x0 - 1 && p.x < b.x1 + 1 && p.z > b.z0 - 1 && p.z < b.z1 + 1)) continue; // not the roof under you
     const [ax, az, wnx, wnz] = wallPoint(b, p, p), ay = Math.min(Math.max(p.y + 6, 12), b.h - 1.5);
     const dx = ax - p.x, dy = ay - p.y, dz = az - p.z, d = Math.hypot(dx, dy, dz);
-    if (d < 4 || d > 260) continue;
+    if (d < 4 || d > 260 || !openFront(ax, ay, az, wnx, wnz)) continue;
     const sc = d - 0.35 * (dx * f.x + dz * f.z);                 // closest, with a lean toward where you are heading
     if (sc < bs) { bs = sc; best = anchorAt(ax, ay, az, wnx, wnz); }
   }
   return best;
+}
+// WEB ZIP: when a swing stalls, he is whipped along the web almost instantly (about 0.1 s) to a spot beside the wall
+// below the anchor, then flung along the wall to carry on swinging fast
+function startZip() {
+  const a = P.rope; if (!a || P.zipCd > 0 || P.zip) return;
+  const n = a.n && a.n.lengthSq() > 0 ? a.n : new THREE.Vector3(P.pos.x - a.x, 0, P.pos.z - a.z).normalize();
+  const free = Z => Z.y >= 3 && !nearBuildings(Z.x, Z.z, 1).some(b => !b.slab && Z.x > b.x0 - R && Z.x < b.x1 + R && Z.z > b.z0 - R && Z.z < b.z1 + R && Z.y < b.h);
+  for (const [off, drop] of [[8, 7], [11, 11], [6, 4], [14, 14]]) {
+    const Z = new THREE.Vector3(a.x + n.x * off, Math.max(a.y - drop, 3), a.z + n.z * off);
+    if (!free(Z)) continue;
+    P.zip = { t: 0, target: Z, n: n.clone() }; P.zipCount++; P.zipCd = 1.6;
+    popup('WEB ZIP!', P.pos.clone().add(new THREE.Vector3(0, 2.4, 0)), true); sfx.line(); burst(P.pos.clone().add(new THREE.Vector3(0, 1, 0)), 10, 12, 0);
+    return;
+  }
+  // nowhere to zip to: the swing is stuck, so let go and avoid this spot for a few seconds
+  badAnchors.push({ x: a.x, y: a.y, z: a.z, until: t + 4 }); P.rope = null; P.stallT = 0; P.zipCd = 0.3;
+}
+function zipStep(h) {
+  const z = P.zip, p = P.pos, v = P.vel; z.t += h;
+  const to = tmp.subVectors(z.target, p), dist = to.length(), prevY = p.y;
+  if (dist < 2.5 || z.t > 0.45 || !P.rope) {                       // arrived: fling along the wall, in the direction you look
+    const a = P.rope, f = aimDir(); let tx = -z.n.z, tz = z.n.x; if (tx * f.x + tz * f.z < 0) { tx = -tx; tz = -tz; }
+    v.set(tx * 26 + z.n.x * 4, 4, tz * 26 + z.n.z * 4); P.zip = null; P.stallT = 0; P.avgV = 26;
+    if (a) P.ropeLen = clamp(p.distanceTo(a), 6, 400);
+    flash = Math.max(flash, 0.08); return;
+  }
+  to.divideScalar(dist); const step = Math.min(150 * h, dist);
+  p.addScaledVector(to, step); v.copy(to).multiplyScalar(150); meters += step;
+  collide(prevY);
 }
 function attach() {
   const a = findAnchor(); if (!a) return false;
@@ -1806,12 +1840,12 @@ function spawnEnemy(force) {
 
 // ================= physics =================
 function land(b) {
-  P.state = 'ground'; P.roof = b; P.pos.y = b.h; P.rope = null; P.vel.y = 0;
+  P.zip = null; P.state = 'ground'; P.roof = b; P.pos.y = b.h; P.rope = null; P.vel.y = 0;
   if (P.dive) { shake = Math.max(shake, 0.4); burst(P.pos, 12, 9, 1); }
   P.dive = false; combo = 1;
 }
 function grabWall(b, nx, nz) {
-  P.state = 'wall'; P.wall = b; P.wn.set(nx, nz); P.rope = null; P.dive = false; P.vel.set(0, 0, 0);
+  P.zip = null; P.state = 'wall'; P.wall = b; P.wn.set(nx, nz); P.rope = null; P.dive = false; P.vel.set(0, 0, 0);
 }
 function collide(prevY) {
   for (const b of nearBuildings(P.pos.x, P.pos.z, 3)) {
@@ -1856,18 +1890,23 @@ function physics(h) {
     return;
   }
   input.jump = false;
+  if (P.zip && !P.rope) P.zip = null;
+  if (P.zip) { zipStep(h); return; }
   v.y -= G * h;
   if (P.rope) {
     const a = P.rope; tmp.subVectors(p, a); const d = tmp.length(); tmp.divideScalar(d || 1);
-    if (p.y < a.y) {
-      const dir = mv.lengthSq() > 0.05 ? mv.clone().normalize() : tmp2.set(v.x, 0, v.z).normalize();
+    {   // build swing speed: along your keys, else your motion, else where you look (it used to stall with no input)
+      let dir = mv.lengthSq() > 0.05 ? mv.clone().normalize() : tmp2.set(v.x, 0, v.z);
+      if (dir.lengthSq() < 0.25) dir = aimDir(); else dir.normalize();
       dir.addScaledVector(tmp, -dir.dot(tmp));
-      if (dir.lengthSq() > 1e-4) v.addScaledVector(dir.normalize(), PUMP * h);
+      if (dir.lengthSq() > 1e-4) v.addScaledVector(dir.normalize(), PUMP * (p.y < a.y ? 1 : 0.6) * h);
     }
     P.ropeLen = Math.max(6, P.ropeLen - (P.ropeLen > a.y - 3 ? 26 : 3) * h);
     // the web is stuck to a wall, so the swing would arc straight into it; the building pushes you back out so you keep swinging
     if (a.n) { const out = (p.x - a.x) * a.n.x + (p.z - a.z) * a.n.z; if (out < 9) { const k = 34 * (1 - Math.max(out, 0) / 9); v.x += a.n.x * k * h; v.z += a.n.z * k * h; } }
   } else v.addScaledVector(mv, AIR * h);
+  // a swing that has stalled (nearly still for half a second) gets the web zip
+  if (P.rope) { P.avgV += (v.length() - P.avgV) * Math.min(1, h * 5); if (P.avgV < 8) P.stallT += h; else P.stallT = 0; if (P.stallT > 0.5 && P.zipCd <= 0) { P.stallT = 0; startZip(); } } else { P.stallT = 0; P.avgV = 0; }
   v.multiplyScalar(1 - 0.03 * h);
   const sp = v.length(); if (sp > MAXV) v.multiplyScalar(MAXV / sp);
   const prevY = p.y, px = p.x, pz = p.z;
@@ -1899,7 +1938,7 @@ function update(h) {
   t += h; P.anim += h; P.jumpT += h;
   if (P.inv > 0) P.inv -= h;
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
-  P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
+  P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
   updateWeb(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
@@ -2409,7 +2448,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>
