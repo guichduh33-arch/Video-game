@@ -803,3 +803,7 @@ Games, and it must not be sold or distributed commercially.
 
 
 `H` heals: channel for 1.4 s in Redline 3D to get a heart back for 40 charge; a hit breaks the channel and refunds half.
+
+## Biker Society (switch heroes)
+
+Press `Y` or `Tab` (or the SWITCH button) to switch between four original web heroes of the Biker Society: **Redline** (balanced), **Chrome** (punches +50%), **Volt** (web cooldown halved) and **Ghost** (longer backflip dodge). In World 2 the heroes you are not playing ride hoverbikes around you and fire at the Sea Eater team (the Sea Eater and its crew of gunmen, drones, brutes and jets). The Sea Eater and its crew cannot hurt your teammates.

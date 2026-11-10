@@ -85,6 +85,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #arrow{position:fixed;width:0;height:0;margin:-14px 0 0 -14px;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:28px solid var(--red);z-index:6;pointer-events:none;filter:drop-shadow(0 0 2px #000)}
 #qualBtn{right:calc(176px + env(safe-area-inset-right));padding:0 10px}
 #viewBtn{right:calc(262px + env(safe-area-inset-right));padding:0 10px}
+#swBtn{right:calc(348px + env(safe-area-inset-right));padding:0 10px;font-size:16px}
 #bPunch{width:72px;height:72px;right:calc(214px + env(safe-area-inset-right));bottom:calc(40px + env(safe-area-inset-bottom))}
 #bKick{width:64px;height:64px;right:calc(218px + env(safe-area-inset-right));bottom:calc(124px + env(safe-area-inset-bottom))}
 #bFlip{width:60px;height:60px;right:calc(298px + env(safe-area-inset-right));bottom:calc(46px + env(safe-area-inset-bottom))}
@@ -141,7 +142,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot - grabs anything, even people and cars (<b>hold X</b> longer = bigger web wall) · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
     <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
-    <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
+    <b>Y</b> or <b>Tab</b> (SWITCH button): switch to another Biker Society hero - Redline, Chrome, Volt or Ghost, each with a perk. <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
     Beat the three bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
     Sidewalks, parks, rooftops and the road are all safe to land on, and you can run along them. Only enemies, their shots and the bosses cost hearts.<br>
@@ -174,6 +175,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 
 <button id="timeBtn" class="corner hidden" aria-label="Change time of day">DAY</button>
 <button id="viewBtn" class="corner hidden" aria-label="Switch camera view">3RD</button>
+<button id="swBtn" class="corner hidden" aria-label="Switch hero">REDLINE ⇄</button>
 <button id="qualBtn" class="corner hidden" aria-label="Graphics quality">HIGH</button>
 <button id="pauseBtn" class="corner hidden" aria-label="Pause">II</button>
 <div id="touch" class="hidden">
@@ -698,12 +700,21 @@ function limb(parent, x, y, len, r, lowerMat, endMesh) {
 // The body textures are tiny canvases drawn pixel by pixel and shown with nearest filtering, so every pixel
 // stays a crisp square. The head is a sphere whose mask texture is drawn large and smooth, so the eyes are sharp.
 const PX = 0.05;
+// ---- the Biker Society: four web heroes you can switch between (palette + a perk each) ----
+const HEROES = [
+  { name: 'REDLINE', perk: 'balanced', dmg: 1, web: 1, dodge: 1, k: ['#0b0b0e', '#141419', '#1d1d24'], r: ['#8f0c1c', '#c4122a', '#e8263c', '#ff5a66'], mask: ['#101014', '#1a1a20', '#b3102a', '#c4122a', '#d0142c'], suit: 0x1a1a1f, red: 0xc8102a, glow: 0xff1a2e },
+  { name: 'CHROME', perk: 'heavy hitter · punches +50%', dmg: 1.5, web: 1, dodge: 1, k: ['#1a1210', '#2a1f1a', '#352822'], r: ['#a84300', '#e86a00', '#ff8c1a', '#ffb866'], mask: ['#1c1512', '#2a201b', '#d96000', '#e86a00', '#ff8c1a'], suit: 0x2a1f1a, red: 0xe86a00, glow: 0xff8c1a },
+  { name: 'VOLT', perk: 'fast webs · web cooldown halved', dmg: 1, web: 0.45, dodge: 1, k: ['#0a1426', '#10203a', '#18304f'], r: ['#a88800', '#e0b400', '#ffd21a', '#ffe680'], mask: ['#0d1a30', '#14284a', '#d9b000', '#e0b400', '#ffd21a'], suit: 0x10203a, red: 0xe0b400, glow: 0xffd21a },
+  { name: 'GHOST', perk: 'long dodge · backflip invulnerable longer', dmg: 1, web: 1, dodge: 1.8, k: ['#c3cad6', '#d8dde6', '#e8ecf2'], r: ['#0a7a8c', '#12a8c4', '#38d0e8', '#8ae8f5'], mask: ['#e3e8ef', '#cfd6e0', '#0a9ab4', '#12a8c4', '#38d0e8'], suit: 0xd8dde6, red: 0x12a8c4, glow: 0x38d0e8 },
+];
+const MASKC = { base: '#101014', seam: '#1a1a20', stripe: '#b3102a', line: '#c4122a', rim: '#d0142c' };
+const pixList = [];
 const PAL = { k0: '#0b0b0e', k1: '#141419', k2: '#1d1d24', r0: '#8f0c1c', r1: '#c4122a', r2: '#e8263c', r3: '#ff5a66', sole: '#2a2a2e', w: '#f2f2f2' };
 function pixTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   const g = c.getContext('2d'), px = (x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); };
   draw(px, w, h);
-  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
+  const t = new THREE.CanvasTexture(c); pixList.push({ g, px, w, h, draw, t }); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
 // fabric: plain black
@@ -751,12 +762,12 @@ const sole = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; 
 function maskTexture() {
   const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
-  g.fillStyle = '#101014'; g.fillRect(0, 0, W, H);
+  g.fillStyle = MASKC.base; g.fillRect(0, 0, W, H);
   // a faint seam from the forehead over the top, and a red stripe down the back of the head
-  g.fillStyle = '#1a1a20'; g.fillRect(W * 0.25 - 3, 0, 6, H * 0.36);
-  g.fillStyle = '#b3102a'; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
+  g.fillStyle = MASKC.seam; g.fillRect(W * 0.25 - 3, 0, 6, H * 0.36);
+  g.fillStyle = MASKC.stripe; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
   // a thin red line from the brow up over the forehead
-  g.fillStyle = '#c4122a'; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
+  g.fillStyle = MASKC.line; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
   // Redline's eyes: two separate rounded lenses, tilted slightly inward, white with a red rim and a shine
   const lens = (s, grow) => {
     const cx = W * 0.25 + s * 0.05 * W, cy = H * 0.475, w = 0.036 * W + grow, h = 0.034 * H + grow * 0.5, r = Math.min(w, h) * 0.95;
@@ -764,7 +775,7 @@ function maskTexture() {
     g.beginPath(); g.roundRect(-w, -h, w * 2, h * 2, r); g.restore();
   };
   for (const s of [-1, 1]) {
-    lens(s, 16); g.fillStyle = '#d0142c'; g.fill();           // red rim
+    lens(s, 16); g.fillStyle = MASKC.rim; g.fill();           // red rim
     lens(s, 6); g.fillStyle = '#050505'; g.fill();            // black frame
     lens(s, 0);
     const gr = g.createLinearGradient(0, H * 0.44, 0, H * 0.51);
@@ -778,7 +789,7 @@ function maskTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
 }
-const maskMap = maskTexture();
+let maskMap = maskTexture();
 // glow only where the lenses are white
 const lensGlow = (() => {
   const W = 512, H = 256, c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -788,6 +799,20 @@ const lensGlow = (() => {
 })();
 const matHead = new THREE.MeshStandardMaterial({ map: maskMap, roughness: 0.32, metalness: 0.1, emissive: 0xffffff, emissiveMap: lensGlow, emissiveIntensity: 0.25 });
 
+let heroIdx = 0;
+function applyHero(i, quiet) {
+  heroIdx = (i + HEROES.length) % HEROES.length; const H = HEROES[heroIdx];
+  [PAL.k0, PAL.k1, PAL.k2] = H.k; [PAL.r0, PAL.r1, PAL.r2, PAL.r3] = H.r;
+  [MASKC.base, MASKC.seam, MASKC.stripe, MASKC.line, MASKC.rim] = H.mask;
+  for (const o of pixList) { o.g.clearRect(0, 0, o.w, o.h); o.draw(o.px, o.w, o.h); o.t.needsUpdate = true; }
+  const old = maskMap; maskMap = maskTexture(); matHead.map = maskMap; matHead.needsUpdate = true; old.dispose();
+  matSuit.color.setHex(H.suit); matRed.color.setHex(H.red); matGlow.color.setHex(H.glow);
+  P.dmgMul = H.dmg; P.webMul = H.web; P.dodgeMul = H.dodge;
+  const b = document.getElementById('swBtn'); if (b) b.textContent = H.name + ' ⇄';
+  store.set('redline3d-hero', String(heroIdx));
+  if (!quiet) { burst(P.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 40, 14, 0); shockRing(P.pos.clone().setY(P.pos.y + 0.1), H.glow, 8, 0.45); banner(H.name, H.perk.toUpperCase()); sfx.heart(); updateAllies(0, true); }
+}
+function switchHero() { if (state === 'play') applyHero(heroIdx + 1); }
 let hero = new THREE.Group(); scene.add(hero);
 const body = new THREE.Group(); hero.add(body);
 function blockLimb(parent, x, y, faces, wPx = 4, lenPx = 12) {
@@ -1212,6 +1237,7 @@ function reset() {
   buildings = world === 2 ? (ensureSea(), seaBuildings) : cityBuildings; if (seaGroup) seaGroup.visible = world === 2;
   clearList(enemies); clearList(shots); clearList(sparks); pops.forEach(p => p.el.remove());
   enemies = []; shots = []; sparks = []; pops = [];
+  clearAllies();
   if (boss.mesh) scene.remove(boss.mesh);
   Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null, arriveT: 0 }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
   t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; badAnchors.length = 0; P.heal = null; if (typeof healAura !== 'undefined') healAura.visible = false; P.zip = null; P.zipCd = 0; P.stallT = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
@@ -1272,6 +1298,7 @@ function setView(fp) {
 }
 
 addEventListener('keydown', e => {
+  if (e.code === 'Tab') e.preventDefault();
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   if (e.repeat) return;
   input.keys.add(e.code);
@@ -1287,6 +1314,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyC' || e.code === 'ControlLeft') dive();
   if (e.code === 'KeyT') cycleTime();
   if (e.code === 'KeyB') setView(!firstPerson);
+  if (e.code === 'KeyY' || e.code === 'Tab') switchHero();
   if (e.code === 'KeyQ') punch();
   if (e.code === 'KeyG') setQuality(quality === 'high' ? 'low' : 'high');
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') pause(); else if (state === 'pause') resume(); }
@@ -1346,11 +1374,12 @@ $('pauseBtn').onclick = () => state === 'play' ? pause() : resume();
 $('timeBtn').onclick = () => cycleTime();
 $('qualBtn').onclick = () => setQuality(quality === 'high' ? 'low' : 'high');
 $('viewBtn').onclick = () => setView(!firstPerson);
+$('swBtn').onclick = () => { switchHero(); $('swBtn').blur(); };
 document.querySelectorAll('#timePick button').forEach(b => b.onclick = () => applyTime(b.dataset.time));
 addEventListener('blur', () => { if (state === 'play') pause(); });
 
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
-function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
+function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'swBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
 function start() {
   audio(); world = selWorld; reset(); state = 'play'; if (firstPerson) pitch = 0;
   show('title', false); show('over', false); show('pause', false); setPlayUI(true);
@@ -1387,7 +1416,7 @@ function travelToSea() {
     setTimeout(() => {
       const keep = { bonus, kills, meters, t };
       world = 2; reset(); bonus = keep.bonus; kills = keep.kills; meters = keep.meters; t = keep.t; boss.arriveT = t; energy = 100; state = 'play'; last = performance.now();
-      $('fade').style.opacity = 0; store.set('redline3d-world2', '1'); banner('WORLD 2 · SEA PORT', 'FINAL WORLD · BEAT THE SEA EATER');
+      $('fade').style.opacity = 0; store.set('redline3d-world2', '1'); banner('WORLD 2 · SEA PORT', 'FINAL WORLD · BIKER SOCIETY VS THE SEA EATER TEAM');
     }, 800);
   }, 1600);
 }
@@ -1684,8 +1713,8 @@ function resolveHit() {
     if (!mv.aoe) P.face.copy(hits[0].p).sub(P.pos).setY(0).normalize();
     if (act.name) { popup(act.name, P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), act.kind === 'power' || act.kind === 'spin'); gainXP(4); }
     for (const tg of hits) {
-      if (tg.boss) { bossDamage(mv.dmg + 1, 'punch'); continue; }
-      const e = tg.e, dmg = e.webbed > 0 ? mv.dmg * 2 : mv.dmg;
+      if (tg.boss) { bossDamage((mv.dmg + 1) * (P.dmgMul || 1), 'punch'); continue; }
+      const e = tg.e, dmg = Math.round((e.webbed > 0 ? mv.dmg * 2 : mv.dmg) * (P.dmgMul || 1));
       const push = tg.p.clone().sub(me).setY(0).normalize().multiplyScalar(mv.knock);
       if (mv.up) push.y = mv.up;
       e.knock = push; e.hitInv = 0;
@@ -1714,7 +1743,7 @@ function airTrick() {
 function backflip() {
   if (state !== 'play' || P.flipCd > 0 || P.state === 'wall') return;
   if (!has('backflip')) return locked('backflip');
-  P.flipCd = 0.8; P.flipT = 0.55; P.dodgeT = 0.55; P.dodgeShown = false; P.act = null;
+  P.flipCd = 0.8; P.flipT = 0.55; P.dodgeT = 0.55 * (P.dodgeMul || 1); P.dodgeShown = false; P.act = null;
   const back = P.face.clone().multiplyScalar(-1);
   P.state = 'air'; P.roof = null; P.rope = null; P.dive = false; P.jumpT = 0;
   P.vel.set(back.x * 10, 13, back.z * 10);
@@ -1731,7 +1760,7 @@ const webFill = new THREE.MeshBasicMaterial({ map: webCocoonTex, color: 0xffffff
 let web = null;
 function webShot() {
   if (state !== 'play' || P.webCd > 0) return;
-  P.webCd = 0.55; P.act = { kind: 'web', t: 0, dur: 0.28, lock: 0.12, done: true };
+  P.webCd = 0.55 * (P.webMul || 1); P.act = { kind: 'web', t: 0, dur: 0.28, lock: 0.12, done: true };
   const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), from = heroHand();
   let target = null, best = 46;
   for (const e of enemies) {
@@ -2761,7 +2790,7 @@ function update(h) {
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
   P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
-  updateWeb(h); updateGrabs(h); updateWebWall(h); updateHeal(h);
+  updateWeb(h); updateGrabs(h); updateWebWall(h); updateAllies(h); updateHeal(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
   if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
   if (P.trick) { P.trick.t += h; if (P.trick.t >= P.trick.dur) P.trick = null; }
@@ -3260,6 +3289,42 @@ function updateHUD() {
   $('flash').style.opacity = flash * 0.5;
 }
 
+// ================= Biker Society: the other heroes ride hoverbikes and fight with you against the Sea Eater team (World 2) =================
+const allies = [];
+function makeHoverBike(col) {
+  const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.4, metalness: 0.6 }), glow = new THREE.MeshBasicMaterial({ color: col });
+  const bodyM = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.4, 2.2, 3, 0.15), m); bodyM.position.y = 0.5; g.add(bodyM);
+  for (const z of [-0.85, 0.85]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.1, 8, 20).rotateY(Math.PI / 2), glow); w.position.set(0, 0.45, z); g.add(w); }
+  const rider = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.6, 4, 10), new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 })); rider.position.set(0, 1.15, 0.1); rider.rotation.x = 0.35; g.add(rider);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.3, metalness: 0.3 })); head.position.set(0, 1.7, -0.1); g.add(head);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.12), glow); visor.position.set(0, 1.72, -0.28); g.add(visor);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: col })); beam.visible = false; scene.add(beam);
+  g.userData.beam = beam; return g;
+}
+function clearAllies() { for (const a of allies) { scene.remove(a.mesh); scene.remove(a.mesh.userData.beam); } allies.length = 0; }
+function updateAllies(h, rebuild) {
+  if (world !== 2 || state !== 'play') { if (allies.length && world !== 2) clearAllies(); return; }
+  if (rebuild || !allies.length) {   // the heroes you are not playing
+    clearAllies(); let k = 0;
+    HEROES.forEach((H, i) => { if (i === heroIdx) return; const mesh = makeHoverBike(H.glow); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: i === 1 ? 2 : 1 }); });
+  }
+  for (const a of allies) {
+    const ang = t * 0.55 + a.i * 2.1, goal = P.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 11, 6 + Math.sin(t * 1.7 + a.i) * 1.2, Math.sin(ang) * 11));
+    const prev = a.mesh.position.clone(); a.mesh.position.lerp(goal, Math.min(1, h * 3)); const v = a.mesh.position.clone().sub(prev);
+    if (v.lengthSq() > 1e-6) a.mesh.rotation.y = Math.atan2(-v.x, -v.z); a.mesh.rotation.z = Math.sin(t * 2 + a.i) * 0.15;
+    const beam = a.mesh.userData.beam; if (beam.visible && (a.flash -= h) <= 0) beam.visible = false;
+    if ((a.cd -= h) > 0) continue;
+    let tgt = null, best = 110;
+    for (const e of enemies) { if (e.dead) continue; const d = e.mesh.position.distanceTo(a.mesh.position); if (d < best) { best = d; tgt = { e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }; } }
+    if (!tgt && boss.active && !boss.dead && boss.state !== 'emerge') { const p = bossCore(); if (p.distanceTo(a.mesh.position) < 420) tgt = { boss: true, p }; }
+    if (!tgt) { a.cd = 0.5; continue; }
+    a.cd = 1.6 + Math.random() * 0.6;
+    const from = a.mesh.position.clone().add(new THREE.Vector3(0, 1.3, 0)), dir = tgt.p.clone().sub(from), len = dir.length();
+    beam.position.copy(from); beam.quaternion.setFromUnitVectors(UP, dir.normalize()); beam.scale.set(1, len, 1); beam.visible = true; a.flash = 0.14;
+    burst(tgt.p, 6, 8, 0);
+    if (tgt.boss) bossDamage(2 + a.dmg, 'ally'); else damageEnemy(tgt.e, a.dmg, 'ally');
+  }
+}
 // ================= loop =================
 let last = performance.now(), acc = 0, slowT = 0, fovKick = 0;
 const STEP = 1 / 120;
@@ -3290,7 +3355,8 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+applyHero(parseInt(store.get('redline3d-hero') || '0', 10) || 0, true);
 requestAnimationFrame(frame);
 </script>
 </body>
