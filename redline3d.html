@@ -1755,7 +1755,7 @@ const BOSS_INFO = {
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   mauler: { name: 'THE MAULER', hp: 140, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
-const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 9, -6)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
+const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 11, -6)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
 function startBoss() {
   let best = null, bs = 1e9;
@@ -2030,7 +2030,7 @@ const seaBossObjs = {};
 function groundAt(x, z) { let y = 0; for (const b of nearBuildings(x, z, 1)) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && b.h > y) y = b.h; return y; }
 
 // the body is a smooth dome rising out of the sea: a flat front face (with the mouth) and a rounded back. z runs from +30 (front) to -36 (back).
-const SEA_ZF = 30, SEA_ZB = -36, MOUTH_RX = 19, MOUTH_RY = 17, MOUTH_DY = -1.5;   // the arch's centre line is 4 m under the water
+const SEA_ZF = 30, SEA_ZB = -36, MOUTH_RX = 22.5, MOUTH_RY = 21, MOUTH_DY = -1.5;   // the arch's centre line is 4 m under the water
 function seaProf(z) { const s = clamp((SEA_ZF - z) / (SEA_ZF - SEA_ZB), 0, 1); return { s, T: 40 + 6 * s, hw: 26 + 4 * s }; }
 // pale blue-gray skin with soft lighter patches and small round dots
 function seaSkinTexture(rx, ry) {
@@ -2168,7 +2168,7 @@ function removeSeaEater() {
   if (boss.mesh) for (const ag of boss.mesh.userData.armGroups) scene.remove(ag);
   for (const t of tele) t.ring.visible = t.fill.visible = false; waveMesh.visible = false;
 }
-const mawWorld = () => boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 10, 1));
+const mawWorld = () => boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 12, 1));
 function seaImpact(arm) {
   const tg = arm.target; shake = Math.max(shake, 1); sfx.boom();
   ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.set(tg.x, tg.y + 0.3, tg.z); ring2.position.copy(ringMesh.position);
@@ -2256,7 +2256,7 @@ function updateSeaEater(h) {
       if (k4 >= 1) {
         hideTele(); boss.mouthT = 0; boss.mouth = Math.min(boss.mouth, 0.6); m.updateMatrixWorld(true);
         const mw = mawWorld(), hd = Math.hypot(pp.x - mw.x, pp.z - mw.z);
-        if (hd < 17 && pp.y < 30 && hurt('CHOMP!')) { const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y)); P.state = 'air'; P.roof = null; P.rope = null; P.vel.set(fw.x * 26, 20, fw.z * 26); P.jumpT = 0; }
+        if (hd < 21 && pp.y < 32 && hurt('CHOMP!')) { const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y)); P.state = 'air'; P.roof = null; P.rope = null; P.vel.set(fw.x * 26, 20, fw.z * 26); P.jumpT = 0; }
         shake = 1; sfx.boom(); boss.wind = 0.3; set('chomp');
       }
       break;
@@ -2307,7 +2307,7 @@ function updateSeaEater(h) {
 function seaAnimate(h) {
   const m = boss.mesh, u = m.userData;
   boss.mouth += (boss.mouthT - boss.mouth) * Math.min(1, h * (boss.state === 'chomp' ? 30 : 5));
-  u.core.position.y = -2 + 11 * boss.mouth;   // the core hides under the water inside the mouth and rises when it can be hit                         // folds down flat onto the water in front of the mouth
+  u.core.position.y = -2 + 13 * boss.mouth;   // the core hides under the water inside the mouth and rises when it can be hit                         // folds down flat onto the water in front of the mouth
   seaCoreMat.color.setHex(boss.stun > 0 && Math.sin(boss.tt * 14) > 0 ? 0xff7a2a : 0xe0b030);   // plain colour, warmer when it can be hit
   m.updateMatrixWorld(true);
   boss.arms.forEach((a, k) => {
