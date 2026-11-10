@@ -144,7 +144,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
     Beat the three bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
-    Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
+    Sidewalks, parks, rooftops and the road are all safe to land on, and you can run along them. Only enemies, their shots and the bosses cost hearts.<br>
     In World 2 the sea never hurts: fall in and you swim (WASD), then leap out with Space, swing from the water, or climb a pier. Your web shot (X) damages the Sea Eater.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
@@ -2364,6 +2364,8 @@ function spawnEnemy(force) {
 }
 
 // ================= physics =================
+// the street: one huge flat surface at ground level; landing on it is safe and you can run along it (world 1)
+const STREET = { x0: -HALF - 30, x1: HALF + 30, z0: -HALF - 30, z1: HALF + 30, h: 0, slab: true, street: true };
 function land(b) {
   P.zip = null; P.state = 'ground'; P.roof = b; P.pos.y = b.h; P.rope = null; P.vel.y = 0;
   if (P.dive) { shake = Math.max(shake, 0.4); burst(P.pos, 12, 9, 1); }
@@ -2428,9 +2430,11 @@ function physics(h) {
     if (input.jump) { input.jump = false; jump(); return; }
     if (p.x < b.x0 || p.x > b.x1 || p.z < b.z0 || p.z > b.z1) {
       const next = nearBuildings(p.x, p.z, 1).find(o => p.x >= o.x0 && p.x <= o.x1 && p.z >= o.z0 && p.z <= o.z1 && Math.abs(o.h - b.h) < 0.6);
-      if (next) P.roof = next; else { P.state = 'air'; P.roof = null; P.jumpT = 1; }
+      if (next) P.roof = next;
+      else if (world === 1 && b.h < 1 && b !== STREET) { P.roof = STREET; p.y = 0; }   // stepping off a sidewalk onto the road
+      else { P.state = 'air'; P.roof = null; P.jumpT = 1; }
     }
-    collide(p.y);
+    collide(p.y); clampWorld();
     return;
   }
   input.jump = false;
@@ -2469,14 +2473,7 @@ function physics(h) {
     // a web attached from the water starts at the surface, so it only counts as falling in once you are well below it
     if (p.y <= Math.max(wl, 0) && (!P.rope || p.y < wl - 1.5)) enterSwim();
   }
-  else if (P.state === 'air' && p.y <= 0) {
-    p.y = 0.01; P.rope = null; P.dive = false;
-    const wasInv = P.inv > 0;
-    hurt(world === 2 ? 'SPLASH!' : 'WATCH THE ROAD!');
-    if (state !== 'play') return;
-    if (wasInv) combo = 1;
-    v.y = 30; P.jumpT = 0; burst(p, 16, 10, 1);
-  }
+  else if (P.state === 'air' && p.y <= 0) { burst(p, 8, 7, 1); land(STREET); }   // the road is safe: you land and can run
   clampWorld();
 }
 function clampWorld() {
