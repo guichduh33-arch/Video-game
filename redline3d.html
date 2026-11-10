@@ -1155,24 +1155,27 @@ function aimDir() {
   if (m.lengthSq() > 0.05) return m.normalize();
   return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
 }
+// The web sticks to building walls only, anywhere on a facade: aim for a point about 26 m ahead and 22 m up,
+// and take the closest spot on a wall that is at least 3 m above you (a little under the roof, not on its edge).
 function findAnchor() {
   const f = aimDir(), p = P.pos;
   const D = new THREE.Vector3(p.x + f.x * 26, p.y + 22, p.z + f.z * 26);
   let best = null, bs = 1e9;
-  for (const b of nearBuildings(D.x, D.z, 40)) {
-    if (b.slab || b.h < p.y + 4) continue;
-    let ax = clamp(D.x, b.x0, b.x1), az = clamp(D.z, b.z0, b.z1), ay = Math.min(D.y, b.h);
-    if (ax === D.x && az === D.z && D.y < b.h) { ax = clamp(p.x, b.x0, b.x1); az = clamp(p.z, b.z0, b.z1); }
+  for (const b of nearBuildings(D.x, D.z, 70)) {
+    if (b.slab || b.h < p.y + 5) continue;
+    const ay = Math.min(D.y, b.h - 1.5);                       // on the facade, below the roof line
+    let ax = clamp(D.x, b.x0, b.x1), az = clamp(D.z, b.z0, b.z1);
+    if (ax > b.x0 && ax < b.x1 && az > b.z0 && az < b.z1) {   // aim point is over the building: use the wall facing you
+      const dl = ax - b.x0, dr = b.x1 - ax, dn = az - b.z0, df = b.z1 - az, m = Math.min(dl, dr, dn, df);
+      if (m === dl) ax = b.x0; else if (m === dr) ax = b.x1; else if (m === dn) az = b.z0; else az = b.z1;
+    }
     const dx = ax - p.x, dy = ay - p.y, dz = az - p.z;
     if (dy < 3) continue;
-    const d = Math.hypot(dx, dy, dz); if (d < 6 || d > 75) continue;
+    const d = Math.hypot(dx, dy, dz); if (d < 6 || d > 110) continue;
     if (dx * f.x + dz * f.z < 1) continue;
-    const s = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
-    if (s < bs) { bs = s; best = new THREE.Vector3(ax, ay, az); }
+    const sc = Math.hypot(ax - D.x, (ay - D.y) * 0.6, az - D.z);
+    if (sc < bs) { bs = sc; best = new THREE.Vector3(ax, ay, az); }
   }
-  // no building in reach (parks, wide streets, high above the roofs): the web catches the sky ahead
-  // and above, so you can swing anywhere; buildings are still preferred when they are close enough
-  if (!best) { best = new THREE.Vector3(p.x + f.x * 22, Math.max(p.y + 20, 30), p.z + f.z * 22); best.sky = true; }
   return best;
 }
 function attach() {
@@ -2351,7 +2354,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, get web() { return web; }, bossCore };
+window.__game = { P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>
