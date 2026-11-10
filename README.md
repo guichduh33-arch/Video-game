@@ -68,11 +68,13 @@ Eight games live in this repo:
 **Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its three bosses (the Warden, the Skyreaver and the
 Mauler) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
 water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
-world on the title screen. The Sea Eater is a colossal beast with six armoured tentacle arms (glowing joints, spikes and
-hooked claws) and a four-plate petal mouth full of fangs that opens onto a red throat and a glowing core. Its arms slam
-down on the structures around the bay (watch the red circles), it lunges to bite, spits acid and, at half health, sends
-a wave across the water. The core is only exposed while the maw is open: after a bite, after three slams in a row, or
-when you web it; then dive in and hit the core. Beat it to win.
+world on the title screen. The Sea Eater is a colossal, plain green beast (nothing glows). Its mouth is a smooth, slightly oval opening with no
+teeth or spikes, at the end of a short snout, with its lower edge at the water line; a round lid folds down flat onto the
+water when it opens, showing a dark throat and the core. It has two arms, one at each side of its head, each with a
+shoulder, biceps, elbow, forearm and a hand with four fingers and a thumb. The arms slam down on the structures around the
+bay (watch the red circles), it lunges to bite, spits acid and, at half health, sends a wave across the water. The core is
+only exposed while the mouth is open: after a bite, after three slams in a row, or when you web it; then dive in and hit
+the core. Beat it to win.
 
 ## Spider-Man 2: Brooklyn Nights
 
