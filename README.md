@@ -44,7 +44,7 @@ Eight games live in this repo:
   along it, so you never crawl; if you look at nothing in range it falls back to the
   closest suitable wall, even from far above the roofs), `Q` or right click to punch, `R` to
   kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
-  web shot (hold `X` and release for a web wall that blocks shots and webs enemies), `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches
+  web shot (hold `X` and release for a big web wall that blocks shots and webs enemies), `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches
   between third person and first person, where the camera looks out from behind Redline's eyes; one red glove
   always sits in the lower right: it bobs as you walk, jabs on punches, points ahead for web shots and reaches
   toward the anchor while swinging (the web line comes out of it); the legs show only during kicks. Jump off a tall building for a
