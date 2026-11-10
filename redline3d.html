@@ -145,6 +145,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
     Beat the three bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
     Sidewalks, parks and rooftops are safe. Landing on the road costs one of your five hearts.<br>
+    In World 2 the sea never hurts: fall in and you swim (WASD), then leap out with Space, swing from the water, or climb a pier. Your web shot (X) damages the Sea Eater.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
   </div>
   <div class="stat" id="bestTitle"></div>
@@ -1470,6 +1471,7 @@ function takedown(e, byPulse) {
   shake = Math.max(shake, 0.4); sfx.hit(); burst(e.mesh.position.clone().add(new THREE.Vector3(0, 1, 0)), 22, 14, 1);
 }
 function hurt(why) {
+  if (window.__hurtLog) window.__hurtLog.push(why + (P.dodgeT > 0 || P.inv > 0 ? ' (blocked)' : ''));
   if (P.dodgeT > 0) { if (!P.dodgeShown) { P.dodgeShown = true; popup('DODGE!', P.pos.clone().add(new THREE.Vector3(0, 2.4, 0))); } return false; }
   if (P.inv > 0) return false;
   if (P.heal) { P.heal = null; energy = Math.min(100, energy + 20); popup('HEAL BROKEN', P.pos.clone().add(new THREE.Vector3(0, 3, 0)), true); }
@@ -1704,6 +1706,7 @@ function updateWeb(h) {
           boss.webs++; popup('WEB ' + boss.webs + '/3', tp, true);
           if (boss.webs >= 3) { boss.state = 'crash'; boss.stun = 4.5; bossLaser.visible = false; popup('IT IS GOING DOWN!', tp, true); sfx.boom(); }
         }
+        else if (boss.kind === 'seaeater') { if (boss.state !== 'emerge') bossDamage(8, 'web'); }
         else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap' && boss.state !== 'emerge') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
         else popup('RESISTED', tp);
       } else if (!tg.e.dead) wrapInWeb(tg.e);
@@ -1751,7 +1754,7 @@ slamRing.visible = slamFill.visible = false; scene.add(slamRing, slamFill);
 // three bosses take turns; each comes back tougher (MK 2, MK 3...)
 const BOSS_KINDS = ['warden', 'sky', 'mauler'];
 const BOSS_INFO = {
-  seaeater: { name: 'THE SEA EATER', hp: 240, coreY: 0, hitR: 8.5, bodyR: 0, tip: 'Dodge the arms and the bite. When the core rises in the mouth, fly in and hit it!' },
+  seaeater: { name: 'THE SEA EATER', hp: 240, coreY: 0, hitR: 8.5, bodyR: 0, tip: 'Swim or swing in close. Web it (X) to wear it down, and hit the core when it rises in the mouth!' },
   warden: { name: 'THE WARDEN', hp: 120, coreY: 3, hitR: 3.8, bodyR: 2.4, tip: 'Lure it into a slam, then hit the glowing core.' },
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   mauler: { name: 'THE MAULER', hp: 140, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
@@ -1779,6 +1782,7 @@ function startBoss() {
   show('bossBar', true); sfx.alarm();
 }
 function bossDamage(d, how) {
+  if (window.__bossLog) window.__bossLog.push(how + ':' + d + ' hit=' + (boss.hitInv > 0 ? 'inv' : 'ok') + ' state=' + boss.state + ' mouth=' + (boss.mouth || 0).toFixed(2));
   if (!boss.active || boss.dead || boss.hitInv > 0) return;
   boss.hitInv = 0.25;
   const crit = boss.stun > 0, dmg = Math.max(1, Math.round(d * (crit ? 2 : boss.kind === 'sky' ? 0.35 : 0.5)));
@@ -2017,9 +2021,8 @@ const seaArmor = new THREE.MeshStandardMaterial({ color: 0x5f656b, roughness: 0.
 const seaNail = new THREE.MeshStandardMaterial({ color: 0xcdd9b4, roughness: 0.6, metalness: 0 });
 const seaThroat = new THREE.MeshStandardMaterial({ color: 0x040506, roughness: 1, metalness: 0, side: THREE.DoubleSide });
 const seaCoreMat = new THREE.MeshStandardMaterial({ color: 0xe0b030, roughness: 0.6, metalness: 0 });
-const ARM_N = 2, ARM_L1 = 58, ARM_L2 = 58, ARM_REACH = 113, MAW_Z = 30.4, MAW_Y = -1.5;
+const ARM_N = 2, ARM_L1 = 34, ARM_L2 = 34, ARM_REACH = 66, MAW_Z = 30.4, MAW_Y = -1.5;
 const ARM_BASES = [[-30, 14, 6], [30, 14, 6]];       // two shoulders, one on each side of the head
-const orbGeo = new THREE.SphereGeometry(1.3, 14, 10), acidMat = new THREE.MeshBasicMaterial({ color: 0xb6ff3a });
 const tele = [0, 1].map(() => {
   const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.6, depthWrite: false }));
   const fill = new THREE.Mesh(new THREE.CircleGeometry(9.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.15, depthWrite: false }));
@@ -2087,12 +2090,12 @@ function makeSeaArm(sideX) {
   const taper = new THREE.CylinderGeometry(0.58, 1, 1, 20).translate(0, 0.5, 0);
   const mk = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = false; m.frustumCulled = false; g.add(m); return m; };
   const ball = new THREE.SphereGeometry(1, 24, 16);
-  u.shoulder = mk(ball, seaSkin); u.shoulder.scale.setScalar(11.5);
+  u.shoulder = mk(ball, seaSkin); u.shoulder.scale.setScalar(9);
   u.upper = mk(taper, seaSkin); u.fore = mk(taper, seaSkin);
-  u.elbow = mk(ball, seaSkin); u.elbow.scale.setScalar(7.8);
+  u.elbow = mk(ball, seaSkin); u.elbow.scale.setScalar(6.2);
   u.bicep = mk(ball, seaSkin); u.foreBulge = mk(ball, seaSkin);
   // the hand: wrist at the group origin, fingers along +z, the back of the hand up (+y)
-  const hand = new THREE.Group(); hand.scale.setScalar(0.92); g.add(hand); u.hand = hand;
+  const hand = new THREE.Group(); hand.scale.setScalar(0.7); g.add(hand); u.hand = hand;
   // a mountain-like hand: a broad mound of a palm with a ridge up the middle, and four thick fingers fused side by side
   // (the middle one longest, so the outline rises to a peak), with rounded tips, and a thick thumb on the inner side
   const ell = (rx, ry, rz, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 22, 16), seaSkin); m.scale.set(rx, ry, rz); m.position.set(x, y, z); hand.add(m); return m; };
@@ -2126,11 +2129,11 @@ function poseSeaArm(k, S, T0, curlWant, dt) {
   const pole = new THREE.Vector3(side * 1.0, 0.4, -0.6).applyQuaternion(boss.mesh.quaternion); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
   const E = S.clone().addScaledVector(dir, xx).addScaledVector(pole, hh);
   const limb = (m, from, to, r) => { const v = to.clone().sub(from), len = v.length() || 0.01; m.position.copy(from); m.quaternion.setFromUnitVectors(_up, v.divideScalar(len)); m.scale.set(r, len, r); return v; };
-  const eu = limb(u.upper, S, E, 9.6), fu = limb(u.fore, E, T, 6.4);
+  const eu = limb(u.upper, S, E, 7.4), fu = limb(u.fore, E, T, 5.2);
   u.shoulder.position.copy(S); u.elbow.position.copy(E);
   // muscle: a biceps bulge on the upper arm and a forearm bulge near the elbow, stretched along the limb
-  u.bicep.position.copy(S).addScaledVector(eu, 0.4).addScaledVector(pole, 1.6); u.bicep.quaternion.setFromUnitVectors(_up, eu); u.bicep.scale.set(10.8, 19, 10.8);
-  u.foreBulge.position.copy(E).addScaledVector(fu, 0.27); u.foreBulge.quaternion.setFromUnitVectors(_up, fu); u.foreBulge.scale.set(6.8, 13, 6.8);
+  u.bicep.position.copy(S).addScaledVector(eu, 0.4).addScaledVector(pole, 1.6); u.bicep.quaternion.setFromUnitVectors(_up, eu); u.bicep.scale.set(8.4, 14, 8.4);
+  u.foreBulge.position.copy(E).addScaledVector(fu, 0.27); u.foreBulge.quaternion.setFromUnitVectors(_up, fu); u.foreBulge.scale.set(5.4, 10, 5.4);
   // the hand: fingers along the forearm, back of the hand up
   const f = fu.clone().normalize(); let yv = _up.clone().addScaledVector(f, -_up.dot(f));
   if (yv.lengthSq() < 0.02) yv.set(0, 0, 1).applyQuaternion(boss.mesh.quaternion).addScaledVector(f, -yv.dot(f)); yv.normalize();
@@ -2197,7 +2200,7 @@ function updateSeaEater(h) {
   if (boss.state !== 'lunge') m.rotation.y += d * Math.min(1, h * (boss.state === 'emerge' ? 0.3 : boss.state === 'rear' ? 2.2 : 1.4));
   const ox = pp.x - SEA.x, oz = pp.z - SEA.z, od = Math.hypot(ox, oz) || 1, kk = Math.min(1, 80 / od);
   const wantX = SEA.x + ox * kk * 0.85, wantZ = SEA.z + oz * kk * 0.85;
-  if (['idle', 'slam', 'slamHit', 'recover', 'spit', 'wave', 'waveRun', 'gape', 'stunned'].includes(boss.state)) {
+  if (['idle', 'slam', 'slamHit', 'recover', 'wave', 'waveRun', 'gape', 'stunned'].includes(boss.state)) {
     const sp = fast ? 0.55 : 0.4; m.position.x += (wantX - m.position.x) * Math.min(1, h * sp); m.position.z += (wantZ - m.position.z) * Math.min(1, h * sp);
     m.position.y += (Math.sin(boss.tt * 1.4) * 0.8 - m.position.y) * Math.min(1, h * 3);
   }
@@ -2214,19 +2217,18 @@ function updateSeaEater(h) {
       hideTele(); boss.mouthT = 0;
       if (boss.cd > 0 && !boss.force) break;
       const opts = [];
-      if (dh < 150) opts.push('slam', 'slam', 'slam');
+      if (dh < 100) opts.push('slam', 'slam', 'slam');
       if (dh < 145 && pp.y < 48) opts.push('bite', 'bite');
-      opts.push('spit', 'spit'); if (fast) opts.push('wave', 'wave');
+      if (fast) opts.push('wave', 'wave'); if (!opts.length) opts.push('slam');
       let pick = boss.force; boss.force = null;
       if (!pick) { const f = opts.filter(o => o !== boss.last); pick = (f.length ? f : opts)[Math.random() * (f.length ? f.length : opts.length) | 0]; }
       boss.last = pick;
       if (pick === 'slam') {
-        const tgt = (px, pz) => { const ddx = px - m.position.x, ddz = pz - m.position.z, dd = Math.hypot(ddx, ddz) || 1, k2 = dd > 138 ? 138 / dd : 1, x = m.position.x + ddx * k2, z = m.position.z + ddz * k2; return new THREE.Vector3(x, groundAt(x, z), z); };
+        const tgt = (px, pz) => { const ddx = px - m.position.x, ddz = pz - m.position.z, dd = Math.hypot(ddx, ddz) || 1, k2 = dd > 70 ? 70 / dd : 1, x = m.position.x + ddx * k2, z = m.position.z + ddz * k2; return new THREE.Vector3(x, groundAt(x, z), z); };
         const picks = [], a1 = nearestArm(pp.x, pp.z); if (a1) { a1.target.copy(tgt(pp.x, pp.z)); clampArmTarget(a1); a1.mode = 'up'; picks.push(a1); }
         if (fast) { const a2 = nearestArm(pp.x + P.vel.x, pp.z + P.vel.z, a1); if (a2) { a2.target.copy(tgt(pp.x + P.vel.x * 1.1, pp.z + P.vel.z * 1.1)); clampArmTarget(a2); a2.mode = 'up'; picks.push(a2); } }
         boss.slamArms = picks; boss.wind = fast ? 0.95 : 1.3; set('slam'); sfx.charge();
       } else if (pick === 'bite') { boss.wind = fast ? 1.0 : 1.35; boss.bite = new THREE.Vector3(pp.x, 0, pp.z); set('rear'); sfx.charge(); }
-      else if (pick === 'spit') { boss.n = fast ? 7 : 5; boss.vt = 0.5; set('spit'); }
       else { boss.wind = 0.9; set('wave'); sfx.charge(); }
       break;
     }
@@ -2268,18 +2270,6 @@ function updateSeaEater(h) {
       if (boss.stun <= 0) { boss.cd = 1.4; set('idle'); }
       break;
     }
-    case 'spit': {
-      boss.mouthT = 0.75; boss.vt -= h;
-      if (boss.vt <= 0 && boss.n > 0) {
-        boss.n--; boss.vt = 0.28; m.updateMatrixWorld(true);
-        const from = mawWorld(), aim = pp.clone().addScaledVector(P.vel, 0.6).add(new THREE.Vector3(rand(-3, 3), 1, rand(-3, 3))), dist = from.distanceTo(aim), T = Math.max(0.9, dist / 55);
-        const vel = aim.sub(from).divideScalar(T); vel.y += 0.5 * 22 * T;
-        const mesh = new THREE.Mesh(orbGeo, acidMat); mesh.position.copy(from); scene.add(mesh);
-        shots.push({ mesh, vel, life: 5, r: 2.1, grav: true, name: 'ACID!' }); sfx.snipe();
-      }
-      if (boss.n <= 0 && boss.vt <= -0.3) { boss.cd = fast ? 1.2 : 2.0; set('idle'); }
-      break;
-    }
     case 'wave': {
       boss.wind -= h; boss.mouthT = 0; shake = Math.max(shake, 0.2);
       if (boss.wind <= 0) { boss.wave = { r: 30, hit: false }; waveMesh.visible = true; sfx.boom(); shake = 0.9; set('waveRun'); }
@@ -2316,8 +2306,8 @@ function seaAnimate(h) {
     let want, rate = 3, curl = 0.55;
     if (a.mode === 'idle') {
       const sw = Math.sin(boss.tt * 1.2 + a.ph);
-      want = m.localToWorld(new THREE.Vector3(side * (50 + sw * 5), 3 + (Math.sin(boss.tt * 1.7 + a.ph * 2) * 0.5 + 0.5) * 6, 92 + Math.cos(boss.tt * 0.9 + a.ph) * 8)); if (boss.dead) want.y -= 4;
-    } else if (a.mode === 'up') { want = a.target.clone().add(new THREE.Vector3(0, 56, 0)); rate = 6; curl = 1.25; }
+      want = m.localToWorld(new THREE.Vector3(side * (42 + sw * 4), 3 + (Math.sin(boss.tt * 1.7 + a.ph * 2) * 0.5 + 0.5) * 6, 58 + Math.cos(boss.tt * 0.9 + a.ph) * 6)); if (boss.dead) want.y -= 4;
+    } else if (a.mode === 'up') { want = a.target.clone().add(new THREE.Vector3(0, 34, 0)); rate = 6; curl = 1.25; }
     else { want = a.target; rate = 0; curl = a.mode === 'slam' ? 1.25 : 0.9; }
     if (a.mode === 'slam') {
       a.st = (a.st || 0) + h;
@@ -2385,7 +2375,7 @@ function grabWall(b, nx, nz) {
 function collide(prevY) {
   for (const b of nearBuildings(P.pos.x, P.pos.z, 3)) {
     const p = P.pos;
-    if (p.x < b.x0 - R || p.x > b.x1 + R || p.z < b.z0 - R || p.z > b.z1 + R || p.y >= b.h || p.y < -0.5) continue;
+    if (p.x < b.x0 - R || p.x > b.x1 + R || p.z < b.z0 - R || p.z > b.z1 + R || p.y >= b.h || p.y < -2.5) continue;
     if (prevY >= b.h - 0.05 && P.vel.y <= 0) { land(b); continue; }
     if (b.h - p.y < 1.2) { p.y = b.h; land(b); continue; }
     const dl = p.x - (b.x0 - R), dr = (b.x1 + R) - p.x, dn = p.z - (b.z0 - R), df = (b.z1 + R) - p.z;
@@ -2397,8 +2387,27 @@ function collide(prevY) {
     grabWall(b, nx, nz);
   }
 }
+// the sea: in world 2, falling in is safe; you swim on the surface (no damage), can leap out, swing from the water,
+// and climb any pier or wall you swim into
+const SWIM = 11;
+function waterH(x, z) { const t = seaUniforms.uTime.value; return Math.sin(x * 0.045 + t * 0.9) * 0.45 + Math.sin(z * 0.06 + t * 1.1) * 0.35 + Math.sin((x + z) * 0.11 + t * 1.7) * 0.16; }
+function enterSwim() {
+  P.state = 'swim'; P.roof = null; P.rope = null; P.dive = false; P.trick = null; P.zip = null; P.vel.y = 0; P.pos.y = waterH(P.pos.x, P.pos.z) - 0.25; combo = 1;
+  burst(new THREE.Vector3(P.pos.x, P.pos.y + 0.4, P.pos.z), 14, 9, 1); sfx.thud(); shake = Math.max(shake, 0.25);
+}
+function swimLeap() { const mv = moveVec(); P.state = 'air'; P.roof = null; P.vel.set(mv.x * 10, 16, mv.z * 10); P.jumpT = 0; sfx.jump(); }
 function physics(h) {
   const p = P.pos, v = P.vel, mv = moveVec();
+  if (P.state === 'swim') {
+    const prevY = p.y, px0 = p.x, pz0 = p.z;
+    v.x += (mv.x * SWIM - v.x) * Math.min(1, h * 5); v.z += (mv.z * SWIM - v.z) * Math.min(1, h * 5);
+    p.x += v.x * h; p.z += v.z * h;
+    p.y += (waterH(p.x, p.z) - 0.25 - p.y) * Math.min(1, h * 12); v.y = 0;
+    meters += Math.hypot(p.x - px0, p.z - pz0);
+    if (input.jump) { input.jump = false; swimLeap(); return; }
+    collide(prevY); clampWorld();
+    return;
+  }
   if (P.state === 'wall') {
     const b = P.wall, nx = P.wn.x, nz = P.wn.y;
     p.y += CLIMB * h;
@@ -2455,7 +2464,12 @@ function physics(h) {
   }
   meters += Math.hypot(p.x - px, p.z - pz);
   collide(prevY);
-  if (P.state === 'air' && p.y <= 0) {
+  if (P.state === 'air' && world === 2) {   // the sea never hurts, whatever the wave height
+    const wl = waterH(p.x, p.z);
+    // a web attached from the water starts at the surface, so it only counts as falling in once you are well below it
+    if (p.y <= Math.max(wl, 0) && (!P.rope || p.y < wl - 1.5)) enterSwim();
+  }
+  else if (P.state === 'air' && p.y <= 0) {
     p.y = 0.01; P.rope = null; P.dive = false;
     const wasInv = P.inv > 0;
     hurt(world === 2 ? 'SPLASH!' : 'WATCH THE ROAD!');
@@ -2463,6 +2477,10 @@ function physics(h) {
     if (wasInv) combo = 1;
     v.y = 30; P.jumpT = 0; burst(p, 16, 10, 1);
   }
+  clampWorld();
+}
+function clampWorld() {
+  const p = P.pos, v = P.vel;
   if (world === 2) {   // a round world: push back in at the edge of the sea
     const ox = p.x - SEA.x, oz = p.z - SEA.z, rr = Math.hypot(ox, oz);
     if (rr > SEA.R) { const k = SEA.R / rr; p.x = SEA.x + ox * k; p.z = SEA.z + oz * k; const vr = (v.x * ox + v.z * oz) / rr; if (vr > 0) { v.x -= vr * ox / rr * 1.5; v.z -= vr * oz / rr * 1.5; } }
@@ -2498,10 +2516,11 @@ function update(h) {
   if (input.swingPressed) {
     input.swingPressed = false;
     if (P.state === 'ground') jump();
+    else if (P.state === 'swim') { if (!attach()) swimLeap(); }
     else if (P.state === 'wall') { const nx = P.wn.x, nz = P.wn.y; P.vel.set(nx * 10, 12, nz * 10); P.state = 'air'; P.jumpT = 0.2; }
     else if (!P.rope && !attach()) { sfx.miss(); input.retry = 0.12; }
   }
-  if (input.swing && P.state === 'air' && !P.rope && P.jumpT > 0.15) {
+  if (input.swing && (P.state === 'air' || P.state === 'swim') && !P.rope && P.jumpT > 0.15) {
     input.retry -= h; if (input.retry <= 0 && !attach()) input.retry = 0.1;
   }
 
@@ -2512,7 +2531,7 @@ function update(h) {
   spawnT -= h;
   const alive = enemies.filter(e => !e.dead).length;
   const cap = boss.active ? 3 : 6 + Math.floor(9 * d);
-  if (spawnT <= 0 && alive < cap) { spawnEnemy(); spawnT = rand(0.6, 1.6) - 0.4 * d; }
+  if (spawnT <= 0 && alive < cap && !window.__noEnemies) { spawnEnemy(); spawnT = rand(0.6, 1.6) - 0.4 * d; }
   const pc = tmp2.copy(P.pos); pc.y += 1;
   const attacking = P.vel.length() > 20 || P.dive || P.punchT > 0.12;
   for (const e of enemies) {
@@ -2886,6 +2905,9 @@ function animateHero(dt) {
     else if (k < 0.5) { rotX(k / 0.5 * Math.PI * 2); tuck(); }          // base jump: a front flip off the edge...
     else swan((k - 0.5) / 0.5);                                         // ...opening into a swan dive
   } else if (P.state === 'air' && !P.rope && !P.dive && P.vel.y < -12 && !(act && act.t < act.dur) && P.flipT <= 0) swan(1); // free fall
+  if (P.state === 'swim' && !tr && P.flipT <= 0 && !(act && act.t < act.dur)) {   // face down in the water, arms and legs stroking
+    const sw = Math.sin(P.anim * 7); rotX(1.2); body.position.y -= 0.1; set(armL, -2.5 + sw * 0.9, 0, 0.25); set(armR, -2.5 - sw * 0.9, 0, -0.25); set(legL, sw * 0.45, 0.15); set(legR, -sw * 0.45, 0.15);
+  }
   if (P.flipT > 0) {
     const k = 1 - P.flipT / 0.55, ang = -k * Math.PI * 2, cy = 0.8;
     body.rotation.x = ang; body.position.y = cy - cy * Math.cos(ang); body.position.z = -cy * Math.sin(ang);
@@ -2993,7 +3015,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>

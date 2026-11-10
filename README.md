@@ -73,8 +73,10 @@ no eyes, horns or ridges. Its mouth is a huge smooth black arch that fills almos
 (no teeth or spikes). The mouth is always open; the core hides
 under the water inside it and rises into view when it can be hit. It has two arms, one at each side, each with a shoulder,
 biceps, elbow, forearm and a mountain-shaped hand (a broad palm mound with thick, fused fingers rising to a peak at the middle, and a thumb).
-The arms slam down on the structures around the
-bay (watch the red circles), it lunges to bite, spits acid and, at half health, sends a wave across the water. The core is
+The arms are short, so they only slam what is close to the Sea Eater (watch the red circles); it lunges to bite and,
+at half health, sends a wave across the water. It does not shoot anything. In world 2 the sea does not hurt: if you fall in you swim on the surface (WASD to swim, Space or
+the swing button to leap out or swing from the water, and you can climb any pier or wall you swim into), so you can reach the
+Sea Eater without taking damage. Your web shot (X) damages it, from up to about 60 m away. The core is
 only exposed while it is raised: after a bite, after three slams in a row, or when you web it; then dive into the mouth and hit
 the core. Beat it to win.
 
