@@ -1755,7 +1755,7 @@ const BOSS_INFO = {
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   mauler: { name: 'THE MAULER', hp: 140, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
-const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.localToWorld(new THREE.Vector3(0, MAW_Y, MAW_Z - 7)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
+const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 0, -6.6)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
 function startBoss() {
   let best = null, bs = 1e9;
@@ -2016,8 +2016,8 @@ const seaArmor = new THREE.MeshStandardMaterial({ color: 0x5f656b, roughness: 0.
 const seaNail = new THREE.MeshStandardMaterial({ color: 0xcdd9b4, roughness: 0.6, metalness: 0 });
 const seaThroat = new THREE.MeshStandardMaterial({ color: 0x1d1412, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
 const seaCoreMat = new THREE.MeshStandardMaterial({ color: 0xe0b030, roughness: 0.6, metalness: 0 });
-const ARM_N = 2, ARM_L1 = 58, ARM_L2 = 58, ARM_REACH = 113, MAW_Z = 46, MAW_Y = 8;
-const ARM_BASES = [[-23, 10, 12], [23, 10, 12]];       // two shoulders, one on each side of the head
+const ARM_N = 2, ARM_L1 = 58, ARM_L2 = 58, ARM_REACH = 113, MAW_Z = 28, MAW_Y = 7.6;
+const ARM_BASES = [[-20, 12, 6], [20, 12, 6]];       // two shoulders, one on each side of the head
 const orbGeo = new THREE.SphereGeometry(1.3, 14, 10), acidMat = new THREE.MeshBasicMaterial({ color: 0xb6ff3a });
 const tele = [0, 1].map(() => {
   const ring = new THREE.Mesh(new THREE.RingGeometry(8.4, 9.6, 48).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.6, depthWrite: false }));
@@ -2029,29 +2029,42 @@ waveMesh.visible = false; scene.add(waveMesh);
 const seaBossObjs = {};
 function groundAt(x, z) { let y = 0; for (const b of nearBuildings(x, z, 1)) if (x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1 && b.h > y) y = b.h; return y; }
 
+// the body is a wedge: low and pointed at the front, rising to a tall, flat back. z runs from +36 (front) to -36 (back).
+function seaProf(z) { const s = clamp((1 - z / 36) / 2, 0, 1); return { s, T: 4 + 34 * Math.pow(Math.sin(s * Math.PI / 2), 0.9), hw: 30 * (0.55 + 0.45 * s) }; }
 function makeSeaEater() {
   const g = new THREE.Group(), u = g.userData, V = (x, y, z) => new THREE.Vector3(x, y, z);
-  // body: a big lumpy dome rising from the water
-  const bodyGeo = new THREE.SphereGeometry(1, 64, 40), bp = bodyGeo.attributes.position;
-  for (let i = 0; i < bp.count; i++) { const x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i), n = Math.sin(x * 5.1 + 1.3) * Math.sin(y * 4.3 + 2.1) * Math.sin(z * 5.7) * 0.07 + Math.sin(x * 11 + z * 9) * 0.025, k = 1 + n; bp.setXYZ(i, x * k, y * k, z * k); }
-  bodyGeo.computeVertexNormals();
-  const body = new THREE.Mesh(bodyGeo, seaSkin); body.scale.set(30, 24, 36); body.position.set(0, 2, 0); g.add(body);
-  // a row of soft ridges along the back (smooth, no spikes)
+  // body: rings along z, each a half ellipse above the water (the part below it is hidden); rounded off at both ends
+  const N = 80, M = 56, pos = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const z = 36 * Math.cos(Math.PI * i / N), pr = seaProf(z), d = 36 - Math.abs(z), k = d < 5 ? Math.sqrt(1 - (1 - d / 5) * (1 - d / 5)) : 1;
+    for (let j = 0; j <= M; j++) {
+      const th = 2 * Math.PI * j / M, c = Math.cos(th), sn = Math.sin(th);
+      let x = pr.hw * k * c, y = (sn > 0 ? pr.T : 9) * k * sn;
+      if (y > 0.5) { const n = Math.sin(x * 0.17 + 1.3) * Math.sin(y * 0.18 + 2.1) * Math.sin(z * 0.16) * 0.06 + Math.sin(x * 0.35 + z * 0.3) * 0.02; x *= 1 + n; y *= 1 + n; }
+      pos.push(x, y, z);
+    }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { const a = i * (M + 1) + j, b = (i + 1) * (M + 1) + j, c2 = a + 1, d2 = b + 1; idx.push(a, b, c2, b, d2, c2); }
+  const bodyGeo = new THREE.BufferGeometry(); bodyGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bodyGeo.setIndex(idx); bodyGeo.computeVertexNormals();
+  g.add(new THREE.Mesh(bodyGeo, seaSkin));
+  // a row of soft ridges along the top of the slope (smooth, no spikes)
   const ridges = new THREE.InstancedMesh(new RoundedBoxGeometry(6, 1.6, 9, 3, 0.7), seaArmor, 17), mm = new THREE.Matrix4(), qq = new THREE.Quaternion();
   for (let i = 0; i < 17; i++) {
-    const z = -27 + i * 3.2, f = Math.sqrt(Math.max(0.05, 1 - (z / 36) * (z / 36))), y = 2 + 24 * f, dydz = -24 * (z / 1296) / f, nrm = V(0, 1, -dydz).normalize();
-    qq.setFromUnitVectors(V(0, 1, 0), nrm); mm.compose(V(0, y + 0.3, z), qq, V(1.1 - Math.abs(z) / 60, 1, 1)); ridges.setMatrixAt(i, mm);
+    const z = -32 + i * 3, pr = seaProf(z), dT = (seaProf(z + 0.5).T - seaProf(z - 0.5).T), nrm = V(0, 1, dT).normalize();
+    qq.setFromUnitVectors(V(0, 1, 0), nrm); mm.compose(V(0, pr.T + 0.2, z), qq, V(0.5 + 0.7 * pr.s, 1, 1)); ridges.setMatrixAt(i, mm);
   }
   g.add(ridges);
-  // eyes (plain, not glowing)
+  // eyes on the slope, near the front (plain, not glowing)
+  const ez = 13, ep = seaProf(ez);
   for (const sx of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(3.4, 20, 14), new THREE.MeshStandardMaterial({ color: 0xd8c872, roughness: 0.4 })); eye.position.set(sx * 19, 19, 22); g.add(eye);
-    const slit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: 0x090a05 })); slit.scale.set(0.45, 3, 0.4); slit.position.set(sx * 19, 19, 25.2); g.add(slit);
-    const brow = new THREE.Mesh(new RoundedBoxGeometry(8.5, 1.6, 3.4, 3, 0.7), seaArmor); brow.position.set(sx * 19, 23, 22.5); brow.rotation.z = -sx * 0.25; g.add(brow);
+    const ex = sx * ep.hw * 0.62, ey = ep.T * 0.74 + 0.4;
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(3.3, 20, 14), new THREE.MeshStandardMaterial({ color: 0xd8c872, roughness: 0.4 })); eye.position.set(ex, ey, ez); g.add(eye);
+    const slit = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), new THREE.MeshBasicMaterial({ color: 0x090a05 })); slit.scale.set(0.45, 2.8, 0.4); slit.position.set(ex + sx * 0.9, ey + 0.4, ez + 3.0); g.add(slit);
+    const brow = new THREE.Mesh(new RoundedBoxGeometry(8, 1.6, 3.4, 3, 0.7), seaArmor); brow.position.set(ex, ey + 3.5, ez + 0.4); brow.rotation.z = -sx * 0.22; g.add(brow);
   }
-  // snout, then the mouth: a smooth, slightly oval opening whose lower edge sits right at the water line
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(11.2, 16.5, 14, 48, 1, true).rotateX(Math.PI / 2), seaSkin); collar.scale.set(1.17, 1, 1); collar.position.set(0, MAW_Y, MAW_Z - 7); g.add(collar);
-  const maw = new THREE.Group(); maw.position.set(0, MAW_Y, MAW_Z); g.add(maw);
+  // the mouth: a smooth, slightly oval opening low on the slope, tilted along it, its lower edge right at the water line
+  const maw = new THREE.Group(); maw.position.set(0, MAW_Y, MAW_Z); maw.rotation.x = -0.3; g.add(maw);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(11.2, 14, 14, 48, 1, true).rotateX(Math.PI / 2), seaSkin); collar.scale.set(1.17, 1, 1); collar.position.z = -7; maw.add(collar);
   const lip = new THREE.Mesh(new THREE.TorusGeometry(9.4, 2.1, 20, 64), seaSkin); lip.scale.set(1.15, 1, 1); maw.add(lip);
   const throat = new THREE.Mesh(new THREE.CylinderGeometry(7.4, 6.2, 10, 40, 1, true).rotateX(Math.PI / 2), seaThroat); throat.scale.set(1.15, 1, 1); throat.position.z = -5; maw.add(throat);
   const back = new THREE.Mesh(new THREE.CircleGeometry(6.4, 32), seaThroat); back.scale.set(1.15, 1, 1); back.position.z = -9.8; maw.add(back);
@@ -2060,7 +2073,7 @@ function makeSeaEater() {
   const lid = new THREE.Group(); lid.position.set(0, -7.3, 0.2); maw.add(lid);
   const lidPlate = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1.6, 48).rotateX(Math.PI / 2), seaSkin); lidPlate.scale.set(8.9, 7.7, 1); lidPlate.position.set(0, 7.7, 1.0); lid.add(lidPlate);
   const lidPad = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.8, 48).rotateX(Math.PI / 2), seaArmor); lidPad.scale.set(6.9, 5.8, 1); lidPad.position.set(0, 7.7, 1.8); lid.add(lidPad);
-  u.lid = lid; u.core = core;
+  u.lid = lid; u.core = core; u.maw = maw;
   g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
   // two arms, one each side of the head (built separately: they are posed in world space)
   u.armGroups = [0, 1].map(k => makeSeaArm(ARM_BASES[k][0] > 0 ? 1 : -1));
@@ -2156,7 +2169,7 @@ function removeSeaEater() {
   if (boss.mesh) for (const ag of boss.mesh.userData.armGroups) scene.remove(ag);
   for (const t of tele) t.ring.visible = t.fill.visible = false; waveMesh.visible = false;
 }
-const mawWorld = () => boss.mesh.localToWorld(new THREE.Vector3(0, MAW_Y, MAW_Z));
+const mawWorld = () => boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 0, 0));
 function seaImpact(arm) {
   const tg = arm.target; shake = Math.max(shake, 1); sfx.boom();
   ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.set(tg.x, tg.y + 0.3, tg.z); ring2.position.copy(ringMesh.position);
@@ -2295,7 +2308,7 @@ function updateSeaEater(h) {
 function seaAnimate(h) {
   const m = boss.mesh, u = m.userData;
   boss.mouth += (boss.mouthT - boss.mouth) * Math.min(1, h * (boss.state === 'chomp' ? 30 : 5));
-  u.lid.rotation.x = boss.mouth * 1.55;                         // folds down flat onto the water in front of the mouth
+  u.lid.rotation.x = boss.mouth * 1.87;                         // folds down flat onto the water in front of the mouth
   seaCoreMat.color.setHex(boss.stun > 0 && Math.sin(boss.tt * 14) > 0 ? 0xff7a2a : 0xe0b030);   // plain colour, warmer when it can be hit
   m.updateMatrixWorld(true);
   boss.arms.forEach((a, k) => {

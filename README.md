@@ -68,9 +68,8 @@ Eight games live in this repo:
 **Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its three bosses (the Warden, the Skyreaver and the
 Mauler) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
 water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
-world on the title screen. The Sea Eater is a colossal, plain gray beast (nothing glows). Its mouth is a smooth, slightly oval opening with no
-teeth or spikes, at the end of a short snout, with its lower edge at the water line; a round lid folds down flat onto the
-water when it opens, showing a dark throat and the core. It has two arms, one at each side of its head, each with a
+world on the title screen. The Sea Eater is a colossal, plain gray beast shaped like a wedge: low and pointed at the front, rising along a ridged slope
+to a tall, flat back. Its mouth is a smooth, slightly oval arch low on the slope (no teeth or spikes, with its lower edge at the water line); a round lid folds down flat onto the water like a ramp when it opens, showing a dark throat and the core. It has two arms, one at each side of its head, each with a
 shoulder, biceps, elbow, forearm and a hand with four fingers and a thumb. The arms slam down on the structures around the
 bay (watch the red circles), it lunges to bite, spits acid and, at half health, sends a wave across the water. The core is
 only exposed while the mouth is open: after a bite, after three slams in a row, or when you web it; then dive in and hit
