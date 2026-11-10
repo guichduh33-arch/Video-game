@@ -87,6 +87,9 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #bKick{width:64px;height:64px;right:calc(218px + env(safe-area-inset-right));bottom:calc(124px + env(safe-area-inset-bottom))}
 #bFlip{width:60px;height:60px;right:calc(298px + env(safe-area-inset-right));bottom:calc(46px + env(safe-area-inset-bottom))}
 #bWeb{width:60px;height:60px;right:calc(124px + env(safe-area-inset-right));bottom:calc(190px + env(safe-area-inset-bottom))}
+#bHeal{width:60px;height:60px;right:calc(300px + env(safe-area-inset-right));bottom:calc(122px + env(safe-area-inset-bottom));border-color:#66ffaa!important;color:#66ffaa!important}
+#healBar{width:130px;height:6px;margin:-4px 0 8px 4px;background:rgba(0,0,0,.6);border:1px solid #66ffaa}
+#healFill{height:100%;width:0;background:#66ffaa}
 @media (max-width: 820px){#bossBar{top:calc(172px + env(safe-area-inset-top));width:min(420px,60vw)}}
 @media (prefers-reduced-motion: reduce){#flash{display:none}}
 </style>
@@ -102,6 +105,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <div id="score">0</div>
   <div id="meters">0 M SWUNG</div>
   <div id="hearts"></div>
+  <div id="healBar" class="hidden"><div id="healFill"></div></div>
   <div id="pulseRow"><div id="pulseBar"><div id="pulseFill"></div></div><span id="pulseLbl">PULSE</span></div>
   <div id="lvRow"><div id="xpBar"><div id="xpFill"></div></div><span id="lvTxt">LV 1</span></div>
 </div>
@@ -127,6 +131,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
     <b>Hold left click</b> (or <b>Shift</b>) to fire a line at the building wall your crosshair points at (the diamond marks the exact spot). <b>Let go</b> to fly.<br>
     Run into a wall to climb it. Slam into enemies fast, or <b>dive</b> (<b>C</b>) onto them.<br>
     <b>Q</b> or <b>right click</b> punch · <b>R</b> kick · mix them for combos · <b>X</b> web shot · <b>F</b> shockwave · <b>Space in the air</b> flip.<br>
+    <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
     Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the Warden</b>, <b>the Skyreaver</b>, <b>the Mauler</b>, then tougher versions.<br>
@@ -168,6 +173,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <button class="tbtn" id="bKick">KICK</button>
   <button class="tbtn" id="bFlip">FLIP</button>
   <button class="tbtn" id="bWeb">WEB</button>
+  <button class="tbtn" id="bHeal">HEAL</button>
   <button class="tbtn" id="bSwing">SWING</button>
 </div>
 
@@ -927,6 +933,7 @@ const sfx = {
   pulse() { tone('sawtooth', 90, 40, 0.6, 0.28); noise(3000, 120, 0.5, 0.32, 0.8); },
   shot() { tone('square', 700, 300, 0.1, 0.035); },
   heart() { tone('sine', 520, 1040, 0.25, 0.14); },
+  healTick() { tone('sine', 660 + Math.random() * 120, 990, 0.14, 0.05); },
   punch() { noise(1400, 300, 0.09, 0.22, 1.5); },
   thud() { tone('triangle', 160, 60, 0.15, 0.2); noise(800, 200, 0.1, 0.15, 1); },
   clang(crit) { tone('square', crit ? 1300 : 900, crit ? 500 : 700, crit ? 0.25 : 0.12, 0.08); noise(4000, 1500, 0.12, 0.2, 4); },
@@ -977,7 +984,7 @@ function cycleTime() { const order = ['day', 'sunset', 'night']; applyTime(order
 // ================= state =================
 let state = 'title';
 const P = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), state: 'ground', roof: null, wall: null, wn: new THREE.Vector2(),
-  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, zip: null, zipCd: 0, stallT: 0, avgV: 0, zipCount: 0, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
+  rope: null, ropeLen: 0, hp: 5, inv: 0, dive: false, jumpT: 0, anim: 0, punchT: 0, punchCd: 0, act: null, heal: null, zip: null, zipCd: 0, stallT: 0, avgV: 0, zipCount: 0, moves: [], trick: null, lastTrick: '', lastTrickT: -9, baseReady: false, xpMeters: 0, flipT: 0, flipCd: 0, dodgeT: 0, webCd: 0, comboIdx: -1, lastAtk: -9, face: new THREE.Vector3(0, 0, -1) };
 let enemies = [], shots = [], sparks = [], pops = [];
 let t = 0, bonus = 0, combo = 1, kills = 0, meters = 0, energy = 50, shake = 0, flash = 0, spawnT = 0;
 let yaw = 0, pitch = 0.32, lastLook = -10;
@@ -995,7 +1002,7 @@ function reset() {
   enemies = []; shots = []; sparks = []; pops = [];
   if (boss.mesh) scene.remove(boss.mesh);
   Object.assign(boss, { active: false, level: 0, count: 0, nextAt: 10, mesh: null }); beacon.visible = slamRing.visible = slamFill.visible = bossLaser.visible = false; show('bossBar', false);
-  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; badAnchors.length = 0; P.zip = null; P.zipCd = 0; P.stallT = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
+  t = 0; bonus = 0; combo = 1; kills = 0; meters = 0; P.xpMeters = 0; badAnchors.length = 0; P.heal = null; if (typeof healAura !== 'undefined') healAura.visible = false; P.zip = null; P.zipCd = 0; P.stallT = 0; P.trick = null; P.act = null; P.moves = []; energy = 50; shake = 0; flash = 0; spawnT = 0;
   const b = startBuilding();
   P.pos.set((b.x0 + b.x1) / 2, b.h, (b.z0 + b.z1) / 2); P.vel.set(0, 0, 0);
   P.state = 'ground'; P.roof = b; P.rope = null; P.hp = 5; P.inv = 0; P.dive = false; P.jumpT = 1;
@@ -1064,6 +1071,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyR') kickPress();
   if (e.code === 'KeyZ') powerKick();
   if (e.code === 'KeyV') backflip();
+  if (e.code === 'KeyH') startHeal();
   if (e.code === 'KeyC' || e.code === 'ControlLeft') dive();
   if (e.code === 'KeyT') cycleTime();
   if (e.code === 'KeyB') setView(!firstPerson);
@@ -1115,6 +1123,7 @@ let kickDown = 0;
 holdBtn($('bKick'), () => { kickDown = performance.now(); }, () => { if (kickDown) { if (performance.now() - kickDown > 350) powerKick(); else kickPress(); } kickDown = 0; });
 holdBtn($('bFlip'), () => backflip());
 holdBtn($('bWeb'), () => webShot());
+holdBtn($('bHeal'), () => startHeal());
 
 $('startBtn').onclick = start; $('againBtn').onclick = start; $('resumeBtn').onclick = resume;
 $('pauseBtn').onclick = () => state === 'play' ? pause() : resume();
@@ -1299,6 +1308,7 @@ function takedown(e, byPulse) {
 function hurt(why) {
   if (P.dodgeT > 0) { if (!P.dodgeShown) { P.dodgeShown = true; popup('DODGE!', P.pos.clone().add(new THREE.Vector3(0, 2.4, 0))); } return false; }
   if (P.inv > 0) return false;
+  if (P.heal) { P.heal = null; energy = Math.min(100, energy + 20); popup('HEAL BROKEN', P.pos.clone().add(new THREE.Vector3(0, 3, 0)), true); }
   P.hp--; P.inv = 1.5; shake = 0.7; combo = 1; flash = 0.3; sfx.hurt(); updateHearts();
   popup(why, P.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), true);
   if (P.hp <= 0) gameOver();
@@ -1308,10 +1318,42 @@ function updateHearts() { $('hearts').innerHTML = Array.from({ length: 5 }, (_, 
 
 
 // ================= combat =================
+// ---------- healing: channel for a moment with a glowing ring, then get a heart back ----------
+const HEAL_COST = 40, HEAL_TIME = 1.4;
+const healAura = new THREE.Group(), healMat = new THREE.MeshBasicMaterial({ color: 0x1fe06a, transparent: true, opacity: 0.95, depthWrite: false, fog: false });
+healAura.add(new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.08, 10, 48).rotateX(Math.PI / 2).translate(0, 0.08, 0), healMat));
+healAura.add(new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.06, 10, 40).rotateX(Math.PI / 2).translate(0, 0.08, 0), healMat));
+for (let i = 0; i < 14; i++) healAura.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), healMat));
+healAura.visible = false; scene.add(healAura);
+function startHeal() {
+  if (state !== 'play' || P.heal) return;
+  if (P.hp >= 5) { popup('FULL HEALTH', P.pos.clone().add(new THREE.Vector3(0, 2.6, 0))); return; }
+  if (energy < HEAL_COST) { popup('NEED ' + HEAL_COST + ' CHARGE', P.pos.clone().add(new THREE.Vector3(0, 2.6, 0))); return; }
+  energy -= HEAL_COST; P.heal = { t: 0, tick: -1 }; sfx.healTick();
+}
+function updateHeal(h) {
+  const hl = P.heal; healAura.visible = !!hl;
+  if (!hl) return;
+  hl.t += h; const k = hl.t / HEAL_TIME;
+  healAura.position.copy(P.pos); healAura.rotation.y += h * 2.5;
+  healAura.children[0].scale.setScalar(1 + Math.sin(t * 8) * 0.07); healAura.children[1].scale.setScalar(1.15 - k * 0.5);
+  for (let i = 0; i < 14; i++) {                       // sparks spiral up around him
+    const m = healAura.children[2 + i], a = i * 0.45 + t * 3, ph = ((t * 0.9 + i / 14) % 1);
+    m.position.set(Math.cos(a) * (0.85 - 0.3 * ph), 0.1 + ph * 2.1, Math.sin(a) * (0.85 - 0.3 * ph)); m.scale.setScalar(1 - ph * 0.6);
+  }
+  const tick = Math.floor(hl.t * 6); if (tick !== hl.tick) { hl.tick = tick; sfx.healTick(); }
+  if (hl.t >= HEAL_TIME) {
+    P.hp = Math.min(5, P.hp + 1); updateHearts(); P.heal = null; healAura.visible = false;
+    popup('+1 HEART', P.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), true); sfx.heart(); gainXP(5);
+    burst(P.pos.clone().add(new THREE.Vector3(0, 1, 0)), 14, 7, 0);
+  }
+}
+
 // ---------- skills and XP: every level unlocks a move; progress is saved in this browser ----------
 const SKILLS = [
   { lv: 1, id: 'punch', name: 'PUNCH', how: 'Q or right click' },
   { lv: 1, id: 'web', name: 'WEB SHOT', how: 'X' },
+  { lv: 1, id: 'heal', name: 'HEALING', how: 'H · 40 charge: +1 heart' },
   { lv: 1, id: 'flip', name: 'FRONT FLIP + BASE JUMP', how: 'Space in the air · jump off a tall building' },
   { lv: 2, id: 'kick', name: 'KICK', how: 'R · mix with punches: PUNCH KICK' },
   { lv: 3, id: 'dpunch', name: 'DOUBLE PUNCH', how: 'Q, Q' },
@@ -1940,7 +1982,7 @@ function update(h) {
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
   P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
-  updateWeb(h);
+  updateWeb(h); updateHeal(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
   if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
   if (P.trick) { P.trick.t += h; if (P.trick.t >= P.trick.dur) P.trick = null; }
@@ -2248,7 +2290,8 @@ function updateCamera(dt) {
     else if (act && /punch|spin|web/.test(act.kind)) {
       const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
       hx = 0.26 - 0.14 * out; hy = -0.24 + 0.1 * out; hz = -0.5 - 0.32 * out;
-    } else if (act) { hy = -0.3; hz = -0.42; }                   // kicks: the hand pulls back for balance
+    } else if (act) { hy = -0.3; hz = -0.42; }
+    else if (P.heal) { hx = 0.18; hy = -0.1 + Math.sin(t * 10) * 0.012; }                // hand raised while healing                   // kicks: the hand pulls back for balance
     fpHand.position.set(hx, hy, hz);
     if (P.rope) fpHand.lookAt(P.rope);
     else fpHand.lookAt(camera.localToWorld(new THREE.Vector3(hx * 0.3, hy * 0.3 + (act && act.kind === 'web' ? 0.4 : 0.15), -6)));
@@ -2330,6 +2373,7 @@ function animateHero(dt) {
       case 'web': set(armR, -1.57, 0); set(armL, -1.2, 0, 0.25); break;
     }
   }
+  if (P.heal && !(act && act.t < act.dur) && !P.rope) { set(armL, -2.7, 0, 0.5); set(armR, -2.7, 0, -0.5); }   // both arms up while healing
   // rotate the body about its middle (0.8 m up), not about the feet
   const rotX = ang => { body.rotation.x = ang; body.position.y = 0.8 - 0.8 * Math.cos(ang); body.position.z = -0.8 * Math.sin(ang); };
   const tuck = () => { set(legL, -1.7, 0); set(legR, -1.7, 0); set(armL, -0.7, 0, 0.4); set(armR, -0.7, 0, -0.4); };
@@ -2386,7 +2430,8 @@ function updateHUD() {
   setText('kills', 'TAKEDOWNS ' + kills);
   $('pulseFill').style.width = energy + '%';
   $('pulseFill').style.background = energy >= 50 ? '#ff1a2e' : '#7a0010';
-  setText('pulseLbl', energy >= 50 ? 'PULSE READY' : 'PULSE');
+  setText('pulseLbl', (energy >= 50 ? 'PULSE READY' : 'PULSE') + (!P.heal && P.hp < 5 && energy >= HEAL_COST ? ' · H HEAL' : P.heal ? ' · HEALING…' : ''));
+  show('healBar', !!P.heal); if (P.heal) $('healFill').style.width = Math.min(100, P.heal.t / HEAL_TIME * 100) + '%';
   { const lv = level(), lo = LV_XP[lv - 1], hi = LV_XP[lv]; setText('lvTxt', 'LV ' + lv); $('xpFill').style.width = (hi ? (xp - lo) / (hi - lo) * 100 : 100) + '%'; }
   show('combo', combo > 1); if (combo > 1) setText('comboN', 'X' + combo);
   let showM = false;
@@ -2448,7 +2493,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 requestAnimationFrame(frame);
 </script>
 </body>

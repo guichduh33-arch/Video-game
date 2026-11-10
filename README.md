@@ -785,3 +785,6 @@ are saved in the browser.
 This is a non-commercial fan tribute. Spider-Man, Peter Parker, Miles Morales, the
 Lizard, Kraven, Venom and related characters are trademarks of Marvel. This project is not affiliated with or endorsed by Marvel, Sony or Insomniac
 Games, and it must not be sold or distributed commercially.
+
+
+`H` heals: channel for 1.4 s in Redline 3D to get a heart back for 40 charge; a hit breaks the channel and refunds half.
