@@ -786,16 +786,7 @@ function maskTexture() {
   const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   g.fillStyle = MASKC.base; g.fillRect(0, 0, W, H);
-  // a fine web across the mask: meridians and sagging rings (drawn first, the lenses sit on top)
-  g.save(); g.strokeStyle = MASKC.rim; g.globalAlpha = 0.32; g.lineWidth = 3;
-  for (let i = 0; i < 24; i++) { g.beginPath(); g.moveTo(W * i / 24, 0); g.quadraticCurveTo(W * i / 24 + 14, H * 0.5, W * i / 24, H); g.stroke(); }
-  for (let j = 1; j < 9; j++) for (let i = 0; i < 24; i++) { const x0 = W * i / 24, y = H * j / 9; g.beginPath(); g.moveTo(x0, y); g.quadraticCurveTo(x0 + W / 48, y + 11, x0 + W / 24, y); g.stroke(); }
-  g.restore();
-  // a faint seam from the forehead over the top, and a red stripe down the back of the head
-  g.fillStyle = MASKC.seam; g.fillRect(W * 0.25 - 3, 0, 6, H * 0.36);
-  g.fillStyle = MASKC.stripe; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
-  // a thin red line from the brow up over the forehead
-  g.fillStyle = MASKC.line; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
+  // a clean, glossy black mask: no seams, no stripes, no lines; only the lenses
   // the eyes: two big, expressive lenses, angled sharply down toward the nose, with a bold accent rim, a soft glow, a dark brow shadow and glossy highlights
   // Spider-Verse style lenses: big flat-white, angular teardrops with a sharp inner-bottom tip pointing at the nose and a rounded outer top
   const lens = (s, grow) => {
@@ -844,20 +835,60 @@ function applyHero(i, quiet) {
 function switchHero() { if (state === 'play') applyHero(heroIdx + 1); }
 let hero = new THREE.Group(); scene.add(hero);
 const body = new THREE.Group(); hero.add(body);
-function blockLimb(parent, x, y, faces, wPx = 4, lenPx = 12) {
-  const pivot = new THREE.Group(); pivot.position.set(x, y, 0); parent.add(pivot);
-  const box = pixBox(wPx, lenPx, 4, faces); box.position.y = -lenPx * PX / 2; pivot.add(box);
-  const knee = new THREE.Group(); knee.position.y = -lenPx * PX; pivot.add(knee); // no elbows or knees, like a voxel figure
-  const end = new THREE.Group(); end.position.y = -lenPx * PX; pivot.add(end);
+// An athletic hero body: a V-tapered torso, round shoulders, muscular arms and legs with real elbows and knees, gloves, boots, a belt and a big glowing chest bolt.
+const boltTex = pixTex(40, 52, (px, w, h) => {
+  const poly = [[0.66, 0.02], [0.14, 0.56], [0.44, 0.56], [0.3, 0.98], [0.9, 0.38], [0.58, 0.38], [0.8, 0.02]];   // a bold lightning bolt
+  const inside = (x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+  const edge = (x, y, dx, dy) => !inside(x + dx, y + dy);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const x = (i + 0.5) / w, y = (j + 0.5) / h; if (!inside(x, y)) continue;
+    let col = y < 0.5 ? PAL.r3 : PAL.r2;
+    if (edge(x, y, -0.05, 0)) col = PAL.w; else if (edge(x, y, 0.05, 0.02) || edge(x, y, 0, 0.05)) col = PAL.r1;
+    px(i, j, col);
+  }
+});
+boltTex.magFilter = THREE.LinearFilter; boltTex.minFilter = THREE.LinearFilter;
+const matBolt = new THREE.MeshBasicMaterial({ map: boltTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+const matBoot = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 });
+const mk = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; return m; };
+const torso = new THREE.Group(); torso.position.y = 18 * PX; body.add(torso);
+{
+  const prof = [[0.0, -0.3], [0.185, -0.3], [0.175, -0.2], [0.16, -0.1], [0.2, 0.04], [0.265, 0.17], [0.31, 0.26], [0.28, 0.31], [0.14, 0.335], [0.0, 0.335]].map(([r, y]) => new THREE.Vector2(r, y));
+  const shell = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), matSuit); shell.scale.z = 0.62; shell.castShadow = true; torso.add(shell);
+  const belt = mk(new THREE.TorusGeometry(0.176, 0.03, 8, 36), matRed, 0, -0.2, 0); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.62, 1); torso.add(belt);
+  torso.add(mk(new THREE.BoxGeometry(0.1, 0.075, 0.03), matBoot, 0, -0.2, 0.1));                                            // buckle
+  const bolt = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.46), matBolt); bolt.position.set(0, 0.1, 0.175); torso.add(bolt);   // chest bolt
+  for (const sx of [-1, 1]) torso.add(mk(new THREE.CapsuleGeometry(0.012, 0.3, 4, 8), matRed, sx * 0.255, 0.0, 0.03));       // red side stripes
+  torso.add(mk(new THREE.CylinderGeometry(0.085, 0.1, 0.12, 16), matSuit, 0, 0.36, 0));                                     // neck
+}
+const head = new THREE.Mesh(new THREE.SphereGeometry(4.1 * PX, 48, 32), matHead); head.position.y = 28.4 * PX; head.castShadow = true; body.add(head);
+function hLimb(x, y, kind, side) {
+  const pivot = new THREE.Group(); pivot.position.set(x, y, 0); body.add(pivot);
+  const knee = new THREE.Group(); knee.position.y = -0.3; pivot.add(knee);
+  const end = new THREE.Group(); end.position.y = -0.3; knee.add(end);
+  const cap = (r, len) => new THREE.CapsuleGeometry(r, Math.max(0.01, len - 2 * r), 6, 14);
+  if (kind === 'arm') {
+    pivot.add(mk(new THREE.SphereGeometry(0.105, 16, 12), matSuit));                                  // shoulder
+    pivot.add(mk(cap(0.08, 0.32), matSuit, 0, -0.15, 0));                                           // upper arm
+    const ring = mk(new THREE.TorusGeometry(0.082, 0.012, 6, 16), matRed, 0, -0.07, 0); ring.rotation.x = Math.PI / 2; pivot.add(ring);   // sleeve stripe
+    knee.add(mk(new THREE.SphereGeometry(0.06, 12, 10), matSuit));                                    // elbow
+    knee.add(mk(cap(0.068, 0.32), matSuit, 0, -0.15, 0));                                            // forearm
+    knee.add(mk(new THREE.CylinderGeometry(0.066, 0.07, 0.1, 14), matRed, 0, -0.2, 0));              // glove cuff
+    end.add(mk(new THREE.SphereGeometry(0.07, 14, 10), matRed, 0, 0.015, 0));                        // gloved fist
+    const f = mk(new THREE.BoxGeometry(0.1, 0.045, 0.05), matRed, 0, 0.0, 0.045); end.add(f);        // knuckles
+  } else {
+    pivot.add(mk(cap(0.088, 0.33), matSuit, 0, -0.15, 0));                                           // thigh
+    pivot.add(mk(new THREE.CapsuleGeometry(0.01, 0.22, 4, 8), matRed, side * 0.083, -0.15, 0.01));    // red leg stripe
+    knee.add(mk(new THREE.SphereGeometry(0.07, 12, 10), matSuit));                                    // knee
+    knee.add(mk(cap(0.068, 0.34), matSuit, 0, -0.15, 0));                                            // calf
+    knee.add(mk(new THREE.CylinderGeometry(0.076, 0.07, 0.17, 14), matRed, 0, -0.2, 0));             // boot shaft
+    knee.add(mk(new RoundedBoxGeometry(0.14, 0.1, 0.3, 3, 0.04), matRed, 0, -0.32, 0.06));           // boot foot
+    knee.add(mk(new RoundedBoxGeometry(0.146, 0.03, 0.31, 2, 0.01), matBoot, 0, -0.375, 0.06));      // white sole
+  }
   return { pivot, knee, end };
 }
-const torso = pixBox(8, 12, 4, [torsoSide, torsoSide, torsoTop, torsoTop, torsoFront, torsoBack]); torso.position.y = 18 * PX; body.add(torso);
-Object.assign(torso.material[4], { emissive: new THREE.Color(0xffffff), emissiveMap: boltGlow, emissiveIntensity: 1.6 });   // the bolt glows
-const head = new THREE.Mesh(new THREE.SphereGeometry(4.6 * PX, 48, 32), matHead); head.position.y = 28.6 * PX; head.castShadow = true; body.add(head);
-const armFaces = [armOther, armOther, armTop, fist, armFront, armOther];
-const armL = blockLimb(body, 6 * PX, 24 * PX, armFaces), armR = blockLimb(body, -6 * PX, 24 * PX, armFaces);
-const legL = blockLimb(body, 2 * PX, 12 * PX, [legFace(1, 7), legFace(0, 8), legTop, sole, legFace(0, 10, true), legFace(0, 11)]);
-const legR = blockLimb(body, -2 * PX, 12 * PX, [legFace(0, 12), legFace(2, 13), legTop, sole, legFace(0, 14, true), legFace(0, 15)]);
+const armL = hLimb(0.37, 24 * PX, 'arm', 1), armR = hLimb(-0.37, 24 * PX, 'arm', -1);
+const legL = hLimb(0.1, 12 * PX, 'leg', 1), legR = hLimb(-0.1, 12 * PX, 'leg', -1);
 const RIG = { ready: false };
 // first-person swing hand: one red glove in the lower right of the view that reaches toward the web anchor
 const fpHand = new THREE.Group();
@@ -3415,7 +3446,7 @@ function makeAllyHero(i) {
   const rider = body.clone(true);
   rider.traverse(m => {
     if (!m.isMesh) return; const arr = Array.isArray(m.material);
-    const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
+    const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else if (mt === matSuit) c.color.setHex(H.suit); else if (mt === matRed) c.color.setHex(H.red); else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
     m.material = arr ? out : out[0];
   });
   rider.rotation.set(0, 0, 0); rider.position.set(0, 0, 0); g.add(rider);
