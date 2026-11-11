@@ -825,10 +825,12 @@ function maskTexture() {
   for (const s of [-1, 1]) {
     const cy = H * 0.476;
     g.save(); g.shadowColor = 'rgba(255,255,255,0.35)'; g.shadowBlur = 22; lens(s, 8); g.fillStyle = '#050506'; g.fill(); g.restore();   // dark outline with a faint glow
-    lens(s, 4.5); g.fillStyle = '#ff9aa2'; g.fill();                         // a tiny edge of light red
     lens(s, 0);
     const gr = g.createLinearGradient(0, cy - H * 0.05, 0, cy + H * 0.05); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.7, '#fbfdff'); gr.addColorStop(1, '#dfe7f1');
     g.fillStyle = gr; g.fill();                                               // flat, bright white lens
+    g.save(); lens(s, 0); g.clip();                                           // a soft light-red tint in the outer corner of the eye (no line)
+    const ox = W * 0.25 + s * 0.064 * W + s * 0.05 * W, rg = g.createRadialGradient(ox, cy + H * 0.01, 0, ox, cy + H * 0.01, W * 0.03);
+    rg.addColorStop(0, 'rgba(255,150,160,0.75)'); rg.addColorStop(1, 'rgba(255,150,160,0)'); g.fillStyle = rg; g.fillRect(ox - W * 0.04, cy - H * 0.06, W * 0.08, H * 0.12); g.restore();
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
