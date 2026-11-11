@@ -811,3 +811,7 @@ Press `Y` or `Tab` (or the SWITCH button) to switch between eight original web h
 In World 2 the three heroes you are not playing fight beside you on foot, on the roof or road you last stood on (no bikes, no flying): they run with you, shoot webs at the Sea Eater team and web its crew. Now and then the Sea Eater knocks one down for a few seconds, then they respond and get back up. Together they can wear the Sea Eater down.
 
 Falling: a hard landing on solid ground (roof, road, pier) costs one heart in every world; small drops cost nothing, and diving onto things is safe. The sea itself never hurts.
+
+## The Sea Eater team
+
+World 2's big gray Sea Eater now has a team: four smaller sea eaters in different colors (**green, red, blue, purple**) that circle the port, then wind up and lunge across the water at you. A bite costs a heart if you are low near the water, so stay up high or dodge. Each has 6 HP: punch, kick, shockwave or web them (a web hit damages instead of wrapping), and your Biker Society allies shoot them too. They stay until you beat them.

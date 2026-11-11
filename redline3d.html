@@ -1998,6 +1998,7 @@ function updateGrabs(h) {
   }
 }
 function wrapInWeb(e) {
+  if (e.mini) { popup('WEB HIT', e.mesh.position.clone().add(new THREE.Vector3(0, 6, 0))); damageEnemy(e, 1, 'web'); return; }
   if (!e.blob) {
     const g = new THREE.Group();
     g.add(new THREE.Mesh(webGeo, webMat), new THREE.Mesh(webGeo, webFill));
@@ -2032,7 +2033,7 @@ function updateWeb(h) {
         else if (boss.kind !== 'sky' && (boss.webCd || 0) <= 0 && boss.stun <= 0 && boss.state !== 'leap' && boss.state !== 'emerge') { boss.state = 'stunned'; boss.stun = 1.5; boss.webCd = 8; slamRing.visible = slamFill.visible = false; popup('WEBBED! CORE EXPOSED', tp, true); }
         else popup('RESISTED', tp);
       } else if (tg.ped || tg.car) startGrab(tg);
-      else if (!tg.e.dead) { wrapInWeb(tg.e); startGrab(tg); }
+      else if (!tg.e.dead) { wrapInWeb(tg.e); if (!tg.e.mini) startGrab(tg); }
     }
   }
   for (const sh of shots) if (sh.mesh.position.distanceTo(web.pos) < 1.6) { sh.life = 0; end = true; popup('WEBBED +25', sh.mesh.position); bonus += 25; }
@@ -2481,6 +2482,38 @@ function nearestArm(x, z, not) {
   for (const a of boss.arms) { if (a === not || a.mode !== 'idle') continue; const w = m.localToWorld(a.base.clone()), d = Math.hypot(w.x - x, w.z - z); if (d < bd) { bd = d; best = a; } }
   return best;
 }
+// the Sea Eater team: smaller sea eaters in other colors that circle the port and lunge at you
+const MINI_COLORS = [['GREEN', 0x7fcf7a], ['RED', 0xd0675f], ['BLUE', 0x5f93e0], ['PURPLE', 0xa27ad4], ['ORANGE', 0xe0a050]];
+function makeMiniEater(tint) {
+  const g = makeSeaEater(); g.userData.armGroups = null;
+  g.traverse(o => { if (!o.isMesh) return; o.material = o.material.clone(); const c = o.material.color.getHex(); if (c === 0x84a0b0 || c === 0xffffff) o.material.color.setHex(tint); });
+  g.scale.setScalar(0.22); return g;
+}
+function spawnMiniEaters(n) {
+  for (let i = 0; i < n; i++) {
+    const [nm, col] = MINI_COLORS[i % MINI_COLORS.length], a = i / n * Math.PI * 2 + 0.4, r = rand(110, 190);
+    const mesh = makeMiniEater(col); mesh.position.set(SEA.x + Math.cos(a) * r, -6, SEA.z + Math.sin(a) * r); scene.add(mesh);
+    enemies.push({ type: 'mini', mini: true, color: nm, mesh, cd: 4 + i * 1.5, t: 0, dead: false, h: 3, hp: 6, hitInv: 0, a, r, w: (i % 2 ? -1 : 1) * rand(0.07, 0.11), st: 'swim', lt: 0, bit: false, rise: 0 });
+  }
+  setTimeout(() => { if (state === 'play' && world === 2) banner('THE SEA EATER TEAM', 'GREEN · RED · BLUE · PURPLE — AND THE BIG ONE'); }, 3500);
+}
+function updateMini(e, h) {
+  const m = e.mesh; e.rise = Math.min(1, e.rise + h * 0.5);
+  const toP = P.pos.clone().sub(m.position).setY(0), d = toP.length();
+  if (e.st === 'swim') {
+    e.a += e.w * h; const gx = SEA.x + Math.cos(e.a) * e.r, gz = SEA.z + Math.sin(e.a) * e.r;
+    m.position.x += (gx - m.position.x) * Math.min(1, h * 1.5); m.position.z += (gz - m.position.z) * Math.min(1, h * 1.5);
+    if ((e.cd -= h) <= 0 && d < 260) { e.st = 'lunge'; e.lt = 0; e.bit = false; e.dir = toP.clone().normalize(); e.cd = rand(5, 8); popup(e.color + ' SEA EATER!', m.position.clone().add(new THREE.Vector3(0, 12, 0)), true); sfx.alarm(); }
+  } else {
+    e.lt += h; const sp = e.lt < 0.6 ? 6 : 38;                                     // winds up, then lunges
+    if (e.lt > 0.6) m.position.addScaledVector(e.dir, sp * h); else m.position.addScaledVector(e.dir, -3 * h);
+    const dx = m.position.x - SEA.x, dz = m.position.z - SEA.z, rr = Math.hypot(dx, dz); if (rr > SEA.R - 20) { m.position.x = SEA.x + dx / rr * (SEA.R - 20); m.position.z = SEA.z + dz / rr * (SEA.R - 20); }
+    if (!e.bit && e.lt > 0.6 && m.position.distanceTo(P.pos.clone().setY(m.position.y)) < 12 && P.pos.y < waterH(m.position.x, m.position.z) + 9) { e.bit = true; hurt('SEA EATER BITE'); }
+    if (e.lt > 1.8) { e.st = 'swim'; e.a = Math.atan2(m.position.z - SEA.z, m.position.x - SEA.x); }
+  }
+  m.position.y = waterH(m.position.x, m.position.z) - 2 * (1 - e.rise) - 0.4 + Math.sin(e.t * 1.6 + e.a * 5) * 0.4;
+  const fy = Math.atan2(P.pos.x - m.position.x, P.pos.z - m.position.z); let dd = fy - m.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); m.rotation.y += dd * Math.min(1, h * (e.st === 'lunge' ? 8 : 2));
+}
 function startSeaEater() {
   const mesh = makeSeaEater(); mesh.position.set(SEA.x, -34, SEA.z); scene.add(mesh);
   for (const ag of mesh.userData.armGroups) scene.add(ag);
@@ -2490,6 +2523,7 @@ function startSeaEater() {
   arms.forEach(a => a.tip.copy(mesh.localToWorld(a.base.clone())).add(new THREE.Vector3(0, 6, 0)));
   beacon.position.set(SEA.x, 250, SEA.z); beacon.visible = true;
   banner('THE SEA EATER', 'FINAL BOSS · WORLD 2'); setText('bossName', 'THE SEA EATER'); show('bossBar', true); sfx.alarm();
+  spawnMiniEaters(4);
 }
 function removeSeaEater() {
   if (boss.mesh) scene.remove(boss.mesh);
@@ -2864,6 +2898,7 @@ function update(h) {
       if (m.userData.laser) m.userData.laser.visible = false;
       continue;
     }
+    if (T === 'mini') { if (e.hp > 0) { updateMini(e, h); } continue; }
     // knockback from kicks: enemies slide, and fall off their roof if pushed over the edge
     if (e.knock) {
       m.position.addScaledVector(e.knock, h); e.knock.multiplyScalar(Math.pow(0.03, h)); if (!e.b) e.knock.y -= 20 * h;
@@ -2946,7 +2981,7 @@ function update(h) {
     }
   }
   enemies = enemies.filter(e => {
-    const far = e.mesh.position.distanceTo(P.pos) > 260;
+    const far = !e.mini && e.mesh.position.distanceTo(P.pos) > 260;
     if ((e.dead && e.dt > 1) || far) { scene.remove(e.mesh); if (e.mesh.userData.laser) scene.remove(e.mesh.userData.laser); return false; }
     return true;
   });
