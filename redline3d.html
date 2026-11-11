@@ -86,6 +86,15 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #qualBtn{right:calc(176px + env(safe-area-inset-right));padding:0 10px}
 #viewBtn{right:calc(262px + env(safe-area-inset-right));padding:0 10px}
 #swBtn{right:calc(348px + env(safe-area-inset-right));padding:0 10px;font-size:16px}
+#bagBtn{right:calc(492px + env(safe-area-inset-right));padding:0 10px;font-size:16px}
+#bagUI h2{margin:0 0 8px;letter-spacing:6px}
+#paper{background:#fffdf5;border:4px solid #fff;box-shadow:6px 6px 0 #000;touch-action:none;cursor:crosshair;width:min(86vw,60vh,420px);height:min(86vw,60vh,420px)}
+.tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0;align-items:center}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid #fff;cursor:pointer;padding:0}
+.sw.on{outline:3px solid #ffd23f}
+button.sm{font-family:inherit;font-size:16px;letter-spacing:2px;padding:8px 14px;background:#fff;color:#000;border:3px solid #000;cursor:pointer;margin:3px}
+button.sm.hot{background:var(--red)}
+#picImg{width:min(70vw,45vh,300px);border:4px solid #fff;box-shadow:6px 6px 0 #000;background:#fff}
 #bPunch{width:72px;height:72px;right:calc(214px + env(safe-area-inset-right));bottom:calc(40px + env(safe-area-inset-bottom))}
 #bKick{width:64px;height:64px;right:calc(218px + env(safe-area-inset-right));bottom:calc(124px + env(safe-area-inset-bottom))}
 #bFlip{width:60px;height:60px;right:calc(298px + env(safe-area-inset-right));bottom:calc(46px + env(safe-area-inset-bottom))}
@@ -154,6 +163,19 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
   <div class="skills" id="skillsTitle"></div>
 </div>
 
+<div id="bagUI" class="screen hidden">
+  <h2 id="bagTitle">MY BAG: PAPER AND PENCIL</h2>
+  <div id="bagDraw">
+    <canvas id="paper" width="480" height="480"></canvas>
+    <div class="tools" id="penTools"></div>
+    <div><button class="sm hot" id="bagDone">DONE: PUT IT IN MY BAG</button><button class="sm" id="bagClear">CLEAR</button><button class="sm" id="bagView">MY PICTURE</button><button class="sm" id="bagClose">CLOSE</button></div>
+  </div>
+  <div id="bagPic" class="hidden">
+    <img id="picImg" alt="your drawing">
+    <div style="margin-top:10px"><button class="sm hot" id="bagGive">GIVE TO MY PARTNERS</button><button class="sm hot" id="bagShare">SHARE</button><button class="sm" id="bagAgain">DRAW A NEW ONE</button><button class="sm" id="bagClose2">CLOSE</button></div>
+    <div id="bagMsg" style="margin-top:6px;font-size:16px;color:#ffd23f"></div>
+  </div>
+</div>
 <div id="pause" class="screen hidden">
   <h2>PAUSED</h2>
   <div style="height:24px"></div>
@@ -176,6 +198,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 <button id="timeBtn" class="corner hidden" aria-label="Change time of day">DAY</button>
 <button id="viewBtn" class="corner hidden" aria-label="Switch camera view">3RD</button>
 <button id="swBtn" class="corner hidden" aria-label="Switch hero">REDLINE ⇄</button>
+<button id="bagBtn" class="corner hidden" aria-label="Open your bag">BAG</button>
 <button id="qualBtn" class="corner hidden" aria-label="Graphics quality">HIGH</button>
 <button id="pauseBtn" class="corner hidden" aria-label="Pause">II</button>
 <div id="touch" class="hidden">
@@ -802,6 +825,7 @@ function maskTexture() {
   for (const s of [-1, 1]) {
     const cy = H * 0.476;
     g.save(); g.shadowColor = 'rgba(255,255,255,0.35)'; g.shadowBlur = 22; lens(s, 8); g.fillStyle = '#050506'; g.fill(); g.restore();   // dark outline with a faint glow
+    lens(s, 4.5); g.fillStyle = '#ff9aa2'; g.fill();                         // a tiny edge of light red
     lens(s, 0);
     const gr = g.createLinearGradient(0, cy - H * 0.05, 0, cy + H * 0.05); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.7, '#fbfdff'); gr.addColorStop(1, '#dfe7f1');
     g.fillStyle = gr; g.fill();                                               // flat, bright white lens
@@ -834,7 +858,7 @@ function applyHero(i, quiet) {
 }
 function switchHero() { if (state === 'play') applyHero(heroIdx + 1); }
 let hero = new THREE.Group(); scene.add(hero);
-const body = new THREE.Group(); body.scale.setScalar(0.76); hero.add(body);   // a 7-year-old boy: about 1.2 m tall, big head, short arms and legs
+const body = new THREE.Group(); body.scale.setScalar(0.86); hero.add(body);   // a real 7-year-old: about 1.35 m tall in this blocky world, a child's head size, slightly shorter limbs
 // An athletic hero body: a V-tapered torso, round shoulders, muscular arms and legs with real elbows and knees, gloves, boots, a belt and a big glowing chest bolt.
 const boltTex = pixTex(40, 52, (px, w, h) => {
   const poly = [[0.1, 0.96], [0.1, 0.04], [0.3, 0.04], [0.7, 0.62], [0.7, 0.04], [0.9, 0.04], [0.9, 0.96], [0.7, 0.96], [0.3, 0.38], [0.3, 0.96]];   // a bold letter N
@@ -851,22 +875,9 @@ boltTex.magFilter = THREE.LinearFilter; boltTex.minFilter = THREE.LinearFilter;
 const matBolt = new THREE.MeshBasicMaterial({ map: boltTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
 const matBoot = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 });
 const mk = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; return m; };
-const KID = 0.09;   // the legs are shorter, so everything above them drops by this much
-const torso = new THREE.Group(); torso.position.y = 18 * PX - KID; body.add(torso);
-{
-  const prof = [[0.0, -0.3], [0.185, -0.3], [0.175, -0.2], [0.16, -0.1], [0.2, 0.04], [0.265, 0.17], [0.31, 0.26], [0.28, 0.31], [0.14, 0.335], [0.0, 0.335]].map(([r, y]) => new THREE.Vector2(r, y));
-  const shell = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), matSuit); shell.scale.z = 0.62; shell.castShadow = true; torso.add(shell);
-  const belt = mk(new THREE.TorusGeometry(0.176, 0.03, 8, 36), matRed, 0, -0.2, 0); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.62, 1); torso.add(belt);
-  torso.add(mk(new THREE.BoxGeometry(0.1, 0.075, 0.03), matBoot, 0, -0.2, 0.1));                                            // buckle
-  const bolt = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), matBolt); bolt.position.set(0, 0.12, 0.175); torso.add(bolt);   // chest letter N
-  torso.add(mk(new THREE.CylinderGeometry(0.085, 0.1, 0.12, 16), matSuit, 0, 0.36, 0));                                     // neck
-  // a backpack with a clear pocket, and inside the pocket a photo: a kid bitten by a spider
-  const bag = new THREE.Group(); bag.position.set(0, 0.07, -0.2); torso.add(bag);
-  bag.add(mk(new RoundedBoxGeometry(0.34, 0.44, 0.17, 4, 0.06), matRed));
-  bag.add(mk(new RoundedBoxGeometry(0.3, 0.12, 0.19, 3, 0.04), matSuit, 0, 0.17, 0));                  // top flap
-  for (const sx of [-1, 1]) { bag.add(mk(new THREE.BoxGeometry(0.05, 0.5, 0.02), matSuit, sx * 0.12, 0.02, 0.1)); const st = mk(new THREE.BoxGeometry(0.045, 0.04, 0.4), matSuit, sx * 0.13, 0.27, 0.27); st.visible = false; }
-  const photoTex = (() => {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 300; const g = c.getContext('2d');
+const KID = 0.05;   // the legs are shorter, so everything above them drops by this much
+// the picture in the backpack pocket (your own drawing replaces it later); partners have their own copy
+function drawDefaultPhoto(g) {
     g.fillStyle = '#f7f4ea'; g.fillRect(0, 0, 256, 300);
     const sky = g.createLinearGradient(0, 14, 0, 236); sky.addColorStop(0, '#7fc4ff'); sky.addColorStop(1, '#ffe6a0'); g.fillStyle = sky; g.fillRect(14, 14, 228, 222);
     g.fillStyle = '#6dbb5a'; g.fillRect(14, 196, 228, 40);
@@ -883,12 +894,29 @@ const torso = new THREE.Group(); torso.position.y = 18 * PX - KID; body.add(tors
     g.fillStyle = '#e02020'; g.beginPath(); g.arc(48, 156, 2.5, 0, 7); g.arc(56, 156, 2.5, 0, 7); g.fill();
     g.fillStyle = '#d02030'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.fillText('OUCH!', 176, 56);
     g.fillStyle = '#333'; g.font = 'italic 20px sans-serif'; g.fillText('bitten!', 128, 274);
-    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
-  })();
+}
+const mkCanvasTex = c => { const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
+const photoCanvas = document.createElement('canvas'), allyCanvas = document.createElement('canvas');
+photoCanvas.width = allyCanvas.width = 256; photoCanvas.height = allyCanvas.height = 300;
+let photoTex = null, allyPhotoTex = null;
+const torso = new THREE.Group(); torso.position.y = 18 * PX - KID; body.add(torso);
+{
+  const prof = [[0.0, -0.3], [0.185, -0.3], [0.175, -0.2], [0.16, -0.1], [0.2, 0.04], [0.265, 0.17], [0.31, 0.26], [0.28, 0.31], [0.14, 0.335], [0.0, 0.335]].map(([r, y]) => new THREE.Vector2(r, y));
+  const shell = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), matSuit); shell.scale.z = 0.62; shell.castShadow = true; torso.add(shell);
+  const belt = mk(new THREE.TorusGeometry(0.176, 0.03, 8, 36), matRed, 0, -0.2, 0); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.62, 1); torso.add(belt);
+  torso.add(mk(new THREE.BoxGeometry(0.1, 0.075, 0.03), matBoot, 0, -0.2, 0.1));                                            // buckle
+  const bolt = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), matBolt); bolt.position.set(0, 0.12, 0.175); torso.add(bolt);   // chest letter N
+  torso.add(mk(new THREE.CylinderGeometry(0.085, 0.1, 0.12, 16), matSuit, 0, 0.36, 0));                                     // neck
+  // a backpack with a clear pocket, and inside the pocket a photo: a kid bitten by a spider
+  const bag = new THREE.Group(); bag.position.set(0, 0.07, -0.2); torso.add(bag);
+  bag.add(mk(new RoundedBoxGeometry(0.34, 0.44, 0.17, 4, 0.06), matRed));
+  bag.add(mk(new RoundedBoxGeometry(0.3, 0.12, 0.19, 3, 0.04), matSuit, 0, 0.17, 0));                  // top flap
+  for (const sx of [-1, 1]) { bag.add(mk(new THREE.BoxGeometry(0.05, 0.5, 0.02), matSuit, sx * 0.12, 0.02, 0.1)); const st = mk(new THREE.BoxGeometry(0.045, 0.04, 0.4), matSuit, sx * 0.13, 0.27, 0.27); st.visible = false; }
+  drawDefaultPhoto(photoCanvas.getContext('2d')); drawDefaultPhoto(allyCanvas.getContext('2d')); photoTex = mkCanvasTex(photoCanvas); allyPhotoTex = mkCanvasTex(allyCanvas);
   const photo = mk(new THREE.PlaneGeometry(0.2, 0.24), new THREE.MeshBasicMaterial({ map: photoTex }), 0, -0.04, -0.092); photo.rotation.y = Math.PI; bag.add(photo);   // the photo, facing out the back
   const pocket = mk(new THREE.PlaneGeometry(0.23, 0.27), new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.22, roughness: 0.1, metalness: 0.3 }), 0, -0.04, -0.094); pocket.rotation.y = Math.PI; bag.add(pocket);   // clear plastic pocket
 }
-const head = new THREE.Mesh(new THREE.SphereGeometry(5.0 * PX, 48, 32), matHead); head.position.y = 29.6 * PX - KID; head.castShadow = true; body.add(head);
+const head = new THREE.Mesh(new THREE.SphereGeometry(3.9 * PX, 48, 32), matHead); head.position.y = 1.42 - KID; head.castShadow = true; body.add(head);
 function hLimb(x, y, kind, side) {
   const pivot = new THREE.Group(); pivot.position.set(x, y, 0); body.add(pivot);
   const knee = new THREE.Group(); knee.position.y = -0.3; pivot.add(knee);
@@ -914,7 +942,7 @@ function hLimb(x, y, kind, side) {
 }
 const armL = hLimb(0.37, 24 * PX - KID, 'arm', 1), armR = hLimb(-0.37, 24 * PX - KID, 'arm', -1);
 const legL = hLimb(0.1, 12 * PX - KID, 'leg', 1), legR = hLimb(-0.1, 12 * PX - KID, 'leg', -1);
-armL.pivot.scale.y = armR.pivot.scale.y = 0.88; legL.pivot.scale.y = legR.pivot.scale.y = 0.85;   // short little arms and legs
+armL.pivot.scale.y = armR.pivot.scale.y = 0.95; legL.pivot.scale.y = legR.pivot.scale.y = 0.92;   // a child's limbs
 const RIG = { ready: false };
 // first-person swing hand: one red glove in the lower right of the view that reaches toward the web anchor
 const fpHand = new THREE.Group();
@@ -1424,9 +1452,10 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyT') cycleTime();
   if (e.code === 'KeyB') setView(!firstPerson);
   if (e.code === 'KeyY' || e.code === 'Tab') switchHero();
+  if (e.code === 'KeyI') openBag();
   if (e.code === 'KeyQ') punch();
   if (e.code === 'KeyG') setQuality(quality === 'high' ? 'low' : 'high');
-  if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') pause(); else if (state === 'pause') resume(); }
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (state === 'play') pause(); else if (state === 'pause') resume(); else if (state === 'bag' && e.code === 'Escape') closeBag(); }
   if (e.code === 'KeyM') { muted = !muted; store.set('redline-muted', muted ? '1' : '0'); syncRainSound(); }
 });
 addEventListener('keyup', e => {
@@ -1484,16 +1513,94 @@ $('timeBtn').onclick = () => cycleTime();
 $('qualBtn').onclick = () => setQuality(quality === 'high' ? 'low' : 'high');
 $('viewBtn').onclick = () => setView(!firstPerson);
 $('swBtn').onclick = () => { switchHero(); $('swBtn').blur(); };
+$('bagBtn').onclick = () => { openBag(); $('bagBtn').blur(); };
 document.querySelectorAll('#timePick button').forEach(b => b.onclick = () => applyTime(b.dataset.time));
 addEventListener('blur', () => { if (state === 'play') pause(); });
 
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
-function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'swBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
+function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'swBtn', 'bagBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
 function start() {
   audio(); world = selWorld; reset(); state = 'play'; if (firstPerson) pitch = 0;
   show('title', false); show('over', false); show('pause', false); setPlayUI(true);
   lockMouse();
 }
+// ---------- the bag: paper and pencil. Draw anything; it becomes the picture in your backpack, and you can give it to your partners or share it ----------
+const PEN_COLORS = ['#111111', '#d02030', '#2a5ac8', '#2a9a4a', '#e0a020', '#8a3aaa'];
+let pen = { color: '#111111', size: 4, erase: false }, myPic = store.get('redline3d-pic') || null, bagFrom = null;
+{
+  const box = $('penTools');
+  PEN_COLORS.forEach((c, i) => { const b = document.createElement('button'); b.className = 'sw' + (i === 0 ? ' on' : ''); b.style.background = c; b.onclick = () => { pen.color = c; pen.erase = false; box.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); }; box.appendChild(b); });
+  [['THIN', 2], ['MEDIUM', 5], ['THICK', 12]].forEach(([n, z]) => { const b = document.createElement('button'); b.className = 'sm'; b.textContent = n; b.onclick = () => { pen.size = z; }; box.appendChild(b); });
+  const er = document.createElement('button'); er.className = 'sm'; er.textContent = 'ERASER'; er.onclick = () => { pen.erase = true; }; box.appendChild(er);
+}
+const paper = $('paper'), pctx = paper.getContext('2d');
+function clearPaper() {
+  pctx.fillStyle = '#fffdf5'; pctx.fillRect(0, 0, 480, 480); pctx.strokeStyle = '#cfe0f0'; pctx.lineWidth = 1;
+  for (let y = 40; y < 480; y += 32) { pctx.beginPath(); pctx.moveTo(0, y); pctx.lineTo(480, y); pctx.stroke(); }
+  pctx.strokeStyle = '#f0b0b0'; pctx.beginPath(); pctx.moveTo(60, 0); pctx.lineTo(60, 480); pctx.stroke();
+}
+clearPaper();
+{
+  let drawing = false, lx = 0, ly = 0;
+  const pos = e => { const r = paper.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 480, (e.clientY - r.top) / r.height * 480]; };
+  const seg = (x0, y0, x1, y1) => {
+    pctx.lineCap = 'round'; pctx.lineJoin = 'round';
+    if (pen.erase) { pctx.strokeStyle = '#fffdf5'; pctx.lineWidth = pen.size * 3 + 8; pctx.globalAlpha = 1; pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke(); return; }
+    pctx.strokeStyle = pen.color; pctx.lineWidth = pen.size; pctx.globalAlpha = 0.9; pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke();   // pencil: slightly soft
+    pctx.globalAlpha = 0.5; pctx.lineWidth = pen.size * 0.55; pctx.beginPath(); pctx.moveTo(x0 + 0.6, y0 + 0.4); pctx.lineTo(x1 + 0.6, y1 + 0.4); pctx.stroke(); pctx.globalAlpha = 1;
+  };
+  paper.addEventListener('pointerdown', e => { drawing = true; [lx, ly] = pos(e); seg(lx, ly, lx + 0.01, ly + 0.01); paper.setPointerCapture?.(e.pointerId); e.preventDefault(); });
+  paper.addEventListener('pointermove', e => { if (!drawing) return; const [x, y] = pos(e); seg(lx, ly, x, y); lx = x; ly = y; e.preventDefault(); });
+  const end = () => { drawing = false; };
+  paper.addEventListener('pointerup', end); paper.addEventListener('pointercancel', end);
+}
+// the finished picture: a framed photo of your drawing
+function pictureCanvas(w) {
+  const k = w / 256, c = document.createElement('canvas'); c.width = w; c.height = Math.round(300 * k); const g = c.getContext('2d');
+  g.fillStyle = '#f7f4ea'; g.fillRect(0, 0, c.width, c.height); g.drawImage(paper, 14 * k, 14 * k, 228 * k, 228 * k);
+  g.fillStyle = '#333'; g.font = `italic ${Math.round(20 * k)}px sans-serif`; g.textAlign = 'center'; g.fillText('my drawing', 128 * k, 276 * k);
+  return c;
+}
+function setBagPic(url, to) {   // paints a picture (data URL) onto the backpack photo
+  const img = new Image(); img.onload = () => { for (const [cv, tx] of to) { const g = cv.getContext('2d'); g.drawImage(img, 0, 0, 256, 300); tx.needsUpdate = true; } }; img.src = url;
+}
+function showBag(view) {
+  show('bagDraw', view === 'draw'); show('bagPic', view === 'pic');
+  $('bagTitle').textContent = view === 'draw' ? 'MY BAG: PAPER AND PENCIL' : 'MY PICTURE';
+  $('bagView').style.display = myPic ? '' : 'none';
+  if (view === 'pic') { $('picImg').src = myPic; $('bagMsg').textContent = ''; }
+}
+function openBag() {
+  if (state !== 'play') return;
+  bagFrom = 'play'; state = 'bag'; input.swing = false; input.keys.clear(); if (P.rope) letGo();
+  if (document.pointerLockElement) document.exitPointerLock();
+  show('bagUI', true); showBag('draw');
+}
+function closeBag() { if (state !== 'bag') return; show('bagUI', false); state = 'play'; last = performance.now(); lockMouse(); }
+$('bagClose').onclick = $('bagClose2').onclick = closeBag;
+$('bagClear').onclick = clearPaper;
+$('bagView').onclick = () => showBag('pic');
+$('bagAgain').onclick = () => { clearPaper(); showBag('draw'); };
+$('bagDone').onclick = () => {
+  myPic = pictureCanvas(256).toDataURL('image/png'); store.set('redline3d-pic', myPic);
+  setBagPic(myPic, [[photoCanvas, photoTex]]);          // the drawing turns into the picture in your backpack
+  showBag('pic'); $('bagMsg').textContent = 'It is in your bag now! Look at your back.';
+};
+$('bagGive').onclick = () => {
+  setBagPic(myPic, [[allyCanvas, allyPhotoTex]]);
+  const n = allies.length; $('bagMsg').textContent = n ? 'Your partners have your picture in their bags!' : 'Your partners will carry your picture when they join you (World 2).';
+  for (const a of allies) { popup(a.name + ': THANKS!', a.mesh.position.clone().add(new THREE.Vector3(0, 2.4, 0)), true); burst(a.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 14, 8, 0); }
+};
+$('bagShare').onclick = async () => {
+  const c = pictureCanvas(512);
+  c.toBlob(async blob => {
+    const file = new File([blob], 'my-drawing.png', { type: 'image/png' });
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'My drawing', text: 'I drew this in Redline 3D!' }); $('bagMsg').textContent = 'Shared!'; return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'my-drawing.png'; a.click(); $('bagMsg').textContent = 'Saved as a picture file: send it to your friends!';
+  }, 'image/png');
+};
 function pause() {
   state = 'pause'; input.swing = false; input.keys.clear(); if (P.rope) letGo();
   show('pause', true); renderSkills('skillsPause');
@@ -3474,7 +3581,7 @@ function makeAllyHero(i) {
   const rider = body.clone(true);
   rider.traverse(m => {
     if (!m.isMesh) return; const arr = Array.isArray(m.material);
-    const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else if (mt === matSuit) c.color.setHex(H.suit); else if (mt === matRed) c.color.setHex(H.red); else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
+    const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else if (mt === matSuit) c.color.setHex(H.suit); else if (mt === matRed) c.color.setHex(H.red); else if (mt.map === photoTex) c.map = allyPhotoTex; else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
     m.material = arr ? out : out[0];
   });
   rider.rotation.set(0, 0, 0); rider.position.set(0, 0, 0); g.add(rider);
@@ -3572,8 +3679,9 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { maskTexture, sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { openBag, closeBag, allyPhotoTex: () => allyPhotoTex, maskTexture, sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 applyHero(parseInt(store.get('redline3d-hero') || '0', 10) || 0, true);
+if (myPic) setBagPic(myPic, [[photoCanvas, photoTex]]);
 requestAnimationFrame(frame);
 </script>
 </body>

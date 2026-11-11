@@ -819,3 +819,7 @@ The Sea Eater is now 2.4 times bigger than before (mouth, arms, slams, bites and
 ## Look
 
 Redline is drawn as a 7-year-old boy (about 1.2 m tall): a small body with a big head and short arms and legs, hands hanging down when standing and a real running stride whose speed follows yours. The mask is plain glossy black with white lenses, the chest carries a letter **N**, and the hero wears a backpack with a clear pocket holding a cartoon photo of a kid bitten by a spider.
+
+## The bag: paper and pencil
+
+Press `I` or the BAG button (top bar) to open your bag. Inside are a sheet of paper and a pencil: draw anything (six colors, three sizes, an eraser). **DONE** turns your drawing into the framed picture in your backpack pocket (look at your back) and keeps it for next time. **MY PICTURE** shows it again. **GIVE TO MY PARTNERS** puts it in your partners' backpacks (the Biker Society heroes who fight beside you in World 2), and **SHARE** sends the picture to friends through your device's share sheet, or saves it as a picture file you can send.
