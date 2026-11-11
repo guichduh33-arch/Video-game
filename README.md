@@ -815,3 +815,7 @@ Falling: a hard landing on solid ground (roof, road, pier) costs one heart in ev
 World 2's big gray Sea Eater now has a team: four smaller sea eaters in different colors (**green, red, blue, purple**) that circle the port, then wind up and lunge across the water at you. A bite costs a heart if you are low near the water, so stay up high or dodge. Each has 6 HP: punch, kick, shockwave or web them (a web hit damages instead of wrapping), and your Biker Society allies shoot them too. They stay until you beat them.
 
 The Sea Eater is now 2.4 times bigger than before (mouth, arms, slams, bites and waves all scaled up) and has a proper creature voice: a deep layered bellow when it rises, growls before each attack, roars on its lunge and wave, a chomp, splashes when its fists land, and a long groan when it falls. Sound starts off: press `M` to turn it on.
+
+## Look
+
+Redline is drawn as a kid: a smaller body with a big head, hands hanging down when standing and a real running stride whose speed follows yours. The mask is plain glossy black with white lenses, the chest carries a letter **N**, and the hero wears a backpack with a clear pocket holding a cartoon photo of a kid bitten by a spider.

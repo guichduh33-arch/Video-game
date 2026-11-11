@@ -834,10 +834,10 @@ function applyHero(i, quiet) {
 }
 function switchHero() { if (state === 'play') applyHero(heroIdx + 1); }
 let hero = new THREE.Group(); scene.add(hero);
-const body = new THREE.Group(); hero.add(body);
+const body = new THREE.Group(); body.scale.setScalar(0.84); hero.add(body);   // a kid: a smaller body with a big head
 // An athletic hero body: a V-tapered torso, round shoulders, muscular arms and legs with real elbows and knees, gloves, boots, a belt and a big glowing chest bolt.
 const boltTex = pixTex(40, 52, (px, w, h) => {
-  const poly = [[0.66, 0.02], [0.14, 0.56], [0.44, 0.56], [0.3, 0.98], [0.9, 0.38], [0.58, 0.38], [0.8, 0.02]];   // a bold lightning bolt
+  const poly = [[0.1, 0.96], [0.1, 0.04], [0.3, 0.04], [0.7, 0.62], [0.7, 0.04], [0.9, 0.04], [0.9, 0.96], [0.7, 0.96], [0.3, 0.38], [0.3, 0.96]];   // a bold letter N
   const inside = (x, y) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
   const edge = (x, y, dx, dy) => !inside(x + dx, y + dy);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
@@ -857,11 +857,37 @@ const torso = new THREE.Group(); torso.position.y = 18 * PX; body.add(torso);
   const shell = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), matSuit); shell.scale.z = 0.62; shell.castShadow = true; torso.add(shell);
   const belt = mk(new THREE.TorusGeometry(0.176, 0.03, 8, 36), matRed, 0, -0.2, 0); belt.rotation.x = Math.PI / 2; belt.scale.set(1, 0.62, 1); torso.add(belt);
   torso.add(mk(new THREE.BoxGeometry(0.1, 0.075, 0.03), matBoot, 0, -0.2, 0.1));                                            // buckle
-  const bolt = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.46), matBolt); bolt.position.set(0, 0.1, 0.175); torso.add(bolt);   // chest bolt
-  for (const sx of [-1, 1]) torso.add(mk(new THREE.CapsuleGeometry(0.012, 0.3, 4, 8), matRed, sx * 0.255, 0.0, 0.03));       // red side stripes
+  const bolt = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), matBolt); bolt.position.set(0, 0.12, 0.175); torso.add(bolt);   // chest letter N
   torso.add(mk(new THREE.CylinderGeometry(0.085, 0.1, 0.12, 16), matSuit, 0, 0.36, 0));                                     // neck
+  // a backpack with a clear pocket, and inside the pocket a photo: a kid bitten by a spider
+  const bag = new THREE.Group(); bag.position.set(0, 0.07, -0.2); torso.add(bag);
+  bag.add(mk(new RoundedBoxGeometry(0.34, 0.44, 0.17, 4, 0.06), matRed));
+  bag.add(mk(new RoundedBoxGeometry(0.3, 0.12, 0.19, 3, 0.04), matSuit, 0, 0.17, 0));                  // top flap
+  for (const sx of [-1, 1]) { bag.add(mk(new THREE.BoxGeometry(0.05, 0.5, 0.02), matSuit, sx * 0.12, 0.02, 0.1)); const st = mk(new THREE.BoxGeometry(0.045, 0.04, 0.4), matSuit, sx * 0.13, 0.27, 0.27); st.visible = false; }
+  const photoTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 300; const g = c.getContext('2d');
+    g.fillStyle = '#f7f4ea'; g.fillRect(0, 0, 256, 300);
+    const sky = g.createLinearGradient(0, 14, 0, 236); sky.addColorStop(0, '#7fc4ff'); sky.addColorStop(1, '#ffe6a0'); g.fillStyle = sky; g.fillRect(14, 14, 228, 222);
+    g.fillStyle = '#6dbb5a'; g.fillRect(14, 196, 228, 40);
+    g.fillStyle = '#2a4a9a'; g.fillRect(96, 128, 64, 78); g.fillRect(104, 204, 20, 32); g.fillRect(132, 204, 20, 32);        // a kid: shirt and legs
+    g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(128, 100, 34, 0, 7); g.fill();                                               // head
+    g.fillStyle = '#3a2a1a'; g.beginPath(); g.arc(128, 84, 34, Math.PI, 0); g.fill();                                          // hair
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(116, 102, 8, 0, 7); g.arc(140, 102, 8, 0, 7); g.fill();
+    g.fillStyle = '#000'; g.beginPath(); g.arc(116, 103, 3.5, 0, 7); g.arc(140, 103, 3.5, 0, 7); g.fill();
+    g.fillStyle = '#7a1f1f'; g.beginPath(); g.ellipse(128, 122, 8, 11, 0, 0, 7); g.fill();                                      // "OUCH" mouth
+    g.fillStyle = '#f0c8a0'; g.save(); g.translate(96, 138); g.rotate(0.9); g.fillRect(-8, 0, 16, 56); g.restore();            // the arm out to the side
+    g.fillStyle = '#d02030'; g.beginPath(); g.arc(61, 170, 7, 0, 7); g.fill();                                                  // the bite
+    g.strokeStyle = '#111'; g.lineWidth = 3; for (let i = 0; i < 4; i++) for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(52, 160); g.lineTo(52 + sd * 22, 160 - 14 + i * 8 + (sd > 0 ? 0 : 0)); g.stroke(); }
+    g.fillStyle = '#111'; g.beginPath(); g.ellipse(52, 160, 12, 15, 0, 0, 7); g.fill();                                          // the spider
+    g.fillStyle = '#e02020'; g.beginPath(); g.arc(48, 156, 2.5, 0, 7); g.arc(56, 156, 2.5, 0, 7); g.fill();
+    g.fillStyle = '#d02030'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.fillText('OUCH!', 176, 56);
+    g.fillStyle = '#333'; g.font = 'italic 20px sans-serif'; g.fillText('bitten!', 128, 274);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+  })();
+  const photo = mk(new THREE.PlaneGeometry(0.2, 0.24), new THREE.MeshBasicMaterial({ map: photoTex }), 0, -0.04, -0.092); photo.rotation.y = Math.PI; bag.add(photo);   // the photo, facing out the back
+  const pocket = mk(new THREE.PlaneGeometry(0.23, 0.27), new THREE.MeshStandardMaterial({ color: 0xcfe8ff, transparent: true, opacity: 0.22, roughness: 0.1, metalness: 0.3 }), 0, -0.04, -0.094); pocket.rotation.y = Math.PI; bag.add(pocket);   // clear plastic pocket
 }
-const head = new THREE.Mesh(new THREE.SphereGeometry(4.1 * PX, 48, 32), matHead); head.position.y = 28.4 * PX; head.castShadow = true; body.add(head);
+const head = new THREE.Mesh(new THREE.SphereGeometry(5.0 * PX, 48, 32), matHead); head.position.y = 29.6 * PX; head.castShadow = true; body.add(head);
 function hLimb(x, y, kind, side) {
   const pivot = new THREE.Group(); pivot.position.set(x, y, 0); body.add(pivot);
   const knee = new THREE.Group(); knee.position.y = -0.3; pivot.add(knee);
@@ -870,7 +896,6 @@ function hLimb(x, y, kind, side) {
   if (kind === 'arm') {
     pivot.add(mk(new THREE.SphereGeometry(0.105, 16, 12), matSuit));                                  // shoulder
     pivot.add(mk(cap(0.08, 0.32), matSuit, 0, -0.15, 0));                                           // upper arm
-    const ring = mk(new THREE.TorusGeometry(0.082, 0.012, 6, 16), matRed, 0, -0.07, 0); ring.rotation.x = Math.PI / 2; pivot.add(ring);   // sleeve stripe
     knee.add(mk(new THREE.SphereGeometry(0.06, 12, 10), matSuit));                                    // elbow
     knee.add(mk(cap(0.068, 0.32), matSuit, 0, -0.15, 0));                                            // forearm
     knee.add(mk(new THREE.CylinderGeometry(0.066, 0.07, 0.1, 14), matRed, 0, -0.2, 0));              // glove cuff
@@ -878,7 +903,6 @@ function hLimb(x, y, kind, side) {
     const f = mk(new THREE.BoxGeometry(0.1, 0.045, 0.05), matRed, 0, 0.0, 0.045); end.add(f);        // knuckles
   } else {
     pivot.add(mk(cap(0.088, 0.33), matSuit, 0, -0.15, 0));                                           // thigh
-    pivot.add(mk(new THREE.CapsuleGeometry(0.01, 0.22, 4, 8), matRed, side * 0.083, -0.15, 0.01));    // red leg stripe
     knee.add(mk(new THREE.SphereGeometry(0.07, 12, 10), matSuit));                                    // knee
     knee.add(mk(cap(0.068, 0.34), matSuit, 0, -0.15, 0));                                            // calf
     knee.add(mk(new THREE.CylinderGeometry(0.076, 0.07, 0.17, 14), matRed, 0, -0.2, 0));             // boot shaft
@@ -3273,16 +3297,18 @@ function animateHero(dt) {
   const a = P.anim;
   const set = (l, p, k, zr) => { l.pivot.rotation.x = p; l.knee.rotation.x = k; l.pivot.rotation.z = zr || 0; };
   if (P.state === 'ground' && hv.length() > 1.5) {
-    const s = Math.sin(a * 13);
-    set(legL, s * 1.1, Math.max(0, -s) * 1.4 + 0.2); set(legR, -s * 1.1, Math.max(0, s) * 1.4 + 0.2);   // sprint: long strides, arms pumping
-    set(armL, -s * 1.15, -0.6, 0.12); set(armR, s * 1.15, -0.6, -0.12);
-    body.rotation.x = 0.3; body.rotation.y = s * 0.12; body.position.y = Math.abs(Math.sin(a * 13)) * 0.07;
+    P.runPh = (P.runPh || 0) + Math.min(hv.length(), 40) * dt * 1.25;       // the stride follows your speed
+    const rp = P.runPh, s = Math.sin(rp), c = Math.cos(rp), fast = Math.min(1, hv.length() / 14);
+    // a real run: thighs drive up and forward, the trailing knee folds back, elbows bent and pumping opposite to the legs, torso leaning in
+    set(legL, s * (0.8 + 0.5 * fast), Math.max(0, -c) * (1.2 + 0.7 * fast) + 0.12); set(legR, -s * (0.8 + 0.5 * fast), Math.max(0, c) * (1.2 + 0.7 * fast) + 0.12);
+    set(armL, -s * (0.9 + 0.4 * fast), -1.45, 0.08); set(armR, s * (0.9 + 0.4 * fast), -1.45, -0.08);
+    body.rotation.x = 0.16 + 0.22 * fast; body.rotation.y = s * 0.14; body.position.y = Math.abs(Math.cos(rp)) * 0.05 * (0.6 + fast);
   } else if (P.state === 'ground') {
     // ready stance: knees bent, fists up in a guard, breathing, weight shifting, head glancing where the camera looks
     const br = Math.sin(a * 2), sh = Math.sin(a * 0.7);
-    set(legL, -0.18 + sh * 0.04, 0.35); set(legR, 0.22 - sh * 0.04, 0.3);
-    set(armL, -0.9 + br * 0.04, -1.0, 0.3); set(armR, -0.75 - br * 0.04, -1.0, -0.3);
-    body.rotation.x = 0.1 + br * 0.01; body.rotation.y = sh * 0.08; body.position.y = -0.05 + br * 0.008;
+    set(legL, -0.04 + sh * 0.02, 0.08); set(legR, 0.05 - sh * 0.02, 0.08);
+    set(armL, 0.06 + br * 0.03, -0.1, 0.12); set(armR, 0.06 - br * 0.03, -0.1, -0.12);            // arms relaxed, hands down
+    body.rotation.x = 0.02; body.rotation.y = sh * 0.05; body.position.y = br * 0.006;
     idleLook = true;
   } else if (P.state === 'wall') {
     const s = Math.sin(a * 16);
