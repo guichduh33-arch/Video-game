@@ -53,9 +53,8 @@ Eight games live in this repo:
   5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
   drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
   fire, and jetpack troopers with homing rockets. After 10 takedowns, then every 15, a boss arrives under a red beacon, in turn:
-  **the Warden** (a 4.5 m rooftop mech: dodge its slam, then hit its glowing core while it is stunned),
-  **the Skyreaver** (a gunship circling above the arena with missile barrages and a tracking laser; three
-  web shots bring it down onto the roof) and **the Mauler** (a giant brute who leaps roof to roof, slams
+  **the Warden** (a blue 4.5 m rooftop mech: dodge its slam, then hit its glowing core while it is stunned),
+  and then **El Guamaha** (a giant green brute who leaps roof to roof, slams
   where he lands and throws rooftop units; he is stuck for a moment after each landing). Each returns as
   MK 2, MK 3... with more health. The city is 22 x 22 blocks (about 1.4 km): low-rise outskirts with more
   parks, midtown, and a supertall downtown core, with people walking the sidewalks, traffic lights that
@@ -65,8 +64,7 @@ Eight games live in this repo:
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
   below.
 
-**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its three bosses (the Warden, the Skyreaver and the
-Mauler) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
+**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its two bosses (the blue Warden, then El Guamaha) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
 water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
 world on the title screen. The Sea Eater is a colossal beast shaped like a smooth, rounded dome rising out of the sea: pale blue-gray with small round dots,
 no eyes, horns or ridges. Its mouth is a huge smooth black arch that fills almost the whole front of the dome (about 86% of its width), sitting almost entirely on the body with just its bottom edge dipping into the water
@@ -815,3 +813,5 @@ Falling: a hard landing on solid ground (roof, road, pier) costs one heart in ev
 ## The Sea Eater team
 
 World 2's big gray Sea Eater now has a team: four smaller sea eaters in different colors (**green, red, blue, purple**) that circle the port, then wind up and lunge across the water at you. A bite costs a heart if you are low near the water, so stay up high or dodge. Each has 6 HP: punch, kick, shockwave or web them (a web hit damages instead of wrapping), and your Biker Society allies shoot them too. They stay until you beat them.
+
+The Sea Eater is now 2.4 times bigger than before (mouth, arms, slams, bites and waves all scaled up) and has a proper creature voice: a deep layered bellow when it rises, growls before each attack, roars on its lunge and wave, a chomp, splashes when its fists land, and a long groan when it falls. Sound starts off: press `M` to turn it on.
