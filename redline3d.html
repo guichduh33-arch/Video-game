@@ -727,7 +727,7 @@ function pixBox(wPx, hPx, dPx, faces) {
   m.castShadow = true; return m;
 }
 // torso: 8 x 12 x 4, red bolt on the chest, red belt
-const BOLT = ['....###.', '...###..', '..###...', '.######.', '...###..', '..###...', '.###....', '.##.....'];   // big lightning bolt across the chest
+const BOLT = ['....####', '...####.', '..####..', '.#######', '#######.', '...####.', '..###...', '.###....', '.##.....'];   // big lightning bolt across the chest
 const torsoFront = pixTex(8, 12, (px, w, h) => {
   fabric(px, w, h, 1);
   const bolt = BOLT;
