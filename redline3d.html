@@ -798,9 +798,9 @@ function maskTexture() {
   g.fillStyle = MASKC.line; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
   // the eyes: two big, expressive lenses, angled sharply down toward the nose, with a bold accent rim, a soft glow, a dark brow shadow and glossy highlights
   const lens = (s, grow) => {
-    const cx = W * 0.25 + s * 0.058 * W, cy = H * 0.478, w = 0.044 * W + grow, h = 0.036 * H + grow * 0.55;
-    g.save(); g.translate(cx, cy); g.rotate(s * -0.3);
-    g.beginPath(); g.roundRect(-w, -h, w * 2, h * 2, s > 0 ? [h * 0.9, h * 0.45, h * 0.9, h * 0.45] : [h * 0.45, h * 0.9, h * 0.45, h * 0.9]);
+    const cx = W * 0.25 + s * 0.058 * W, cy = H * 0.478, w = 0.036 * W + grow, h = 0.03 * H + grow * 0.5;
+    g.save(); g.translate(cx, cy); g.rotate(s * -0.22);
+    g.beginPath(); g.ellipse(0, 0, w, h * 1.3, 0, 0, Math.PI * 2);   // a smooth oval, like a normal eye
     g.restore();
   };
   for (const s of [-1, 1]) {
