@@ -818,4 +818,4 @@ The Sea Eater is now 2.4 times bigger than before (mouth, arms, slams, bites and
 
 ## Look
 
-Redline is drawn as a kid: a smaller body with a big head, hands hanging down when standing and a real running stride whose speed follows yours. The mask is plain glossy black with white lenses, the chest carries a letter **N**, and the hero wears a backpack with a clear pocket holding a cartoon photo of a kid bitten by a spider.
+Redline is drawn as a 7-year-old boy (about 1.2 m tall): a small body with a big head and short arms and legs, hands hanging down when standing and a real running stride whose speed follows yours. The mask is plain glossy black with white lenses, the chest carries a letter **N**, and the hero wears a backpack with a clear pocket holding a cartoon photo of a kid bitten by a spider.
