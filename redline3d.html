@@ -1595,6 +1595,10 @@ $('bagShare').onclick = async () => {
   const c = pictureCanvas(512);
   c.toBlob(async blob => {
     const file = new File([blob], 'my-drawing.png', { type: 'image/png' });
+    try {   // inside claude.ai the page hands the file over through the downloads capability
+      const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+      if (dl) { await dl.save({ filename: 'my-drawing.png', data: blob }); $('bagMsg').textContent = 'Saved as a picture: send it to your friends!'; return; }
+    } catch (e) { if (e && e.code === 'declined') return; }
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'My drawing', text: 'I drew this in Redline 3D!' }); $('bagMsg').textContent = 'Shared!'; return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
