@@ -3332,14 +3332,62 @@ function updateHUD() {
 
 // ================= Biker Society: the other heroes ride hoverbikes and fight with you against the Sea Eater team (World 2) =================
 const allies = [];
-function makeHoverBike(col) {
-  const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.4, metalness: 0.6 }), glow = new THREE.MeshBasicMaterial({ color: col });
-  const bodyM = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.4, 2.2, 3, 0.15), m); bodyM.position.y = 0.5; g.add(bodyM);
-  for (const z of [-0.85, 0.85]) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.1, 8, 20).rotateY(Math.PI / 2), glow); w.position.set(0, 0.45, z); g.add(w); }
-  const rider = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.6, 4, 10), new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 })); rider.position.set(0, 1.15, 0.1); rider.rotation.x = 0.35; g.add(rider);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 14, 10), new THREE.MeshStandardMaterial({ color: 0x15151a, roughness: 0.3, metalness: 0.3 })); head.position.set(0, 1.7, -0.1); g.add(head);
-  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.09, 0.12), glow); visor.position.set(0, 1.72, -0.28); g.add(visor);
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: col })); beam.visible = false; scene.add(beam);
+// each ally is a full copy of the player's blocky hero (same body, head and gloved hands) in that hero's colors, riding a hoverbike
+const bakeCache = {};
+function bakeHero(i) {
+  if (bakeCache[i]) return bakeCache[i];
+  const H = HEROES[i], sP = { ...PAL }, sM = { ...MASKC };
+  [PAL.k0, PAL.k1, PAL.k2] = H.k; [PAL.r0, PAL.r1, PAL.r2, PAL.r3] = H.r; [MASKC.base, MASKC.seam, MASKC.stripe, MASKC.line, MASKC.rim] = H.mask;
+  const map = new Map();
+  for (const o of pixList) {
+    const c = document.createElement('canvas'); c.width = o.w; c.height = o.h; const g = c.getContext('2d');
+    o.draw((x, y, col) => { g.fillStyle = col; g.fillRect(x, y, 1, 1); }, o.w, o.h);
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.colorSpace = THREE.SRGBColorSpace; map.set(o.t, t);
+  }
+  const mask = maskTexture();
+  Object.assign(PAL, sP); Object.assign(MASKC, sM);
+  return (bakeCache[i] = { map, mask });
+}
+function makeHoverBike(i) {
+  const H = HEROES[i], kit = bakeHero(i), g = new THREE.Group();
+  const metal = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.35, metalness: 0.7 }), paint = new THREE.MeshStandardMaterial({ color: H.red, roughness: 0.3, metalness: 0.5 });
+  const glow = new THREE.MeshBasicMaterial({ color: H.glow }), tire = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.9 }), seatM = new THREE.MeshStandardMaterial({ color: 0x0f0f12, roughness: 0.8 });
+  const put = (m, x, y, z, rx = 0, rz = 0) => { m.position.set(x, y, z); m.rotation.set(rx, 0, rz); g.add(m); return m; };
+  put(new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.26, 2.0, 3, 0.1), metal), 0, 0.4, 0);                  // frame
+  put(new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.3, 0.7, 3, 0.12), paint), 0, 0.56, -0.7, 0.18);       // front fairing
+  put(new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.1, 0.62, 2, 0.04), seatM), 0, 0.6, 0.2);             // seat
+  put(new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.22, 0.6, 3, 0.08), paint), 0, 0.52, 0.85, -0.2);     // tail
+  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: 0xff2a2a })), 0, 0.55, 1.17);   // tail light
+  put(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })), 0, 0.62, -1.06);   // headlight
+  put(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.74, 8).rotateZ(Math.PI / 2), metal), 0, 0.97, -0.57);                // handlebars
+  put(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 8), metal), 0, 0.78, -0.65, 0.5);                               // steering column
+  for (const sx of [-1, 1]) {
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.14, 8).rotateZ(Math.PI / 2), seatM), sx * 0.36, 0.97, -0.57);   // grips
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.62, 6), metal), sx * 0.1, 0.55, -0.95, 0.12);                      // fork
+    put(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8).rotateZ(Math.PI / 2), metal), sx * 0.22, 0.34, -0.2);        // footpegs
+    put(new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 10).rotateX(-Math.PI / 2), glow), sx * 0.14, 0.4, 1.2);                     // exhaust glow
+  }
+  for (const z of [-0.98, 0.95]) {   // wheels: tyre + glowing rim
+    const wh = new THREE.Group(); wh.add(new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.1, 10, 24).rotateY(Math.PI / 2), tire), new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.05, 20).rotateZ(Math.PI / 2), glow));
+    put(wh, 0, 0.36, z); (g.userData.wheels ||= []).push(wh);
+  }
+  const under = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: H.glow, transparent: true, opacity: 0.32, depthWrite: false })); under.position.y = 0.05; g.add(under);   // hover glow
+  // the rider: a copy of the player's hero in this hero's colors
+  const rider = body.clone(true);
+  rider.traverse(m => {
+    if (!m.isMesh) return; const arr = Array.isArray(m.material);
+    const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
+    m.material = arr ? out : out[0];
+  });
+  rider.rotation.set(0, 0, 0); rider.position.set(0, 0, 0);
+  const [tor, hd, aL, aR, lL, lR] = rider.children, up = new THREE.Group(); up.position.y = 12 * PX; rider.add(up);
+  for (const c of [tor, hd, aL, aR]) { c.position.y -= 12 * PX; up.add(c); }
+  up.rotation.x = 0.5;                                  // leaning forward
+  aL.rotation.set(-1.3, 0, 0.08); aR.rotation.set(-1.3, 0, -0.08);   // both hands on the grips
+  lL.rotation.set(-1.0, 0, 0.1); lR.rotation.set(-1.0, 0, -0.1);     // legs forward to the pegs
+  const seat = new THREE.Group(); seat.add(rider); seat.position.set(0, 0.25, 0.15); seat.rotation.y = Math.PI; g.add(seat);
+  g.userData.up = up; g.userData.hd = hd;
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: H.glow })); beam.visible = false; scene.add(beam);
   g.userData.beam = beam; return g;
 }
 function clearAllies() { for (const a of allies) { scene.remove(a.mesh); scene.remove(a.mesh.userData.beam); } allies.length = 0; }
@@ -3347,12 +3395,14 @@ function updateAllies(h, rebuild) {
   if (world !== 2 || state !== 'play') { if (allies.length && world !== 2) clearAllies(); return; }
   if (rebuild || !allies.length) {   // the heroes you are not playing
     clearAllies(); let k = 0;
-    [1, 3, 5].map(o => (heroIdx + o) % HEROES.length).forEach((i) => { const H = HEROES[i]; const mesh = makeHoverBike(H.glow); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: H.dmg > 1.2 ? 2 : 1 }); });
+    [1, 3, 5].map(o => (heroIdx + o) % HEROES.length).forEach((i) => { const H = HEROES[i]; const mesh = makeHoverBike(i); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: H.dmg > 1.2 ? 2 : 1 }); });
   }
   for (const a of allies) {
     const ang = t * 0.55 + a.i * 2.1, goal = P.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 11, 6 + Math.sin(t * 1.7 + a.i) * 1.2, Math.sin(ang) * 11));
     const prev = a.mesh.position.clone(); a.mesh.position.lerp(goal, Math.min(1, h * 3)); const v = a.mesh.position.clone().sub(prev);
     if (v.lengthSq() > 1e-6) a.mesh.rotation.y = Math.atan2(-v.x, -v.z); a.mesh.rotation.z = Math.sin(t * 2 + a.i) * 0.15;
+    for (const w of a.mesh.userData.wheels) w.rotation.x -= h * 14;
+    a.mesh.userData.up.rotation.x = 0.5 + Math.sin(t * 3 + a.i) * 0.03;
     const beam = a.mesh.userData.beam; if (beam.visible && (a.flash -= h) <= 0) beam.visible = false;
     if ((a.cd -= h) > 0) continue;
     let tgt = null, best = 110;
