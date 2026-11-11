@@ -796,22 +796,28 @@ function maskTexture() {
   g.fillStyle = MASKC.stripe; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
   // a thin red line from the brow up over the forehead
   g.fillStyle = MASKC.line; g.fillRect(W * 0.25 - 5, H * 0.08, 10, H * 0.3);
-  // Redline's eyes: two separate rounded lenses, tilted slightly inward, white with a red rim and a shine
+  // the eyes: two big, expressive lenses, angled sharply down toward the nose, with a bold accent rim, a soft glow, a dark brow shadow and glossy highlights
   const lens = (s, grow) => {
-    const cx = W * 0.25 + s * 0.05 * W, cy = H * 0.475, w = 0.036 * W + grow, h = 0.034 * H + grow * 0.5, r = Math.min(w, h) * 0.95;
-    g.save(); g.translate(cx, cy); g.rotate(s * -0.2);
-    g.beginPath(); g.roundRect(-w, -h, w * 2, h * 2, r); g.restore();
+    const cx = W * 0.25 + s * 0.058 * W, cy = H * 0.478, w = 0.044 * W + grow, h = 0.036 * H + grow * 0.55;
+    g.save(); g.translate(cx, cy); g.rotate(s * -0.3);
+    g.beginPath(); g.roundRect(-w, -h, w * 2, h * 2, s > 0 ? [h * 0.9, h * 0.45, h * 0.9, h * 0.45] : [h * 0.45, h * 0.9, h * 0.45, h * 0.9]);
+    g.restore();
   };
   for (const s of [-1, 1]) {
-    lens(s, 16); g.fillStyle = MASKC.rim; g.fill();           // red rim
-    lens(s, 6); g.fillStyle = '#050505'; g.fill();            // black frame
+    const cx = W * 0.25 + s * 0.058 * W, cy = H * 0.478;
+    g.save(); g.shadowColor = MASKC.rim; g.shadowBlur = 46; lens(s, 22); g.fillStyle = MASKC.rim; g.fill(); g.restore();   // glow
+    lens(s, 20); g.fillStyle = MASKC.rim; g.fill();                       // bold accent rim
+    lens(s, 11); g.fillStyle = '#050506'; g.fill();                        // black frame
     lens(s, 0);
-    const gr = g.createLinearGradient(0, H * 0.44, 0, H * 0.51);
-    gr.addColorStop(0, '#ffffff'); gr.addColorStop(1, '#d6dfe9');
-    g.fillStyle = gr; g.fill();                               // white lens
+    const gr = g.createLinearGradient(0, cy - H * 0.04, 0, cy + H * 0.04);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.55, '#f4f8ff'); gr.addColorStop(1, '#bfd0e4');
+    g.fillStyle = gr; g.fill();                                            // white lens, a touch cooler toward the bottom
     g.save(); lens(s, 0); g.clip();
-    g.fillStyle = 'rgba(255,255,255,0.95)';
-    g.beginPath(); g.ellipse(W * 0.25 + s * 0.05 * W - 0.014 * W, H * 0.458, 0.01 * W, 0.006 * H, -0.3, 0, Math.PI * 2); g.fill(); // shine
+    const brow = g.createLinearGradient(0, cy - H * 0.045, 0, cy - H * 0.005); brow.addColorStop(0, 'rgba(10,12,18,0.4)'); brow.addColorStop(1, 'rgba(10,12,18,0)');
+    g.fillStyle = brow; g.fillRect(cx - W * 0.08, cy - H * 0.05, W * 0.16, H * 0.05);    // the brow casts a shadow on the top of the eye
+    g.fillStyle = 'rgba(255,255,255,0.98)';
+    g.beginPath(); g.ellipse(cx - s * 0.016 * W, cy - H * 0.014, 0.014 * W, 0.0085 * H, s * -0.3, 0, Math.PI * 2); g.fill();      // main shine
+    g.beginPath(); g.ellipse(cx + s * 0.02 * W, cy + H * 0.017, 0.005 * W, 0.0035 * H, s * -0.3, 0, Math.PI * 2); g.fill();       // small shine
     g.restore();
   }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -3512,7 +3518,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { maskTexture, sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 applyHero(parseInt(store.get('redline3d-hero') || '0', 10) || 0, true);
 requestAnimationFrame(frame);
 </script>
