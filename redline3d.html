@@ -718,7 +718,8 @@ function pixTex(w, h, draw) {
   return t;
 }
 // fabric: plain black
-const fabric = (px, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) px(x, y, PAL.k1); }; // plain black, no speckles
+// black suit with a faint woven web pattern (diagonal strands and sag lines) and a soft darker shading toward the edges
+const fabric = (px, w, h) => { for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const d = (x + y) % 5 === 0 || (x - y + 40) % 5 === 0; px(x, y, d ? PAL.k2 : (x === 0 || x === w - 1) ? PAL.k0 : PAL.k1); } };
 const pixMat = t => new THREE.MeshStandardMaterial({ map: t, roughness: 0.75, metalness: 0.05 });
 // box faces in three.js order: +x, -x, +y, -y, +z (front), -z (back)
 function pixBox(wPx, hPx, dPx, faces) {
@@ -729,10 +730,24 @@ function pixBox(wPx, hPx, dPx, faces) {
 const torsoFront = pixTex(8, 12, (px, w, h) => {
   fabric(px, w, h, 1);
   const bolt = ['....##..', '...##...', '..##....', '.#####..', '...##...', '..##....', '.##.....'];
-  bolt.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') px(x, y + 1, y < 3 ? PAL.r2 : PAL.r1); }));
+  const on = (x, y) => bolt[y] && bolt[y][x] === '#';
+  for (let y = 0; y < 7; y++) for (let x = 0; x < 8; x++) {
+    if (!on(x, y)) continue;
+    let c = y < 3 ? PAL.r2 : PAL.r1;                       // lighter at the top, deeper toward the bottom
+    if (!on(x - 1, y)) c = PAL.r3;                         // bright lit edge on the left
+    else if (!on(x + 1, y) || !on(x, y + 1)) c = PAL.r0;   // shaded edge on the right and underneath
+    px(x, y + 1, c);
+  }
+  for (let y = 3; y < 10; y++) { px(0, y, PAL.r0); px(7, y, PAL.r0); }                                     // red side stripes
+  for (let x = 1; x < 7; x++) px(x, 0, x === 3 || x === 4 ? PAL.k0 : PAL.r0);                              // collar
   for (let x = 0; x < 8; x++) px(x, 10, x === 3 || x === 4 ? PAL.r3 : PAL.r0);
+  px(3, 10, PAL.w); px(4, 10, PAL.r3);                                                                      // belt buckle
 });
-const torsoBack = pixTex(8, 12, (px, w, h) => { fabric(px, w, h, 2); for (let y = 1; y < 10; y++) px(3, y, PAL.r0), px(4, y, PAL.r0); for (let x = 0; x < 8; x++) px(x, 10, PAL.r0); });
+const torsoBack = pixTex(8, 12, (px, w, h) => { fabric(px, w, h, 2);
+  for (let y = 3; y < 10; y++) { px(0, y, PAL.r0); px(7, y, PAL.r0); }
+  for (let x = 1; x < 7; x++) px(x, 0, PAL.r0);
+  const bolt = ['...##...', '..##....', '.####...', '...##...', '..##....']; bolt.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') px(x, y + 3, x < 3 ? PAL.r2 : PAL.r1); }));
+  for (let x = 0; x < 8; x++) px(x, 10, PAL.r0); });
 const torsoSide = pixTex(4, 12, (px, w, h) => { fabric(px, w, h, 3); for (let y = 0; y < 12; y++) px(1, y, PAL.r1), px(2, y, PAL.r1); px(1, 10, PAL.r0); px(2, 10, PAL.r0); });
 const torsoTop = pixTex(8, 4, (px, w, h) => { fabric(px, w, h, 4); for (let x = 0; x < 8; x++) px(x, 0, PAL.r0); });
 // arms: 4 x 12 x 4; shoulder cap, then the glove (cuff, knuckles, finger lines)
@@ -740,6 +755,7 @@ const glove = (px, y0, front) => {
   for (let y = y0; y < 12; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.r1);
   for (let x = 0; x < 4; x++) px(x, y0, PAL.r0);                       // cuff seam
   for (let x = 0; x < 4; x++) px(x, y0 + 1, PAL.r2);                   // cuff highlight
+  px(1, y0 - 1, PAL.k0); px(2, y0 - 1, PAL.k0); px(1, y0 - 2, PAL.k0); px(2, y0 - 2, PAL.r3); px(0, y0 - 1, PAL.k0); px(3, y0 - 1, PAL.k0);   // wrist web-shooter
   if (front) { for (let x = 0; x < 4; x++) px(x, 9, PAL.r3); px(1, 10, PAL.r0); px(2, 10, PAL.r0); px(1, 11, PAL.r0); px(2, 11, PAL.r0); } // knuckles and fingers
   else { px(0, 11, PAL.r0); px(3, 11, PAL.r0); }
 };
@@ -751,18 +767,24 @@ const fist = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; 
 const legFace = (stripe, seed, front) => pixTex(4, 12, (px, w, h) => {
   fabric(px, w, h, seed);
   if (stripe) for (let y = 0; y < 8; y++) px(stripe === 1 ? 1 : 2, y, PAL.r1), px(stripe === 1 ? 2 : 1, y, y % 2 ? PAL.r0 : PAL.r1);
+  for (let x = 0; x < 4; x++) px(x, 5, PAL.k0);                                                  // knee seam
   for (let y = 8; y < 12; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.r1);
-  for (let x = 0; x < 4; x++) px(x, 8, PAL.r2), px(x, 11, PAL.sole);
+  for (let x = 0; x < 4; x++) px(x, 8, PAL.r2), px(x, 10, PAL.r0), px(x, 11, PAL.w);          // boot cuff, trim and white sole
   if (front) { px(1, 9, PAL.r3); px(2, 9, PAL.r3); }
 });
 const legTop = pixTex(4, 4, (px, w, h) => fabric(px, w, h, 9));
-const sole = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px(x, y, PAL.sole); });
+const sole = pixTex(4, 4, (px) => { for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) px(x, y, (x + y) % 2 ? PAL.w : '#d6d6d6'); });
 
 // the round head: a glossy black mask with large, smooth, angled lenses
 function maskTexture() {
   const W = 2048, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
   g.fillStyle = MASKC.base; g.fillRect(0, 0, W, H);
+  // a fine web across the mask: meridians and sagging rings (drawn first, the lenses sit on top)
+  g.save(); g.strokeStyle = MASKC.rim; g.globalAlpha = 0.32; g.lineWidth = 3;
+  for (let i = 0; i < 24; i++) { g.beginPath(); g.moveTo(W * i / 24, 0); g.quadraticCurveTo(W * i / 24 + 14, H * 0.5, W * i / 24, H); g.stroke(); }
+  for (let j = 1; j < 9; j++) for (let i = 0; i < 24; i++) { const x0 = W * i / 24, y = H * j / 9; g.beginPath(); g.moveTo(x0, y); g.quadraticCurveTo(x0 + W / 48, y + 11, x0 + W / 24, y); g.stroke(); }
+  g.restore();
   // a faint seam from the forehead over the top, and a red stripe down the back of the head
   g.fillStyle = MASKC.seam; g.fillRect(W * 0.25 - 3, 0, 6, H * 0.36);
   g.fillStyle = MASKC.stripe; g.fillRect(W * 0.75 - 10, 0, 20, H * 0.62);
@@ -3355,7 +3377,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 applyHero(parseInt(store.get('redline3d-hero') || '0', 10) || 0, true);
 requestAnimationFrame(frame);
 </script>
