@@ -706,6 +706,10 @@ const HEROES = [
   { name: 'CHROME', perk: 'heavy hitter · punches +50%', dmg: 1.5, web: 1, dodge: 1, k: ['#1a1210', '#2a1f1a', '#352822'], r: ['#a84300', '#e86a00', '#ff8c1a', '#ffb866'], mask: ['#1c1512', '#2a201b', '#d96000', '#e86a00', '#ff8c1a'], suit: 0x2a1f1a, red: 0xe86a00, glow: 0xff8c1a },
   { name: 'VOLT', perk: 'fast webs · web cooldown halved', dmg: 1, web: 0.45, dodge: 1, k: ['#0a1426', '#10203a', '#18304f'], r: ['#a88800', '#e0b400', '#ffd21a', '#ffe680'], mask: ['#0d1a30', '#14284a', '#d9b000', '#e0b400', '#ffd21a'], suit: 0x10203a, red: 0xe0b400, glow: 0xffd21a },
   { name: 'GHOST', perk: 'long dodge · backflip invulnerable longer', dmg: 1, web: 1, dodge: 1.8, k: ['#c3cad6', '#d8dde6', '#e8ecf2'], r: ['#0a7a8c', '#12a8c4', '#38d0e8', '#8ae8f5'], mask: ['#e3e8ef', '#cfd6e0', '#0a9ab4', '#12a8c4', '#38d0e8'], suit: 0xd8dde6, red: 0x12a8c4, glow: 0x38d0e8 },
+  { name: 'VIPER', perk: 'venom strikes · punches +20%, webs 20% faster', dmg: 1.2, web: 0.8, dodge: 1, k: ['#07120a', '#0e1c12', '#16281b'], r: ['#0a6b2a', '#14a844', '#2fe06a', '#8dffb0'], mask: ['#0b160e', '#122018', '#0f8a38', '#14a844', '#2fe06a'], suit: 0x0e1c12, red: 0x14a844, glow: 0x2fe06a },
+  { name: 'ROYAL', perk: 'regal reflexes · webs 30% faster, longer dodge', dmg: 1, web: 0.7, dodge: 1.3, k: ['#150a26', '#22103d', '#321a58'], r: ['#a67c00', '#d9a800', '#ffd24a', '#fff0a0'], mask: ['#1a0e30', '#2a1648', '#c99a00', '#d9a800', '#ffd24a'], suit: 0x22103d, red: 0xd9a800, glow: 0xffd24a },
+  { name: 'BLAZE', perk: 'fire fists · punches +30%', dmg: 1.3, web: 1, dodge: 0.9, k: ['#2a0a0a', '#3d1010', '#561818'], r: ['#b0b0b0', '#e6e6e6', '#ffffff', '#ffffff'], mask: ['#2f0e0e', '#451414', '#d0d0d0', '#e6e6e6', '#ffffff'], suit: 0x3d1010, red: 0xe6e6e6, glow: 0xffffff },
+  { name: 'AZURE', perk: 'cool head · webs 25% faster', dmg: 1, web: 0.75, dodge: 1.2, k: ['#06203d', '#0b3260', '#124580'], r: ['#a00c1c', '#d81830', '#ff3a50', '#ff8a96'], mask: ['#082a52', '#0d3d72', '#c4122a', '#d81830', '#ff3a50'], suit: 0x0b3260, red: 0xd81830, glow: 0xff3a50 },
 ];
 const MASKC = { base: '#101014', seam: '#1a1a20', stripe: '#b3102a', line: '#c4122a', rim: '#d0142c' };
 const pixList = [];
@@ -3155,8 +3159,10 @@ function updateCamera(dt) {
   sun.target.position.copy(P.pos); sun.position.copy(P.pos).addScaledVector(lightDir, 300);
 }
 const basis = new THREE.Matrix4(), qTarget = new THREE.Quaternion();
+let idleLook = false;
 function animateHero(dt) {
   hero.position.copy(P.pos);
+  idleLook = false;
   const hv = tmp.set(P.vel.x, 0, P.vel.z);
   if (P.state === 'wall') P.face.set(-P.wn.x, 0, -P.wn.y);
   else if (firstPerson && state === 'play' && !P.rope) P.face.set(-Math.sin(yaw), 0, -Math.cos(yaw)); // in first person the body faces where you look
@@ -3175,18 +3181,26 @@ function animateHero(dt) {
   const set = (l, p, k, zr) => { l.pivot.rotation.x = p; l.knee.rotation.x = k; l.pivot.rotation.z = zr || 0; };
   if (P.state === 'ground' && hv.length() > 1.5) {
     const s = Math.sin(a * 13);
-    set(legL, s * 0.9, Math.max(0, -s) * 1.2 + 0.2); set(legR, -s * 0.9, Math.max(0, s) * 1.2 + 0.2);
-    set(armL, -s * 0.8, -0.6); set(armR, s * 0.8, -0.6);
-    body.rotation.x = 0.15; body.position.y = Math.abs(Math.sin(a * 13)) * 0.06;
+    set(legL, s * 1.1, Math.max(0, -s) * 1.4 + 0.2); set(legR, -s * 1.1, Math.max(0, s) * 1.4 + 0.2);   // sprint: long strides, arms pumping
+    set(armL, -s * 1.15, -0.6, 0.12); set(armR, s * 1.15, -0.6, -0.12);
+    body.rotation.x = 0.3; body.rotation.y = s * 0.12; body.position.y = Math.abs(Math.sin(a * 13)) * 0.07;
   } else if (P.state === 'ground') {
-    set(legL, 0, 0.05); set(legR, 0, 0.05); set(armL, 0.1, -0.2, 0.15); set(armR, 0.1, -0.2, -0.15); body.rotation.x = 0; body.position.y = Math.sin(a * 2) * 0.01;
+    // ready stance: knees bent, fists up in a guard, breathing, weight shifting, head glancing where the camera looks
+    const br = Math.sin(a * 2), sh = Math.sin(a * 0.7);
+    set(legL, -0.18 + sh * 0.04, 0.35); set(legR, 0.22 - sh * 0.04, 0.3);
+    set(armL, -0.9 + br * 0.04, -1.0, 0.3); set(armR, -0.75 - br * 0.04, -1.0, -0.3);
+    body.rotation.x = 0.1 + br * 0.01; body.rotation.y = sh * 0.08; body.position.y = -0.05 + br * 0.008;
+    idleLook = true;
   } else if (P.state === 'wall') {
     const s = Math.sin(a * 16);
     set(armL, -2.6 + s * 0.5, -0.4); set(armR, -2.6 - s * 0.5, -0.4);
     set(legL, -0.9 - s * 0.4, 1.4); set(legR, -0.9 + s * 0.4, 1.4); body.rotation.x = 0; body.position.y = 0;
   } else if (P.rope) {
-    set(armR, -Math.PI, 0); set(armL, 0.5, -0.8, 0.6);
-    set(legL, 0.3, 0.3); set(legR, -0.5, 1.1); body.rotation.x = 0; body.position.y = 0;
+    // swing: one arm shoots up the web, the free arm flung out, legs trailing and tucked, body leaning into the arc
+    const sp = Math.min(1, P.vel.length() / 40), sw = Math.sin(a * 2.5);
+    set(armR, -Math.PI + 0.05, 0); set(armL, -1.0 - sp * 0.4, 0, 0.9 + sw * 0.1);
+    set(legL, 0.5 + sp * 0.5 + sw * 0.08, 0.5); set(legR, -0.9 - sp * 0.3, 1.5 + sw * 0.1);
+    body.rotation.x = -0.15 - sp * 0.2; body.rotation.y = 0.3 + sw * 0.05; body.position.y = 0;
   } else if (P.dive) {
     set(armL, 2.8, 0); set(armR, 2.8, 0); set(legL, 0.1, 0); set(legR, -0.1, 0); body.rotation.x = 0;
   } else {
@@ -3194,7 +3208,9 @@ function animateHero(dt) {
     set(legL, upw ? -1.3 : -0.6, upw ? 2.0 : 0.6); set(legR, upw ? -0.6 : 0.4, upw ? 1.6 : 0.4);
     set(armL, -0.4, -0.3, 1.2); set(armR, 0.6, -0.3, -1.2); body.rotation.x = upw ? 0.25 : -0.1; body.position.y = 0;
   }
-  body.rotation.y = 0; body.position.z = 0;
+  if (!idleLook && !(P.state === 'ground' && hv.length() > 1.5) && !P.rope) body.rotation.y = 0;
+  body.position.z = 0;
+  { const fy = Math.atan2(-P.face.x, -P.face.z); let d = yaw - fy; d = Math.atan2(Math.sin(d), Math.cos(d)); const want = idleLook && state === 'play' ? Math.max(-0.8, Math.min(0.8, d)) : 0; head.rotation.y += (want - head.rotation.y) * Math.min(1, dt * 6); }
   const act = P.act;
   if (act && act.t < act.dur) {
     const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
@@ -3331,7 +3347,7 @@ function updateAllies(h, rebuild) {
   if (world !== 2 || state !== 'play') { if (allies.length && world !== 2) clearAllies(); return; }
   if (rebuild || !allies.length) {   // the heroes you are not playing
     clearAllies(); let k = 0;
-    HEROES.forEach((H, i) => { if (i === heroIdx) return; const mesh = makeHoverBike(H.glow); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: i === 1 ? 2 : 1 }); });
+    [1, 3, 5].map(o => (heroIdx + o) % HEROES.length).forEach((i) => { const H = HEROES[i]; const mesh = makeHoverBike(H.glow); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: H.dmg > 1.2 ? 2 : 1 }); });
   }
   for (const a of allies) {
     const ang = t * 0.55 + a.i * 2.1, goal = P.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 11, 6 + Math.sin(t * 1.7 + a.i) * 1.2, Math.sin(ang) * 11));
