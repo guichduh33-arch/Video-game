@@ -2691,6 +2691,8 @@ function spawnEnemy(force) {
 // the street: one huge flat surface at ground level; landing on it is safe and you can run along it (world 1)
 const STREET = { x0: -HALF - 30, x1: HALF + 30, z0: -HALF - 30, z1: HALF + 30, h: 0, slab: true, street: true };
 function land(b) {
+  const fall = -P.vel.y;
+  if (fall > 34 && !P.dive && state === 'play') { hurt('HARD LANDING'); burst(P.pos, 14, 8, 1); shake = Math.max(shake, 0.5); }   // a hard fall costs a little: one heart
   P.zip = null; P.state = 'ground'; P.roof = b; P.pos.y = b.h; P.rope = null; P.vel.y = 0;
   if (P.dive) { shake = Math.max(shake, 0.4); burst(P.pos, 12, 9, 1); }
   P.dive = false; combo = 1;
@@ -3348,72 +3350,77 @@ function bakeHero(i) {
   Object.assign(PAL, sP); Object.assign(MASKC, sM);
   return (bakeCache[i] = { map, mask });
 }
-function makeHoverBike(i) {
+function makeAllyHero(i) {
   const H = HEROES[i], kit = bakeHero(i), g = new THREE.Group();
-  const metal = new THREE.MeshStandardMaterial({ color: 0x1b1d22, roughness: 0.35, metalness: 0.7 }), paint = new THREE.MeshStandardMaterial({ color: H.red, roughness: 0.3, metalness: 0.5 });
-  const glow = new THREE.MeshBasicMaterial({ color: H.glow }), tire = new THREE.MeshStandardMaterial({ color: 0x0c0c0e, roughness: 0.9 }), seatM = new THREE.MeshStandardMaterial({ color: 0x0f0f12, roughness: 0.8 });
-  const put = (m, x, y, z, rx = 0, rz = 0) => { m.position.set(x, y, z); m.rotation.set(rx, 0, rz); g.add(m); return m; };
-  put(new THREE.Mesh(new RoundedBoxGeometry(0.46, 0.26, 2.0, 3, 0.1), metal), 0, 0.4, 0);                  // frame
-  put(new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.3, 0.7, 3, 0.12), paint), 0, 0.56, -0.7, 0.18);       // front fairing
-  put(new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.1, 0.62, 2, 0.04), seatM), 0, 0.6, 0.2);             // seat
-  put(new THREE.Mesh(new RoundedBoxGeometry(0.34, 0.22, 0.6, 3, 0.08), paint), 0, 0.52, 0.85, -0.2);     // tail
-  put(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.04), new THREE.MeshBasicMaterial({ color: 0xff2a2a })), 0, 0.55, 1.17);   // tail light
-  put(new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff })), 0, 0.62, -1.06);   // headlight
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.74, 8).rotateZ(Math.PI / 2), metal), 0, 0.97, -0.57);                // handlebars
-  put(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.5, 8), metal), 0, 0.78, -0.65, 0.5);                               // steering column
-  for (const sx of [-1, 1]) {
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.14, 8).rotateZ(Math.PI / 2), seatM), sx * 0.36, 0.97, -0.57);   // grips
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.62, 6), metal), sx * 0.1, 0.55, -0.95, 0.12);                      // fork
-    put(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8).rotateZ(Math.PI / 2), metal), sx * 0.22, 0.34, -0.2);        // footpegs
-    put(new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 10).rotateX(-Math.PI / 2), glow), sx * 0.14, 0.4, 1.2);                     // exhaust glow
-  }
-  for (const z of [-0.98, 0.95]) {   // wheels: tyre + glowing rim
-    const wh = new THREE.Group(); wh.add(new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.1, 10, 24).rotateY(Math.PI / 2), tire), new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.05, 20).rotateZ(Math.PI / 2), glow));
-    put(wh, 0, 0.36, z); (g.userData.wheels ||= []).push(wh);
-  }
-  const under = new THREE.Mesh(new THREE.CircleGeometry(0.95, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: H.glow, transparent: true, opacity: 0.32, depthWrite: false })); under.position.y = 0.05; g.add(under);   // hover glow
-  // the rider: a copy of the player's hero in this hero's colors
   const rider = body.clone(true);
   rider.traverse(m => {
     if (!m.isMesh) return; const arr = Array.isArray(m.material);
     const out = (arr ? m.material : [m.material]).map(mt => { const c = mt.clone(); if (mt === matHead) c.map = kit.mask; else { if (c.map && kit.map.has(c.map)) c.map = kit.map.get(c.map); if (c.emissiveMap && kit.map.has(c.emissiveMap)) c.emissiveMap = kit.map.get(c.emissiveMap); } return c; });
     m.material = arr ? out : out[0];
   });
-  rider.rotation.set(0, 0, 0); rider.position.set(0, 0, 0);
-  const [tor, hd, aL, aR, lL, lR] = rider.children, up = new THREE.Group(); up.position.y = 12 * PX; rider.add(up);
-  for (const c of [tor, hd, aL, aR]) { c.position.y -= 12 * PX; up.add(c); }
-  up.rotation.x = 0.5;                                  // leaning forward
-  aL.rotation.set(-1.3, 0, 0.08); aR.rotation.set(-1.3, 0, -0.08);   // both hands on the grips
-  lL.rotation.set(-1.0, 0, 0.1); lR.rotation.set(-1.0, 0, -0.1);     // legs forward to the pegs
-  const seat = new THREE.Group(); seat.add(rider); seat.position.set(0, 0.25, 0.15); seat.rotation.y = Math.PI; g.add(seat);
-  g.userData.up = up; g.userData.hd = hd;
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: H.glow })); beam.visible = false; scene.add(beam);
-  g.userData.beam = beam; return g;
+  rider.rotation.set(0, 0, 0); rider.position.set(0, 0, 0); g.add(rider);
+  const [tor, hd, aL, aR, lL, lR] = rider.children;
+  g.userData.rig = { rider, hd, aL, aR, lL, lR };
+  const strand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1, 5).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: 0xf6f8ff })); strand.visible = false; scene.add(strand);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8), new THREE.MeshBasicMaterial({ map: webCocoonTex, transparent: true })); ball.visible = false; scene.add(ball);
+  g.userData.beam = strand; g.userData.ball = ball; return g;
 }
-function clearAllies() { for (const a of allies) { scene.remove(a.mesh); scene.remove(a.mesh.userData.beam); } allies.length = 0; }
+function clearAllies() { for (const a of allies) { scene.remove(a.mesh); scene.remove(a.mesh.userData.beam); scene.remove(a.mesh.userData.ball); } allies.length = 0; }
+let lastRoof = null;
+const _al = new THREE.Vector3();
 function updateAllies(h, rebuild) {
   if (world !== 2 || state !== 'play') { if (allies.length && world !== 2) clearAllies(); return; }
-  if (rebuild || !allies.length) {   // the heroes you are not playing
+  if (P.state === 'ground' && P.roof) lastRoof = P.roof;
+  if (!lastRoof) return;
+  if (rebuild || !allies.length) {   // the heroes you are not playing, fighting on foot beside you
     clearAllies(); let k = 0;
-    [1, 3, 5].map(o => (heroIdx + o) % HEROES.length).forEach((i) => { const H = HEROES[i]; const mesh = makeHoverBike(i); mesh.position.copy(P.pos).add(new THREE.Vector3(0, 6, 0)); scene.add(mesh); allies.push({ mesh, name: H.name, i: k++, cd: 1 + k * 0.5, dmg: H.dmg > 1.2 ? 2 : 1 }); });
+    [1, 3, 5].map(o => (heroIdx + o) % HEROES.length).forEach((i) => {
+      const H = HEROES[i], mesh = makeAllyHero(i); mesh.position.copy(P.pos); scene.add(mesh);
+      allies.push({ mesh, name: H.name, i: k++, cd: 1.5 + k * 0.6, dmg: H.dmg > 1.2 ? 2 : 1, down: 0, hit: 0, ph: Math.random() * 6, aim: 0, koT: 8 + k * 5 });
+    });
   }
+  const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
   for (const a of allies) {
-    const ang = t * 0.55 + a.i * 2.1, goal = P.pos.clone().add(new THREE.Vector3(Math.cos(ang) * 11, 6 + Math.sin(t * 1.7 + a.i) * 1.2, Math.sin(ang) * 11));
-    const prev = a.mesh.position.clone(); a.mesh.position.lerp(goal, Math.min(1, h * 3)); const v = a.mesh.position.clone().sub(prev);
-    if (v.lengthSq() > 1e-6) a.mesh.rotation.y = Math.atan2(-v.x, -v.z); a.mesh.rotation.z = Math.sin(t * 2 + a.i) * 0.15;
-    for (const w of a.mesh.userData.wheels) w.rotation.x -= h * 14;
-    a.mesh.userData.up.rotation.x = 0.5 + Math.sin(t * 3 + a.i) * 0.03;
-    const beam = a.mesh.userData.beam; if (beam.visible && (a.flash -= h) <= 0) beam.visible = false;
+    const m = a.mesh, R = m.userData.rig, beam = m.userData.beam, ball = m.userData.ball;
+    if (beam.visible && (a.flash -= h) <= 0) { beam.visible = false; ball.visible = false; }
+    // knocked out: lies low, then responds (gets back up beside you)
+    if (a.down > 0) {
+      a.down -= h; m.visible = a.down < 0.5 ? Math.floor(a.down * 14) % 2 === 0 : true; m.rotation.x = Math.min(1.4, m.rotation.x + h * 8); 
+      if (a.down <= 0) { m.visible = true; m.rotation.x = 0; m.position.copy(P.pos).addScaledVector(right, (a.i - 1) * 4).addScaledVector(fwd, -3); m.position.y = lastRoof.h; burst(m.position.clone().add(new THREE.Vector3(0, 1, 0)), 24, 10, 0); popup(a.name + ' IS BACK!', m.position.clone().add(new THREE.Vector3(0, 2.8, 0)), true); sfx.heart(); }
+      continue;
+    }
+    // find a target: the nearest enemy, else the Sea Eater
+    let tgt = null, best = 150;
+    for (const e of enemies) { if (e.dead) continue; const d = e.mesh.position.distanceTo(m.position); if (d < best) { best = d; tgt = { e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }; } }
+    if (!tgt && boss.active && !boss.dead && boss.state !== 'emerge') { const p = bossCore(); if (p.distanceTo(m.position) < 420) tgt = { boss: true, p }; }
+    // goal: stay near you, drifting toward the fight, always on the roof or road you last stood on
+    const side = (a.i - 1) * 5, goal = P.pos.clone().addScaledVector(right, side).addScaledVector(fwd, -2 + (a.i === 1 ? 4 : 0));
+    if (tgt) { const to = tgt.p.clone().sub(P.pos).setY(0); if (to.lengthSq() > 1) goal.addScaledVector(to.normalize(), 7); }
+    if (lastRoof !== STREET && !lastRoof.street) { goal.x = Math.max(lastRoof.x0 + 1.2, Math.min(lastRoof.x1 - 1.2, goal.x)); goal.z = Math.max(lastRoof.z0 + 1.2, Math.min(lastRoof.z1 - 1.2, goal.z)); }
+    goal.y = lastRoof.h;
+    const dist = Math.hypot(goal.x - m.position.x, goal.z - m.position.z);
+    if (dist > 45) { m.position.copy(goal); burst(m.position.clone().add(new THREE.Vector3(0, 1, 0)), 10, 8, 0); }   // keep up with your swinging
+    const moving = dist > 1.2;
+    if (moving) { const v = new THREE.Vector3(goal.x - m.position.x, 0, goal.z - m.position.z).normalize(); const sp = Math.min(dist * 2.2, 14); m.position.x += v.x * sp * h; m.position.z += v.z * sp * h; a.face = Math.atan2(v.x, v.z); }
+    m.position.y = lastRoof.h;
+    a.ph += h * (moving ? 13 : 2);
+    // body pose: run, or a guard stance that points a web arm at the target
+    const sn = Math.sin(a.ph), set = (l, x, z) => { l.rotation.x = x; l.rotation.z = z || 0; };
+    if (tgt) { const d = tgt.p.clone().sub(m.position); a.face = Math.atan2(d.x, d.z); }
+    m.rotation.y += ((() => { let d = (a.face || 0) - m.rotation.y; return Math.atan2(Math.sin(d), Math.cos(d)); })()) * Math.min(1, h * 10);
+    if (moving) { set(R.lL, sn * 1.1); set(R.lR, -sn * 1.1); set(R.aL, -sn * 1.1, 0.1); set(R.aR, sn * 1.1, -0.1); R.rider.rotation.x = 0.25; R.rider.position.y = Math.abs(sn) * 0.06; }
+    else { set(R.lL, -0.18, 0); set(R.lR, 0.22, 0); set(R.aL, -0.9, 0.3); set(R.aR, -0.75 - Math.sin(a.ph) * 0.03, -0.3); R.rider.rotation.x = 0.1; R.rider.position.y = -0.05; }
+    if (a.aim > 0) { a.aim -= h; set(R.aR, -1.57, 0); }     // web arm raised while shooting
+    // a boss swing now and then knocks an ally down
+    if (boss.active && !boss.dead && (a.koT -= h) <= 0) { a.koT = 14 + Math.random() * 10; a.down = 6; burst(m.position.clone().add(new THREE.Vector3(0, 1, 0)), 20, 10, 1); popup(a.name + ' DOWN!', m.position.clone().add(new THREE.Vector3(0, 2.8, 0)), true); sfx.thud(); continue; }
     if ((a.cd -= h) > 0) continue;
-    let tgt = null, best = 110;
-    for (const e of enemies) { if (e.dead) continue; const d = e.mesh.position.distanceTo(a.mesh.position); if (d < best) { best = d; tgt = { e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }; } }
-    if (!tgt && boss.active && !boss.dead && boss.state !== 'emerge') { const p = bossCore(); if (p.distanceTo(a.mesh.position) < 420) tgt = { boss: true, p }; }
     if (!tgt) { a.cd = 0.5; continue; }
-    a.cd = 1.6 + Math.random() * 0.6;
-    const from = a.mesh.position.clone().add(new THREE.Vector3(0, 1.3, 0)), dir = tgt.p.clone().sub(from), len = dir.length();
-    beam.position.copy(from); beam.quaternion.setFromUnitVectors(UP, dir.normalize()); beam.scale.set(1, len, 1); beam.visible = true; a.flash = 0.14;
-    burst(tgt.p, 6, 8, 0);
-    if (tgt.boss) bossDamage(2 + a.dmg, 'ally'); else damageEnemy(tgt.e, a.dmg, 'ally');
+    a.cd = 1.4 + Math.random() * 0.6; a.aim = 0.3;
+    const from = m.position.clone().add(new THREE.Vector3(0, 1.2, 0)), dir = tgt.p.clone().sub(from), len = dir.length();
+    beam.position.copy(from); beam.quaternion.setFromUnitVectors(UP, dir.clone().normalize()); beam.scale.set(1, len, 1); beam.visible = true; a.flash = 0.2;
+    ball.position.copy(tgt.p); ball.visible = true; sfx.line();
+    burst(tgt.p, 8, 8, 0);
+    if (tgt.boss) bossDamage(2 + a.dmg, 'ally'); else { damageEnemy(tgt.e, a.dmg, 'ally'); if (!tgt.e.dead && Math.random() < 0.6) wrapInWeb(tgt.e); }
   }
 }
 // ================= loop =================
