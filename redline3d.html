@@ -1287,6 +1287,7 @@ function voice(dur, f0, f1, vol, growl) {
   noise(600, 120, dur * 0.9, vol * 0.8, 0.8);
 }
 const sfx = {
+  bloop() { tone('sine', 120, 640, 0.35, 0.4); setTimeout(() => tone('sine', 640, 90, 0.5, 0.3), 330); noise(300, 60, 0.8, 0.2, 0.7); },   // the Bloop's deep, rising blip
   roar() { voice(2.4, 95, 48, 0.32, 22); },
   bellow() { voice(3.8, 72, 36, 0.4, 17); tone('sine', 42, 24, 3.4, 0.35); noise(220, 50, 3.4, 0.3, 0.6); },
   growl() { voice(0.95, 125, 70, 0.26, 34); },
@@ -2304,7 +2305,7 @@ function bossDamage(d, how) {
   const crit = boss.stun > 0, dmg = Math.max(1, Math.round(d * (crit ? 2 : boss.kind === 'sky' ? 0.35 : 0.5)));
   boss.hp -= dmg; bonus += dmg * 10;
   const at = bossCore().add(new THREE.Vector3(0, 0.8, 0));
-  popup((crit ? 'CRITICAL -' : 'ARMOR -') + dmg, at, crit); if (boss.kind === 'seaeater') sfx.grunt();
+  popup((crit ? 'CRITICAL -' : 'ARMOR -') + dmg, at, crit); if (boss.kind === 'seaeater') { if (boss.stage === 1) sfx.bloop(); else sfx.grunt(); }
   burst(at, crit ? 18 : 8, crit ? 14 : 8, 1); sfx.clang(crit); shake = Math.max(shake, crit ? 0.5 : 0.25);
   if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) { boss.phase = 2; banner('PHASE 2', 'FASTER · ANGRIER · CALLS BACKUP'); for (let i = 0; i < 3; i++) spawnEnemy(boss.kind === 'mauler' ? 'brute' : 'drone'); }
   if (boss.hp <= 0) bossDefeated();
@@ -2708,13 +2709,18 @@ function updateMini(e, h) {
   m.position.y = waterH(m.position.x, m.position.z) - 2 * (1 - e.rise) - 0.4 + Math.sin(e.t * 1.6 + e.a * 5) * 0.4;
   const fy = Math.atan2(P.pos.x - m.position.x, P.pos.z - m.position.z); let dd = fy - m.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); m.rotation.y += dd * Math.min(1, h * (e.st === 'lunge' ? 8 : 2));
 }
-function godSkin(root) {   // gold, glowing skin and a halo for the God Sea Eater
+function godSkin(root, col = 0xf2d27a, em = 0x7a5410, ei = 0.7) {   // tinted, glowing skin (gold for the God Sea Eater, deep blue for the Bloop)
   const mats = new Map();
-  root.traverse(o => { if (!o.isMesh) return; const m = o.material; if (!mats.has(m)) { const c = m.clone(); const hex = m.color.getHex(); if (hex === 0x84a0b0 || hex === 0xffffff) { c.color.setHex(0xf2d27a); c.emissive = new THREE.Color(0x7a5410); c.emissiveIntensity = 0.7; } mats.set(m, c); } o.material = mats.get(m); });
+  root.traverse(o => { if (!o.isMesh) return; const m = o.material; if (!mats.has(m)) { const c = m.clone(); const hex = m.color.getHex(); if (hex === 0x84a0b0 || hex === 0xffffff) { c.color.setHex(col); c.emissive = new THREE.Color(em); c.emissiveIntensity = ei; } mats.set(m, c); } o.material = mats.get(m); });
 }
-function startSeaEater(god) {
-  setSeaScale(god ? 4.0 : 2.4);
+function startSeaEater(stage) {   // 0 = the Sea Eater, 1 = the Bloop, 2 = the God Sea Eater
+  stage = stage === true ? 2 : (stage || 0); const god = stage === 2, bloop = stage === 1;
+  setSeaScale(god ? 4.0 : bloop ? 3.2 : 2.4);
   const mesh = makeSeaEater(); mesh.scale.setScalar(SK);
+  if (bloop) {
+    godSkin(mesh, 0x3a78d8, 0x0a3a90, 0.9); for (const ag of mesh.userData.armGroups) godSkin(ag, 0x3a78d8, 0x0a3a90, 0.9);
+    for (let i = 0; i < 14; i++) { const sp = new THREE.Mesh(new THREE.SphereGeometry(rand(1.2, 2.4), 10, 8), new THREE.MeshBasicMaterial({ color: 0x9fe8ff })); const a = rand(0, Math.PI), b = rand(-0.9, 0.9); sp.position.set(Math.cos(a) * 26 * Math.cos(b), 14 + Math.sin(a) * 26, rand(-30, 20)); mesh.add(sp); }   // glowing spots
+  }
   if (god) {
     godSkin(mesh); for (const ag of mesh.userData.armGroups) godSkin(ag);
     const halo = new THREE.Mesh(new THREE.TorusGeometry(26, 1.6, 12, 64), new THREE.MeshBasicMaterial({ color: 0xffe9a0 })); halo.rotation.x = Math.PI / 2; halo.position.set(0, 66, 0); mesh.add(halo); mesh.userData.halo = halo;
@@ -2722,12 +2728,12 @@ function startSeaEater(god) {
   } mesh.position.set(SEA.x, -34 * SK, SEA.z); scene.add(mesh);
   for (const ag of mesh.userData.armGroups) scene.add(ag);
   const arms = ARM_BASES.map((b, i) => ({ base: new THREE.Vector3(...b), tip: new THREE.Vector3(), mode: 'idle', t: 0, target: new THREE.Vector3(), ph: i * 1.7 }));
-  Object.assign(boss, { kind: 'seaeater', god: !!god, active: true, dead: false, b: null, mesh, arms, maxHp: god ? 420 : 240, hp: god ? 420 : 240, state: 'emerge', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, tt: 0, n: 0, vt: 0, webs: 0, webCd: 0, count: 1, level: 1, coreY: 0, hitR: 8.5 * SK, bodyR: 0, slams: 0, mouth: 0, mouthT: 1, last: '', force: null, wave: null, slamArms: [] });
+  Object.assign(boss, { kind: 'seaeater', god: god, stage, active: true, dead: false, b: null, mesh, arms, maxHp: god ? 420 : bloop ? 320 : 240, hp: god ? 420 : bloop ? 320 : 240, state: 'emerge', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, tt: 0, n: 0, vt: 0, webs: 0, webCd: 0, count: 1, level: 1, coreY: 0, hitR: 8.5 * SK, bodyR: 0, slams: 0, mouth: 0, mouthT: 1, last: '', force: null, wave: null, slamArms: [] });
   mesh.updateMatrixWorld(true);
   arms.forEach(a => a.tip.copy(mesh.localToWorld(a.base.clone())).add(new THREE.Vector3(0, 6 * SK, 0)));
   beacon.position.set(SEA.x, 250, SEA.z); beacon.visible = true;
-  banner(god ? 'THE GOD SEA EATER' : 'THE SEA EATER', god ? 'THE TRUE FINAL BOSS' : 'WORLD 2 · BEAT IT TO AWAKEN THE GOD'); setText('bossName', god ? 'THE GOD SEA EATER' : 'THE SEA EATER'); show('bossBar', true); sfx.bellow(); setTimeout(() => sfx.splash(), 500);
-  spawnMiniEaters(god ? 5 : 4);
+  banner(god ? 'THE GOD SEA EATER' : bloop ? 'THE BLOOP' : 'THE SEA EATER', god ? 'THE TRUE FINAL BOSS' : bloop ? 'RISES FROM THE DEEP' : 'WORLD 2 · NEXT: THE BLOOP, THEN THE GOD'); setText('bossName', god ? 'THE GOD SEA EATER' : bloop ? 'THE BLOOP' : 'THE SEA EATER'); if (bloop) { sfx.bloop(); setTimeout(() => sfx.bloop(), 700); } show('bossBar', true); sfx.bellow(); setTimeout(() => sfx.splash(), 500);
+  spawnMiniEaters(god ? 5 : bloop ? 4 : 4);
 }
 function removeSeaEater() {
   if (boss.mesh) scene.remove(boss.mesh);
@@ -2758,7 +2764,7 @@ function updateSeaEater(h) {
     if (boss.dt > 6) {
       removeSeaEater(); boss.active = false; boss.mesh = null; show('bossBar', false);
       if (boss.god) victory();
-      else { banner('THE GOD SEA EATER', 'AWAKENS...'); sfx.bellow(); setTimeout(() => { if (state === 'play' && world === 2 && !boss.active) startSeaEater(true); }, 3500); }
+      else { const nx = (boss.stage || 0) + 1; banner(nx === 1 ? 'THE BLOOP' : 'THE GOD SEA EATER', nx === 1 ? 'RISES FROM THE DEEP...' : 'AWAKENS...'); sfx.bellow(); setTimeout(() => { if (state === 'play' && world === 2 && !boss.active) startSeaEater(nx); }, 3500); }
     }
     return;
   }

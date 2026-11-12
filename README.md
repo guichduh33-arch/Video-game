@@ -827,4 +827,5 @@ Press `I` or the BAG button (top bar) to open your bag. Inside are a sheet of pa
 
 1. **El Gramaha** (World 1, a giant blue brute)
 2. **The Sea Eater** (World 2)
-3. **The God Sea Eater** (World 2): when the Sea Eater falls it awakens as a golden, glowing, haloed giant, about 1.7 times bigger than the Sea Eater, with 420 HP, plus five more of the small colored sea eaters. Beat it to win.
+3. **The Bloop** (World 2): when the Sea Eater falls, a deep-blue glowing giant with bright spots rises (about 1.3 times bigger, 320 HP) with its own deep "bloop" sound.
+4. **The God Sea Eater** (World 2): when the Bloop falls it awakens as a golden, glowing, haloed giant, about 1.7 times bigger than the Sea Eater, with 420 HP, plus five more of the small colored sea eaters. Beat it to win.
