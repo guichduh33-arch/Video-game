@@ -2542,6 +2542,7 @@ const seaArmor = new THREE.MeshStandardMaterial({ color: 0x5f656b, roughness: 0.
 const seaNail = new THREE.MeshStandardMaterial({ color: 0xcdd9b4, roughness: 0.6, metalness: 0 });
 const seaThroat = new THREE.MeshStandardMaterial({ color: 0x040506, roughness: 1, metalness: 0, side: THREE.DoubleSide });
 const seaCoreMat = new THREE.MeshStandardMaterial({ color: 0xe0b030, roughness: 0.6, metalness: 0 });
+let ARMK = 1;   // arm thickness and hand size (the Bloop has slim arms and small hands)
 let SK = 2.4;   // how many times bigger the Sea Eater is than its design size (the God Sea Eater is bigger still)
 let ARM_L1 = 34 * SK, ARM_L2 = 34 * SK, ARM_REACH = 66 * SK;
 const ARM_N = 2, MAW_Z = 30.4, MAW_Y = -1.5;
@@ -2614,12 +2615,12 @@ function makeSeaArm(sideX) {
   const taper = new THREE.CylinderGeometry(0.58, 1, 1, 20).translate(0, 0.5, 0);
   const mk = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.castShadow = false; m.frustumCulled = false; g.add(m); return m; };
   const ball = new THREE.SphereGeometry(1, 24, 16);
-  u.shoulder = mk(ball, seaSkin); u.shoulder.scale.setScalar(9 * SK);
+  u.shoulder = mk(ball, seaSkin); u.shoulder.scale.setScalar(9 * SK * ARMK);
   u.upper = mk(taper, seaSkin); u.fore = mk(taper, seaSkin);
-  u.elbow = mk(ball, seaSkin); u.elbow.scale.setScalar(6.2 * SK);
+  u.elbow = mk(ball, seaSkin); u.elbow.scale.setScalar(6.2 * SK * ARMK);
   u.bicep = mk(ball, seaSkin); u.foreBulge = mk(ball, seaSkin);
   // the hand: wrist at the group origin, fingers along +z, the back of the hand up (+y)
-  const hand = new THREE.Group(); hand.scale.setScalar(0.7 * SK); g.add(hand); u.hand = hand;
+  const hand = new THREE.Group(); hand.scale.setScalar(0.7 * SK * ARMK * (ARMK < 1 ? 0.6 : 1)); g.add(hand); u.hand = hand;
   // a mountain-like hand: a broad mound of a palm with a ridge up the middle, and four thick fingers fused side by side
   // (the middle one longest, so the outline rises to a peak), with rounded tips, and a thick thumb on the inner side
   const ell = (rx, ry, rz, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 22, 16), seaSkin); m.scale.set(rx, ry, rz); m.position.set(x, y, z); hand.add(m); return m; };
@@ -2653,11 +2654,11 @@ function poseSeaArm(k, S, T0, curlWant, dt) {
   const pole = new THREE.Vector3(side * 1.0, 0.4, -0.6).applyQuaternion(boss.mesh.quaternion); pole.addScaledVector(dir, -pole.dot(dir)).normalize();
   const E = S.clone().addScaledVector(dir, xx).addScaledVector(pole, hh);
   const limb = (m, from, to, r) => { const v = to.clone().sub(from), len = v.length() || 0.01; m.position.copy(from); m.quaternion.setFromUnitVectors(_up, v.divideScalar(len)); m.scale.set(r, len, r); return v; };
-  const eu = limb(u.upper, S, E, 7.4 * SK), fu = limb(u.fore, E, T, 5.2 * SK);
+  const eu = limb(u.upper, S, E, 7.4 * SK * ARMK), fu = limb(u.fore, E, T, 5.2 * SK * ARMK);
   u.shoulder.position.copy(S); u.elbow.position.copy(E);
   // muscle: a biceps bulge on the upper arm and a forearm bulge near the elbow, stretched along the limb
-  u.bicep.position.copy(S).addScaledVector(eu, 0.4).addScaledVector(pole, 1.6 * SK); u.bicep.quaternion.setFromUnitVectors(_up, eu); u.bicep.scale.set(8.4 * SK, 14 * SK, 8.4 * SK);
-  u.foreBulge.position.copy(E).addScaledVector(fu, 0.27); u.foreBulge.quaternion.setFromUnitVectors(_up, fu); u.foreBulge.scale.set(5.4 * SK, 10 * SK, 5.4 * SK);
+  u.bicep.position.copy(S).addScaledVector(eu, 0.4).addScaledVector(pole, 1.6 * SK); u.bicep.quaternion.setFromUnitVectors(_up, eu); u.bicep.scale.set(8.4 * SK * ARMK, 14 * SK, 8.4 * SK * ARMK);
+  u.foreBulge.position.copy(E).addScaledVector(fu, 0.27); u.foreBulge.quaternion.setFromUnitVectors(_up, fu); u.foreBulge.scale.set(5.4 * SK * ARMK, 10 * SK, 5.4 * SK * ARMK);
   // the hand: fingers along the forearm, back of the hand up
   const f = fu.clone().normalize(); let yv = _up.clone().addScaledVector(f, -_up.dot(f));
   if (yv.lengthSq() < 0.02) yv.set(0, 0, 1).applyQuaternion(boss.mesh.quaternion).addScaledVector(f, -yv.dot(f)); yv.normalize();
@@ -2713,15 +2714,35 @@ function updateMini(e, h) {
   m.position.y = waterH(m.position.x, m.position.z) - 2 * (1 - e.rise) - 0.4 + Math.sin(e.t * 1.6 + e.a * 5) * 0.4;
   const fy = Math.atan2(P.pos.x - m.position.x, P.pos.z - m.position.z); let dd = fy - m.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); m.rotation.y += dd * Math.min(1, h * (e.st === 'lunge' ? 8 : 2));
 }
+// the Bloop's face: two realistic eyes (a yellow-amber iris with a slit pupil) on the front of its dome, and a row of sharp ivory teeth along the arch of its mouth
+function addBloopFace(g) {
+  const white = new THREE.MeshStandardMaterial({ color: 0xe9e4d6, roughness: 0.35 }), iris = new THREE.MeshStandardMaterial({ color: 0xe0a020, emissive: 0x6a3a00, emissiveIntensity: 0.8, roughness: 0.3 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 }), tooth = new THREE.MeshStandardMaterial({ color: 0xefe6cf, roughness: 0.45 });
+  for (const sx of [-1, 1]) {
+    const eye = new THREE.Group(); eye.position.set(sx * 15, 32, 19); eye.rotation.set(-0.45, sx * 0.25, 0); g.add(eye);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(5.6, 28, 20), white); eye.add(ball);
+    const ir = new THREE.Mesh(new THREE.CircleGeometry(3.3, 32), iris); ir.position.z = 5.52; eye.add(ir);
+    const pu = new THREE.Mesh(new THREE.CircleGeometry(1, 24), pupil); pu.scale.set(0.55, 2.6, 1); pu.position.z = 5.56; eye.add(pu);                  // a vertical slit pupil
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(5.9, 28, 12, 0, Math.PI * 2, 0, 0.9), g.userData.skin || seaSkin); lid.rotation.x = -0.25; eye.add(lid);   // a heavy brow lid over the top of the eye
+  }
+  const N = 56;
+  for (let i = 0; i < N; i++) {
+    const a = 0.06 + (Math.PI - 0.12) * i / (N - 1), cx = Math.cos(a), sy = Math.sin(a);
+    const nx = cx / MOUTH_RX, ny = sy / MOUTH_RY, nl = Math.hypot(nx, ny), dx = -nx / nl, dy = -ny / nl;      // inward along the arch
+    const len = 1.7 + (i % 3 === 0 ? 0.9 : 0) + 0.5 * Math.sin(a * 3 + i), t = new THREE.Mesh(new THREE.ConeGeometry(0.5, len, 8), tooth);
+    t.position.set(cx * (MOUTH_RX - 0.4) + dx * len / 2, MAW_Y + sy * (MOUTH_RY - 0.4) + dy * len / 2, MAW_Z + 1.2); t.rotation.z = Math.atan2(dy, dx) + Math.PI / 2;   // the point faces into the mouth
+    g.add(t);
+  }
+}
 function godSkin(root, col = 0xf2d27a, em = 0x7a5410, ei = 0.7) {   // tinted, glowing skin (gold for the God Sea Eater, deep blue for the Bloop)
   const mats = new Map();
   root.traverse(o => { if (!o.isMesh) return; const m = o.material; if (!mats.has(m)) { const c = m.clone(); const hex = m.color.getHex(); if (hex === 0x84a0b0 || hex === 0xffffff) { c.color.setHex(col); c.emissive = new THREE.Color(em); c.emissiveIntensity = ei; } mats.set(m, c); } o.material = mats.get(m); });
 }
 function startSeaEater(stage) {   // 0 = the Sea Eater, 1 = the Bloop, 2 = the God Sea Eater
   stage = stage === true ? 2 : (stage || 0); const god = stage === 2, bloop = stage === 1;
-  setSeaScale(god ? 4.0 : bloop ? 3.2 : 2.4);
+  setSeaScale(god ? 4.0 : bloop ? 3.2 : 2.4); ARMK = bloop ? 0.55 : 1;
   const mesh = makeSeaEater(); mesh.scale.setScalar(SK);
   if (bloop) {
+    addBloopFace(mesh);
     godSkin(mesh, 0x3a78d8, 0x0a3a90, 0.9); for (const ag of mesh.userData.armGroups) godSkin(ag, 0x3a78d8, 0x0a3a90, 0.9);
     for (let i = 0; i < 14; i++) { const sp = new THREE.Mesh(new THREE.SphereGeometry(rand(1.2, 2.4), 10, 8), new THREE.MeshBasicMaterial({ color: 0x9fe8ff })); const a = rand(0, Math.PI), b = rand(-0.9, 0.9); sp.position.set(Math.cos(a) * 26 * Math.cos(b), 14 + Math.sin(a) * 26, rand(-30, 20)); mesh.add(sp); }   // glowing spots
   }
@@ -2986,7 +3007,9 @@ function physics(h) {
     v.x += (mv.x * SWIM - v.x) * Math.min(1, h * 5); v.z += (mv.z * SWIM - v.z) * Math.min(1, h * 5);
     p.x += v.x * h; p.z += v.z * h;
     // dive with C or Ctrl (or the DIVE button), rise with Space; Space at the surface leaps out of the water
-    if (input.keys.has('KeyC') || input.keys.has('ControlLeft') || P.swimDown > 0) P.depth = Math.min(185, (P.depth || 0) + 9 * h);
+    const lookDown = Math.max(0, Math.min(1, (pitch - 0.45) / 0.6));   // looking down makes you sink (only works in water)
+    if (lookDown > 0) P.depth = Math.min(185, (P.depth || 0) + 10 * lookDown * h);
+    else if (input.keys.has('KeyC') || input.keys.has('ControlLeft') || P.swimDown > 0) P.depth = Math.min(185, (P.depth || 0) + 9 * h);
     else if (input.keys.has('Space') && (P.depth || 0) > 0.6) { P.depth = Math.max(0, P.depth - 12 * h); input.jump = false; }
     P.swimDown = Math.max(0, (P.swimDown || 0) - h);
     p.y += (waterH(p.x, p.z) - 0.25 - (P.depth || 0) - p.y) * Math.min(1, h * 12); v.y = 0;
@@ -3583,7 +3606,7 @@ function updateHUD() {
   if (boss.active && !boss.dead) {
     $('bossFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
     const hot = boss.stun > 0;
-    setText('bossTip', boss.stage === 1 && boss.kind === 'seaeater' ? 'THE BLOOP LIVES UNDER THE WATER: HOLD C TO DIVE, SWIM TO ITS GLOWING CORE (SPACE RISES)' : hot ? (boss.kind === 'seaeater' ? 'THE CORE IS UP! DIVE IN AND HIT IT!' : 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!') : /slam|stomp|leap|rear/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : /wave/.test(boss.state) ? 'A WAVE IS COMING: GET HIGHER THAN THE WATER!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
+    setText('bossTip', boss.stage === 1 && boss.kind === 'seaeater' ? 'THE BLOOP LIVES UNDER THE WATER: LOOK DOWN (OR HOLD C) TO DIVE, SWIM TO ITS GLOWING CORE (SPACE RISES)' : hot ? (boss.kind === 'seaeater' ? 'THE CORE IS UP! DIVE IN AND HIT IT!' : 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!') : /slam|stomp|leap|rear/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : /wave/.test(boss.state) ? 'A WAVE IS COMING: GET HIGHER THAN THE WATER!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
     $('bossTip').classList.toggle('hot', hot);
     const bp = boss.mesh.position.clone(); bp.y += 4; vproj.copy(bp).project(camera);
     let x = vproj.x, y = vproj.y; const behind = vproj.z > 1;
