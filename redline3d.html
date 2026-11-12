@@ -1298,7 +1298,7 @@ function makeGranMaja() {
   u.tail = [];
   // the glowing core, set in the dark of the mouth between the rows of teeth
   u.core = add(ball(0.7, coreMat), head, 0, -0.55, -0.1);
-  g.scale.setScalar(2.2);   // way bigger
+  g.scale.setScalar(4.0);   // even bigger
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -2040,7 +2040,7 @@ function resolveHit() {
   const fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const me = P.pos.clone().setY(P.pos.y + 1);
   const targets = enemies.filter(e => !e.dead).map(e => ({ e, p: e.mesh.position.clone().setY(e.mesh.position.y + e.h) }));
-  if (boss.active && !boss.dead) targets.push({ boss: true, p: bossCore(), r: boss.kind === 'seaeater' ? 3.2 * SK : boss.kind === 'granmaja' ? 9 : 3.2 });
+  if (boss.active && !boss.dead) targets.push({ boss: true, p: bossCore(), r: boss.kind === 'seaeater' ? 3.2 * SK : boss.kind === 'granmaja' ? 16 : 3.2 });
   const hits = []; let near = null, nd = mv.range, lunge = null, ld = 18;
   for (const tg of targets) {
     const d = tg.p.distanceTo(me) - (tg.r || 0);
@@ -2109,7 +2109,7 @@ function webShot() {
     const p = e.mesh.position.clone().setY(e.mesh.position.y + e.h), d = p.distanceTo(from), dir = p.clone().sub(from).setY(0).normalize();
     if (d < best && dir.dot(fwd) > 0.55) { best = d; target = { e, p }; }
   }
-  if (!target && boss.active && !boss.dead) { const p = bossCore(); if (p.distanceTo(from) < (boss.kind === 'seaeater' ? 60 * SK : boss.kind === 'granmaja' ? 140 : 60)) target = { boss: true, p }; }
+  if (!target && boss.active && !boss.dead) { const p = bossCore(); if (p.distanceTo(from) < (boss.kind === 'seaeater' ? 60 * SK : boss.kind === 'granmaja' ? 230 : 60)) target = { boss: true, p }; }
   if (!target && world === 1) {   // nothing hostile in front: the web can grab anything, even people and cars
     const co = camera.getWorldPosition(new THREE.Vector3()), cd = camera.getWorldDirection(new THREE.Vector3()), v = new THREE.Vector3();
     let bd = 3.2;
@@ -2333,7 +2333,7 @@ function updateWeb(h) {
   let end = web.life <= 0;
   if (web.target && !end) {
     const tg = web.target, tp = tgPos(tg);
-    if (web.pos.distanceTo(tp) < (tg.boss ? (boss.kind === 'seaeater' ? 4 * SK : boss.kind === 'granmaja' ? 12 : 4) : tg.car ? 2.8 : 1.4)) {
+    if (web.pos.distanceTo(tp) < (tg.boss ? (boss.kind === 'seaeater' ? 4 * SK : boss.kind === 'granmaja' ? 22 : 4) : tg.car ? 2.8 : 1.4)) {
       end = true;
       if (tg.boss) {
         if (boss.dead) {}
@@ -2396,7 +2396,7 @@ const BOSS_INFO = {
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   full: { name: 'EL GRANDE', hp: 110, coreY: 4.9, hitR: 6.2, bodyR: 4.4, tip: 'A full-bodied giant: get out of its landing circle, then hit the glowing core while it is stuck.' },
   aguamaha: { name: 'EL AGUAMAHA', hp: 90, coreY: 5.3, hitR: 6.2, bodyR: 3.5, tip: 'Get out of its landing circle, then hit the core while it is stuck.' },
-  granmaja: { name: 'EL GRAN MAJA', hp: 100, coreY: 8.0, hitR: 17.5, bodyR: 5.5, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
+  granmaja: { name: 'EL GRAN MAJA', hp: 100, coreY: 14.5, hitR: 32, bodyR: 10, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
 const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 15, -7)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
@@ -2404,8 +2404,8 @@ function startBoss(forced) {
   let best = null, bs = 1e9, wet = false, wcx = 0, wcz = 0;
   if (forced === 'granmaja' && world === 2) {   // El Gran Maja stands in the sea
     const dir = new THREE.Vector3(SEA.x - P.pos.x, 0, SEA.z - P.pos.z), dl = dir.length() || 1; dir.divideScalar(dl);
-    const dist = Math.min(150, dl + 40); wcx = clamp(P.pos.x + dir.x * dist, SEA.x - SEA.R + 50, SEA.x + SEA.R - 50); wcz = clamp(P.pos.z + dir.z * dist, SEA.z - SEA.R + 50, SEA.z + SEA.R - 50);
-    best = { x0: SEA.x - SEA.R, x1: SEA.x + SEA.R, z0: SEA.z - SEA.R, z1: SEA.z + SEA.R, h: -20.6, water: true }; wet = true;
+    const dist = Math.min(230, dl + 60); wcx = clamp(P.pos.x + dir.x * dist, SEA.x - SEA.R + 50, SEA.x + SEA.R - 50); wcz = clamp(P.pos.z + dir.z * dist, SEA.z - SEA.R + 50, SEA.z + SEA.R - 50);
+    best = { x0: SEA.x - SEA.R, x1: SEA.x + SEA.R, z0: SEA.z - SEA.R, z1: SEA.z + SEA.R, h: -35, water: true }; wet = true;
   }
   if (!wet) for (const b of buildings) {
     if (b.x1 - b.x0 < 22 || b.z1 - b.z0 < 22 || b.h < 30 || b.h > 110) continue;
@@ -2605,9 +2605,9 @@ function updateMauler(h, dx, dz, dh, onRoof, fast) {
   switch (boss.state) {
     case 'idle': {
       m.position.y = b.h + Math.abs(Math.sin(t * 5)) * 0.1;
-      if ((onRoof || boss.water) && dh > 5) { const sp = boss.water ? (fast ? 9 : 6) : (fast ? 6.5 : 4.5); m.position.x = clamp(m.position.x + dx / dh * sp * h, b.x0 + 3, b.x1 - 3); m.position.z = clamp(m.position.z + dz / dh * sp * h, b.z0 + 3, b.z1 - 3); }
+      if ((onRoof || boss.water) && dh > 5) { const sp = boss.water ? (fast ? 12 : 8) : (fast ? 6.5 : 4.5); m.position.x = clamp(m.position.x + dx / dh * sp * h, b.x0 + 3, b.x1 - 3); m.position.z = clamp(m.position.z + dz / dh * sp * h, b.z0 + 3, b.z1 - 3); }
       if (boss.cd > 0) break;
-      if ((boss.water ? (dh < 36 && P.pos.y < 10) : (onRoof && dh < 9))) { boss.state = 'stomp'; boss.wind = fast ? 0.7 : 0.95; slamRing.visible = slamFill.visible = true; slamRing.position.set(m.position.x, b.h + 0.06, m.position.z); slamFill.position.copy(slamRing.position); sfx.charge(); break; }
+      if ((boss.water ? (dh < 66 && P.pos.y < 12) : (onRoof && dh < 9))) { boss.state = 'stomp'; boss.wind = fast ? 0.7 : 0.95; slamRing.visible = slamFill.visible = true; slamRing.position.set(m.position.x, b.h + 0.06, m.position.z); slamFill.position.copy(slamRing.position); sfx.charge(); break; }
       // leap toward the roof the player is on, or the tall roof nearest to them
       let target = boss.water ? null : P.state === 'ground' && P.roof && !P.roof.slab && P.roof.x1 - P.roof.x0 > 12 && P.roof.z1 - P.roof.z0 > 12 ? P.roof : null;
       if (!target && !boss.water) { let bd = 1e9; for (const o of nearBuildings(P.pos.x, P.pos.z, 40)) { if (o.slab || o.x1 - o.x0 < 14 || o.z1 - o.z0 < 14) continue; const dd = Math.hypot((o.x0 + o.x1) / 2 - P.pos.x, (o.z0 + o.z1) / 2 - P.pos.z); if (dd < bd) { bd = dd; target = o; } } }
@@ -2624,7 +2624,7 @@ function updateMauler(h, dx, dz, dh, onRoof, fast) {
     case 'stomp': {
       boss.wind -= h; m.scale.y = m.scale.x * (1 - Math.sin(Math.min(1, 1 - boss.wind) * Math.PI) * 0.08);
       slamRing.material.opacity = 0.45 + Math.sin(t * 25) * 0.3; slamFill.material.opacity = 0.2;
-      if (boss.wind <= 0) { m.scale.y = m.scale.x; slamAt(m.position.x, m.position.z, boss.water ? 25 : 9); boss.state = 'stunned'; boss.stun = 1.8; boss.cd = 1.2; popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true); }
+      if (boss.wind <= 0) { m.scale.y = m.scale.x; slamAt(m.position.x, m.position.z, boss.water ? 45 : 9); boss.state = 'stunned'; boss.stun = 1.8; boss.cd = 1.2; popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true); }
       break;
     }
     case 'leap': {
