@@ -889,3 +889,11 @@ El Gran Maja is bigger still (4 times his original size: a head wider than a who
 El Gran Maja is bigger again: the whole body is 4.8 times its original size and the face is another 60% bigger (a super big mouth), while the tail is only a little longer (about 125 m) and slimmer. Your webs now really hurt him (each web shot damages him) instead of just bouncing off his spiky mouth, and his red stomp circle now shows on the water surface so you can see it coming.
 
 El Gran Maja is now SO big: the body is 9 times its original size (a face wider than 170 m, a tail over 240 m long). His stomp covers about 110 m, he wades at about 12 m/s, and you can hit him from up to about 500 m away. His core is about 30 m under the surface.
+
+## El Gran Maja: full animation
+
+- **Entrance:** he rises from the deep (about 5 seconds), with a bellow, screen shake and splashes all over the bay.
+- **Idle:** he bobs in the swell, breathes, his six eyes blink and the white dots look toward you, his core throbs, his tail swishes a little, bubbles drift up from him and ripples spread across the surface above.
+- **Jaws:** the upper and lower jaw move apart and snap together. The mouth opens a little more as an attack gets closer.
+- **Stomp:** he rears his head back and opens wide with a roar, then slams down: a double shock ring, a splash column, a flash, a camera kick and a short slow-motion beat.
+- **Stunned:** his mouth hangs open and trembles, his head droops and his core throbs fast: that is your chance to hit it.

@@ -1271,17 +1271,18 @@ function makeGranMaja() {
   outer.holes.push(new THREE.Path(mouth.getPoints(40).reverse()));
   const brim = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: 1.1, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.2, bevelSegments: 4, curveSegments: 40 }), blue); brim.position.z = -0.55; head.add(brim);
   const inside = new THREE.Mesh(new THREE.ShapeGeometry(mouth, 40), black); inside.position.z = -0.35; head.add(inside);          // the black inside of the mouth
+  const upperG = new THREE.Group(), lowerG = new THREE.Group(); head.add(upperG, lowerG); u.upper = upperG; u.lower = lowerG;   // the upper and lower jaw move apart to open the mouth
   const upLip = new THREE.Shape(); upLip.moveTo(-3.5, 0.72); upLip.quadraticCurveTo(0, 0.2, 3.5, 0.72); upLip.quadraticCurveTo(0, -0.55, -3.5, 0.72);   // red upper lip
   const lowLip = new THREE.Shape(); lowLip.moveTo(-3.7, -1.0); lowLip.bezierCurveTo(-3.1, -2.3, -1.4, -2.85, 0, -2.85); lowLip.bezierCurveTo(1.4, -2.85, 3.1, -2.3, 3.7, -1.0); lowLip.bezierCurveTo(2.3, -2.0, 1.0, -2.3, 0, -2.3); lowLip.bezierCurveTo(-1.0, -2.3, -2.3, -2.0, -3.7, -1.0);   // red lower lip
-  for (const sh of [upLip, lowLip]) { const lip = new THREE.Mesh(new THREE.ShapeGeometry(sh, 32), redM); lip.position.z = -0.25; head.add(lip); }
+  for (const sh of [upLip, lowLip]) { const lip = new THREE.Mesh(new THREE.ShapeGeometry(sh, 32), redM); lip.position.z = -0.25; (sh === upLip ? upperG : lowerG).add(lip); }
   // two rows of long needle teeth
   for (let i = 0; i < 36; i++) {
     const x = -3.05 + 6.1 * i / 35, yTop = 0.2 + 0.7 * Math.pow(x / 4.7, 2) - 0.1, len = 1.1 + 0.35 * Math.sin(i * 1.7);
-    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(x, yTop - len / 2 - 0.2, 0.05); t.rotation.z = Math.PI; head.add(t);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(x, yTop - len / 2 - 0.2, 0.05); t.rotation.z = Math.PI; upperG.add(t);
   }
   for (let i = 0; i < 40; i++) {
     const a = Math.PI + 0.32 + (Math.PI - 0.64) * i / 39, tx = Math.cos(a) * 3.3, ty = -0.95 + Math.sin(a) * 1.55, len = 1.0 + 0.35 * Math.sin(i * 1.3 + 1);
-    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(tx, ty + len / 2 - 0.05, 0.05); t.rotation.z = -Math.cos(a) * 0.25; head.add(t);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(tx, ty + len / 2 - 0.05, 0.05); t.rotation.z = -Math.cos(a) * 0.25; lowerG.add(t);
   }
   // the dome on top, with six eyes: a dark ring with a white dot, in two triangles
   const dome = new THREE.Mesh(new THREE.SphereGeometry(2.8, 36, 24), blue); dome.scale.set(1.0, 0.88, 1.0); dome.position.set(0, 1.35, -0.4); head.add(dome);
@@ -1290,11 +1291,13 @@ function makeGranMaja() {
     const rz = Math.sqrt(Math.max(0.01, 1 - Math.pow(x / 2.8, 2) - Math.pow((y - 1.35) / (2.8 * 0.88), 2))) * 2.8 - 0.4, e = new THREE.Group(); e.position.set(x, y, rz); e.lookAt(x * 1.5, 1.35 + (y - 1.35) * 1.5, rz + 2); head.add(e);
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.12, 20).rotateX(Math.PI / 2), ringM); ring.position.z = -0.02; e.add(ring);
     const dot = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), dotM); dot.position.z = 0.06; e.add(dot);
+    (u.eyeG ||= []).push(e); (u.dots ||= []).push(dot);
   });
   // the tail: a long, straight, level body that stretches straight back from the head, neither pointing down nor up
-  const L = 27, tail = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.2, L, 28).rotateX(-Math.PI / 2), blue); tail.position.set(0, 4.2 - 0.8, -2.6 - L / 2); g.add(tail);
-  const band = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.18, 1.4, 28).rotateX(-Math.PI / 2), deep); band.position.set(0, 4.2 - 0.8, -4.6); g.add(band);
-  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), blue); tip.position.set(0, 4.2 - 0.8, -2.6 - L); g.add(tip);
+  const tailG = new THREE.Group(); tailG.position.set(0, 4.2 - 0.8, -2.6); g.add(tailG); u.tailG = tailG;   // pivots at the neck so the whole tail can swish a little
+  const L = 27, tail = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 1.2, L, 28).rotateX(-Math.PI / 2), blue); tail.position.set(0, 0, -L / 2); tailG.add(tail);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(1.22, 1.18, 1.4, 28).rotateX(-Math.PI / 2), deep); band.position.set(0, 0, -2.0); tailG.add(band);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), blue); tip.position.set(0, 0, -L); tailG.add(tip);
   u.tail = [];
   // the glowing core, set in the dark of the mouth between the rows of teeth
   u.core = add(ball(0.7, coreMat), head, 0, -0.55, -0.1);
@@ -2420,7 +2423,7 @@ function startBoss(forced) {
   const mesh = kind === 'sky' ? makeSkyreaver() : kind === 'aguamaha' ? makeAguamaha() : kind === 'granmaja' ? makeGranMaja() : kind === 'full' ? makeFullBoss() : makeWarden();
   mesh.position.set(cx, best.h + (kind === 'sky' ? 16 : 0), cz); scene.add(mesh);
   Object.assign(boss, { water: wet, kind, active: true, dead: false, b: best, mesh, maxHp: info.hp + info.hp / 2 * (boss.level - 1), state: kind === 'sky' ? 'fly' : 'idle', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, vt: 0, n: 0, webs: 0, ang: 0, coreY: info.coreY, hitR: info.hitR, bodyR: info.bodyR });
-  boss.hp = boss.maxHp;
+  boss.hp = boss.maxHp; boss.rise = wet ? 280 : 0; boss._rs = false; boss._open = undefined; boss._tx = 0; boss._ps = null;
   beacon.position.set(cx, best.h + 250, cz); beacon.visible = true;
   banner(bossLabel(), 'BOSS FIGHT · FOLLOW THE BEACON');
   setText('bossName', bossLabel());
@@ -2589,8 +2592,51 @@ function updateSkyreaver(h, dx, dz, dh, fast) {
   }
 }
 // THE MAULER: a giant brute that leaps roof to roof, slams where he lands and throws rooftop units
+// El Gran Maja's full animation: he rises from the deep with bubbles, breathes, blinks, his six eyes look at you, his jaws open and snap shut, his head rears back before a stomp and
+// slams down on it with a splash and a shock ring, his core throbs, bubbles drift up from him and ripples spread over the surface above
+function granAnim(h, fast) {
+  const m = boss.mesh, u = m.userData, hd = u.head, T = t, st = boss.state;
+  if (boss._ps !== st) {   // on entering a state
+    if (st === 'stomp') { sfx.roar(); }
+    if (st === 'stunned' && boss._ps === 'stomp') {     // the stomp lands
+      const sx = m.position.x, sz = m.position.z;
+      shockRing(new THREE.Vector3(sx, 0.4, sz), 0xffffff, 190, 1.2); shockRing(new THREE.Vector3(sx, 0.4, sz), 0x66c8ff, 120, 0.9);
+      burst(new THREE.Vector3(sx, 2, sz), 70, 46, 1); burst(new THREE.Vector3(sx + 30, 2, sz), 30, 30, 1); burst(new THREE.Vector3(sx - 30, 2, sz), 30, 30, 1); sfx.splash(); flash = Math.max(flash, 0.25); fovKick = 10; slowT = 0.3;
+    }
+    if (st === 'throw') sfx.growl();
+    boss._ps = st;
+  }
+  // rising from the deep when he appears
+  if (boss.rise > 0) { boss.rise = Math.max(0, boss.rise - h * 55); boss.cd = Math.max(boss.cd, 4); shake = Math.max(shake, 0.45 * Math.min(1, boss.rise / 120)); if (Math.random() < h * 40) burst(new THREE.Vector3(m.position.x + rand(-60, 60), 0.5, m.position.z + rand(-60, 60)), 8, 30, 1); if (!boss._rs) { boss._rs = true; sfx.bellow(); } }
+  // jaws
+  let open = 0.1 + 0.08 * Math.sin(T * 1.5), tiltX = 0, tremble = 0;
+  if (st === 'stomp') { const w0 = fast ? 0.7 : 0.95, k = Math.max(0, Math.min(1, 1 - boss.wind / w0)); open = 0.1 + k * 0.95; tiltX = -0.45 * k; tremble = k; }   // opens wide and rears back
+  else if (st === 'stunned') { open = 0.55 + 0.1 * Math.sin(T * 8); tiltX = 0.22; tremble = 0.4; }                       // dazed: mouth hangs open
+  else if (st === 'throw') { open = 0.45; tiltX = -0.15; }
+  else if (st === 'idle') { const near = boss.cd < 1 ? 0.25 * (1 - boss.cd) : 0; open += near; }
+  boss._open = (boss._open ?? open) + (open - (boss._open ?? open)) * Math.min(1, h * (st === 'stunned' ? 14 : 6));
+  const o = boss._open;
+  u.upper.position.y = o * 0.55; u.lower.position.y = -o * 1.25; u.lower.rotation.x = o * 0.1;
+  hd.rotation.set(0, 0, 0); hd.rotation.x += ((tiltX + Math.sin(T * 1.1) * 0.025) - (boss._tx || 0)) ; boss._tx = tiltX + Math.sin(T * 1.1) * 0.025;
+  hd.rotation.x = boss._tx; hd.rotation.z = Math.sin(T * 0.9) * 0.015 + Math.sin(T * 45) * 0.01 * tremble;
+  const br = 1 + Math.sin(T * 1.2) * 0.015; hd.scale.setScalar(1.6 * br);                                    // breathing
+  // eyes: a slow blink, and the white dots look at you
+  boss._bl = (boss._bl ?? 3) - h; if (boss._bl < -0.16) boss._bl = 2.5 + Math.random() * 3;
+  const lid = boss._bl < 0 ? 0.08 : 1, local = m.worldToLocal(P.pos.clone());
+  u.eyeG.forEach((e, i) => { e.scale.y += (lid - e.scale.y) * Math.min(1, h * 30); });
+  u.dots.forEach((d, i) => { const dx = Math.max(-0.14, Math.min(0.14, local.x * 0.0009)), dy = 0.04 * Math.sin(T * 2 + i); d.position.x += (dx - d.position.x) * Math.min(1, h * 5); d.position.y += (dy - d.position.y) * Math.min(1, h * 5); });
+  // the core throbs
+  const th = st === 'stunned' ? 9 : 3.5; u.core.scale.setScalar(1 + 0.18 * Math.sin(T * th));
+  // the tail swishes gently
+  u.tailG.rotation.y = Math.sin(T * 0.8) * 0.02 + Math.sin(T * 0.37) * 0.012;
+  // bubbles and surface ripples
+  boss._bt = (boss._bt || 0) - h;
+  if (boss._bt <= 0) { boss._bt = 0.35; const hp = u.head.getWorldPosition(m.position.clone()); burst(hp.clone().add(new THREE.Vector3(rand(-90, 90), rand(-20, 60), rand(-90, 90))), 3, 7, -0.6); }
+  boss._rt = (boss._rt || 0) - h;
+  if (boss._rt <= 0) { boss._rt = 2.4; shockRing(new THREE.Vector3(m.position.x + rand(-30, 30), 0.3, m.position.z + rand(-30, 30)), 0xcdeeff, 70, 2.2); }
+}
 function updateMauler(h, dx, dz, dh, onRoof, fast) {
-  if (boss.mesh && boss.mesh.userData.head) { const hd = boss.mesh.userData.head; hd.rotation.set(0, 0, 0); }   // the head looks straight to the front and the stalk stands straight
+  if (boss.mesh && boss.kind === 'granmaja' && boss.mesh.userData.upper) granAnim(h, fast);
   if (boss.mesh && boss.mesh.userData.tail && boss.mesh.userData.eyes) { const T = boss.mesh.userData; for (const q of T.tail) q.m.position.x = Math.sin(t * 2.2 - q.k * 3) * 0.7 * q.k; for (const e of T.eyes) { const l = boss.mesh.worldToLocal(P.pos.clone()); e.rotation.y += (Math.max(-0.5, Math.min(0.5, Math.atan2(l.x - e.position.x, l.z))) - e.rotation.y) * Math.min(1, h * 6); } }   // the tail sways and the six eyes follow you
   const m = boss.mesh, b = boss.b;
   coreMat.emissiveIntensity = boss.stun > 0 ? 5 + Math.sin(t * 20) * 2.5 : 1.3;
@@ -2605,7 +2651,7 @@ function updateMauler(h, dx, dz, dh, onRoof, fast) {
   };
   switch (boss.state) {
     case 'idle': {
-      m.position.y = b.h + Math.abs(Math.sin(t * 5)) * 0.1;
+      m.position.y = b.h + (boss.water ? Math.sin(t * 0.8) * 2.5 : Math.abs(Math.sin(t * 5)) * 0.1) - (boss.rise || 0);
       if ((onRoof || boss.water) && dh > 5) { const sp = boss.water ? (fast ? 18 : 12) : (fast ? 6.5 : 4.5); m.position.x = clamp(m.position.x + dx / dh * sp * h, b.x0 + 3, b.x1 - 3); m.position.z = clamp(m.position.z + dz / dh * sp * h, b.z0 + 3, b.z1 - 3); }
       if (boss.cd > 0) break;
       if ((boss.water ? (dh < 170 && P.pos.y < 12) : (onRoof && dh < 9))) { boss.state = 'stomp'; boss.wind = fast ? 0.7 : 0.95; slamRing.visible = slamFill.visible = true; slamRing.position.set(m.position.x, boss.water ? 0.4 : b.h + 0.06, m.position.z); slamFill.position.copy(slamRing.position); slamRing.scale.setScalar(boss.water ? 11.5 : 1); slamFill.scale.setScalar(boss.water ? 11.5 : 1); sfx.charge(); break; }
