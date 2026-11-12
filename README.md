@@ -868,3 +868,8 @@ After El Grande you travel to World 2: the Sea Eater, the Bloop, then the God Se
 ## El Gran Maja (World 1's boss), copied from your picture
 
 The only boss of World 1 is now **El Gran Maja**, built to match the reference picture you showed: a bright blue head with a huge wide crescent mouth whose brim sweeps up at both ends, black inside with red lips and two rows of long needle-like white teeth; a blue dome on top with **six eyes** (white dots in dark rings, in two triangles); and a long, thick, tapering blue stalk for a body with a darker band and curved marks. Its glowing core sits in the dark of the mouth. It leaps from roof to roof and stomps. After it you travel to World 2.
+
+## Boss order (final)
+
+- **World 1:** El Aguamaha (the blue 3D U with six red eyes on top, a red-inside U mouth with long sharp teeth and a blue tail).
+- **World 2 (the Sea Eater world):** the Sea Eater, then **El Gran Maja** (copied from your picture, leaping across the sea port's towers), then the Bloop, then the God Sea Eater.
