@@ -907,3 +907,7 @@ El Gran Maja is now SO big: the body is 9 times its original size (a face wider 
 ## HIGH quality, pushed to the maximum
 
 HIGH now keeps itself smooth: it draws the hero between physics steps (no judder on 60, 90, 120 or 144 Hz screens), it lowers the resolution a notch whenever frames dip and raises it again when there is room, shadows refresh every other frame when the device is struggling, and bloom is dropped first if it gets really slow. The HIGH/LOW button shows your live frame rate (for example `HIGH 58`).
+
+## The story now has pictures
+
+Each yellow caption box is now part of a comic panel with its own drawing: a normal kid in the city, the spider and the bite, Redline's half-masked shocked face, the city and the sea at sunset, the five bosses in silhouette (El Aguamaha, El Gran Maja, the Sea Eater, the Bloop and the haloed God Sea Eater), the four Biker Society heroes, and a big last panel of Redline swinging between the towers with the biggest caption. The panels pop in one by one as you read and end up together as one comic page.

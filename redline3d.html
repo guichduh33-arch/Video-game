@@ -91,8 +91,10 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #storyBoard{position:absolute;inset:0}
 #storySkip{position:absolute;right:16px;top:14px;z-index:2}
 #storyHint{position:absolute;left:0;right:0;bottom:12px;text-align:center;letter-spacing:4px;font-size:14px;color:#ffd23f;opacity:.85}
-.cap{position:absolute;background:#ffd23f;color:#111;border:4px solid #000;box-shadow:6px 6px 0 #000;padding:10px 14px;box-sizing:border-box;font-weight:700;font-size:clamp(14px,2.4vw,26px);line-height:1.25;text-align:left;transform:rotate(var(--r,0deg));animation:capIn .35s cubic-bezier(.2,1.6,.4,1) both}
-.cap.big{font-size:clamp(22px,5.2vw,64px);text-align:center;letter-spacing:3px;line-height:1.05;padding:14px 18px}
+.panel{position:absolute;border:4px solid #000;box-shadow:6px 6px 0 #000;background:#111;overflow:hidden;transform:rotate(var(--r,0deg));animation:capIn .4s cubic-bezier(.2,1.5,.4,1) both}
+.panel canvas{width:100%;height:100%;display:block;object-fit:cover}
+.cap{position:absolute;left:0;top:0;max-width:62%;background:#ffd23f;color:#111;border:3px solid #000;border-width:0 3px 3px 0;padding:6px 10px;box-sizing:border-box;font-weight:700;font-size:clamp(9px,1.3vw,16px);line-height:1.2;text-align:left}
+.cap.big{left:0;top:0;max-width:56%;border:4px solid #000;box-shadow:6px 6px 0 #000;font-size:clamp(18px,4.2vw,56px);text-align:left;letter-spacing:2px;line-height:1.05;padding:10px 18px}
 @keyframes capIn{from{opacity:0;transform:rotate(var(--r,0deg)) scale(.4) translateY(30px)}to{opacity:1;transform:rotate(var(--r,0deg)) scale(1)}}
 #bagUI h2{margin:0 0 8px;letter-spacing:6px}
 #paper{background:#fffdf5;border:4px solid #fff;box-shadow:6px 6px 0 #000;touch-action:none;cursor:crosshair;width:min(86vw,60vh,420px);height:min(86vw,60vh,420px)}
@@ -1653,14 +1655,83 @@ const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'swBtn', 'bagBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
 // ---------- the story: yellow comic caption boxes appear one by one as you read; the last box is the biggest ----------
 const STORY = [
-  { t: 'A NORMAL KID.<br>A NORMAL DAY.', x: 4, y: 4, w: 36, r: -2 },
-  { t: 'THEN... ONE TINY SPIDER.<br>ONE TINY BITE.', x: 46, y: 3, w: 38, r: 1.5 },
-  { t: 'REDLINE: "WAIT... WHAT IS HAPPENING TO ME?!"', x: 6, y: 25, w: 42, r: -1 },
-  { t: 'THE CITY NEEDS SOMEONE.<br>THE SEA NEEDS SOMEONE.', x: 52, y: 24, w: 42, r: 2 },
-  { t: 'EL AGUAMAHA. THE SEA EATER.<br>EL GRAN MAJA. THE BLOOP.<br>THE GOD SEA EATER.', x: 5, y: 46, w: 46, r: -1.5 },
-  { t: 'BUT THE BIKER SOCIETY HAS YOUR BACK.', x: 56, y: 47, w: 38, r: 1 },
-  { t: 'NOW IT IS YOUR TURN.<br>SWING!', x: 8, y: 64, w: 84, r: 0, big: true },
+  { t: 'A NORMAL KID.<br>A NORMAL DAY.', x: 1.5, y: 2, w: 32, h: 31, r: -1.2 },
+  { t: 'THEN... ONE TINY SPIDER.<br>ONE TINY BITE.', x: 34, y: 2, w: 31, h: 31, r: 0.8 },
+  { t: 'REDLINE: "WAIT... WHAT IS HAPPENING TO ME?!"', x: 66, y: 2, w: 32.5, h: 31, r: -0.8 },
+  { t: 'THE CITY NEEDS SOMEONE.<br>THE SEA NEEDS SOMEONE.', x: 1.5, y: 34.5, w: 32, h: 30, r: 1 },
+  { t: 'EL AGUAMAHA, THE SEA EATER, EL GRAN MAJA, THE BLOOP, THE GOD SEA EATER.', x: 34, y: 34.5, w: 31, h: 30, r: -0.7 },
+  { t: 'BUT THE BIKER SOCIETY HAS YOUR BACK.', x: 66, y: 34.5, w: 32.5, h: 30, r: 0.9 },
+  { t: 'NOW IT IS YOUR TURN.<br>SWING!', x: 1.5, y: 66, w: 97, h: 32, r: 0, big: true },
 ];
+// ---- the pictures: flat comic-style drawings made with canvas ----
+function drawStoryPicture(i, c) {
+  const g = c.getContext('2d'), W = c.width, H = c.height; g.lineJoin = 'round'; g.lineCap = 'round';
+  const grad = (a, b) => { const q = g.createLinearGradient(0, 0, 0, H); q.addColorStop(0, a); q.addColorStop(1, b); g.fillStyle = q; g.fillRect(0, 0, W, H); };
+  const towers = (y0, col, n, seed, minH, maxH) => { let sd = seed; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647; g.fillStyle = col; let x = -10; for (let k = 0; k < n; k++) { const w = W / n * (0.8 + r() * 0.6), h = minH + r() * (maxH - minH); g.fillRect(x, y0 - h, w, h + 400); x += w - 2; } };
+  const outline = (w = 4) => { g.strokeStyle = '#111'; g.lineWidth = w; };
+  const person = (x, y, s, suit, acc, o = {}) => {   // a simple blocky comic hero (or kid), feet at (x,y)
+    g.save(); g.translate(x, y); g.scale(s, s); outline(5);
+    g.fillStyle = suit; g.beginPath(); g.roundRect(-18, -64, 14, 64, 6); g.roundRect(4, -64, 14, 64, 6); g.fill(); g.stroke();   // legs
+    g.fillStyle = acc; g.fillRect(-19, -14, 16, 14); g.fillRect(3, -14, 16, 14);                                                       // boots
+    g.fillStyle = suit; g.beginPath(); g.roundRect(-26, -128, 52, 70, 12); g.fill(); g.stroke();                                        // torso
+    if (o.n) { g.fillStyle = acc; g.font = 'bold 40px sans-serif'; g.textAlign = 'center'; g.fillText('N', 0, -80); }
+    if (o.bag) { g.fillStyle = acc; g.beginPath(); g.roundRect(-34, -122, 14, 44, 5); g.fill(); g.stroke(); }
+    g.fillStyle = suit; g.save(); g.translate(-26, -118); g.rotate(o.armL ?? 0.3); g.beginPath(); g.roundRect(-12, 0, 12, 52, 6); g.fill(); g.stroke(); g.fillStyle = acc; g.fillRect(-12, 42, 12, 10); g.restore();
+    g.save(); g.translate(26, -118); g.rotate(o.armR ?? -0.3); g.fillStyle = suit; g.beginPath(); g.roundRect(0, 0, 12, 52, 6); g.fill(); g.stroke(); g.fillStyle = acc; g.fillRect(0, 42, 12, 10); g.restore();
+    g.fillStyle = o.skin ? '#f0c8a0' : suit; g.beginPath(); g.arc(0, -150, 30, 0, 7); g.fill(); g.stroke();                              // head
+    if (o.skin) { g.fillStyle = '#3a2a1a'; g.beginPath(); g.arc(0, -158, 30, Math.PI, 0); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-10, -148, 6, 0, 7); g.arc(10, -148, 6, 0, 7); g.fill(); g.fillStyle = '#000'; g.beginPath(); g.arc(-10, -147, 3, 0, 7); g.arc(10, -147, 3, 0, 7); g.fill(); g.beginPath(); g.arc(0, -134, 7, 0, Math.PI); g.stroke(); }
+    else { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(-12, -150, 10, 7, -0.3, 0, 7); g.ellipse(12, -150, 10, 7, 0.3, 0, 7); g.fill(); g.stroke(); }
+    g.restore();
+  };
+  const burst = (x, y, r, col) => { g.fillStyle = col; g.beginPath(); for (let k = 0; k < 24; k++) { const a = k / 24 * 6.283, rr = k % 2 ? r * 0.55 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); };
+  if (i === 0) {   // a normal kid on a normal day
+    grad('#8fd0ff', '#d8f0ff'); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(120, 70, 60, 22, 0, 0, 7); g.ellipse(520, 100, 70, 24, 0, 0, 7); g.fill();
+    towers(H - 70, '#9aa8bb', 9, 7, 110, 230); g.fillStyle = '#7fcf6a'; g.fillRect(0, H - 70, W, 70); outline(5); g.beginPath(); g.moveTo(0, H - 70); g.lineTo(W, H - 70); g.stroke();
+    person(W / 2, H - 20, 1.25, '#3a6fd0', '#d02030', { skin: true, armL: 0.9, armR: -0.2, bag: true });
+  } else if (i === 1) {   // one tiny spider, one tiny bite
+    grad('#2a0f4a', '#0b0618'); burst(W / 2, H / 2, 200, '#46d85a'); burst(W / 2, H / 2, 140, '#c8ff8a');
+    g.fillStyle = '#f0c8a0'; g.save(); g.translate(60, H / 2 + 40); g.rotate(-0.15); outline(5); g.beginPath(); g.roundRect(0, -40, 380, 80, 40); g.fill(); g.stroke(); g.restore();   // a kid's arm
+    g.fillStyle = '#d02030'; g.beginPath(); g.arc(330, H / 2 + 30, 6, 0, 7); g.arc(350, H / 2 + 28, 6, 0, 7); g.fill();                                                        // the bite
+    g.save(); g.translate(340, H / 2 - 20); outline(5); for (let k = 0; k < 4; k++) for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(sd * 30, -26 + k * 12, sd * 56, -6 + k * 16); g.stroke(); }
+    g.fillStyle = '#111'; g.beginPath(); g.ellipse(0, 0, 22, 26, 0, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#ff3030'; g.beginPath(); g.arc(-8, -8, 4, 0, 7); g.arc(8, -8, 4, 0, 7); g.fill(); g.fillStyle = '#d02030'; g.beginPath(); g.moveTo(-5, 6); g.lineTo(0, 22); g.lineTo(5, 6); g.fill(); g.restore();
+    g.fillStyle = '#fff'; g.font = 'bold 56px sans-serif'; g.fillText('CHOMP!', 40, 70);
+  } else if (i === 2) {   // what is happening to me?!
+    grad('#ffe7a8', '#ffb35a'); outline(6);
+    g.fillStyle = '#f0c8a0'; g.beginPath(); g.arc(W / 2, H / 2 + 10, 130, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#3a2a1a'; g.beginPath(); g.arc(W / 2, H / 2 - 5, 130, Math.PI * 1.05, Math.PI * 1.95); g.fill();
+    g.fillStyle = '#111'; g.beginPath(); g.moveTo(W / 2, H / 2 - 120); g.arc(W / 2, H / 2 + 10, 130, -Math.PI / 2, Math.PI / 2); g.lineTo(W / 2, H / 2 - 120); g.fill();   // half of the face is already a mask
+    g.fillStyle = '#fff'; g.beginPath(); g.ellipse(W / 2 - 52, H / 2 - 10, 34, 40, 0, 0, 7); g.ellipse(W / 2 + 52, H / 2 - 10, 34, 40, 0.2, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = '#000'; g.beginPath(); g.arc(W / 2 - 52, H / 2 - 4, 9, 0, 7); g.fill(); g.beginPath(); g.arc(W / 2 + 56, H / 2 - 4, 9, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(W / 2, H / 2 + 80, 22, 28, 0, 0, 7); g.fillStyle = '#7a1f1f'; g.fill(); g.stroke();
+    g.strokeStyle = '#111'; g.lineWidth = 5; for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(W / 2 + sd * (160 + k * 14), H / 2 - 40 + k * 40); g.lineTo(W / 2 + sd * (200 + k * 14), H / 2 - 50 + k * 40); g.stroke(); }
+    g.fillStyle = '#d02030'; g.font = 'bold 70px sans-serif'; g.fillText('?!', W - 130, 90); g.fillStyle = '#4ab0ff'; g.beginPath(); g.ellipse(W / 2 + 150, H / 2 - 100, 10, 16, 0, 0, 7); g.fill();
+  } else if (i === 3) {   // the city and the sea
+    grad('#ff9a5a', '#7a3a8a'); g.fillStyle = '#ffe9a0'; g.beginPath(); g.arc(W * 0.72, 90, 44, 0, 7); g.fill();
+    towers(H - 90, '#2a1d44', 7, 3, 110, 250); g.fillStyle = '#1f6fb0'; g.fillRect(W * 0.45, H - 120, W, 200); g.fillStyle = '#2f8fd8';
+    for (let r = 0; r < 4; r++) { g.beginPath(); for (let x = W * 0.45; x < W + 40; x += 40) { g.moveTo(x, H - 100 + r * 22); g.quadraticCurveTo(x + 20, H - 122 + r * 22, x + 40, H - 100 + r * 22); } g.lineWidth = 5; g.strokeStyle = '#8fd0ff'; g.stroke(); }
+    outline(5); g.beginPath(); g.moveTo(W * 0.45, H - 120); g.lineTo(W * 0.45, H); g.stroke();
+  } else if (i === 4) {   // the five bosses
+    grad('#0b3a66', '#04182e'); g.fillStyle = 'rgba(120,200,255,.16)'; for (let k = 0; k < 5; k++) g.fillRect(0, 40 + k * 55, W, 24); outline(4);
+    g.fillStyle = '#2a6cd8'; g.beginPath(); g.roundRect(24, 130, 34, 120, 16); g.roundRect(108, 130, 34, 120, 16); g.fill(); g.stroke(); g.beginPath(); g.arc(83, 240, 59, 0, Math.PI); g.lineWidth = 34; g.strokeStyle = '#2a6cd8'; g.stroke(); outline(4);   // El Aguamaha: a U
+    g.fillStyle = '#e02020'; for (const x of [32, 41, 50, 116, 125, 134]) { g.beginPath(); g.arc(x, 136, 4, 0, 7); g.fill(); }
+    g.fillStyle = '#3f4cff'; g.beginPath(); g.ellipse(235, 150, 32, 28, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillRect(228, 160, 14, 90); g.strokeRect(228, 160, 14, 90);   // El Gran Maja
+    g.beginPath(); g.moveTo(186, 168); g.quadraticCurveTo(235, 186, 284, 168); g.quadraticCurveTo(262, 214, 235, 218); g.quadraticCurveTo(208, 214, 186, 168); g.fillStyle = '#000'; g.fill(); g.stroke(); g.fillStyle = '#fff'; for (let k = 0; k < 9; k++) { g.beginPath(); g.moveTo(200 + k * 9, 172); g.lineTo(204 + k * 9, 190); g.lineTo(208 + k * 9, 172); g.fill(); }
+    g.fillStyle = '#84a0b0'; g.beginPath(); g.ellipse(360, 230, 62, 78, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#000'; g.beginPath(); g.ellipse(360, 230, 34, 46, 0, Math.PI, 0); g.fill();   // the Sea Eater
+    g.fillStyle = '#3a78d8'; g.beginPath(); g.ellipse(470, 240, 48, 40, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#9fe8ff'; for (const [x, y] of [[455, 214], [470, 206], [485, 214]]) { g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill(); }   // the Bloop
+    g.fillStyle = '#f2d27a'; g.beginPath(); g.ellipse(572, 220, 54, 90, 0, Math.PI, 0); g.fill(); g.stroke(); g.fillStyle = '#000'; g.beginPath(); g.ellipse(572, 220, 28, 50, 0, Math.PI, 0); g.fill(); g.strokeStyle = '#ffe9a0'; g.lineWidth = 7; g.beginPath(); g.ellipse(572, 118, 38, 10, 0, 0, 7); g.stroke();   // the God Sea Eater with a halo
+  } else if (i === 5) {   // the Biker Society
+    grad('#ffb06a', '#6a3a8a'); towers(H - 60, '#2a1d44', 8, 11, 90, 200); g.fillStyle = '#4a4a58'; g.fillRect(0, H - 60, W, 60); outline(4);
+    [['#141419', '#e8263c', true, 70], ['#2a1f1a', '#ff8c1a', false, 210], ['#10203a', '#ffd21a', false, 350], ['#d8dde6', '#38d0e8', false, 490]].forEach(([suit, acc, n, x]) => person(x + 20, H - 20, 0.95, suit, acc, { n, armL: 0.15, armR: -0.15 }));
+    g.fillStyle = '#fff'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.fillText('BIKER SOCIETY', W / 2, 56);
+  } else {   // the big one: Redline swinging between the towers
+    grad('#7fd0ff', '#fff3d8'); towers(H, '#6f86a8', 7, 5, 160, 330); g.save(); g.translate(0, 0); outline(5); g.strokeStyle = '#fff'; g.lineWidth = 4; g.beginPath(); g.moveTo(W * 0.2, 0); g.lineTo(W * 0.5, H * 0.5); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 3; for (let k = 0; k < 6; k++) { g.beginPath(); g.moveTo(W * 0.35 - k * 40, H * 0.75 + k * 10); g.lineTo(W * 0.5 - k * 60, H * 0.7 + k * 12); g.stroke(); }
+    g.translate(W * 0.55, H * 0.82); g.rotate(-0.5); g.scale(1.3, 1.3); outline(5);
+    g.fillStyle = '#141419'; g.beginPath(); g.roundRect(-50, -70, 34, 140, 14); g.fill(); g.stroke(); g.fillStyle = '#e8263c'; g.beginPath(); g.roundRect(-46, 40, 26, 30, 8); g.fill();
+    g.fillStyle = '#141419'; g.beginPath(); g.roundRect(-16, -90, 70, 120, 16); g.fill(); g.stroke(); g.fillStyle = '#e8263c'; g.font = 'bold 48px sans-serif'; g.textAlign = 'center'; g.fillText('N', 20, -30);
+    g.fillStyle = '#141419'; g.beginPath(); g.roundRect(40, -150, 16, 90, 8); g.fill(); g.stroke(); g.beginPath(); g.arc(20, -110, 32, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.beginPath(); g.ellipse(8, -112, 10, 7, -0.3, 0, 7); g.ellipse(32, -112, 10, 7, 0.3, 0, 7); g.fill(); g.stroke(); g.restore();
+  }
+}
 let storyIdx = 0, storyDone = null;
 function showStory(done) {
   storyDone = done; storyIdx = 0; $('storyBoard').innerHTML = ''; state = 'story'; show('story', true); show('title', false); show('over', false);
@@ -1668,8 +1739,11 @@ function showStory(done) {
 }
 function storyNext() {
   if (storyIdx < STORY.length) {
-    const b = STORY[storyIdx++], d = document.createElement('div');
-    d.className = 'cap' + (b.big ? ' big' : ''); d.innerHTML = b.t; d.style.cssText = `left:${b.x}%;top:${b.y}%;width:${b.w}%;--r:${b.r}deg`;
+    const i = storyIdx++, b = STORY[i], d = document.createElement('div');
+    d.className = 'panel' + (b.big ? ' bigp' : ''); d.style.cssText = `left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;--r:${b.r}deg`;
+    const cv = document.createElement('canvas'); cv.width = b.big ? 1280 : 640; cv.height = b.big ? Math.round(1280 * b.h / b.w * 0.62) : 420;
+    if (b.big) { cv.width = 1000; cv.height = 420; } drawStoryPicture(i, cv); d.appendChild(cv);
+    const cap = document.createElement('div'); cap.className = 'cap' + (b.big ? ' big' : ''); cap.innerHTML = b.t; d.appendChild(cap);
     $('storyBoard').appendChild(d); sfx.jump();
     if (storyIdx === STORY.length) $('storyHint').textContent = 'CLICK OR PRESS SPACE TO START';
   } else storyEnd();
