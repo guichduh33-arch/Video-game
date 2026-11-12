@@ -849,3 +849,5 @@ The Bloop fights only with its hands and its mouth: it smashes with its small ha
 The Bloop's mouth is the same smooth black arch as the Sea Eater's, with only a short, natural row of small teeth along the top (no teeth around the sides).
 
 The Sea Eater and the Bloop fight alone: no small sea eaters, no gunmen or drones, no backup calls. Only the God Sea Eater brings a team.
+
+Difficulty was lowered: bosses have about half the health, wind up for longer before each attack, rest longer between attacks and stay stunned longer; your hits and your partners' hits do more damage; you are invulnerable for longer after being hit; fewer regular enemies spawn; and only very hard falls cost a heart.
