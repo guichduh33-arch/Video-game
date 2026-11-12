@@ -2319,7 +2319,7 @@ function bossDamage(d, how) {
   const at = bossCore().add(new THREE.Vector3(0, 0.8, 0));
   popup((crit ? 'CRITICAL -' : 'ARMOR -') + dmg, at, crit); if (boss.kind === 'seaeater') { if (boss.stage === 1) sfx.bloop(); else sfx.grunt(); }
   burst(at, crit ? 18 : 8, crit ? 14 : 8, 1); sfx.clang(crit); shake = Math.max(shake, crit ? 0.5 : 0.25);
-  if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) { boss.phase = 2; banner('PHASE 2', 'FASTER · ANGRIER · CALLS BACKUP'); for (let i = 0; i < 3; i++) spawnEnemy(boss.kind === 'mauler' ? 'brute' : 'drone'); }
+  if (boss.phase === 1 && boss.hp <= boss.maxHp / 2) { boss.phase = 2; banner('PHASE 2', 'FASTER · ANGRIER · CALLS BACKUP'); if (boss.kind !== 'seaeater' || boss.stage === 2) for (let i = 0; i < 3; i++) spawnEnemy(boss.kind === 'mauler' ? 'brute' : 'drone'); }
   if (boss.hp <= 0) bossDefeated();
 }
 function bossDefeated() {
@@ -2768,7 +2768,8 @@ function startSeaEater(stage) {   // 0 = the Sea Eater, 1 = the Bloop, 2 = the G
   arms.forEach(a => a.tip.copy(mesh.localToWorld(a.base.clone())).add(new THREE.Vector3(0, 6 * SK, 0)));
   beacon.position.set(SEA.x, 250, SEA.z); beacon.visible = true;
   banner(god ? 'THE GOD SEA EATER' : bloop ? 'THE BLOOP' : 'THE SEA EATER', god ? 'THE TRUE FINAL BOSS' : bloop ? 'RISES FROM THE DEEP' : 'WORLD 2 · NEXT: THE BLOOP, THEN THE GOD'); setText('bossName', god ? 'THE GOD SEA EATER' : bloop ? 'THE BLOOP' : 'THE SEA EATER'); if (bloop) { sfx.bloop(); setTimeout(() => sfx.bloop(), 700); } show('bossBar', true); sfx.bellow(); setTimeout(() => sfx.splash(), 500);
-  spawnMiniEaters(god ? 5 : bloop ? 4 : 4);
+  for (const e of enemies) { scene.remove(e.mesh); if (e.mesh.userData.laser) scene.remove(e.mesh.userData.laser); } enemies.length = 0;   // nobody else helps the Sea Eater or the Bloop
+  if (god) spawnMiniEaters(5);   // the Sea Eater and the Bloop fight alone; only the God has a team
 }
 function removeSeaEater() {
   if (boss.mesh) scene.remove(boss.mesh);
@@ -3169,7 +3170,7 @@ function update(h) {
   const d = difficulty();
   spawnT -= h;
   const alive = enemies.filter(e => !e.dead).length;
-  const cap = boss.active ? 3 : 6 + Math.floor(9 * d);
+  const cap = boss.active ? (boss.kind === 'seaeater' && boss.stage < 2 ? 0 : 3) : 6 + Math.floor(9 * d);
   if (spawnT <= 0 && alive < cap && !window.__noEnemies) { spawnEnemy(); spawnT = rand(0.6, 1.6) - 0.4 * d; }
   const pc = tmp2.copy(P.pos); pc.y += 1;
   const attacking = P.vel.length() > 20 || P.dive || P.punchT > 0.12;
