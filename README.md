@@ -881,3 +881,5 @@ El Gran Maja's stalk (his tail) now goes straight down into the water, all the w
 El Gran Maja is now fully under the water, like the Bloop: his face (the dome and the big mouth) and his short, straight tail both stay below the surface, and you see him through the clear water. Dive down to him (look down, or hold C) and hit his glowing core.
 
 El Gran Maja's tail now lies level and straight under the water, stretching straight back from his head (about 21 m), pointing neither down nor up. His head, with its six eyes and wide mouth, stays below the surface facing you.
+
+El Gran Maja is now way bigger (2.75 times bigger than before; his head is bigger than a tower and his tail is about 57 m long). His stomp reaches much further (about 25 m), he wades faster, and he is easier to hit from a distance: punches and web shots now reach him from further away.
