@@ -903,3 +903,7 @@ El Gran Maja is now SO big: the body is 9 times its original size (a face wider 
 - **Story scene:** the first time you press SWING (and any time from the STORY button on the title screen) a comic-style story plays. Yellow caption boxes pop in one by one as you click or press Space, ending with the biggest box in the middle. Redline's own line is in a yellow box too. SKIP jumps past it.
 - **Smooth HIGH:** the HIGH graphics setting now adapts: if the frame rate dips it lowers the resolution a notch (and raises it again when there is room), and the hero and camera animation use smoothed frame times, so it no longer stutters or glitches.
 - **Resting:** stand still for 6 seconds and Redline does a backflip, lands on his back and lies there like in a bed with both hands folded behind his head (with little "Z z z" now and then). Any move or button gets him up with a quick roll.
+
+## HIGH quality, pushed to the maximum
+
+HIGH now keeps itself smooth: it draws the hero between physics steps (no judder on 60, 90, 120 or 144 Hz screens), it lowers the resolution a notch whenever frames dip and raises it again when there is room, shadows refresh every other frame when the device is struggling, and bloom is dropped first if it gets really slow. The HIGH/LOW button shows your live frame rate (for example `HIGH 58`).

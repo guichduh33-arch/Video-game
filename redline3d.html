@@ -2419,7 +2419,7 @@ function setQuality(q) {
   const pr = q === 'high' ? Math.min(2, window.devicePixelRatio || 1) : 1;
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
   sun.castShadow = q === 'high';
-  $('qualBtn').textContent = q === 'high' ? 'HIGH' : 'LOW';
+  $('qualBtn').textContent = q === 'high' ? 'HIGH' : 'LOW'; renderer.shadowMap.autoUpdate = true; bloom.enabled = true;
 }
 
 // ================= boss: the Warden =================
@@ -3705,8 +3705,9 @@ function updateCamera(dt) {
 }
 const basis = new THREE.Matrix4(), qTarget = new THREE.Quaternion();
 let idleLook = false;
+const prevPos = new THREE.Vector3(); let renderAlpha = 1;
 function animateHero(dt) {
-  hero.position.copy(P.pos);
+  if (state === 'play' && prevPos.distanceToSquared(P.pos) < 100) hero.position.lerpVectors(prevPos, P.pos, renderAlpha); else hero.position.copy(P.pos);   // draw between physics steps: no judder on any refresh rate
   idleLook = false;
   const hv = tmp.set(P.vel.x, 0, P.vel.z);
   if (P.state === 'wall') P.face.set(-P.wn.x, 0, -P.wn.y);
@@ -3984,9 +3985,12 @@ function updateAllies(h, rebuild) {
 // ================= loop =================
 let last = performance.now(), acc = 0, slowT = 0, fovKick = 0;
 const STEP = 1 / 120;
-let autoPR = 0, perfT = 0, perfAvg = 0.016;
+let autoPR = 0, perfT = 0, perfAvg = 0.016, frameN = 0, fpsT = 0, fpsN = 0;
 function adaptQuality(rawDt) {   // HIGH stays smooth: if frames get slow the resolution drops a notch, and it comes back up when there is room
   perfAvg += (Math.min(rawDt, 0.1) - perfAvg) * 0.06; perfT -= rawDt;
+  frameN++; fpsT += rawDt; fpsN++;
+  if (fpsT > 0.6) { const fps = Math.round(fpsN / fpsT); fpsT = 0; fpsN = 0; if (quality === 'high') $('qualBtn').textContent = 'HIGH ' + fps; else $('qualBtn').textContent = 'LOW ' + fps; }
+  if (quality === 'high') { renderer.shadowMap.autoUpdate = perfAvg < 0.0185 || frameN % 2 === 0; if (perfAvg > 0.045 && bloom.enabled) bloom.enabled = false; else if (perfAvg < 0.022 && !bloom.enabled) bloom.enabled = true; }   // when frames are slow, shadows refresh every other frame and bloom is dropped first
   if (quality !== 'high' || state === 'title' || perfT > 0) return;
   const basePR = Math.min(2, window.devicePixelRatio || 1), cur = autoPR || basePR;
   let next = cur;
@@ -3998,8 +4002,8 @@ function frame(now) {
   const rawDt = (now - last) / 1000, dt = Math.min(0.05, rawDt); last = now; adaptQuality(rawDt); sdt += (dt - sdt) * 0.35;
   if (state === 'play') {
     acc += dt * (slowT > 0 ? 0.22 : 1); slowT = Math.max(0, slowT - dt);
-    while (acc >= STEP && state === 'play') { update(STEP); acc -= STEP; }
-    animateHero(sdt); updateCamera(sdt); updateHUD();
+    while (acc >= STEP && state === 'play') { prevPos.copy(P.pos); update(STEP); acc -= STEP; }
+    renderAlpha = Math.max(0, Math.min(1, acc / STEP)); animateHero(sdt); updateCamera(sdt); updateHUD();
   } else {
     acc = 0;
     if (state === 'title') { yaw += dt * 0.12; pitch = 0.18; P.anim += dt; animateHero(dt); updateCamera(dt); }
