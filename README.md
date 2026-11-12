@@ -839,3 +839,9 @@ The sea in World 2 is now clear: you can see through it to the sea floor and to 
 The Bloop is not like the Sea Eater: it has two realistic eyes (amber iris, slit pupil, heavy brow) on top of its dome, a row of fine sharp ivory teeth along the arch of its mouth, and slim arms with small hands.
 
 The Bloop fights only with its hands and its mouth: it smashes with its small hands (a small red circle shows where, and only that small area hurts) and it bites with its mouth. It has no water wave.
+
+## Polish
+
+- **El Gramaha** is really silly now: huge googly eyes with wobbling pupils, big eyebrows and a red clown nose.
+- **The Sea Eater, the Bloop and the God Sea Eater** animate properly: they breathe, sway, rear back and swell before a bite, lean back and tremble as a hand rises, throw their weight forward on a smash, and wobble when dazed. The Bloop's eyes follow you and blink.
+- **The Bloop is slow**: it drifts slowly, rises slowly, winds up for longer, lunges at a crawl and swings its hands slowly, so you have time to see each attack coming.

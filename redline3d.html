@@ -1183,6 +1183,14 @@ function makeMauler() {
   g.userData.core = add(ball(0.32, coreMat), g, 0, 3.35, 0.72);           // power pack on the chest
   add(new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.08, 10, 24), wardenDark), g, 0, 3.35, 0.78);
   for (const s of [-1, 1]) add(new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.5, 0.9, 3, 0.1), new THREE.MeshStandardMaterial({ color: 0xe0b030, metalness: 0.7, roughness: 0.3 })), g, s * 1.2, 4.25, -0.05); // gold shoulder armor
+  // really silly: huge googly eyes that wobble, with big eyebrows and a red clown nose
+  g.userData.pup = [];
+  for (const sx of [-1, 1]) {
+    const eyeW = new THREE.Mesh(new THREE.SphereGeometry(0.4, 20, 14), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.25 })); eyeW.position.set(sx * 0.36, 5.0, 0.42); g.add(eyeW);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), new THREE.MeshBasicMaterial({ color: 0x050505 })); pup.position.set(sx * 0.36, 5.0, 0.42 + 0.27); g.add(pup); g.userData.pup.push({ m: pup, bx: sx * 0.36, by: 5.0, bz: 0.69, ph: sx * 1.7 });
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.1, 0.12), new THREE.MeshStandardMaterial({ color: 0x1a1210 })); brow.position.set(sx * 0.38, 5.5, 0.5); brow.rotation.z = -sx * 0.45; g.add(brow);
+  }
+  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), new THREE.MeshStandardMaterial({ color: 0xe02020, roughness: 0.4 })); nose.position.set(0, 4.72, 0.62); g.add(nose);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -2462,6 +2470,7 @@ function updateSkyreaver(h, dx, dz, dh, fast) {
 }
 // THE MAULER: a giant brute that leaps roof to roof, slams where he lands and throws rooftop units
 function updateMauler(h, dx, dz, dh, onRoof, fast) {
+  if (boss.mesh && boss.mesh.userData.pup) for (const q of boss.mesh.userData.pup) { q.m.position.x = q.bx + Math.sin(boss.tt * 5.5 + q.ph) * 0.14; q.m.position.y = q.by + Math.cos(boss.tt * 4.3 + q.ph * 2) * 0.14; }   // the googly pupils wobble
   const m = boss.mesh, b = boss.b;
   coreMat.emissiveIntensity = boss.stun > 0 ? 5 + Math.sin(t * 20) * 2.5 : 1.3;
   if (boss.state !== 'leap') { let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); m.rotation.y += d * Math.min(1, h * (boss.stun > 0 ? 0.4 : 3)); }
@@ -2719,7 +2728,7 @@ function updateMini(e, h) {
 function addBloopFace(g) {
   const white = new THREE.MeshStandardMaterial({ color: 0xe9e4d6, roughness: 0.35 }), iris = new THREE.MeshStandardMaterial({ color: 0xe0a020, emissive: 0x6a3a00, emissiveIntensity: 0.8, roughness: 0.3 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 }), tooth = new THREE.MeshStandardMaterial({ color: 0xefe6cf, roughness: 0.45 });
   for (const sx of [-1, 1]) {
-    const eye = new THREE.Group(); eye.position.set(sx * 15, 32, 19); eye.rotation.set(-0.45, sx * 0.25, 0); g.add(eye);
+    const eye = new THREE.Group(); eye.position.set(sx * 15, 32, 19); eye.rotation.set(-0.45, sx * 0.25, 0); g.add(eye); (g.userData.eyes ||= []).push(eye);
     const ball = new THREE.Mesh(new THREE.SphereGeometry(5.6, 28, 20), white); eye.add(ball);
     const ir = new THREE.Mesh(new THREE.CircleGeometry(3.3, 32), iris); ir.position.z = 5.52; eye.add(ir);
     const pu = new THREE.Mesh(new THREE.CircleGeometry(1, 24), pupil); pu.scale.set(0.55, 2.6, 1); pu.position.z = 5.56; eye.add(pu);                  // a vertical slit pupil
@@ -2800,14 +2809,14 @@ function updateSeaEater(h) {
   const ox = pp.x - SEA.x, oz = pp.z - SEA.z, od = Math.hypot(ox, oz) || 1, kk = Math.min(1, 80 / od);
   const wantX = SEA.x + ox * kk * 0.85, wantZ = SEA.z + oz * kk * 0.85;
   if (['idle', 'slam', 'slamHit', 'recover', 'wave', 'waveRun', 'gape', 'stunned'].includes(boss.state)) {
-    const sp = fast ? 0.55 : 0.4; m.position.x += (wantX - m.position.x) * Math.min(1, h * sp); m.position.z += (wantZ - m.position.z) * Math.min(1, h * sp);
+    const sp = (fast ? 0.55 : 0.4) * (boss.stage === 1 ? 0.22 : 1); m.position.x += (wantX - m.position.x) * Math.min(1, h * sp); m.position.z += (wantZ - m.position.z) * Math.min(1, h * sp);
     m.position.y += ((boss.yBase || 0) + Math.sin(boss.tt * 1.4) * 0.8 - m.position.y) * Math.min(1, h * 3);
   }
   const hideTele = () => { for (const t of tele) t.ring.visible = t.fill.visible = false; };
   const showTele = (i, x, y, z, sc) => { const t = tele[i]; t.ring.visible = t.fill.visible = true; t.ring.position.set(x, y, z); t.fill.position.copy(t.ring.position); t.ring.scale.setScalar(sc); t.fill.scale.setScalar(sc); t.ring.material.opacity = 0.45 + Math.sin(boss.tt * 25) * 0.3; };
   switch (boss.state) {
     case 'emerge': {
-      boss.dt += h; const k = Math.min(1, boss.dt / 3.4), e = 1 - Math.pow(1 - k, 3);
+      boss.dt += h; const k = Math.min(1, boss.dt / (boss.stage === 1 ? 8 : 3.4)), e = 1 - Math.pow(1 - k, 3);
       m.position.y = (boss.yBase || 0) - 34 * SK * (1 - e); boss.mouthT = 1; boss.hitInv = 1; shake = Math.max(shake, 0.35 * (1 - k));
       if (k >= 1) { set('idle'); boss.cd = 1.2; boss.mouthT = 0; banner('FIGHT!', 'WEB THE MAW · HIT THE CORE'); }
       break;
@@ -2826,8 +2835,8 @@ function updateSeaEater(h) {
         const tgt = (px, pz) => { const ddx = px - m.position.x, ddz = pz - m.position.z, dd = Math.hypot(ddx, ddz) || 1, k2 = dd > 70 * SK ? 70 * SK / dd : 1, x = m.position.x + ddx * k2, z = m.position.z + ddz * k2; return new THREE.Vector3(x, groundAt(x, z), z); };
         const picks = [], a1 = nearestArm(pp.x, pp.z); if (a1) { a1.target.copy(tgt(pp.x, pp.z)); clampArmTarget(a1); a1.mode = 'up'; picks.push(a1); }
         if (fast) { const a2 = nearestArm(pp.x + P.vel.x, pp.z + P.vel.z, a1); if (a2) { a2.target.copy(tgt(pp.x + P.vel.x * 1.1, pp.z + P.vel.z * 1.1)); clampArmTarget(a2); a2.mode = 'up'; picks.push(a2); } }
-        boss.slamArms = picks; boss.wind = fast ? 0.95 : 1.3; set('slam'); sfx.growl();
-      } else if (pick === 'bite') { boss.wind = fast ? 1.0 : 1.35; boss.bite = new THREE.Vector3(pp.x, 0, pp.z); set('rear'); sfx.roar(); }
+        boss.slamArms = picks; boss.wind = (fast ? 0.95 : 1.3) * (boss.stage === 1 ? 1.6 : 1); set('slam'); sfx.growl();
+      } else if (pick === 'bite') { boss.wind = (fast ? 1.0 : 1.35) * (boss.stage === 1 ? 1.7 : 1); boss.bite = new THREE.Vector3(pp.x, 0, pp.z); set('rear'); sfx.roar(); }
       else { boss.wind = 0.9; set('wave'); sfx.growl(); }
       break;
     }
@@ -2853,7 +2862,7 @@ function updateSeaEater(h) {
       break;
     }
     case 'lunge': {
-      boss.lt += h / 0.32; const k4 = Math.min(1, boss.lt), e2 = k4 * k4 * (3 - 2 * k4);
+      boss.lt += h / (boss.stage === 1 ? 1.5 : 0.32); const k4 = Math.min(1, boss.lt), e2 = k4 * k4 * (3 - 2 * k4);
       m.position.lerpVectors(boss.from, boss.to, e2); shake = Math.max(shake, 0.4);
       if (k4 >= 1) {
         hideTele(); boss.mouthT = 0; boss.mouth = Math.min(boss.mouth, 0.6); m.updateMatrixWorld(true);
@@ -2882,6 +2891,7 @@ function updateSeaEater(h) {
       break;
     }
   }
+  seaBody(h);
   seaAnimate(h);
   // ---- the core is only reachable through an open mouth ----
   if (boss.mouth > 0.6 && boss.state !== 'emerge') {
@@ -2893,6 +2903,29 @@ function updateSeaEater(h) {
       const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y));
       P.vel.set(fw.x * 22, 12, fw.z * 22); P.state = 'air'; P.roof = null; P.dive = false; P.rope = null; P.jumpT = 0;
     }
+  }
+}
+// the body's own animation: it breathes, sways, winds up before each attack and settles after it; the Bloop's eyes follow you and blink
+function seaBody(h) {
+  const m = boss.mesh, u = m.userData, slow = boss.stage === 1 ? 0.55 : 1, T = boss.tt;
+  m.rotation.order = 'YXZ';
+  let tx = Math.sin(T * 0.7 * slow) * 0.012, tz = Math.sin(T * 0.5 * slow + 1) * 0.02, bs = 1 + Math.sin(T * 1.3 * slow) * 0.012;
+  switch (boss.state) {
+    case 'slam': tx = -0.05; tz += Math.sin(T * 20) * 0.004; break;                          // leans back and trembles as the hand rises
+    case 'slamHit': tx = 0.07; break;                                                         // throws its weight forward on the smash
+    case 'recover': tx = 0.02; break;
+    case 'rear': tx = -0.14; bs += 0.03; break;                                              // rears back and swells before the bite
+    case 'lunge': tx = 0.1; bs -= 0.02; break;
+    case 'chomp': tx = 0.04 + Math.sin(T * 40) * 0.01; break;
+    case 'gape': case 'stunned': tz += Math.sin(T * 9) * 0.03; tx = Math.sin(T * 6) * 0.02; break;   // dazed, wobbling
+    case 'wave': tx = -0.06; bs += 0.02; break;
+  }
+  m.rotation.x += (tx - m.rotation.x) * Math.min(1, h * 4); m.rotation.z += (tz - m.rotation.z) * Math.min(1, h * 3);
+  const s0 = m.scale.x, want = SK * bs; m.scale.setScalar(s0 + (want - s0) * Math.min(1, h * 5));
+  if (u.eyes) {   // the Bloop's eyes follow you, with a slow blink
+    boss.blink = (boss.blink || 0) - h; if (boss.blink < -0.18) boss.blink = 3 + Math.random() * 3;
+    const lid = boss.blink < 0 ? 0.08 : 1, local = m.worldToLocal(P.pos.clone());
+    for (const e of u.eyes) { const yaw2 = Math.max(-0.5, Math.min(0.5, Math.atan2(local.x - e.position.x, local.z - e.position.z) * 0.5)); e.rotation.y += (yaw2 - e.rotation.y) * Math.min(1, h * 5); e.scale.y += (lid - e.scale.y) * Math.min(1, h * 25); }
   }
 }
 // the lid, the core colour and the two arms, every frame
@@ -2912,11 +2945,11 @@ function seaAnimate(h) {
     else { want = a.target; rate = 0; curl = a.mode === 'slam' ? 1.25 : 0.9; }
     if (a.mode === 'slam') {
       a.st = (a.st || 0) + h;
-      _a.copy(a.target).sub(a.tip); const dd = _a.length(), st = Math.min(dd, 330 * SK * h);
+      _a.copy(a.target).sub(a.tip); const dd = _a.length(), st = Math.min(dd, 330 * SK * h * (boss.stage === 1 ? 0.3 : 1));
       if (dd > 0.01) a.tip.addScaledVector(_a.divideScalar(dd), st);
-      if (dd - st < 0.5 || a.st > 1.4) { a.tip.copy(a.target); seaImpact(a); a.mode = 'down'; a.t = 0; }
+      if (dd - st < 0.5 || a.st > (boss.stage === 1 ? 4.5 : 1.4)) { a.tip.copy(a.target); seaImpact(a); a.mode = 'down'; a.t = 0; }
     } else if (a.mode === 'down') { a.tip.copy(a.target); a.t += h; if (a.t > 1.4) a.mode = 'idle'; }
-    else a.tip.lerp(want, Math.min(1, h * rate));
+    else a.tip.lerp(want, Math.min(1, h * rate * (boss.stage === 1 ? 0.45 : 1)));
     _a.copy(a.tip).sub(baseW); const len = _a.length(); if (len > ARM_REACH) a.tip.copy(baseW).addScaledVector(_a, ARM_REACH / len);
     poseSeaArm(k, baseW, a.tip, curl, h);
   });
