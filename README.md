@@ -829,3 +829,9 @@ Press `I` or the BAG button (top bar) to open your bag. Inside are a sheet of pa
 2. **The Sea Eater** (World 2)
 3. **The Bloop** (World 2): when the Sea Eater falls, a deep-blue glowing giant with bright spots rises (about 1.3 times bigger, 320 HP) with its own deep "bloop" sound.
 4. **The God Sea Eater** (World 2): when the Bloop falls it awakens as a golden, glowing, haloed giant, about 1.7 times bigger than the Sea Eater, with 420 HP, plus five more of the small colored sea eaters. Beat it to win.
+
+## Clear water and diving
+
+The sea in World 2 is now clear: you can see through it to the sea floor and to what lives below. Swim as before, then **hold C (or Ctrl, or the DIVE button) to dive** under the surface, **hold Space to rise**, and press Space at the surface to leap out. Underwater the world turns blue-green and murky.
+
+**The Bloop lives only under the water**: it rises to just below the surface and stays there, so you can see its dark blue body through the water. Dive down to its glowing core while its mouth is open to hurt it (a hit shoves you up toward the surface).

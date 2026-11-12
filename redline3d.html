@@ -680,7 +680,7 @@ function ensureSea() {
   addMesh(roof, new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#6f6f6c'; g.fillRect(0, 0, w, h); speckle(g, w, h, 6000, 0.25); }), roughness: 1 }));
   addMesh(deck, new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#4b5057'; g.fillRect(0, 0, w, h); speckle(g, w, h, 4000, 0.15); g.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 0; i < 4; i++) { g.fillRect(i * 64, 0, 2, h); g.fillRect(0, i * 64, w, 2); } g.fillStyle = 'rgba(230,180,40,.5)'; g.fillRect(0, 4, w, 3); }), roughness: 0.85 }));
   // the sea: a big plane with waves in the vertex shader (the bay is where the boss rises)
-  const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x0b4d70, roughness: 0.14, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.3 });
+  const waterMat = new THREE.MeshPhysicalMaterial({ color: 0x2aa0c0, roughness: 0.08, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.1, envMapIntensity: 1.3, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide });   // clear water: you can see through it
   waterMat.onBeforeCompile = sh => {
     sh.uniforms.uTime = seaUniforms.uTime;
     sh.vertexShader = 'uniform float uTime;\nfloat seaH(vec2 p){ return sin(p.x*0.045+uTime*0.9)*0.45 + sin(p.y*0.06+uTime*1.1)*0.35 + sin((p.x+p.y)*0.11+uTime*1.7)*0.16; }\n' + sh.vertexShader
@@ -692,7 +692,11 @@ function ensureSea() {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n transformed.y += seaH(wp);');
   };
   const water = new THREE.Mesh(new THREE.PlaneGeometry(3600, 3600, 150, 150).rotateX(-Math.PI / 2), waterMat);
-  water.position.set(SEA.x, 0, SEA.z); water.receiveShadow = true; grp.add(water);
+  water.position.set(SEA.x, 0, SEA.z); water.receiveShadow = true; water.renderOrder = 2; grp.add(water);
+  // the sea floor, far below, so there is something to see through the clear water
+  const floorTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#c9b98a'; g.fillRect(0, 0, w, h); speckle(g, w, h, 9000, 0.3); });
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(60, 60);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(3600, 3600).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 1 })); floor.position.set(SEA.x, -200, SEA.z); grp.add(floor);
   // buoys
   const buoys = new THREE.InstancedMesh(new THREE.SphereGeometry(0.9, 10, 8), new THREE.MeshStandardMaterial({ color: 0xff3b30, emissive: 0x551100, roughness: 0.5 }), 90), bm = new THREE.Matrix4();
   for (let i = 0; i < 90; i++) { const a = r2() * 6.283, rr = R2(70, 440); bm.makeTranslation(SEA.x + Math.cos(a) * rr, 0.3, SEA.z + Math.sin(a) * rr); buoys.setMatrixAt(i, bm); }
@@ -1769,7 +1773,7 @@ function letGo() {
   if (h > 4) { P.vel.x += P.vel.x / h * 4; P.vel.z += P.vel.z / h * 4; P.vel.y += 6; }
 }
 function jump() { P.state = 'air'; P.roof = null; P.vel.y = 13; P.jumpT = 0; sfx.jump(); }
-function dive() { if (state !== 'play' || P.state !== 'air') return; P.rope = null; P.dive = true; P.vel.y = Math.min(P.vel.y, 0) - 28; }
+function dive() { if (state === 'play' && P.state === 'swim') { P.swimDown = 1.4; return; } if (state !== 'play' || P.state !== 'air') return; P.rope = null; P.dive = true; P.vel.y = Math.min(P.vel.y, 0) - 28; }
 function pulse() {
   if (state !== 'play' || energy < 50) return;
   energy -= 50; sfx.pulse(); shake = Math.max(shake, 0.6); flash = 0.35;
@@ -2725,10 +2729,10 @@ function startSeaEater(stage) {   // 0 = the Sea Eater, 1 = the Bloop, 2 = the G
     godSkin(mesh); for (const ag of mesh.userData.armGroups) godSkin(ag);
     const halo = new THREE.Mesh(new THREE.TorusGeometry(26, 1.6, 12, 64), new THREE.MeshBasicMaterial({ color: 0xffe9a0 })); halo.rotation.x = Math.PI / 2; halo.position.set(0, 66, 0); mesh.add(halo); mesh.userData.halo = halo;
     const aura = new THREE.Mesh(new THREE.TorusGeometry(26, 5, 12, 64), new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: 0.25, depthWrite: false })); aura.rotation.x = Math.PI / 2; aura.position.copy(halo.position); mesh.add(aura);
-  } mesh.position.set(SEA.x, -34 * SK, SEA.z); scene.add(mesh);
+  } mesh.position.set(SEA.x, (bloop ? -(46 * SK + 8) : 0) - 34 * SK, SEA.z); scene.add(mesh);
   for (const ag of mesh.userData.armGroups) scene.add(ag);
   const arms = ARM_BASES.map((b, i) => ({ base: new THREE.Vector3(...b), tip: new THREE.Vector3(), mode: 'idle', t: 0, target: new THREE.Vector3(), ph: i * 1.7 }));
-  Object.assign(boss, { kind: 'seaeater', god: god, stage, active: true, dead: false, b: null, mesh, arms, maxHp: god ? 420 : bloop ? 320 : 240, hp: god ? 420 : bloop ? 320 : 240, state: 'emerge', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, tt: 0, n: 0, vt: 0, webs: 0, webCd: 0, count: 1, level: 1, coreY: 0, hitR: 8.5 * SK, bodyR: 0, slams: 0, mouth: 0, mouthT: 1, last: '', force: null, wave: null, slamArms: [] });
+  Object.assign(boss, { yBase: bloop ? -(46 * SK + 8) : 0, kind: 'seaeater', god: god, stage, active: true, dead: false, b: null, mesh, arms, maxHp: god ? 420 : bloop ? 320 : 240, hp: god ? 420 : bloop ? 320 : 240, state: 'emerge', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, tt: 0, n: 0, vt: 0, webs: 0, webCd: 0, count: 1, level: 1, coreY: 0, hitR: 8.5 * SK, bodyR: 0, slams: 0, mouth: 0, mouthT: 1, last: '', force: null, wave: null, slamArms: [] });
   mesh.updateMatrixWorld(true);
   arms.forEach(a => a.tip.copy(mesh.localToWorld(a.base.clone())).add(new THREE.Vector3(0, 6 * SK, 0)));
   beacon.position.set(SEA.x, 250, SEA.z); beacon.visible = true;
@@ -2775,14 +2779,14 @@ function updateSeaEater(h) {
   const wantX = SEA.x + ox * kk * 0.85, wantZ = SEA.z + oz * kk * 0.85;
   if (['idle', 'slam', 'slamHit', 'recover', 'wave', 'waveRun', 'gape', 'stunned'].includes(boss.state)) {
     const sp = fast ? 0.55 : 0.4; m.position.x += (wantX - m.position.x) * Math.min(1, h * sp); m.position.z += (wantZ - m.position.z) * Math.min(1, h * sp);
-    m.position.y += (Math.sin(boss.tt * 1.4) * 0.8 - m.position.y) * Math.min(1, h * 3);
+    m.position.y += ((boss.yBase || 0) + Math.sin(boss.tt * 1.4) * 0.8 - m.position.y) * Math.min(1, h * 3);
   }
   const hideTele = () => { for (const t of tele) t.ring.visible = t.fill.visible = false; };
   const showTele = (i, x, y, z, sc) => { const t = tele[i]; t.ring.visible = t.fill.visible = true; t.ring.position.set(x, y, z); t.fill.position.copy(t.ring.position); t.ring.scale.setScalar(sc); t.fill.scale.setScalar(sc); t.ring.material.opacity = 0.45 + Math.sin(boss.tt * 25) * 0.3; };
   switch (boss.state) {
     case 'emerge': {
       boss.dt += h; const k = Math.min(1, boss.dt / 3.4), e = 1 - Math.pow(1 - k, 3);
-      m.position.y = -34 * SK + 34 * SK * e; boss.mouthT = 1; boss.hitInv = 1; shake = Math.max(shake, 0.35 * (1 - k));
+      m.position.y = (boss.yBase || 0) - 34 * SK * (1 - e); boss.mouthT = 1; boss.hitInv = 1; shake = Math.max(shake, 0.35 * (1 - k));
       if (k >= 1) { set('idle'); boss.cd = 1.2; boss.mouthT = 0; banner('FIGHT!', 'WEB THE MAW · HIT THE CORE'); }
       break;
     }
@@ -2818,9 +2822,9 @@ function updateSeaEater(h) {
       const bd2 = Math.hypot(boss.bite.x - m.position.x, boss.bite.z - m.position.z) || 1, k3 = Math.min(1, 125 * SK / bd2);
       boss.bite.set(m.position.x + (boss.bite.x - m.position.x) * k3, 0, m.position.z + (boss.bite.z - m.position.z) * k3);
       showTele(0, boss.bite.x, Math.max(groundAt(boss.bite.x, boss.bite.z), 0) + 0.4, boss.bite.z, 1.75 * SK);
-      m.position.y += (5 * SK - m.position.y) * Math.min(1, h * 3);
+      m.position.y += ((boss.yBase || 0) + 5 * SK - m.position.y) * Math.min(1, h * 3);
       if (boss.wind <= 0) {
-        const dir = new THREE.Vector3(boss.bite.x - m.position.x, 0, boss.bite.z - m.position.z).normalize(), to = new THREE.Vector3(boss.bite.x, 3, boss.bite.z).addScaledVector(dir, -MAW_Z * SK);
+        const dir = new THREE.Vector3(boss.bite.x - m.position.x, 0, boss.bite.z - m.position.z).normalize(), to = new THREE.Vector3(boss.bite.x, 3 + (boss.yBase || 0), boss.bite.z).addScaledVector(dir, -MAW_Z * SK);
         const cx = to.x - SEA.x, cz = to.z - SEA.z, cr = Math.hypot(cx, cz); if (cr > 110 * SK) { to.x = SEA.x + cx * 110 * SK / cr; to.z = SEA.z + cz * 110 * SK / cr; }
         boss.from = m.position.clone(); boss.to = to; boss.lt = 0; set('lunge'); sfx.roar(); sfx.splash();
       }
@@ -2860,7 +2864,9 @@ function updateSeaEater(h) {
   // ---- the core is only reachable through an open mouth ----
   if (boss.mouth > 0.6 && boss.state !== 'emerge') {
     const core = bossCore(), me = pp.clone().setY(pp.y + 1);
-    if (me.distanceTo(core) < boss.hitR && (P.vel.length() > 20 || P.dive)) {
+    if (boss.stage === 1 && P.state === 'swim' && me.distanceTo(core) < boss.hitR * 1.3) {   // the Bloop is hurt by a swimmer who reaches its core
+      if (boss.hitInv <= 0) { bossDamage(6, 'dive'); P.depth = Math.max(0, (P.depth || 0) - 30); P.swimDown = 0; }
+    } else if (me.distanceTo(core) < boss.hitR && (P.vel.length() > 20 || P.dive)) {
       bossDamage(P.dive ? 10 : 6, 'slam');
       const fw = new THREE.Vector3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y));
       P.vel.set(fw.x * 22, 12, fw.z * 22); P.state = 'air'; P.roof = null; P.dive = false; P.rope = null; P.jumpT = 0;
@@ -2969,7 +2975,7 @@ function collide(prevY) {
 const SWIM = 11;
 function waterH(x, z) { const t = seaUniforms.uTime.value; return Math.sin(x * 0.045 + t * 0.9) * 0.45 + Math.sin(z * 0.06 + t * 1.1) * 0.35 + Math.sin((x + z) * 0.11 + t * 1.7) * 0.16; }
 function enterSwim() {
-  P.state = 'swim'; P.roof = null; P.rope = null; P.dive = false; P.trick = null; P.zip = null; P.vel.y = 0; P.pos.y = waterH(P.pos.x, P.pos.z) - 0.25; combo = 1;
+  P.depth = 0; P.state = 'swim'; P.roof = null; P.rope = null; P.dive = false; P.trick = null; P.zip = null; P.vel.y = 0; P.pos.y = waterH(P.pos.x, P.pos.z) - 0.25; combo = 1;
   burst(new THREE.Vector3(P.pos.x, P.pos.y + 0.4, P.pos.z), 14, 9, 1); sfx.thud(); shake = Math.max(shake, 0.25);
 }
 function swimLeap() { const mv = moveVec(); P.state = 'air'; P.roof = null; P.vel.set(mv.x * 10, 16, mv.z * 10); P.jumpT = 0; sfx.jump(); }
@@ -2979,9 +2985,13 @@ function physics(h) {
     const prevY = p.y, px0 = p.x, pz0 = p.z;
     v.x += (mv.x * SWIM - v.x) * Math.min(1, h * 5); v.z += (mv.z * SWIM - v.z) * Math.min(1, h * 5);
     p.x += v.x * h; p.z += v.z * h;
-    p.y += (waterH(p.x, p.z) - 0.25 - p.y) * Math.min(1, h * 12); v.y = 0;
+    // dive with C or Ctrl (or the DIVE button), rise with Space; Space at the surface leaps out of the water
+    if (input.keys.has('KeyC') || input.keys.has('ControlLeft') || P.swimDown > 0) P.depth = Math.min(185, (P.depth || 0) + 9 * h);
+    else if (input.keys.has('Space') && (P.depth || 0) > 0.6) { P.depth = Math.max(0, P.depth - 12 * h); input.jump = false; }
+    P.swimDown = Math.max(0, (P.swimDown || 0) - h);
+    p.y += (waterH(p.x, p.z) - 0.25 - (P.depth || 0) - p.y) * Math.min(1, h * 12); v.y = 0;
     meters += Math.hypot(p.x - px0, p.z - pz0);
-    if (input.jump) { input.jump = false; swimLeap(); return; }
+    if (input.jump) { input.jump = false; if ((P.depth || 0) < 1) { swimLeap(); return; } }
     collide(prevY); clampWorld();
     return;
   }
@@ -3402,6 +3412,11 @@ function updateCamera(dt) {
   if (shake > 0) camera.position.add(new THREE.Vector3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(shake * 0.5));
   camera.lookAt(camTarget);
   }
+  {   // under the surface the world turns blue-green and murky
+    const under = world === 2 && camera.position.y < waterH(camera.position.x, camera.position.z) - 0.1, T = TIMES[timeMode];
+    if (under) { scene.fog.color.setHex(0x0a5f80); scene.fog.density += (0.0075 - scene.fog.density) * Math.min(1, dt * 6); }
+    else { scene.fog.color.setHex(T.fog); scene.fog.density += (T.dens - scene.fog.density) * Math.min(1, dt * 6); }
+  }
   fovKick *= Math.pow(0.02, dt);
   const fov = 70 + Math.min(22, P.vel.length() * 0.35) + fovKick;
   if (Math.abs(camera.fov - fov) > 0.1) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 10); camera.updateProjectionMatrix(); }
@@ -3568,7 +3583,7 @@ function updateHUD() {
   if (boss.active && !boss.dead) {
     $('bossFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%';
     const hot = boss.stun > 0;
-    setText('bossTip', hot ? (boss.kind === 'seaeater' ? 'THE CORE IS UP! DIVE IN AND HIT IT!' : 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!') : /slam|stomp|leap|rear/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : /wave/.test(boss.state) ? 'A WAVE IS COMING: GET HIGHER THAN THE WATER!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
+    setText('bossTip', boss.stage === 1 && boss.kind === 'seaeater' ? 'THE BLOOP LIVES UNDER THE WATER: HOLD C TO DIVE, SWIM TO ITS GLOWING CORE (SPACE RISES)' : hot ? (boss.kind === 'seaeater' ? 'THE CORE IS UP! DIVE IN AND HIT IT!' : 'CORE EXPOSED: PUNCH IT, DIVE ON IT, PULSE IT!') : /slam|stomp|leap|rear/.test(boss.state) ? 'GET OUT OF THE RED CIRCLE!' : /wave/.test(boss.state) ? 'A WAVE IS COMING: GET HIGHER THAN THE WATER!' : boss.state === 'laserWind' ? 'LASER LOCKING ON: KEEP MOVING!' : BOSS_INFO[boss.kind].tip + (boss.kind === 'sky' ? '  (webs ' + boss.webs + '/3)' : ''));
     $('bossTip').classList.toggle('hot', hot);
     const bp = boss.mesh.position.clone(); bp.y += 4; vproj.copy(bp).project(camera);
     let x = vproj.x, y = vproj.y; const behind = vproj.z > 1;
