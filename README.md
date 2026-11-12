@@ -53,7 +53,7 @@ Eight games live in this repo:
   5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
   drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
   fire, and jetpack troopers with homing rockets. After 10 takedowns, then every 15, a boss arrives under a red beacon, in turn:
-  **El Gramaha** (a giant blue brute who leaps roof to roof, slams
+  **El Aguamaha** (a blue U-shaped creature who leaps roof to roof, slams
   where he lands and throws rooftop units; he is stuck for a moment after each landing). Each returns as
   MK 2, MK 3... with more health. The city is 22 x 22 blocks (about 1.4 km): low-rise outskirts with more
   parks, midtown, and a supertall downtown core, with people walking the sidewalks, traffic lights that
@@ -63,7 +63,7 @@ Eight games live in this repo:
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
   below.
 
-**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its boss (the blue El Gramaha) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
+**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its boss (the blue El Aguamaha) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
 water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
 world on the title screen. The Sea Eater is a colossal beast shaped like a smooth, rounded dome rising out of the sea: pale blue-gray with small round dots,
 no eyes, horns or ridges. Its mouth is a huge smooth black arch that fills almost the whole front of the dome (about 86% of its width), sitting almost entirely on the body with just its bottom edge dipping into the water
@@ -825,7 +825,7 @@ Press `I` or the BAG button (top bar) to open your bag. Inside are a sheet of pa
 
 ## Boss order
 
-1. **El Gramaha** (World 1, a giant blue brute)
+1. **El Aguamaha** (World 1, a blue short-U-shaped creature with a bar across the top of the U, six eyes, a U-shaped mouth and a tail)
 2. **The Sea Eater** (World 2)
 3. **The Bloop** (World 2): when the Sea Eater falls, a deep-blue glowing giant with bright spots rises (about 1.3 times bigger, 320 HP) with its own deep "bloop" sound.
 4. **The God Sea Eater** (World 2): when the Bloop falls it awakens as a golden, glowing, haloed giant, about 1.7 times bigger than the Sea Eater, with 420 HP, plus five more of the small colored sea eaters. Beat it to win.
@@ -851,3 +851,5 @@ The Bloop's mouth is the same smooth black arch as the Sea Eater's, with only a 
 The Sea Eater and the Bloop fight alone: no small sea eaters, no gunmen or drones, no backup calls. Only the God Sea Eater brings a team.
 
 Difficulty was lowered: bosses have about half the health, wind up for longer before each attack, rest longer between attacks and stay stunned longer; your hits and your partners' hits do more damage; you are invulnerable for longer after being hit; fewer regular enemies spawn; and only very hard falls cost a heart.
+
+**El Aguamaha** is not silly any more: a short blue U standing on its curve, a dark bar closing the top of the U, six amber slit-pupil eyes (two on the bar, two on each arm) that follow you, a U-shaped mouth with small sharp teeth, a glowing core in the opening of the U and a segmented tail that sways.
