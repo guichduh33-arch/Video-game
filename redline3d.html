@@ -152,8 +152,8 @@ button.sm.hot{background:var(--red)}
     <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>Y</b> or <b>Tab</b> (SWITCH button): switch to another Biker Society hero - Redline, Chrome, Volt or Ghost, each with a perk. <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
-    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the blue El Aguamaha</b>, then you travel to World 2 for the <b>Sea Eater</b>, and after it the <b>God Sea Eater</b>.<br>
-    Beat the boss of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
+    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the blue El Aguamaha</b>, then <b>El Grande</b>, then you travel to World 2 for the <b>Sea Eater</b>, and after it the <b>God Sea Eater</b>.<br>
+    Beat the two bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
     Sidewalks, parks, rooftops and the road are all safe to land on, and you can run along them. Only enemies, their shots and the bosses cost hearts.<br>
     In World 2 the sea never hurts: fall in and you swim (WASD), then leap out with Space, swing from the water, or climb a pier. Your web shot (X) damages the Sea Eater.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
@@ -1177,12 +1177,44 @@ function makeSkyreaver() {
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }
+// EL GRANDE: the second World 1 boss: a full, solid body (not a U): a big rounded torso, a head with six red eyes on top, a wide mouth that is red inside with long sharp teeth, four stout legs and a tail
+function makeFullBoss() {
+  const g = new THREE.Group(), u = g.userData;
+  const hide = new THREE.MeshStandardMaterial({ color: 0x4b3fa8, roughness: 0.45, metalness: 0.25 }), dark = new THREE.MeshStandardMaterial({ color: 0x241d5a, roughness: 0.6, metalness: 0.3 });
+  const ell = (sx, sy, sz, x, y, z, mat) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 30, 22), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); g.add(m); return m; };
+  ell(3.2, 2.7, 3.7, 0, 3.0, 0, hide);                 // the body
+  ell(2.1, 1.7, 2.1, 0, 4.2, 3.0, hide);               // the head
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.1, 1.5, 18), dark); leg.position.set(sx * 1.9, 0.75, sz * 2.0); g.add(leg); }
+  // six red eyes, only on top of the head: two rows of three
+  const redM = new THREE.MeshStandardMaterial({ color: 0xe01818, emissive: 0xc00808, emissiveIntensity: 1.0, roughness: 0.25 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 });
+  u.eyes = [];
+  [[-0.95, 5.5, 3.55], [0, 5.62, 3.55], [0.95, 5.5, 3.55], [-0.95, 5.58, 2.55], [0, 5.7, 2.55], [0.95, 5.58, 2.55]].forEach(([x, y, z]) => {
+    const e = new THREE.Group(); e.position.set(x, y, z); e.rotation.x = -0.5; g.add(e); u.eyes.push(e);
+    e.add(new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 12), redM));
+    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.09, 14), pupil); pu.scale.set(0.45, 2.0, 1); pu.position.z = 0.29; e.add(pu);
+  });
+  // a wide U-shaped mouth on the front of the head: red inside, a slightly spiky rim, long sharp teeth
+  const MR = 1.45, MY = 3.95, MZ = 5.02;
+  const inside = new THREE.Mesh(new THREE.CircleGeometry(MR, 36, Math.PI, Math.PI), new THREE.MeshStandardMaterial({ color: 0xc01010, emissive: 0x8a0808, emissiveIntensity: 0.9, roughness: 0.5, side: THREE.DoubleSide })); inside.position.set(0, MY, MZ - 0.05); g.add(inside);
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(MR, 0.22, 10, 36, Math.PI), new THREE.MeshStandardMaterial({ color: 0x1a0404, roughness: 1 })); mouth.rotation.z = Math.PI; mouth.position.set(0, MY, MZ); g.add(mouth);
+  const tooth = new THREE.MeshStandardMaterial({ color: 0xf4ecd6, roughness: 0.35 });
+  for (let i = 0; i < 9; i++) { const a = Math.PI + 0.3 + (Math.PI - 0.6) * i / 8, tx = Math.cos(a) * (MR - 0.05), ty = Math.sin(a) * (MR - 0.05), len = 0.6 + (i % 2 ? 0.3 : 0) + 0.2 * Math.sin((i / 8) * Math.PI); const t = new THREE.Mesh(new THREE.ConeGeometry(0.11, len, 8), tooth); t.position.set(tx * 0.97, MY + ty + len * 0.45, MZ + 0.04); g.add(t); }
+  for (let i = 0; i < 15; i++) { const a = Math.PI + 0.1 + (Math.PI - 0.2) * i / 14, ox = Math.cos(a) * (MR + 0.28), oy = Math.sin(a) * (MR + 0.28); const sp = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.28, 6), dark); sp.position.set(ox, MY + oy, MZ + 0.03); sp.rotation.z = a + Math.PI / 2 + Math.PI; g.add(sp); }
+  // the tail
+  u.tail = [];
+  for (let i = 0; i < 9; i++) { const k = i / 8, seg = new THREE.Mesh(new THREE.SphereGeometry(0.95 * (1 - k * 0.75) + 0.07, 14, 10), hide); seg.position.set(0, 1.6 + k * 2.0, -3.4 - k * 4.2); g.add(seg); u.tail.push({ m: seg, k, y0: seg.position.y }); }
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.26, 1.1, 10).rotateX(-Math.PI / 2), dark); spike.position.set(0, 3.6, -8.2); g.add(spike); u.tail.push({ m: spike, k: 1, y0: 3.6 });
+  u.core = add(ball(0.6, coreMat), g, 0, 2.6, 3.55);   // the glowing core on its chest
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
 // EL AGUAMAHA: a short blue U standing on its curve, six red eyes only on top, a U-shaped mouth with a slightly spiky edge and long sharp teeth, and a blue tail
 function makeMauler() {
   const g = new THREE.Group(), u = g.userData;
   const hide = new THREE.MeshStandardMaterial({ color: 0x2a6cd8, roughness: 0.4, metalness: 0.3 });
-  const R = 2.3, T = 0.78, CY = R + T;                                                   // the U: a short, wide horseshoe
-  const arc = new THREE.Mesh(new THREE.TorusGeometry(R, T, 18, 48, Math.PI), hide); arc.rotation.z = Math.PI; arc.position.y = CY; g.add(arc);   // the curved bottom
+  const R = 2.0, T = 0.98, CY = R + T;                                                   // the U: a thick, short horseshoe (a solid 3D tube, not a thin arch)
+  g.scale.setScalar(1.5);
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(R, T, 20, 48, Math.PI), hide); arc.rotation.z = Math.PI; arc.position.y = CY; g.add(arc);   // the curved bottom
   for (const sx of [-1, 1]) {
     const pil = new THREE.Mesh(new THREE.CylinderGeometry(T, T, 2.2, 22), hide); pil.position.set(sx * R, CY + 1.1, 0); g.add(pil);        // the two arms of the U
     const cap = new THREE.Mesh(new THREE.SphereGeometry(T, 22, 14), hide); cap.position.set(sx * R, CY + 2.2, 0); g.add(cap);
@@ -1196,8 +1228,9 @@ function makeMauler() {
     const pu = new THREE.Mesh(new THREE.CircleGeometry(0.07, 14), pupil); pu.scale.set(0.45, 2.0, 1); pu.position.z = 0.215; e.add(pu);
   }
   // a U-shaped mouth on the curve of the body: a slightly spiky rim and long, really sharp teeth
-  const MR = 1.15, MY = 1.75, mouthDark = new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 1 });
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(MR, 0.24, 10, 32, Math.PI), mouthDark); mouth.rotation.z = Math.PI; mouth.position.set(0, MY, T + 0.02); g.add(mouth);
+  const MR = 1.35, MY = 1.95, mouthDark = new THREE.MeshStandardMaterial({ color: 0x1a0404, roughness: 1 });
+  const inside = new THREE.Mesh(new THREE.CircleGeometry(MR, 36, Math.PI, Math.PI), new THREE.MeshStandardMaterial({ color: 0xc01010, emissive: 0x8a0808, emissiveIntensity: 0.9, roughness: 0.5, side: THREE.DoubleSide })); inside.position.set(0, MY, T - 0.05); g.add(inside);   // the inside of the mouth is red
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(MR, 0.22, 10, 36, Math.PI), mouthDark); mouth.rotation.z = Math.PI; mouth.position.set(0, MY, T + 0.02); g.add(mouth);
   const tooth = new THREE.MeshStandardMaterial({ color: 0xf4ecd6, roughness: 0.35 }), rim = new THREE.MeshStandardMaterial({ color: 0x1c4fa8, roughness: 0.5 });
   for (let i = 0; i < 9; i++) {       // long sharp teeth inside the U, pointing up into the mouth
     const a = Math.PI + 0.3 + (Math.PI - 0.6) * i / 8, tx = Math.cos(a) * (MR - 0.05), ty = Math.sin(a) * (MR - 0.05), len = 0.55 + (i % 2 ? 0.28 : 0) + 0.2 * Math.sin((i / 8) * Math.PI);
@@ -2306,12 +2339,13 @@ const slamRing = new THREE.Mesh(new THREE.RingGeometry(9.6, 10.5, 64).rotateX(-M
 const slamFill = new THREE.Mesh(new THREE.CircleGeometry(10.5, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.15, depthWrite: false }));
 slamRing.visible = slamFill.visible = false; scene.add(slamRing, slamFill);
 // three bosses take turns; each comes back tougher (MK 2, MK 3...)
-const BOSS_KINDS = ['mauler'];   // World 1's boss is the blue El Aguamaha; then World 2: the Sea Eater, then the God Sea Eater
+const BOSS_KINDS = ['mauler', 'full'];   // World 1's boss is the blue El Aguamaha; then World 2: the Sea Eater, then the God Sea Eater
 const BOSS_INFO = {
   seaeater: { name: 'THE SEA EATER', hp: 240, coreY: 0, hitR: 8.5, bodyR: 0, tip: 'Swim or swing in close. Web it (X) to wear it down, and hit the core when it rises in the mouth!' },
   warden: { name: 'THE WARDEN', hp: 120, coreY: 3, hitR: 3.8, bodyR: 2.4, tip: 'Lure it into a slam, then hit the glowing core.' },
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
-  mauler: { name: 'EL AGUAMAHA', hp: 90, coreY: 3.3, hitR: 4.2, bodyR: 2.8, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
+  full: { name: 'EL GRANDE', hp: 110, coreY: 2.6, hitR: 6, bodyR: 3.9, tip: 'A full-bodied giant: get out of its landing circle, then hit the glowing core while it is stuck.' },
+  mauler: { name: 'EL AGUAMAHA', hp: 90, coreY: 5.3, hitR: 6.2, bodyR: 3.5, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
 const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 15, -7)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
@@ -2326,7 +2360,7 @@ function startBoss() {
   const kind = BOSS_KINDS[(boss.count || 0) % BOSS_KINDS.length]; boss.count = (boss.count || 0) + 1;
   boss.level = Math.ceil(boss.count / BOSS_KINDS.length);
   const info = BOSS_INFO[kind], cx = (best.x0 + best.x1) / 2, cz = (best.z0 + best.z1) / 2;
-  const mesh = kind === 'sky' ? makeSkyreaver() : kind === 'mauler' ? makeMauler() : makeWarden();
+  const mesh = kind === 'sky' ? makeSkyreaver() : kind === 'mauler' ? makeMauler() : kind === 'full' ? makeFullBoss() : makeWarden();
   mesh.position.set(cx, best.h + (kind === 'sky' ? 16 : 0), cz); scene.add(mesh);
   Object.assign(boss, { kind, active: true, dead: false, b: best, mesh, maxHp: info.hp + info.hp / 2 * (boss.level - 1), state: kind === 'sky' ? 'fly' : 'idle', cd: 3, stun: 0, wind: 0, phase: 1, hitInv: 0, dt: 0, vt: 0, n: 0, webs: 0, ang: 0, coreY: info.coreY, hitR: info.hitR, bodyR: info.bodyR });
   boss.hp = boss.maxHp;
@@ -2374,7 +2408,7 @@ function updateBoss(h) {
   const onRoof = P.pos.x > b.x0 - 1 && P.pos.x < b.x1 + 1 && P.pos.z > b.z0 - 1 && P.pos.z < b.z1 + 1 && Math.abs(P.pos.y - b.h) < 3;
   const fast = boss.phase === 2;
   if (boss.kind === 'sky') { updateSkyreaver(h, dx, dz, dh, fast); bossContact(dx, dz, dh, onRoof); return; }
-  if (boss.kind === 'mauler') { updateMauler(h, dx, dz, dh, onRoof, fast); bossContact(dx, dz, dh, onRoof); return; }
+  if (boss.kind === 'mauler' || boss.kind === 'full') { updateMauler(h, dx, dz, dh, onRoof, fast); bossContact(dx, dz, dh, onRoof); return; }
   if (boss.state !== 'charge' || boss.wind > 0) {
     let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d));
     m.rotation.y += d * Math.min(1, h * (boss.stun > 0 ? 0.4 : 2.5));

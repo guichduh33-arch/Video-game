@@ -855,3 +855,10 @@ Difficulty was lowered: bosses have about half the health, wind up for longer be
 **El Aguamaha** is not silly any more: a short blue U standing on its curve, a dark bar closing the top of the U, six amber slit-pupil eyes (two on the bar, two on each arm) that follow you, a U-shaped mouth with small sharp teeth, a glowing core in the opening of the U and a segmented tail that sways.
 
 **El Aguamaha, redone from your description:** a short blue U; six red eyes, only on top (three on the tip of each arm); a U-shaped mouth with a slightly spiky edge and really long, sharp teeth; and a blue tail. The bar across the top is gone.
+
+## World 1 bosses (final)
+
+1. **El Aguamaha**: a big, thick, solid 3D blue U (about 1.5 times bigger than before), six red eyes on top, a U-shaped mouth that is red inside with long sharp teeth and a slightly spiky rim, and a blue tail.
+2. **El Grande**: a second, full-bodied boss (not a U): a big round violet-blue body on four stout legs, a head with six red eyes on top, a wide mouth that is red inside with long sharp teeth, a tail and a glowing core on its chest. It leaps and stomps like El Aguamaha.
+
+After El Grande you travel to World 2: the Sea Eater, the Bloop, then the God Sea Eater.
