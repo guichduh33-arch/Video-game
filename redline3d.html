@@ -2734,11 +2734,11 @@ function addBloopFace(g) {
     const pu = new THREE.Mesh(new THREE.CircleGeometry(1, 24), pupil); pu.scale.set(0.55, 2.6, 1); pu.position.z = 5.56; eye.add(pu);                  // a vertical slit pupil
     const lid = new THREE.Mesh(new THREE.SphereGeometry(5.9, 28, 12, 0, Math.PI * 2, 0, 0.9), g.userData.skin || seaSkin); lid.rotation.x = -0.25; eye.add(lid);   // a heavy brow lid over the top of the eye
   }
-  const N = 56;
+  const N = 22;   // a short, natural row of teeth only along the top of the arch (not all the way around the mouth)
   for (let i = 0; i < N; i++) {
-    const a = 0.06 + (Math.PI - 0.12) * i / (N - 1), cx = Math.cos(a), sy = Math.sin(a);
+    const a = Math.PI * 0.32 + (Math.PI * 0.36) * i / (N - 1), cx = Math.cos(a), sy = Math.sin(a);
     const nx = cx / MOUTH_RX, ny = sy / MOUTH_RY, nl = Math.hypot(nx, ny), dx = -nx / nl, dy = -ny / nl;      // inward along the arch
-    const len = 1.7 + (i % 3 === 0 ? 0.9 : 0) + 0.5 * Math.sin(a * 3 + i), t = new THREE.Mesh(new THREE.ConeGeometry(0.5, len, 8), tooth);
+    const len = 1.9 + (i % 4 === 0 ? 0.8 : 0), t = new THREE.Mesh(new THREE.ConeGeometry(0.55, len, 8), tooth);
     t.position.set(cx * (MOUTH_RX - 0.4) + dx * len / 2, MAW_Y + sy * (MOUTH_RY - 0.4) + dy * len / 2, MAW_Z + 1.2); t.rotation.z = Math.atan2(dy, dx) + Math.PI / 2;   // the point faces into the mouth
     g.add(t);
   }

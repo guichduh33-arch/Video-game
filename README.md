@@ -845,3 +845,5 @@ The Bloop fights only with its hands and its mouth: it smashes with its small ha
 - **El Gramaha** is really silly now: huge googly eyes with wobbling pupils, big eyebrows and a red clown nose.
 - **The Sea Eater, the Bloop and the God Sea Eater** animate properly: they breathe, sway, rear back and swell before a bite, lean back and tremble as a hand rises, throw their weight forward on a smash, and wobble when dazed. The Bloop's eyes follow you and blink.
 - **The Bloop is slow**: it drifts slowly, rises slowly, winds up for longer, lunges at a crawl and swings its hands slowly, so you have time to see each attack coming.
+
+The Bloop's mouth is the same smooth black arch as the Sea Eater's, with only a short, natural row of small teeth along the top (no teeth around the sides).
