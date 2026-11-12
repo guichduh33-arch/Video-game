@@ -875,3 +875,5 @@ The only boss of World 1 is now **El Gran Maja**, built to match the reference p
 - **World 2 (the Sea Eater world):** the Sea Eater, then **El Gran Maja** (copied from your picture, leaping across the sea port's towers), then the Bloop, then the God Sea Eater.
 
 **El Gran Maja stands in the water.** In World 2 he wades through the sea (his stalk half under the clear water) toward you instead of leaping across towers, stomping when you are close and stuck for a moment afterwards. His stalk stands straight and his head looks straight to the front, toward you, with no tilting.
+
+El Gran Maja's stalk (his tail) now goes straight down into the water, all the way to the sea floor, so only his head and the top of the stalk stand out of the sea and the rest shows through the clear water.
