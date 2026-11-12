@@ -862,3 +862,5 @@ Difficulty was lowered: bosses have about half the health, wind up for longer be
 2. **El Grande**: a second, full-bodied boss (not a U): a big round violet-blue body on four stout legs, a head with six red eyes on top, a wide mouth that is red inside with long sharp teeth, a tail and a glowing core on its chest. It leaps and stomps like El Aguamaha.
 
 After El Grande you travel to World 2: the Sea Eater, the Bloop, then the God Sea Eater.
+
+**El Grande** was redone: it is no longer dog-like. It is now a huge round, armored, violet-blue ball of a creature with two thick arms and big fists, no legs and no snout; six red eyes in an arc on top of the dome; a wide U-shaped mouth across the front that is red inside with long sharp teeth; a thick tail; and a glowing core above the mouth.
