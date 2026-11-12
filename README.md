@@ -877,3 +877,5 @@ The only boss of World 1 is now **El Gran Maja**, built to match the reference p
 **El Gran Maja stands in the water.** In World 2 he wades through the sea (his stalk half under the clear water) toward you instead of leaping across towers, stomping when you are close and stuck for a moment afterwards. His stalk stands straight and his head looks straight to the front, toward you, with no tilting.
 
 El Gran Maja's stalk (his tail) now goes straight down into the water, all the way to the sea floor, so only his head and the top of the stalk stand out of the sea and the rest shows through the clear water.
+
+El Gran Maja is now fully under the water, like the Bloop: his face (the dome and the big mouth) and his short, straight tail both stay below the surface, and you see him through the clear water. Dive down to him (look down, or hold C) and hit his glowing core.
