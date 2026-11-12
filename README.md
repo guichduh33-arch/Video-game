@@ -887,3 +887,5 @@ El Gran Maja is now way bigger (2.75 times bigger than before; his head is bigge
 El Gran Maja is bigger still (4 times his original size: a head wider than a whole tower, a tail about 100 m long). His stomp reaches about 45 m, and you can hit him from further away.
 
 El Gran Maja is bigger again: the whole body is 4.8 times its original size and the face is another 60% bigger (a super big mouth), while the tail is only a little longer (about 125 m) and slimmer. Your webs now really hurt him (each web shot damages him) instead of just bouncing off his spiky mouth, and his red stomp circle now shows on the water surface so you can see it coming.
+
+El Gran Maja is now SO big: the body is 9 times its original size (a face wider than 170 m, a tail over 240 m long). His stomp covers about 110 m, he wades at about 12 m/s, and you can hit him from up to about 500 m away. His core is about 30 m under the surface.
