@@ -837,3 +837,5 @@ The sea in World 2 is now clear: you can see through it to the sea floor and to 
 **The Bloop lives only under the water**: it rises to just below the surface and stays there, so you can see its dark blue body through the water. Dive down to its glowing core while its mouth is open to hurt it (a hit shoves you up toward the surface).
 
 The Bloop is not like the Sea Eater: it has two realistic eyes (amber iris, slit pupil, heavy brow) on top of its dome, a row of fine sharp ivory teeth along the arch of its mouth, and slim arms with small hands.
+
+The Bloop fights only with its hands and its mouth: it smashes with its small hands (a small red circle shows where, and only that small area hurts) and it bites with its mouth. It has no water wave.

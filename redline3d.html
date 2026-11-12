@@ -2542,6 +2542,7 @@ const seaArmor = new THREE.MeshStandardMaterial({ color: 0x5f656b, roughness: 0.
 const seaNail = new THREE.MeshStandardMaterial({ color: 0xcdd9b4, roughness: 0.6, metalness: 0 });
 const seaThroat = new THREE.MeshStandardMaterial({ color: 0x040506, roughness: 1, metalness: 0, side: THREE.DoubleSide });
 const seaCoreMat = new THREE.MeshStandardMaterial({ color: 0xe0b030, roughness: 0.6, metalness: 0 });
+let HITK = 1;   // how big the hit area of a slam is (the Bloop's small hands hit a small area)
 let ARMK = 1;   // arm thickness and hand size (the Bloop has slim arms and small hands)
 let SK = 2.4;   // how many times bigger the Sea Eater is than its design size (the God Sea Eater is bigger still)
 let ARM_L1 = 34 * SK, ARM_L2 = 34 * SK, ARM_REACH = 66 * SK;
@@ -2739,7 +2740,7 @@ function godSkin(root, col = 0xf2d27a, em = 0x7a5410, ei = 0.7) {   // tinted, g
 }
 function startSeaEater(stage) {   // 0 = the Sea Eater, 1 = the Bloop, 2 = the God Sea Eater
   stage = stage === true ? 2 : (stage || 0); const god = stage === 2, bloop = stage === 1;
-  setSeaScale(god ? 4.0 : bloop ? 3.2 : 2.4); ARMK = bloop ? 0.55 : 1;
+  setSeaScale(god ? 4.0 : bloop ? 3.2 : 2.4); ARMK = bloop ? 0.55 : 1; HITK = bloop ? 0.4 : 1;
   const mesh = makeSeaEater(); mesh.scale.setScalar(SK);
   if (bloop) {
     addBloopFace(mesh);
@@ -2771,7 +2772,7 @@ function seaImpact(arm) {
   ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.set(tg.x, tg.y + 0.3, tg.z); ring2.position.copy(ringMesh.position);
   burst(new THREE.Vector3(tg.x, tg.y + 0.6, tg.z), 26, 15, 1);
   const hd = Math.hypot(P.pos.x - tg.x, P.pos.z - tg.z) || 1;
-  if (hd < 9.5 * SK && P.pos.y < tg.y + 14 * SK && hurt('TENTACLE!')) { P.state = 'air'; P.roof = null; P.rope = null; P.vel.set((P.pos.x - tg.x) / hd * 18, 16, (P.pos.z - tg.z) / hd * 18); P.jumpT = 0; }
+  if (hd < 9.5 * SK * HITK && P.pos.y < tg.y + 14 * SK && hurt(boss.stage === 1 ? 'HAND SMASH!' : 'TENTACLE!')) { P.state = 'air'; P.roof = null; P.rope = null; P.vel.set((P.pos.x - tg.x) / hd * 18, 16, (P.pos.z - tg.z) / hd * 18); P.jumpT = 0; }
 }
 function updateSeaEater(h) {
   const m = boss.mesh, u = m.userData, pp = P.pos;
@@ -2817,7 +2818,7 @@ function updateSeaEater(h) {
       const opts = [];
       if (dh < 100 * SK) opts.push('slam', 'slam', 'slam');
       if (dh < 145 * SK && pp.y < 48 * SK) opts.push('bite', 'bite');
-      if (fast) opts.push('wave', 'wave'); if (!opts.length) opts.push('slam');
+      if (fast && boss.stage !== 1) opts.push('wave', 'wave'); if (!opts.length) opts.push('slam');   // the Bloop fights only with its hands and its mouth
       let pick = boss.force; boss.force = null;
       if (!pick) { const f = opts.filter(o => o !== boss.last); pick = (f.length ? f : opts)[Math.random() * (f.length ? f.length : opts.length) | 0]; }
       boss.last = pick;
@@ -2831,7 +2832,7 @@ function updateSeaEater(h) {
       break;
     }
     case 'slam': {
-      boss.wind -= h; boss.slamArms.forEach((a, i) => showTele(i, a.target.x, a.target.y + (a.target.y > 0 ? 0.2 : 0.5), a.target.z, SK));
+      boss.wind -= h; boss.slamArms.forEach((a, i) => showTele(i, a.target.x, a.target.y + (a.target.y > 0 ? 0.2 : 0.5), a.target.z, SK * HITK));
       if (boss.wind <= 0) { for (const a of boss.slamArms) { a.mode = 'slam'; a.st = 0; } hideTele(); boss.t2 = 0.7; set('slamHit'); }
       break;
     }
