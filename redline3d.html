@@ -129,7 +129,7 @@ button.sm.hot{background:var(--red)}
   <div id="meters">0 M SWUNG</div>
   <div id="hearts"></div>
   <div id="healBar" class="hidden"><div id="healFill"></div></div>
-  <div id="pulseRow"><div id="pulseBar"><div id="pulseFill"></div></div><span id="pulseLbl">PULSE</span></div>
+  <div id="pulseRow"><div id="pulseBar"><div id="pulseFill"></div></div><span id="pulseLbl">VENOM STRIKE</span></div>
   <div id="lvRow"><div id="xpBar"><div id="xpFill"></div></div><span id="lvTxt">LV 1</span></div>
 </div>
 <div id="kills" class="hidden">TAKEDOWNS 0</div>
@@ -213,7 +213,7 @@ button.sm.hot{background:var(--red)}
 <button id="pauseBtn" class="corner hidden" aria-label="Pause">II</button>
 <div id="touch" class="hidden">
   <div id="stick"><div id="knob"></div></div>
-  <button class="tbtn" id="bPulse">PULSE</button>
+  <button class="tbtn" id="bPulse">VENOM</button>
   <button class="tbtn" id="bDive">DIVE</button>
   <button class="tbtn" id="bJump">JUMP</button>
   <button class="tbtn" id="bPunch">PUNCH</button>
@@ -1434,6 +1434,7 @@ const sfx = {
   hurt() { tone('square', 300, 70, 0.4, 0.15); },
   spark() { tone('sine', 900 + Math.random() * 300, 1600, 0.08, 0.06); },
   pulse() { tone('sawtooth', 90, 40, 0.6, 0.28); noise(3000, 120, 0.5, 0.32, 0.8); },
+  venom() { tone('sawtooth', 110, 28, 0.7, 0.3); tone('sine', 2400, 400, 0.3, 0.14); noise(7000, 900, 0.55, 0.42, 2); for (let k = 1; k < 6; k++) setTimeout(() => noise(5000 + Math.random() * 3000, 1500, 0.07, 0.25, 4), k * 70); },   // a bio-electric crackle
   shot() { tone('square', 700, 300, 0.1, 0.035); },
   heart() { tone('sine', 520, 1040, 0.25, 0.14); },
   healTick() { tone('sine', 660 + Math.random() * 120, 990, 0.14, 0.05); },
@@ -2004,10 +2005,46 @@ function letGo() {
 }
 function jump() { P.state = 'air'; P.roof = null; P.vel.y = 13; P.jumpT = 0; sfx.jump(); }
 function dive() { if (state === 'play' && P.state === 'swim') { P.swimDown = 1.4; return; } if (state !== 'play' || P.state !== 'air') return; P.rope = null; P.dive = true; P.vel.y = Math.min(P.vel.y, 0) - 28; }
+// VENOM STRIKE (blue, like Miles Morales' bio-electric power): a blue-white fireball at his hands, jagged lightning arcs in every direction that flicker, forked bolts that jump to every enemy
+// in range, a blue light flash and two blue shock rings
+const venomFx = [];
+function makeBolt(a, b, seg, jit, col, op) {
+  const d = b.clone().sub(a), n = d.length(), dir = d.clone().normalize(), side = new THREE.Vector3(dir.y, -dir.x, 0); if (side.lengthSq() < 0.01) side.set(1, 0, 0); side.normalize();
+  const up2 = new THREE.Vector3().crossVectors(dir, side).normalize(), pts = [a.clone()];
+  for (let i = 1; i < seg; i++) { const k = i / seg, j = jit * Math.sin(Math.PI * k); pts.push(a.clone().addScaledVector(dir, n * k).addScaledVector(side, rand(-j, j)).addScaledVector(up2, rand(-j, j))); }
+  pts.push(b.clone()); const arr = [];
+  for (let i = 0; i < pts.length - 1; i++) arr.push(pts[i].x, pts[i].y, pts[i].z, pts[i + 1].x, pts[i + 1].y, pts[i + 1].z);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  const m = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false })); m.frustumCulled = false; return m;
+}
+function venomStrike(center, targets) {
+  const grp = new THREE.Group(); scene.add(grp); const bolts = [];
+  for (let i = 0; i < 18; i++) { const a = i / 18 * 6.283 + rand(-0.2, 0.2), el = rand(-0.45, 0.95), r = rand(13, 26); bolts.push({ end: new THREE.Vector3(Math.cos(a) * Math.cos(el) * r, Math.sin(el) * r * 0.8, Math.sin(a) * Math.cos(el) * r), big: false }); }
+  for (const tg of targets) bolts.push({ end: tg.clone().sub(center), big: true });
+  const light = new THREE.PointLight(0x3aa0ff, 80, 45); light.position.copy(center); scene.add(light);
+  const core = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0xaee4ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); core.position.copy(center); scene.add(core);
+  venomFx.push({ grp, bolts, light, core, t: 0, fl: 0 });
+}
+function updateVenom(h) {
+  for (let i = venomFx.length - 1; i >= 0; i--) {
+    const f = venomFx[i]; f.t += h; f.fl -= h; const k = f.t / 0.6, c = P.pos.clone().setY(P.pos.y + 1);
+    if (k >= 1) { for (const ch of f.grp.children) { ch.geometry.dispose(); ch.material.dispose(); } scene.remove(f.grp, f.light, f.core); venomFx.splice(i, 1); continue; }
+    if (f.fl <= 0) {   // re-roll the jagged arcs a few times so they crackle
+      f.fl = 0.045; for (const ch of f.grp.children) { ch.geometry.dispose(); ch.material.dispose(); } f.grp.clear();
+      for (const b of f.bolts) { const e = c.clone().add(b.end); f.grp.add(makeBolt(c, e, b.big ? 12 : 9, b.big ? 2.4 : 1.7, 0x4fb0ff, 0.95)); f.grp.add(makeBolt(c, e, b.big ? 12 : 9, b.big ? 1.2 : 0.8, 0xffffff, 0.85)); f.grp.add(makeBolt(c, e, 7, b.big ? 3.4 : 2.4, 0x1f6fff, 0.7)); f.grp.add(makeBolt(c, e, 8, b.big ? 1.8 : 1.2, 0x8fd0ff, 0.8)); }
+    }
+    f.light.position.copy(c); f.light.intensity = 80 * (1 - k); f.core.position.copy(c); f.core.scale.setScalar(0.8 + k * 12); f.core.material.opacity = 0.85 * (1 - k) * (1 - k);
+    f.grp.children.forEach(ch => ch.material.opacity *= 1);
+  }
+}
 function pulse() {
   if (state !== 'play' || energy < 50) return;
-  energy -= 50; sfx.pulse(); shake = Math.max(shake, 0.6); flash = 0.35;
-  ringMesh.visible = ring2.visible = true; ringT = 0; ringMesh.position.copy(P.pos).y += 1; ring2.position.copy(ringMesh.position);
+  energy -= 50; sfx.venom(); shake = Math.max(shake, 0.8); flash = 0.4; $('flash').style.background = '#4aa8ff'; fovKick = 6;
+  const hits = [];
+  for (const e of enemies) if (!e.dead && e.mesh.position.distanceTo(P.pos) < 24) hits.push(e.mesh.position.clone().setY(e.mesh.position.y + 1));
+  if (boss.active && !boss.dead && bossCore().distanceTo(P.pos) < 30) hits.push(bossCore());
+  venomStrike(P.pos.clone().setY(P.pos.y + 1), hits);
+  shockRing(P.pos.clone().setY(P.pos.y + 0.3), 0x3aa0ff, 26, 0.55); shockRing(P.pos.clone().setY(P.pos.y + 0.6), 0xcdeeff, 34, 0.75);
   for (const e of enemies) if (!e.dead && e.mesh.position.distanceTo(P.pos) < 24) { e.hitInv = 0; damageEnemy(e, 3, 'pulse'); }
   for (const s of shots) if (s.mesh.position.distanceTo(P.pos) < 24) s.life = 0;
   if (boss.active && !boss.dead && bossCore().distanceTo(P.pos) < 30) { boss.hitInv = 0; bossDamage(8, 'pulse'); }
@@ -2028,7 +2065,7 @@ function hurt(why) {
   if (P.dodgeT > 0) { if (!P.dodgeShown) { P.dodgeShown = true; popup('DODGE!', P.pos.clone().add(new THREE.Vector3(0, 2.4, 0))); } return false; }
   if (P.inv > 0) return false;
   if (P.heal) { P.heal = null; energy = Math.min(100, energy + 20); popup('HEAL BROKEN', P.pos.clone().add(new THREE.Vector3(0, 3, 0)), true); }
-  P.hp--; P.inv = 2.6; shake = 0.7; combo = 1; flash = 0.3; sfx.hurt(); updateHearts();
+  P.hp--; P.inv = 2.6; $('flash').style.background = ''; shake = 0.7; combo = 1; flash = 0.3; sfx.hurt(); updateHearts();
   popup(why, P.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), true);
   if (P.hp <= 0) gameOver();
   return true;
@@ -2362,7 +2399,7 @@ function endGrab(g) {
   if (tg.e) { tg.e.mesh.rotation.x = tg.e.mesh.rotation.z = 0; if (tg.e.webbed > 0.5) tg.e.webbed = 0.5; }
 }
 function updateGrabs(h) {
-  updateFxRings(h);
+  updateFxRings(h); updateVenom(h);
   const hand = heroHand(), fwd = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), now = performance.now() / 1000;
   P.grabPose = null;
   for (let i = grabs.length - 1; i >= 0; i--) {
@@ -3932,7 +3969,7 @@ function updateHUD() {
   setText('kills', (world === 2 ? 'WORLD 2 · ' : '') + 'TAKEDOWNS ' + kills);
   $('pulseFill').style.width = energy + '%';
   $('pulseFill').style.background = energy >= 50 ? '#ff1a2e' : '#7a0010';
-  setText('pulseLbl', (energy >= 50 ? 'PULSE READY' : 'PULSE') + (!P.heal && P.hp < 5 && energy >= HEAL_COST ? ' · H HEAL' : P.heal ? ' · HEALING…' : ''));
+  setText('pulseLbl', (energy >= 50 ? 'VENOM STRIKE READY' : 'VENOM STRIKE') + (!P.heal && P.hp < 5 && energy >= HEAL_COST ? ' · H HEAL' : P.heal ? ' · HEALING…' : ''));
   show('healBar', !!P.heal); if (P.heal) $('healFill').style.width = Math.min(100, P.heal.t / HEAL_TIME * 100) + '%';
   { const lv = level(), lo = LV_XP[lv - 1], hi = LV_XP[lv]; setText('lvTxt', 'LV ' + lv); $('xpFill').style.width = (hi ? (xp - lo) / (hi - lo) * 100 : 100) + '%'; }
   show('combo', combo > 1); if (combo > 1) setText('comboN', 'X' + combo);

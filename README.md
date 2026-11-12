@@ -911,3 +911,7 @@ HIGH now keeps itself smooth: it draws the hero between physics steps (no judder
 ## The story now has pictures
 
 Each yellow caption box is now part of a comic panel with its own drawing: a normal kid in the city, the spider and the bite, Redline's half-masked shocked face, the city and the sea at sunset, the five bosses in silhouette (El Aguamaha, El Gran Maja, the Sea Eater, the Bloop and the haloed God Sea Eater), the four Biker Society heroes, and a big last panel of Redline swinging between the towers with the biggest caption. The panels pop in one by one as you read and end up together as one comic page.
+
+## Venom Strike (the old pulse, F)
+
+The shockwave is now Redline's **Venom Strike**, in blue like Miles Morales' bio-electric power: a blue-white fireball at his hands, dozens of jagged lightning arcs that flicker in every direction, forked bolts that jump to every enemy in range, a blue light flash, two blue shock rings and a crackling sound. The HUD calls it VENOM STRIKE.
