@@ -853,3 +853,5 @@ The Sea Eater and the Bloop fight alone: no small sea eaters, no gunmen or drone
 Difficulty was lowered: bosses have about half the health, wind up for longer before each attack, rest longer between attacks and stay stunned longer; your hits and your partners' hits do more damage; you are invulnerable for longer after being hit; fewer regular enemies spawn; and only very hard falls cost a heart.
 
 **El Aguamaha** is not silly any more: a short blue U standing on its curve, a dark bar closing the top of the U, six amber slit-pupil eyes (two on the bar, two on each arm) that follow you, a U-shaped mouth with small sharp teeth, a glowing core in the opening of the U and a segmented tail that sways.
+
+**El Aguamaha, redone from your description:** a short blue U; six red eyes, only on top (three on the tip of each arm); a U-shaped mouth with a slightly spiky edge and really long, sharp teeth; and a blue tail. The bar across the top is gone.

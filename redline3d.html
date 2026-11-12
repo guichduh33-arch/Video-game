@@ -1177,39 +1177,43 @@ function makeSkyreaver() {
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return g;
 }
-// EL AGUAMAHA: a short U-shaped body standing on its curve, a bar across the top of the U, six eyes, a U-shaped mouth and a tail
+// EL AGUAMAHA: a short blue U standing on its curve, six red eyes only on top, a U-shaped mouth with a slightly spiky edge and long sharp teeth, and a blue tail
 function makeMauler() {
   const g = new THREE.Group(), u = g.userData;
-  const hide = new THREE.MeshStandardMaterial({ color: 0x2a58a8, roughness: 0.45, metalness: 0.35 }), dark = new THREE.MeshStandardMaterial({ color: 0x0c1626, roughness: 0.6, metalness: 0.4 }), plate = new THREE.MeshStandardMaterial({ color: 0x1b3a72, roughness: 0.4, metalness: 0.6 });
+  const hide = new THREE.MeshStandardMaterial({ color: 0x2a6cd8, roughness: 0.4, metalness: 0.3 });
   const R = 2.3, T = 0.78, CY = R + T;                                                   // the U: a short, wide horseshoe
   const arc = new THREE.Mesh(new THREE.TorusGeometry(R, T, 18, 48, Math.PI), hide); arc.rotation.z = Math.PI; arc.position.y = CY; g.add(arc);   // the curved bottom
   for (const sx of [-1, 1]) {
     const pil = new THREE.Mesh(new THREE.CylinderGeometry(T, T, 2.2, 22), hide); pil.position.set(sx * R, CY + 1.1, 0); g.add(pil);        // the two arms of the U
     const cap = new THREE.Mesh(new THREE.SphereGeometry(T, 22, 14), hide); cap.position.set(sx * R, CY + 2.2, 0); g.add(cap);
-    for (const yy of [0.5, 1.5]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(T + 0.04, 0.09, 8, 28), plate); ring.rotation.x = Math.PI / 2; ring.position.set(sx * R, CY + yy, 0); g.add(ring); }   // armor bands
   }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, R * 2, 16).rotateZ(Math.PI / 2), dark); bar.position.set(0, CY + 2.2, 0); g.add(bar);   // the line blocking the top of the U
-  // six eyes: two on the bar, two on each arm. White eyeball, amber iris, a vertical slit pupil, and a heavy brow
-  const white = new THREE.MeshStandardMaterial({ color: 0xece8da, roughness: 0.3 }), iris = new THREE.MeshStandardMaterial({ color: 0xe0a020, emissive: 0x7a4a00, emissiveIntensity: 0.9, roughness: 0.3 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 });
+  // six red eyes, only on top: three on the front of each arm's rounded tip
+  const redM = new THREE.MeshStandardMaterial({ color: 0xe01818, emissive: 0xc00808, emissiveIntensity: 1.0, roughness: 0.25 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 });
   u.eyes = [];
-  [[-0.95, CY + 2.2, 0.34, 0.36], [0.95, CY + 2.2, 0.34, 0.36], [-R, CY + 1.55, T - 0.12, 0.34], [R, CY + 1.55, T - 0.12, 0.34], [-R, CY + 0.55, T - 0.12, 0.34], [R, CY + 0.55, T - 0.12, 0.34]].forEach(([x, y, z, r]) => {
-    const e = new THREE.Group(); e.position.set(x, y, z); g.add(e); u.eyes.push(e);
-    e.add(new THREE.Mesh(new THREE.SphereGeometry(r, 20, 14), white));
-    const ir = new THREE.Mesh(new THREE.CircleGeometry(r * 0.62, 24), iris); ir.position.z = r * 0.97; e.add(ir);
-    const pu = new THREE.Mesh(new THREE.CircleGeometry(r * 0.3, 16), pupil); pu.scale.set(0.5, 2.1, 1); pu.position.z = r * 0.99 + 0.005; e.add(pu);
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(r * 1.7, r * 0.22, r * 0.5), dark); brow.position.set(0, r * 0.85, r * 0.25); brow.rotation.z = x < 0 ? -0.12 : 0.12; e.add(brow);
-  });
-  // a U-shaped mouth on the curve of the body, with a row of small sharp teeth
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.2, 10, 28, Math.PI), new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 1 })); mouth.rotation.z = Math.PI; mouth.position.set(0, 1.6, T + 0.02); g.add(mouth);
-  const tooth = new THREE.MeshStandardMaterial({ color: 0xefe6cf, roughness: 0.45 });
-  for (let i = 0; i < 11; i++) { const a = Math.PI + 0.25 + (Math.PI - 0.5) * i / 10, tx = Math.cos(a) * 0.95, ty = Math.sin(a) * 0.95; const t = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.26, 7), tooth); t.position.set(tx, 1.6 + ty + 0.12, T + 0.05); t.rotation.z = Math.PI; g.add(t); }
-  // the tail: a tapering, segmented tail curving up behind the body, ending in a spike
+  for (const sx of [-1, 1]) for (const dx of [-0.43, 0, 0.43]) {
+    const ex = sx * R + dx, ez = Math.sqrt(Math.max(0.05, T * T - dx * dx)) - 0.1, e = new THREE.Group(); e.position.set(ex, CY + 2.38 - Math.abs(dx) * 0.25, ez); g.add(e); u.eyes.push(e);
+    e.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 12), redM));
+    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.07, 14), pupil); pu.scale.set(0.45, 2.0, 1); pu.position.z = 0.215; e.add(pu);
+  }
+  // a U-shaped mouth on the curve of the body: a slightly spiky rim and long, really sharp teeth
+  const MR = 1.15, MY = 1.75, mouthDark = new THREE.MeshStandardMaterial({ color: 0x030304, roughness: 1 });
+  const mouth = new THREE.Mesh(new THREE.TorusGeometry(MR, 0.24, 10, 32, Math.PI), mouthDark); mouth.rotation.z = Math.PI; mouth.position.set(0, MY, T + 0.02); g.add(mouth);
+  const tooth = new THREE.MeshStandardMaterial({ color: 0xf4ecd6, roughness: 0.35 }), rim = new THREE.MeshStandardMaterial({ color: 0x1c4fa8, roughness: 0.5 });
+  for (let i = 0; i < 9; i++) {       // long sharp teeth inside the U, pointing up into the mouth
+    const a = Math.PI + 0.3 + (Math.PI - 0.6) * i / 8, tx = Math.cos(a) * (MR - 0.05), ty = Math.sin(a) * (MR - 0.05), len = 0.55 + (i % 2 ? 0.28 : 0) + 0.2 * Math.sin((i / 8) * Math.PI);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.1, len, 8), tooth); t.position.set(tx * 0.97, MY + ty + len * 0.45, T + 0.05); g.add(t);
+  }
+  for (let i = 0; i < 15; i++) {       // a little spiky on the outer edge of the mouth
+    const a = Math.PI + 0.1 + (Math.PI - 0.2) * i / 14, ox = Math.cos(a) * (MR + 0.28), oy = Math.sin(a) * (MR + 0.28);
+    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.26, 6), rim); sp.position.set(ox, MY + oy, T + 0.03); sp.rotation.z = a + Math.PI / 2 + Math.PI; g.add(sp);
+  }
+  // the blue tail: tapering, segmented, curving up behind the body and ending in a point
   u.tail = [];
   for (let i = 0; i < 9; i++) {
-    const k = i / 8, seg = new THREE.Mesh(new THREE.SphereGeometry(0.62 * (1 - k * 0.72) + 0.06, 14, 10), i % 2 ? hide : plate);
+    const k = i / 8, seg = new THREE.Mesh(new THREE.SphereGeometry(0.62 * (1 - k * 0.72) + 0.06, 14, 10), hide);
     seg.position.set(0, 0.9 + k * 2.2 + Math.sin(k * 2.2) * 0.3, -1.3 - k * 3.6); g.add(seg); u.tail.push({ m: seg, k, y0: seg.position.y });
   }
-  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 10).rotateX(-Math.PI / 2), dark); spike.position.set(0, 3.3, -5.2); g.add(spike); u.tail.push({ m: spike, k: 1, y0: 3.3 });
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 10).rotateX(-Math.PI / 2), hide); spike.position.set(0, 3.3, -5.2); g.add(spike); u.tail.push({ m: spike, k: 1, y0: 3.3 });
   // the glowing core, floating in the opening of the U
   u.core = add(ball(0.5, coreMat), g, 0, CY + 0.55, 0);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
