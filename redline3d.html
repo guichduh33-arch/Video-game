@@ -87,6 +87,13 @@ button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #viewBtn{right:calc(262px + env(safe-area-inset-right));padding:0 10px}
 #swBtn{right:calc(348px + env(safe-area-inset-right));padding:0 10px;font-size:16px}
 #bagBtn{right:calc(492px + env(safe-area-inset-right));padding:0 10px;font-size:16px}
+#story{background:rgba(10,10,20,.92);z-index:30;padding:0}
+#storyBoard{position:absolute;inset:0}
+#storySkip{position:absolute;right:16px;top:14px;z-index:2}
+#storyHint{position:absolute;left:0;right:0;bottom:12px;text-align:center;letter-spacing:4px;font-size:14px;color:#ffd23f;opacity:.85}
+.cap{position:absolute;background:#ffd23f;color:#111;border:4px solid #000;box-shadow:6px 6px 0 #000;padding:10px 14px;box-sizing:border-box;font-weight:700;font-size:clamp(14px,2.4vw,26px);line-height:1.25;text-align:left;transform:rotate(var(--r,0deg));animation:capIn .35s cubic-bezier(.2,1.6,.4,1) both}
+.cap.big{font-size:clamp(22px,5.2vw,64px);text-align:center;letter-spacing:3px;line-height:1.05;padding:14px 18px}
+@keyframes capIn{from{opacity:0;transform:rotate(var(--r,0deg)) scale(.4) translateY(30px)}to{opacity:1;transform:rotate(var(--r,0deg)) scale(1)}}
 #bagUI h2{margin:0 0 8px;letter-spacing:6px}
 #paper{background:#fffdf5;border:4px solid #fff;box-shadow:6px 6px 0 #000;touch-action:none;cursor:crosshair;width:min(86vw,60vh,420px);height:min(86vw,60vh,420px)}
 .tools{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:10px 0;align-items:center}
@@ -176,6 +183,7 @@ button.sm.hot{background:var(--red)}
     <div id="bagMsg" style="margin-top:6px;font-size:16px;color:#ffd23f"></div>
   </div>
 </div>
+<div id="story" class="screen hidden"><div id="storyBoard"></div><button class="sm" id="storySkip">SKIP</button><div id="storyHint"></div></div>
 <div id="pause" class="screen hidden">
   <h2>PAUSED</h2>
   <div style="height:24px"></div>
@@ -1643,7 +1651,36 @@ addEventListener('blur', () => { if (state === 'play') pause(); });
 
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 function setPlayUI(on) { show('bossBar', on && boss.active && !boss.dead); show('arrow', false); ['hud', 'kills', 'pauseBtn', 'timeBtn', 'qualBtn', 'viewBtn', 'swBtn', 'bagBtn', 'cross'].forEach(id => show(id, on)); show('touch', on && coarse); if (!on) { show('combo', false); show('marker', false); } }
-function start() {
+// ---------- the story: yellow comic caption boxes appear one by one as you read; the last box is the biggest ----------
+const STORY = [
+  { t: 'A NORMAL KID.<br>A NORMAL DAY.', x: 4, y: 4, w: 36, r: -2 },
+  { t: 'THEN... ONE TINY SPIDER.<br>ONE TINY BITE.', x: 46, y: 3, w: 38, r: 1.5 },
+  { t: 'REDLINE: "WAIT... WHAT IS HAPPENING TO ME?!"', x: 6, y: 25, w: 42, r: -1 },
+  { t: 'THE CITY NEEDS SOMEONE.<br>THE SEA NEEDS SOMEONE.', x: 52, y: 24, w: 42, r: 2 },
+  { t: 'EL AGUAMAHA. THE SEA EATER.<br>EL GRAN MAJA. THE BLOOP.<br>THE GOD SEA EATER.', x: 5, y: 46, w: 46, r: -1.5 },
+  { t: 'BUT THE BIKER SOCIETY HAS YOUR BACK.', x: 56, y: 47, w: 38, r: 1 },
+  { t: 'NOW IT IS YOUR TURN.<br>SWING!', x: 8, y: 64, w: 84, r: 0, big: true },
+];
+let storyIdx = 0, storyDone = null;
+function showStory(done) {
+  storyDone = done; storyIdx = 0; $('storyBoard').innerHTML = ''; state = 'story'; show('story', true); show('title', false); show('over', false);
+  $('storyHint').textContent = 'CLICK OR PRESS SPACE TO READ ON'; storyNext();
+}
+function storyNext() {
+  if (storyIdx < STORY.length) {
+    const b = STORY[storyIdx++], d = document.createElement('div');
+    d.className = 'cap' + (b.big ? ' big' : ''); d.innerHTML = b.t; d.style.cssText = `left:${b.x}%;top:${b.y}%;width:${b.w}%;--r:${b.r}deg`;
+    $('storyBoard').appendChild(d); sfx.jump();
+    if (storyIdx === STORY.length) $('storyHint').textContent = 'CLICK OR PRESS SPACE TO START';
+  } else storyEnd();
+}
+function storyEnd() { if (state !== 'story') return; store.set('redline3d-story', '1'); show('story', false); state = 'title'; const cb = storyDone; storyDone = null; if (cb) cb(); }
+$('story').addEventListener('pointerdown', e => { if (e.target.id !== 'storySkip') storyNext(); });
+$('storySkip').onclick = e => { e.stopPropagation(); storyEnd(); };
+addEventListener('keydown', e => { if (state === 'story') { if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); storyNext(); } else if (e.code === 'Escape') storyEnd(); } });
+{ const sb = document.createElement('button'); sb.className = 'sm'; sb.textContent = 'STORY'; sb.style.marginTop = '8px'; sb.onclick = () => showStory(() => { show('title', true); }); $('startBtn').after(sb); }
+function start(arg) {
+  if (arg !== true && !store.get('redline3d-story')) { showStory(() => start(true)); return; }
   audio(); world = selWorld; reset(); state = 'play'; if (firstPerson) pitch = 0;
   show('title', false); show('over', false); show('pause', false); setPlayUI(true);
   lockMouse();
@@ -2378,7 +2415,7 @@ function banner(title, sub) {
   clearTimeout(bannerT); bannerT = setTimeout(() => { el.style.opacity = 0; }, 2800);
 }
 function setQuality(q) {
-  quality = q; store.set('redline3d-quality', q);
+  quality = q; store.set('redline3d-quality', q); autoPR = 0; perfT = 0;
   const pr = q === 'high' ? Math.min(2, window.devicePixelRatio || 1) : 1;
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
   sun.castShadow = q === 'high';
@@ -3309,6 +3346,18 @@ function update(h) {
   P.punchT = Math.max(0, P.punchT - h); P.punchCd = Math.max(0, P.punchCd - h);
   P.zipCd = Math.max(0, P.zipCd - h); P.flipT = Math.max(0, P.flipT - h); P.flipCd = Math.max(0, P.flipCd - h); P.dodgeT = Math.max(0, P.dodgeT - h); P.webCd = Math.max(0, P.webCd - h);
   if (P.act) { P.act.t += h; if (!P.act.done && P.act.t >= P.act.hitAt) resolveHit(); if (P.act.t >= P.act.dur && P.act.done) P.act = null; }
+  {   // stand still for a few seconds and Redline does a flip and lies down to rest, hands under his head; any move gets him up
+    const moving = Math.hypot(P.vel.x, P.vel.z) > 0.6, anyIn = input.keys.size > 0 || Math.abs(input.stick.x) + Math.abs(input.stick.y) > 0.15 || input.jump || input.swing || P.act || P.heal;
+    if (P.state === 'ground' && !moving && !anyIn) P.idleT = (P.idleT || 0) + h; else P.idleT = 0;
+    if (P.idleT > 6 && !P.rest && !P.trick) { P.rest = { ph: 'flip', t: 0, z: 0 }; sfx.jump(); }
+    if (P.rest) {
+      P.rest.t += h;
+      if (P.rest.ph === 'flip' && P.rest.t > 1.2) { P.rest.ph = 'lie'; P.rest.t = 0; }
+      if (P.rest.ph === 'lie') { P.rest.z -= h; if (P.rest.z <= 0) { P.rest.z = 2.4; popup('Z z z', P.pos.clone().add(new THREE.Vector3(-Math.sin(yaw) * 0.2, 1.7, -Math.cos(yaw) * 0.2))); } }
+      if ((anyIn || moving || P.state !== 'ground') && P.rest.ph !== 'up') P.rest = { ph: 'up', t: 0, from: P.rest.ph === 'flip' ? Math.min(1, P.rest.t / 1.2) : 1 };
+      if (P.rest && P.rest.ph === 'up' && P.rest.t > 0.7) P.rest = null;
+    }
+  }
   updateWeb(h); updateGrabs(h); updateWebWall(h); updateAllies(h); updateHeal(h);
   // tricks: Space in the air flips; leaving a tall roof starts a base jump
   if (input.jump && P.state === 'air' && !P.rope) { input.jump = false; airTrick(); }
@@ -3756,6 +3805,19 @@ function animateHero(dt) {
     body.rotation.x = ang; body.position.y = cy - cy * Math.cos(ang); body.position.z = -cy * Math.sin(ang);
     set(legL, -1.7, 0); set(legR, -1.7, 0); set(armL, -0.7, 0, 0.4); set(armR, -0.7, 0, -0.4);
   }
+  if (P.rest) {   // the rest: a backflip down onto his back, then lying like in a bed with both hands under his head
+    const R = P.rest; let ang = -Math.PI / 2, lift = 0, drop = 0.6, rel = 1, k = 1;
+    if (R.ph === 'flip') { k = Math.min(1, R.t / 1.2); const e = 1 - Math.pow(1 - k, 2.2); ang = -2.5 * Math.PI * e; lift = Math.sin(Math.PI * Math.min(1, k * 1.35)) * 1.2; drop = 0.6 * Math.max(0, (k - 0.78) / 0.22); rel = k < 0.72 ? 0 : (k - 0.72) / 0.28; }
+    else if (R.ph === 'up') { k = Math.min(1, R.t / 0.7); const e = k * k * (3 - 2 * k); ang = -Math.PI / 2 * (1 - e); lift = Math.sin(Math.PI * k) * 0.45; drop = 0.6 * (1 - e); rel = 1 - e; }
+    body.rotation.x = ang; body.position.y = 0.8 - 0.8 * Math.cos(ang) + lift - drop; body.position.z = -0.8 * Math.sin(ang);
+    if (rel < 0.01) tuck();
+    else {
+      const br = Math.sin(P.anim * 1.8) * 0.03 * rel;
+      set(legL, 0.0, 0.05, 0.12 * rel); set(legR, 0.0, 0.05, -0.12 * rel);                                   // legs relaxed
+      set(armL, (-2.5 + br) * rel, -2.7 * rel, 0.75 * rel); set(armR, (-2.5 + br) * rel, -2.7 * rel, -0.75 * rel);   // elbows out, both hands folded under the head
+      head.rotation.y = 0;
+    }
+  }
   }
   if (P.rope) {
     const hand = heroHand();
@@ -3922,12 +3984,22 @@ function updateAllies(h, rebuild) {
 // ================= loop =================
 let last = performance.now(), acc = 0, slowT = 0, fovKick = 0;
 const STEP = 1 / 120;
+let autoPR = 0, perfT = 0, perfAvg = 0.016;
+function adaptQuality(rawDt) {   // HIGH stays smooth: if frames get slow the resolution drops a notch, and it comes back up when there is room
+  perfAvg += (Math.min(rawDt, 0.1) - perfAvg) * 0.06; perfT -= rawDt;
+  if (quality !== 'high' || state === 'title' || perfT > 0) return;
+  const basePR = Math.min(2, window.devicePixelRatio || 1), cur = autoPR || basePR;
+  let next = cur;
+  if (perfAvg > 0.024) next = Math.max(0.7, cur - 0.25); else if (perfAvg < 0.0155 && cur < basePR) next = Math.min(basePR, cur + 0.25);
+  if (next !== cur) { autoPR = next; renderer.setPixelRatio(next); composer.setPixelRatio(next); renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); perfT = 1.5; } else perfT = 0.5;
+}
+let sdt = 0.016;
 function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const rawDt = (now - last) / 1000, dt = Math.min(0.05, rawDt); last = now; adaptQuality(rawDt); sdt += (dt - sdt) * 0.35;
   if (state === 'play') {
     acc += dt * (slowT > 0 ? 0.22 : 1); slowT = Math.max(0, slowT - dt);
     while (acc >= STEP && state === 'play') { update(STEP); acc -= STEP; }
-    animateHero(dt); updateCamera(dt); updateHUD();
+    animateHero(sdt); updateCamera(sdt); updateHUD();
   } else {
     acc = 0;
     if (state === 'title') { yaw += dt * 0.12; pitch = 0.18; P.anim += dt; animateHero(dt); updateCamera(dt); }
@@ -3949,7 +4021,7 @@ const best = +store.get('redline3d-best') || 0;
 if (best) $('bestTitle').textContent = 'BEST ' + best.toLocaleString();
 $('loading').remove(); show('title', true); renderSkills('skillsTitle');
 // test hook
-window.__game = { bossDamage, get SK() { return SK; }, openBag, closeBag, allyPhotoTex: () => allyPhotoTex, maskTexture, sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
+window.__game = { showStory, bossDamage, get SK() { return SK; }, openBag, closeBag, allyPhotoTex: () => allyPhotoTex, maskTexture, sfx, pixList, allies, applyHero, switchHero, get heroIdx() { return heroIdx; }, grabs, peds, cars, webDown, webUp, makeWebWall, get webWall() { return webWall; }, get shots() { return shots; }, seaDebug() { const B = boss, u = B.mesh.userData; const r = v => v.toArray().map(x => Math.round(x * 10) / 10); return { state: B.state, mouth: +B.mouth.toFixed(2), mouthT: B.mouthT, coreY: +u.core.position.y.toFixed(1), mawWorld: r(mawWorld()), core: r(bossCore()), tips: B.arms.map(a => r(a.tip)), hands: u.armGroups.map(g => r(g.userData.hand.getWorldPosition(new THREE.Vector3()))), pos: r(B.mesh.position), rotY: +B.mesh.rotation.y.toFixed(2) }; }, simTrace(n, every = 15) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push({ t: +(i * STEP).toFixed(2), st: P.state, rope: !!P.rope, v: +P.vel.length().toFixed(1), stall: +P.stallT.toFixed(2), zcd: +P.zipCd.toFixed(1), zip: !!P.zip, len: +P.ropeLen.toFixed(1), d: P.rope ? +P.pos.distanceTo(P.rope).toFixed(1) : null, y: +P.pos.y.toFixed(1), ay: P.rope ? +P.rope.y.toFixed(1) : null, n: P.rope && P.rope.n ? [P.rope.n.x, P.rope.n.z] : null }); } return out; }, simStats(n) { const st = { roped: 0, slow: 0, maxSlow: 0, run: 0, zips: 0, minY: 1e9 }; const z0 = P.zipCount || 0; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); st.minY = Math.min(st.minY, P.pos.y); if (P.rope) { st.roped += STEP; if (P.vel.length() < 8) { st.slow += STEP; st.run += STEP; st.maxSlow = Math.max(st.maxSlow, st.run); } else st.run = 0; } else st.run = 0; } st.zips = (P.zipCount || 0) - z0; return st; }, setLook(y, pt) { yaw = y; pitch = pt; }, sim(n, every = 60) { const out = []; for (let i = 0; i < n && state === 'play'; i++) { update(STEP); hero.position.copy(P.pos); updateCamera(STEP); if (i % every === 0) out.push([P.state, !!P.rope, +P.pos.y.toFixed(1), P.hp, P.rope ? +P.rope.y.toFixed(1) : null, Math.round(P.vel.length())]); } return out; }, P, get state() { return state; }, get enemies() { return enemies; }, get kills() { return kills; }, get meters() { return meters; }, applyTime, setView, startSeaEater, forceSea(k) { boss.force = k; boss.cd = 0; }, get world() { return world; }, setWorld(w) { world = w; reset(); }, travelToSea, startHeal, get energy() { return energy; }, set energy(v) { energy = v; }, hurt, startBoss, boss, punch, attack, kickPress, powerKick, gainXP, level, get xp() { return xp; }, backflip, webShot, spawnEnemy, RIG, camera, get hero() { return hero; }, armR, body, buildingsNear: nearBuildings, findAnchor, get web() { return web; }, bossCore };
 applyHero(parseInt(store.get('redline3d-hero') || '0', 10) || 0, true);
 if (myPic) setBagPic(myPic, [[photoCanvas, photoTex]]);
 requestAnimationFrame(frame);

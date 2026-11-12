@@ -897,3 +897,9 @@ El Gran Maja is now SO big: the body is 9 times its original size (a face wider 
 - **Jaws:** the upper and lower jaw move apart and snap together. The mouth opens a little more as an attack gets closer.
 - **Stomp:** he rears his head back and opens wide with a roar, then slams down: a double shock ring, a splash column, a flash, a camera kick and a short slow-motion beat.
 - **Stunned:** his mouth hangs open and trembles, his head droops and his core throbs fast: that is your chance to hit it.
+
+## Story, smooth HIGH and the resting animation
+
+- **Story scene:** the first time you press SWING (and any time from the STORY button on the title screen) a comic-style story plays. Yellow caption boxes pop in one by one as you click or press Space, ending with the biggest box in the middle. Redline's own line is in a yellow box too. SKIP jumps past it.
+- **Smooth HIGH:** the HIGH graphics setting now adapts: if the frame rate dips it lowers the resolution a notch (and raises it again when there is room), and the hero and camera animation use smoothed frame times, so it no longer stutters or glitches.
+- **Resting:** stand still for 6 seconds and Redline does a backflip, lands on his back and lies there like in a bed with both hands folded behind his head (with little "Z z z" now and then). Any move or button gets him up with a quick roll.
