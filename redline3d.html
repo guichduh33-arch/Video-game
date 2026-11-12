@@ -152,8 +152,8 @@ button.sm.hot{background:var(--red)}
     <b>H</b> heal: hold still for a moment and get a heart back (costs 40 charge; getting hit breaks it).<br>
     Jump off a tall building for a <b>base jump</b>. Takedowns, tricks and swinging earn XP: every level unlocks a new skill (list below).<br>
     <b>Y</b> or <b>Tab</b> (SWITCH button): switch to another Biker Society hero - Redline, Chrome, Volt or Ghost, each with a perk. <b>B</b> first person / third person · <b>T</b> time of day · <b>G</b> graphics quality · <b>P</b> pause · <b>M</b> sound on/off (starts off)<br>
-    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>the blue El Aguamaha</b>, then <b>El Grande</b>, then you travel to World 2 for the <b>Sea Eater</b>, and after it the <b>God Sea Eater</b>.<br>
-    Beat the two bosses of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
+    Gunmen, drones, brutes, snipers (watch for the red laser) and jetpack troopers. After 10 takedowns, then every 15, a boss arrives: <b>El Gran Maja</b>, then you travel to World 2 for the <b>Sea Eater</b>, and after it the <b>God Sea Eater</b>.<br>
+    Beat the boss of World 1 and you travel to <b>World 2</b>, the final world: a sea port where the <b>Sea Eater</b> waits. You can also pick a world above.<br>
     Sidewalks, parks, rooftops and the road are all safe to land on, and you can run along them. Only enemies, their shots and the bosses cost hearts.<br>
     In World 2 the sea never hurts: fall in and you swim (WASD), then leap out with Space, swing from the water, or climb a pier. Your web shot (X) damages the Sea Eater.<br>
     On a phone: left thumb moves, right thumb drags to look, hold <b>SWING</b>. Hold <b>KICK</b> for a power kick.
@@ -1214,47 +1214,47 @@ function makeFullBoss() {   // a huge round, solid, armored ball of a creature: 
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
-// EL AGUAMAHA: a short blue U standing on its curve, six red eyes only on top, a U-shaped mouth with a slightly spiky edge and long sharp teeth, and a blue tail
+// EL GRAN MAJA, copied from the reference picture: a bright blue head with a huge wide crescent mouth (black inside, red lips, two rows of long needle teeth)
+// whose brim sweeps up at both ends, a dome on top with six eyes in two triangles, and a long thick tapering stalk for a body
 function makeMauler() {
   const g = new THREE.Group(), u = g.userData;
-  const hide = new THREE.MeshStandardMaterial({ color: 0x2a6cd8, roughness: 0.4, metalness: 0.3 });
-  const R = 2.0, T = 0.98, CY = R + T;                                                   // the U: a thick, short horseshoe (a solid 3D tube, not a thin arch)
-  g.scale.setScalar(1.5);
-  const arc = new THREE.Mesh(new THREE.TorusGeometry(R, T, 20, 48, Math.PI), hide); arc.rotation.z = Math.PI; arc.position.y = CY; g.add(arc);   // the curved bottom
-  for (const sx of [-1, 1]) {
-    const pil = new THREE.Mesh(new THREE.CylinderGeometry(T, T, 2.2, 22), hide); pil.position.set(sx * R, CY + 1.1, 0); g.add(pil);        // the two arms of the U
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(T, 22, 14), hide); cap.position.set(sx * R, CY + 2.2, 0); g.add(cap);
+  const blue = new THREE.MeshStandardMaterial({ color: 0x3f4cff, roughness: 0.45, metalness: 0.1 }), deep = new THREE.MeshStandardMaterial({ color: 0x1d22c8, roughness: 0.5 });
+  const redM = new THREE.MeshStandardMaterial({ color: 0xd8001c, roughness: 0.4, emissive: 0x500008, emissiveIntensity: 0.6 }), black = new THREE.MeshBasicMaterial({ color: 0x000000 }), toothM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const head = new THREE.Group(); head.position.y = 9.7; g.add(head); u.head = head;
+  // the brim around the mouth: a flat outline with the mouth cut out, extruded for a solid 3D lip
+  const mouth = new THREE.Shape(); mouth.moveTo(-4.7, 0.9); mouth.quadraticCurveTo(0, 0.3, 4.7, 0.9); mouth.bezierCurveTo(4.9, -0.2, 3.6, -2.3, 0, -3.0); mouth.bezierCurveTo(-3.6, -2.3, -4.9, -0.2, -4.7, 0.9);
+  const outer = new THREE.Shape(); outer.moveTo(-5.9, 1.55); outer.quadraticCurveTo(0, 0.7, 5.9, 1.55); outer.bezierCurveTo(6.2, 0.2, 4.2, -3.3, 0, -3.95); outer.bezierCurveTo(-4.2, -3.3, -6.2, 0.2, -5.9, 1.55);
+  outer.holes.push(new THREE.Path(mouth.getPoints(40).reverse()));
+  const brim = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: 1.1, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.2, bevelSegments: 4, curveSegments: 40 }), blue); brim.position.z = -0.55; head.add(brim);
+  const inside = new THREE.Mesh(new THREE.ShapeGeometry(mouth, 40), black); inside.position.z = -0.35; head.add(inside);          // the black inside of the mouth
+  const upLip = new THREE.Shape(); upLip.moveTo(-3.5, 0.72); upLip.quadraticCurveTo(0, 0.2, 3.5, 0.72); upLip.quadraticCurveTo(0, -0.55, -3.5, 0.72);   // red upper lip
+  const lowLip = new THREE.Shape(); lowLip.moveTo(-3.7, -1.0); lowLip.bezierCurveTo(-3.1, -2.3, -1.4, -2.85, 0, -2.85); lowLip.bezierCurveTo(1.4, -2.85, 3.1, -2.3, 3.7, -1.0); lowLip.bezierCurveTo(2.3, -2.0, 1.0, -2.3, 0, -2.3); lowLip.bezierCurveTo(-1.0, -2.3, -2.3, -2.0, -3.7, -1.0);   // red lower lip
+  for (const sh of [upLip, lowLip]) { const lip = new THREE.Mesh(new THREE.ShapeGeometry(sh, 32), redM); lip.position.z = -0.25; head.add(lip); }
+  // two rows of long needle teeth
+  for (let i = 0; i < 36; i++) {
+    const x = -3.05 + 6.1 * i / 35, yTop = 0.2 + 0.7 * Math.pow(x / 4.7, 2) - 0.1, len = 1.1 + 0.35 * Math.sin(i * 1.7);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(x, yTop - len / 2 - 0.2, 0.05); t.rotation.z = Math.PI; head.add(t);
   }
-  // six red eyes, only on top: three on the front of each arm's rounded tip
-  const redM = new THREE.MeshStandardMaterial({ color: 0xe01818, emissive: 0xc00808, emissiveIntensity: 1.0, roughness: 0.25 }), pupil = new THREE.MeshBasicMaterial({ color: 0x050505 });
-  u.eyes = [];
-  for (const sx of [-1, 1]) for (const dx of [-0.43, 0, 0.43]) {
-    const ex = sx * R + dx, ez = Math.sqrt(Math.max(0.05, T * T - dx * dx)) - 0.1, e = new THREE.Group(); e.position.set(ex, CY + 2.38 - Math.abs(dx) * 0.25, ez); g.add(e); u.eyes.push(e);
-    e.add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 12), redM));
-    const pu = new THREE.Mesh(new THREE.CircleGeometry(0.07, 14), pupil); pu.scale.set(0.45, 2.0, 1); pu.position.z = 0.215; e.add(pu);
+  for (let i = 0; i < 40; i++) {
+    const a = Math.PI + 0.32 + (Math.PI - 0.64) * i / 39, tx = Math.cos(a) * 3.3, ty = -0.95 + Math.sin(a) * 1.55, len = 1.0 + 0.35 * Math.sin(i * 1.3 + 1);
+    const t = new THREE.Mesh(new THREE.ConeGeometry(0.095, len, 7), toothM); t.position.set(tx, ty + len / 2 - 0.05, 0.05); t.rotation.z = -Math.cos(a) * 0.25; head.add(t);
   }
-  // a U-shaped mouth on the curve of the body: a slightly spiky rim and long, really sharp teeth
-  const MR = 1.35, MY = 1.95, mouthDark = new THREE.MeshStandardMaterial({ color: 0x1a0404, roughness: 1 });
-  const inside = new THREE.Mesh(new THREE.CircleGeometry(MR, 36, Math.PI, Math.PI), new THREE.MeshStandardMaterial({ color: 0xc01010, emissive: 0x8a0808, emissiveIntensity: 0.9, roughness: 0.5, side: THREE.DoubleSide })); inside.position.set(0, MY, T - 0.05); g.add(inside);   // the inside of the mouth is red
-  const mouth = new THREE.Mesh(new THREE.TorusGeometry(MR, 0.22, 10, 36, Math.PI), mouthDark); mouth.rotation.z = Math.PI; mouth.position.set(0, MY, T + 0.02); g.add(mouth);
-  const tooth = new THREE.MeshStandardMaterial({ color: 0xf4ecd6, roughness: 0.35 }), rim = new THREE.MeshStandardMaterial({ color: 0x1c4fa8, roughness: 0.5 });
-  for (let i = 0; i < 9; i++) {       // long sharp teeth inside the U, pointing up into the mouth
-    const a = Math.PI + 0.3 + (Math.PI - 0.6) * i / 8, tx = Math.cos(a) * (MR - 0.05), ty = Math.sin(a) * (MR - 0.05), len = 0.55 + (i % 2 ? 0.28 : 0) + 0.2 * Math.sin((i / 8) * Math.PI);
-    const t = new THREE.Mesh(new THREE.ConeGeometry(0.1, len, 8), tooth); t.position.set(tx * 0.97, MY + ty + len * 0.45, T + 0.05); g.add(t);
-  }
-  for (let i = 0; i < 15; i++) {       // a little spiky on the outer edge of the mouth
-    const a = Math.PI + 0.1 + (Math.PI - 0.2) * i / 14, ox = Math.cos(a) * (MR + 0.28), oy = Math.sin(a) * (MR + 0.28);
-    const sp = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.26, 6), rim); sp.position.set(ox, MY + oy, T + 0.03); sp.rotation.z = a + Math.PI / 2 + Math.PI; g.add(sp);
-  }
-  // the blue tail: tapering, segmented, curving up behind the body and ending in a point
-  u.tail = [];
-  for (let i = 0; i < 9; i++) {
-    const k = i / 8, seg = new THREE.Mesh(new THREE.SphereGeometry(0.62 * (1 - k * 0.72) + 0.06, 14, 10), hide);
-    seg.position.set(0, 0.9 + k * 2.2 + Math.sin(k * 2.2) * 0.3, -1.3 - k * 3.6); g.add(seg); u.tail.push({ m: seg, k, y0: seg.position.y });
-  }
-  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 10).rotateX(-Math.PI / 2), hide); spike.position.set(0, 3.3, -5.2); g.add(spike); u.tail.push({ m: spike, k: 1, y0: 3.3 });
-  // the glowing core, floating in the opening of the U
-  u.core = add(ball(0.5, coreMat), g, 0, CY + 0.55, 0);
+  // the dome on top, with six eyes: a dark ring with a white dot, in two triangles
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(2.8, 36, 24), blue); dome.scale.set(1.0, 0.88, 1.0); dome.position.set(0, 1.35, -0.4); head.add(dome);
+  const ringM = new THREE.MeshStandardMaterial({ color: 0x0a0a8a, roughness: 0.5 }), dotM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, emissive: 0x666666, emissiveIntensity: 0.6 });
+  [[-1.38, 2.35], [-0.81, 2.78], [-0.26, 2.37], [0.83, 2.35], [1.35, 2.78], [1.7, 2.3]].forEach(([x, y]) => {
+    const rz = Math.sqrt(Math.max(0.01, 1 - Math.pow(x / 2.8, 2) - Math.pow((y - 1.35) / (2.8 * 0.88), 2))) * 2.8 - 0.4, e = new THREE.Group(); e.position.set(x, y, rz); e.lookAt(x * 1.5, 1.35 + (y - 1.35) * 1.5, rz + 2); head.add(e);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.12, 20).rotateX(Math.PI / 2), ringM); ring.position.z = -0.02; e.add(ring);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), dotM); dot.position.z = 0.06; e.add(dot);
+  });
+  // the long, thick, tapering stalk of a body, with a darker band and curved marks
+  const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.55, 6.4, 28), blue); stalk.position.y = 9.7 - 3.95 - 3.2; g.add(stalk);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(1.34, 1.53, 1.5, 28), deep); band.position.y = 9.7 - 3.95 - 4.9; g.add(band);
+  for (const y0 of [1.05, 2.0]) { const arcM = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.035, 6, 24, Math.PI * 0.55), new THREE.MeshStandardMaterial({ color: 0x14148a })); arcM.rotation.set(0, 0, Math.PI * 0.725); arcM.position.set(0, y0, 1.12); g.add(arcM); }
+  u.tail = [];   // (no tail: the stalk is the body)
+  // the glowing core, set in the dark of the mouth between the rows of teeth
+  u.core = add(ball(0.7, coreMat), head, 0, -0.55, -0.1);
+  g.scale.setScalar(0.8);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
 }
@@ -2345,13 +2345,13 @@ const slamRing = new THREE.Mesh(new THREE.RingGeometry(9.6, 10.5, 64).rotateX(-M
 const slamFill = new THREE.Mesh(new THREE.CircleGeometry(10.5, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff2a3e, transparent: true, opacity: 0.15, depthWrite: false }));
 slamRing.visible = slamFill.visible = false; scene.add(slamRing, slamFill);
 // three bosses take turns; each comes back tougher (MK 2, MK 3...)
-const BOSS_KINDS = ['mauler', 'full'];   // World 1's boss is the blue El Aguamaha; then World 2: the Sea Eater, then the God Sea Eater
+const BOSS_KINDS = ['mauler'];   // World 1's only boss: El Gran Maja   // World 1's boss is the blue El Aguamaha; then World 2: the Sea Eater, then the God Sea Eater
 const BOSS_INFO = {
   seaeater: { name: 'THE SEA EATER', hp: 240, coreY: 0, hitR: 8.5, bodyR: 0, tip: 'Swim or swing in close. Web it (X) to wear it down, and hit the core when it rises in the mouth!' },
   warden: { name: 'THE WARDEN', hp: 120, coreY: 3, hitR: 3.8, bodyR: 2.4, tip: 'Lure it into a slam, then hit the glowing core.' },
   sky:    { name: 'THE SKYREAVER', hp: 100, coreY: -0.7, hitR: 4.4, bodyR: 0, tip: 'Hit it with 3 web shots (X) to bring it down, then hit the core.' },
   full: { name: 'EL GRANDE', hp: 110, coreY: 4.9, hitR: 6.2, bodyR: 4.4, tip: 'A full-bodied giant: get out of its landing circle, then hit the glowing core while it is stuck.' },
-  mauler: { name: 'EL AGUAMAHA', hp: 90, coreY: 5.3, hitR: 6.2, bodyR: 3.5, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
+  mauler: { name: 'EL GRAN MAJA', hp: 100, coreY: 7.3, hitR: 7.5, bodyR: 2.1, tip: 'Get out of his landing circle, then hit the core while he is stuck.' },
 };
 const bossCore = () => boss.kind === 'seaeater' ? boss.mesh.userData.maw.localToWorld(new THREE.Vector3(0, 15, -7)) : boss.mesh.position.clone().setY(boss.mesh.position.y + boss.coreY);
 const bossLabel = () => BOSS_INFO[boss.kind].name + (boss.level > 1 ? ' MK ' + boss.level : '');
@@ -2535,7 +2535,8 @@ function updateSkyreaver(h, dx, dz, dh, fast) {
 }
 // THE MAULER: a giant brute that leaps roof to roof, slams where he lands and throws rooftop units
 function updateMauler(h, dx, dz, dh, onRoof, fast) {
-  if (boss.mesh && boss.mesh.userData.tail) { const T = boss.mesh.userData; for (const q of T.tail) q.m.position.x = Math.sin(boss.tt * 2.2 - q.k * 3) * 0.7 * q.k; for (const e of T.eyes) { const l = boss.mesh.worldToLocal(P.pos.clone()); e.rotation.y += (Math.max(-0.5, Math.min(0.5, Math.atan2(l.x - e.position.x, l.z))) - e.rotation.y) * Math.min(1, h * 6); } }   // the tail sways and the six eyes follow you
+  if (boss.mesh && boss.mesh.userData.head) { const hd = boss.mesh.userData.head; hd.rotation.z = Math.sin(t * 1.3) * 0.05; hd.rotation.x = Math.sin(t * 0.9) * 0.04; }
+  if (boss.mesh && boss.mesh.userData.tail && boss.mesh.userData.eyes) { const T = boss.mesh.userData; for (const q of T.tail) q.m.position.x = Math.sin(t * 2.2 - q.k * 3) * 0.7 * q.k; for (const e of T.eyes) { const l = boss.mesh.worldToLocal(P.pos.clone()); e.rotation.y += (Math.max(-0.5, Math.min(0.5, Math.atan2(l.x - e.position.x, l.z))) - e.rotation.y) * Math.min(1, h * 6); } }   // the tail sways and the six eyes follow you
   const m = boss.mesh, b = boss.b;
   coreMat.emissiveIntensity = boss.stun > 0 ? 5 + Math.sin(t * 20) * 2.5 : 1.3;
   if (boss.state !== 'leap') { let d = Math.atan2(dx, dz) - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); m.rotation.y += d * Math.min(1, h * (boss.stun > 0 ? 0.4 : 3)); }
@@ -2567,9 +2568,9 @@ function updateMauler(h, dx, dz, dh, onRoof, fast) {
       break;
     }
     case 'stomp': {
-      boss.wind -= h; m.scale.y = 1 - Math.sin(Math.min(1, 1 - boss.wind) * Math.PI) * 0.08;
+      boss.wind -= h; m.scale.y = m.scale.x * (1 - Math.sin(Math.min(1, 1 - boss.wind) * Math.PI) * 0.08);
       slamRing.material.opacity = 0.45 + Math.sin(t * 25) * 0.3; slamFill.material.opacity = 0.2;
-      if (boss.wind <= 0) { m.scale.y = 1; slamAt(m.position.x, m.position.z, 9); boss.state = 'stunned'; boss.stun = 1.8; boss.cd = 1.2; popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true); }
+      if (boss.wind <= 0) { m.scale.y = m.scale.x; slamAt(m.position.x, m.position.z, 9); boss.state = 'stunned'; boss.stun = 1.8; boss.cd = 1.2; popup('CORE EXPOSED!', bossCore().add(new THREE.Vector3(0, 2, 0)), true); }
       break;
     }
     case 'leap': {

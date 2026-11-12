@@ -864,3 +864,7 @@ Difficulty was lowered: bosses have about half the health, wind up for longer be
 After El Grande you travel to World 2: the Sea Eater, the Bloop, then the God Sea Eater.
 
 **El Grande** was redone: it is no longer dog-like. It is now a huge round, armored, violet-blue ball of a creature with two thick arms and big fists, no legs and no snout; six red eyes in an arc on top of the dome; a wide U-shaped mouth across the front that is red inside with long sharp teeth; a thick tail; and a glowing core above the mouth.
+
+## El Gran Maja (World 1's boss), copied from your picture
+
+The only boss of World 1 is now **El Gran Maja**, built to match the reference picture you showed: a bright blue head with a huge wide crescent mouth whose brim sweeps up at both ends, black inside with red lips and two rows of long needle-like white teeth; a blue dome on top with **six eyes** (white dots in dark rings, in two triangles); and a long, thick, tapering blue stalk for a body with a darker band and curved marks. Its glowing core sits in the dark of the mouth. It leaps from roof to roof and stomps. After it you travel to World 2.
