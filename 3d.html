@@ -189,6 +189,7 @@
   <div class="tbtn" id="bSuit" style="right:220px;bottom:130px;font-size:11px">SUIT</div>
   <div class="tbtn" id="bShoot" style="right:310px;bottom:85px;font-size:11px">SHOOT</div>
   <div class="tbtn" id="bView" style="right:310px;bottom:175px;font-size:11px">VIEW</div>
+  <div class="tbtn" id="bZip" style="right:400px;bottom:40px;font-size:11px">ZIP</div>
 </div>
 <div id="overlay">
   <p class="kicker">BROOKLYN NIGHTS 3D</p>
@@ -211,7 +212,7 @@
 <div id="upg" class="hidden">
   <div id="upgBox">
     <header><span class="t">TECH LAB</span><span class="sub">WEB SHOOTERS · SKILLS</span><span id="upgPts">⚡ 0 TECH</span><span class="x" id="upgClose" title="Close (U / Esc)">✕</span></header>
-    <nav><button class="tab web on" data-tab="web">🕸 WEB SHOOTERS</button><button class="tab skill" data-tab="skill">⚡ SKILLS</button></nav>
+    <nav><button class="tab web on" data-tab="web">🕸 WEB SHOOTERS</button><button class="tab skill" data-tab="skill">⚡ SKILL SHOP</button></nav>
     <div id="upgList"></div>
     <footer>Tech points: <b>1</b> for every crime stopped, <b>3</b> for every boss or rogue beaten. Upgrades are kept between runs.</footer>
   </div>
@@ -1167,6 +1168,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyM') toggleMusic();
   if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; applyLook(); G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
   if (e.code === 'KeyC' && G.state === 'play') toggleFP();
+  if (e.code === 'KeyQ') e.preventDefault();
 });
 function toggleFP() { look.fp = !look.fp; G.hint = look.fp ? 'First person · C or VIEW to go back' : 'Third person'; G.hintT = 2; }
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -1188,7 +1190,7 @@ addEventListener('mousemove', e => {
 const touch = { stick: null, sx: 0, sy: 0, mx: 0, my: 0, lookId: null, lx: 0, ly: 0, held: {} };
 if (TOUCH) {
   $('touch').style.display = 'block';
-  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bView: 'View' };
+  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bView: 'View', bZip: 'Zip' };
   for (const id in btnMap) {
     const el = $(id), k = btnMap[id];
     const on = e => { e.preventDefault(); AudioSys.ensure(); if (!touch.held[k]) pressed[k] = true; touch.held[k] = true; el.classList.add('on'); };
@@ -1240,10 +1242,13 @@ const UPG_DEFS = [
   { id: 'battery', tab: 'skill', ic: '🔋', name: 'VENOM BATTERY', cost: [1, 2, 3], desc: ['Venom charges faster: +50% regen, +3 per hit', 'Regen doubled, +6 per hit', 'Regen ×2.7, +9 per hit'], now: l => `Regen ${[1.5, 2.2, 3, 4][l]}/s · +${3 * l} per hit` },
   { id: 'strike', tab: 'skill', ic: '⚡', name: 'VENOM STRIKE', cost: [2, 3, 4], desc: ['Venom Strike reaches 10 m (8 m now) and hits harder', 'Reach 12 m, harder still', 'Reach 14 m: a rooftop-clearing blast'], now: l => `Reach ${8 + 2 * l} m · ${3 + l} damage` },
   { id: 'camo', tab: 'skill', ic: '👻', name: 'CAMOUFLAGE', cost: [1, 2, 3], desc: ['Camouflage lasts 2 s longer and recharges 2 s faster', 'Lasts 4 s longer, recharges 4 s faster', 'Lasts 7 s longer, recharges in 3 s'], now: l => `+${[0, 2, 4, 7][l]} s · cooldown ${Math.max(3, 8 - 2 * l)} s` },
+  { id: 'leap', tab: 'skill', ic: '🦅', name: 'LEAP OF FAITH', cost: [2, 3], desc: ['Catch yourself lower on a dive, slow time longer, 500 points per leap', 'Inches from the street: longest slow-mo, 1000 points per leap'], now: l => `${[250, 500, 1000][l]} pts · catch ${['safe', 'low', 'last inch'][l]}` },
+  { id: 'zip', tab: 'skill', ic: '🎯', name: 'WEB ZIP', cost: [2, 3], desc: ['Press Q (or ZIP) to fire a line and rocket toward the nearest anchor at 45 m/s', 'Zip at 60 m/s with a shorter cooldown'], now: l => l ? `Zip ${[0, 45, 60][l]} m/s · cooldown ${[0, 2, 1][l]} s` : 'Not learned' },
+  { id: 'pound', tab: 'skill', ic: '💫', name: 'GROUND POUND', cost: [3, 4], desc: ['PUNCH high in the air to slam down: a shockwave stuns every thug within 7 m', 'Shockwave reaches 10 m and hits twice as hard'], now: l => l ? `Shockwave ${[0, 7, 10][l]} m · ${[0, 3, 6][l]} damage` : 'Not learned' },
   { id: 'swing', tab: 'skill', ic: '🌀', name: 'SWING KINETICS', cost: [2, 3], desc: ['Pump harder on the web line and launch higher at release', 'Even faster swings and bigger launches'], now: l => `Pump ×${[1, 1.25, 1.5][l]} · launch +${5 + 2 * l}` },
 ];
 const UPG = { pts: 0, lv: {}, open: false, tab: 'web', told: false, byId: Object.fromEntries(UPG_DEFS.map(d => [d.id, d])) };
-try { const raw = JSON.parse(localStorage.getItem('mm3d_tech') || '{}'); UPG.pts = Math.max(0, +raw.pts || 0); if (raw.lv && typeof raw.lv === 'object') for (const d of UPG_DEFS) UPG.lv[d.id] = clamp(+raw.lv[d.id] || 0, 0, d.cost.length); } catch (e) { }
+try { const stored = localStorage.getItem('mm3d_tech'); const raw = JSON.parse(stored || '{}'); UPG.pts = stored ? Math.max(0, +raw.pts || 0) : 4; /* a new player starts with 4 points to spend in the shop */ if (raw.lv && typeof raw.lv === 'object') for (const d of UPG_DEFS) UPG.lv[d.id] = clamp(+raw.lv[d.id] || 0, 0, d.cost.length); } catch (e) { }
 const LV = id => UPG.lv[id] || 0;
 const MAXHP = () => 100 + 20 * LV('health');
 function upgSave() { try { localStorage.setItem('mm3d_tech', JSON.stringify({ pts: UPG.pts, lv: UPG.lv })); } catch (e) { } }
@@ -1526,10 +1531,10 @@ const SUIT_DEFS = {
     return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: navy, swoosh: red, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body, head) => {
       // a real head shape instead of a ball: narrower skull, longer in the back, a jaw and chin; lenses moved to match
       // a seven-year-old's proportions: a big head on a small body, short arms and legs, and the whole figure smaller
-      head.scale.set(0.78, 0.92, 0.86); head.position.y = 2.7;
-      for (const a of [g.parts.armL, g.parts.armR]) a.scale.setScalar(0.86);
-      for (const l of [g.parts.legL, g.parts.legR]) { l.scale.setScalar(0.9); l.position.y -= 0.115; }
-      g.scale.setScalar(0.8);
+      head.scale.set(0.69, 0.83, 0.77); head.position.y = 2.68;
+      for (const a of [g.parts.armL, g.parts.armR]) a.scale.setScalar(0.93);
+      for (const l of [g.parts.legL, g.parts.legR]) { l.scale.setScalar(0.96); l.position.y -= 0.047; }
+      g.scale.setScalar(0.87);
           body.children[0].scale.multiply(new THREE.Vector3(1.14, 1.04, 1.08)); // broader chest, a V shape to the torso
           for (const L of [g.parts.armL, g.parts.armR, g.parts.legL, g.parts.legR]) { L.joint.children[0].scale.set(0.95, 0.8, 0.95); L.children[0].scale.set(1.05, 1, 1.05); } // flatter joints, fuller limbs
       head.traverse(o => { if (o.isMesh && o.geometry && (o.geometry.type === 'ExtrudeGeometry' || o.geometry.userData.lens)) o.visible = false; });
@@ -1633,7 +1638,7 @@ const P = {
   onGround: false, onWall: null, coyote: 0, jumpsLeft: 1, climbT: 0,
   swinging: false, anchor: V3(), ropeLen: 0, swingT: 0, webCd: 0,
   hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0,
-  punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0, diving: false, diveT: 0, rollT: 0, leapT: 0, flipT: 0, swingHand: 'R', swingPeak: 0,
+  punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0, diving: false, diveT: 0, rollT: 0, leapT: 0, flipT: 0, swingHand: 'R', swingPeak: 0, zip: null, zipCd: 0, pound: false,
 };
 function respawnPoint() {
   const b = buildings.filter(b => b.roofOk && b.h > 50 && b.h < 90 && b.w > 20 && Math.hypot(b.x, b.z) < 120).sort((a, c) => Math.hypot(a.x, a.z) - Math.hypot(c.x, c.z))[0] || buildings[0];
@@ -1704,7 +1709,7 @@ function updatePlayer(dt) {
   if (!P.alive) { P.deadT += dt; P.vel.y -= GRAV * dt; P.pos.addScaledVector(P.vel, dt); const gh = groundHeight(P.pos.x, P.pos.z, P.radius); if (P.pos.y < gh) { P.pos.y = gh; P.vel.set(0, 0, 0); } return; }
   const mv = moveInput();
   P.animT += dt;
-  for (const k of ['punchT', 'punchCd', 'shootT', 'shootCd', 'invulnT', 'camoCd', 'webCd', 'coyote', 'landT', 'senseT']) if (P[k] > 0) P[k] -= dt;
+  for (const k of ['punchT', 'punchCd', 'shootT', 'shootCd', 'invulnT', 'camoCd', 'webCd', 'coyote', 'landT', 'senseT', 'zipCd']) if (P[k] > 0) P[k] -= dt;
   if (P.camo) { P.camoT -= dt; if (P.camoT <= 0) { P.camo = false; P.camoCd = Math.max(3, (SUIT === 'noir' ? 4 : 8) - 2 * LV('camo')); AudioSys.uncamo(); } }
   if (P.venom < 100) P.venom = Math.min(100, P.venom + dt * [1.5, 2.2, 3, 4][LV('battery')]);
   if (P.poisonT > 0) { P.poisonT -= dt; P.hp -= 2.5 * dt; if (Math.random() < dt * 6) burst(P.pos.clone().add(V3(rand(-0.5, 0.5), rand(0.5, 2.5), rand(-0.5, 0.5))), 1, 0x9ad45a, 1.5, 0.5, 0); if (P.hp <= 0) { P.hp = 0; P.alive = false; P.deadT = 0; } }
@@ -1721,12 +1726,12 @@ function updatePlayer(dt) {
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    const pump = 13 * [1, 1.25, 1.5][LV('swing')];
+    const pump = 20 * [1, 1.25, 1.5][LV('swing')];
     P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 5) * dt;
     P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 5) * dt;
     // reel the web in hardest at the bottom of the arc, like a pendulum pumping: every swing climbs higher than the last
     const below = clamp((P.anchor.y - P.pos.y) / Math.max(1, P.ropeLen), 0, 1);
-    P.ropeLen = Math.max(5, P.ropeLen - dt * (1.5 + 5 * below * below));
+    P.ropeLen = Math.max(5, P.ropeLen - dt * (2 + 7 * below * below));
     // a gust of wind particles off the hands and feet at speed
     const spd = P.vel.length(); if (spd > 16 && Math.random() < dt * spd * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0);
     P.pos.addScaledVector(P.vel, dt);
@@ -1735,7 +1740,7 @@ function updatePlayer(dt) {
       d.multiplyScalar(1 / L); P.pos.copy(P.anchor).addScaledVector(d, P.ropeLen);
       const out = P.vel.dot(d); if (out > 0) P.vel.addScaledVector(d, -out);
     }
-    P.vel.multiplyScalar(1 - 0.07 * dt);
+    P.vel.multiplyScalar(1 - 0.03 * dt);
     const sp = Math.hypot(P.vel.x, P.vel.z); if (sp > 0.5) P.facing = Math.atan2(P.vel.x, P.vel.z);
     P.onGround = false;
   } else if (P.onWall && !P.onGround && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.3) {
@@ -1771,10 +1776,12 @@ function updatePlayer(dt) {
     if (P.diving && (!wantDive || P.onGround)) P.diving = false;
     if (P.diving) {
       P.diveT += dt; P.vel.y -= GRAV * 0.5 * dt; // dives fall faster
-      const h = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius), need = Math.max(5, -P.vel.y * 0.28);
-      if (h < need && P.vel.y < -16 && P.webCd <= 0) { // the last-second web
+      if (Math.hypot(P.vel.x, P.vel.z) > 1.5) P.facing = Math.atan2(P.vel.x, P.vel.z); // dive along the fall, not sideways
+      if (P.diveT > 0.5 && Math.random() < dt * 20) burst(P.pos.clone().add(V3(rand(-0.4, 0.4), rand(0.5, 2.2), rand(-0.4, 0.4))), 1, 0xffffff, 1.5, 0.3, 0); // wind tearing past
+      const lm = LV('leap'), h = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius), need = Math.max(3.2 - lm * 0.4, -P.vel.y * (0.13 - lm * 0.02));
+      if (h < need && P.vel.y < -16 && P.webCd <= 0) { // the last-second web: inches from the street
         P.diving = false; const was = P.vel.y; startSwing();
-        if (P.swinging) { P.leapT = 1.2; G.slowT = 0.55; G.flash = 0.6; G.score += 250; G.hint = 'LEAP OF FAITH!'; G.hintT = 2.5; floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'LEAP OF FAITH', '#ffd23f', 30); P.vel.y = was * 0.55; AudioSys.jump(); }
+        if (P.swinging) { const pts = [250, 500, 1000][lm]; P.leapT = 1.2; G.slowT = 0.9 + lm * 0.3; G.flash = 0.7; G.score += pts; shake(0.35); G.hint = 'LEAP OF FAITH!'; G.hintT = 2.5; floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'LEAP OF FAITH +' + pts, '#ffd23f', 34); burst(P.pos.clone().add(V3(0, 0.2, 0)), 24, 0xffffff, 9, 0.5); P.vel.y = was * 0.7; P.ropeLen = Math.max(5, P.ropeLen * 0.9); AudioSys.thwip(); AudioSys.jump(); }
       }
     }
     P.vel.y = Math.max(MAX_FALL * 1.4, P.vel.y - GRAV * dt);
@@ -1788,6 +1795,12 @@ function updatePlayer(dt) {
     if (!ground && P.vel.y < -18) { shake(0.4); AudioSys.land(); burst(P.pos.clone(), 10, 0x888888, 5, 0.4); }
     if (!ground) P.landT = 0.25;
     if (!ground && P.vel.y < -14 && Math.hypot(P.vel.x, P.vel.z) > 4) { P.rollT = 0.5; P.landT = 0; } // fast landing while moving: roll through it
+    if (P.pound) { // ground pound shockwave
+      const r = [0, 7, 10][LV('pound')], dmg = [0, 3, 6][LV('pound')]; let n = 0;
+      for (const e of enemies) { if (!e.alive) continue; const d = e.mesh.position.clone().sub(P.pos); if (Math.hypot(d.x, d.z) < r && Math.abs(d.y) < 4) { hitEnemy(e, dmg, d.setY(0).normalize(), 'POUND', 1.6); n++; } }
+      shake(0.8); G.flash = 0.4; burst(P.pos.clone().add(V3(0, 0.3, 0)), 40, 0xffffff, 12, 0.6); burst(P.pos.clone().add(V3(0, 0.3, 0)), 20, 0xffd23f, 7, 0.5); AudioSys.land(); floatText(hero.position.clone().add(V3(0, 3, 0)), n ? `GROUND POUND ×${n}` : 'GROUND POUND', '#ffd23f', 28); G.score += 50 * n; P.rollT = 0; P.landT = 0.35;
+    }
+    P.pound = false;
     P.diving = false;
     if (!ground && P.vel.y < -10) for (const g of pigeons) if (g.state === 'perch' && Math.hypot(g.pos.x - P.pos.x, g.pos.z - P.pos.z) < 12 && Math.abs(g.pos.y - P.pos.y) < 3) g.t = -1;
     P.pos.y = gh; P.vel.y = 0; P.onGround = true; if (P.swinging) stopSwing(false);
@@ -1795,8 +1808,22 @@ function updatePlayer(dt) {
   if (P.pos.y > gh + 0.3) P.onGround = false;
   if (!P.onWall) P.climbT = 0;
 
+  // --- bought skills: web zip and ground pound ---
+  if (wasPressed('KeyQ', 'Zip') && !P.zip && P.zipCd <= 0) {
+    if (LV('zip') > 0) { const a = findAnchor(); if (a) { if (P.swinging) stopSwing(false); P.zip = { to: a, t: 0.9 }; P.zipCd = [0, 2, 1][LV('zip')]; P.onGround = false; P.pos.y += 0.1; AudioSys.thwip(); burst(P.pos.clone().add(V3(0, 2, 0)), 6, 0xffffff, 6, 0.3); } }
+    else { G.hint = 'WEB ZIP is for sale in the Skill Shop (U / 🔧)'; G.hintT = 2.5; }
+  }
+  if (P.zip) {
+    const d = P.zip.to.clone().sub(P.pos.clone().add(V3(0, 1.5, 0))), L = d.length(); P.zip.t -= dt;
+    if (L < 3 || P.zip.t <= 0 || P.onWall) { P.zip = null; P.vel.multiplyScalar(0.55); }
+    else { d.multiplyScalar(1 / L); const v = [0, 45, 60][LV('zip')]; P.vel.copy(d).multiplyScalar(v); P.facing = Math.atan2(d.x, d.z); P.pos.addScaledVector(P.vel, dt); if (Math.random() < dt * 30) burst(P.pos.clone().add(V3(0, 1.5, 0)), 1, 0xffffff, 1.5, 0.2, 0); }
+  }
   // --- combat ---
-  if (inPunch() && P.punchCd <= 0) punch();
+  if (inPunch() && P.punchCd <= 0) {
+    const hAbove = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius);
+    if (!P.onGround && !P.swinging && hAbove > 4 && LV('pound') > 0 && !P.pound) { P.pound = true; P.diving = false; P.vel.set(P.vel.x * 0.2, -45, P.vel.z * 0.2); P.punchCd = 0.4; AudioSys.punch(); }
+    else punch();
+  }
   if (inShoot() && P.shootCd <= 0) shootWeb();
   if (wasPressed('Suit')) toggleSuit(1);
   if (inVenom() && P.venom >= VENOM_COST()) venomStrike();
@@ -3917,11 +3944,17 @@ function animateHero(dt) {
     // landing roll: tuck and tumble forward once
     const k = 1 - P.rollT / 0.5; bodyX = k * Math.PI * 2; p.body.position.y = -0.55 + Math.sin(k * Math.PI) * 0.1;
     p.armL.rotation.x = p.armR.rotation.x = -1.2; p.armL.rotation.z = 0.3; p.armR.rotation.z = -0.3; p.legL.rotation.x = p.legR.rotation.x = -1.6;
+  } else if (P.zip) {
+    // web zip: both arms forward along the line, legs trailing
+    p.armL.rotation.x = p.armR.rotation.x = -2.9; p.armL.rotation.z = 0.15; p.armR.rotation.z = -0.15; p.legL.rotation.x = 0.5; p.legR.rotation.x = 0.7; bodyX = 1.0;
+  } else if (P.pound) {
+    // ground pound: fist down, knees up
+    p.armR.rotation.x = 0.8; p.armR.rotation.z = -0.2; p.armL.rotation.x = -1.8; p.armL.rotation.z = 0.6; p.legL.rotation.x = p.legR.rotation.x = -1.3; bodyX = 0.5;
   } else if (P.diving) {
     // head-first dive: body flat, arms swept back along the sides, legs straight, with a little flutter
     const k = Math.min(1, P.diveT * 3), fl = Math.sin(t * 9) * 0.08;
-    bodyX = 1.45 * k; p.armL.rotation.x = 1.0 * k + fl; p.armR.rotation.x = 1.0 * k - fl; p.armL.rotation.z = 0.35; p.armR.rotation.z = -0.35;
-    p.legL.rotation.x = -0.1 + fl; p.legR.rotation.x = -0.1 - fl;
+    bodyX = 2.45 * k; p.armL.rotation.x = 0.9 * k + fl; p.armR.rotation.x = 0.9 * k - fl; p.armL.rotation.z = 0.3; p.armR.rotation.z = -0.3;
+    p.legL.rotation.x = -0.05 + fl; p.legR.rotation.x = -0.05 - fl; p.body.position.y = 0.9 * k;
   } else if (!P.onGround) {
     const f = clamp(-P.vel.y / 25, 0, 1);
     p.armL.rotation.x = -2.4 + f * 1.5; p.armR.rotation.x = -2.4 + f * 1.5; p.armL.rotation.z = 0.7; p.armR.rotation.z = -0.7;
@@ -3938,6 +3971,8 @@ function animateHero(dt) {
   if (P.swinging) { const lead = P.swingHand === 'L' ? p.armL : p.armR, trail = P.swingHand === 'L' ? p.armR : p.armL; lead.joint.rotation.x = 0; trail.joint.rotation.x = -1.2; const ph = clamp(P.vel.y / 22, -1, 1); p.legL.joint.rotation.x = 1.2 - ph * 0.6; p.legR.joint.rotation.x = 0.8 - ph * 0.5; }
   if (P.flipT > 0) { const k = 1 - P.flipT / 0.8; bodyX = -k * Math.PI * 2; p.body.position.y = 0.3 + Math.sin(k * Math.PI) * 0.3; p.legL.rotation.x = p.legR.rotation.x = -1.5; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.9; p.armL.rotation.x = p.armR.rotation.x = -0.8; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -1.4; }
   if (P.diving) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.15; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.1; }
+  if (P.zip) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = 0; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.6; }
+  if (P.pound) { p.armR.joint.rotation.x = -0.1; p.armL.joint.rotation.x = -1.5; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.9; }
   if (P.rollT > 0) { p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.8; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -1.6; }
   if (climbing) { p.armL.joint.rotation.x = -0.9; p.armR.joint.rotation.x = -0.9; p.legL.joint.rotation.x = 1.0; p.legR.joint.rotation.x = 1.0; }
   if (P.shootT > 0) { p.armR.rotation.x = -1.55; p.armR.rotation.z = -0.1; p.armR.joint.rotation.x = -0.05; }
@@ -4020,9 +4055,12 @@ function updateCamera(dt, first) {
   }
   camera.fov = 70 + G.fovBoost * 18; camera.updateProjectionMatrix();
   const swingK = lerp(G.swingK || 0, P.swinging ? 1 : 0, Math.min(1, dt * 3)); G.swingK = swingK;
-  const target = P.pos.clone().add(V3(0, 2.0 + swingK * 0.6, 0));
-  const dist = look.dist + G.fovBoost * 2 + swingK * 2.5;
-  const dir = V3(Math.sin(look.yaw) * Math.cos(look.pitch), Math.sin(look.pitch), Math.cos(look.yaw) * Math.cos(look.pitch));
+  const diveK = lerp(G.diveK || 0, P.diving ? 1 : 0, Math.min(1, dt * 2.5)); G.diveK = diveK;
+  const target = P.pos.clone().add(V3(0, 2.0 + swingK * 0.6 - diveK * 1.0, 0));
+  const dist = look.dist + G.fovBoost * 2 + swingK * 2.5 + diveK * 1.5;
+  // in a dive the camera climbs above and behind him and looks down past him at the street rushing up
+  const pitch = lerp(look.pitch, 1.15, diveK);
+  const dir = V3(Math.sin(look.yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(look.yaw) * Math.cos(pitch));
   let want = target.clone().addScaledVector(dir, dist);
   // pull the camera in if a building is in the way
   for (let f = 1; f > 0.15; f -= 0.05) {
@@ -4094,7 +4132,7 @@ function startGame() {
   for (const w of webShots) scene.remove(w.mesh, w.line); webShots.length = 0;
   for (const p of particles) scene.remove(p.m); particles.length = 0;
   for (const t of texts) t.el.remove(); texts.length = 0;
-  Object.assign(G, { state: 'play', act: 1, rogues: [], rogueIdx: 0, rogueNext: false, forceBoss: BOSS_PARAM, time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Hold WEB in the air to swing · hold JUMP while falling to dive, the web fires itself near the ground · VIEW for first person' : 'Hold the left mouse button in the air to swing · hold SPACE while falling to dive, the web fires itself near the ground · C for first person' });
+  Object.assign(G, { state: 'play', act: 1, rogues: [], rogueIdx: 0, rogueNext: false, forceBoss: BOSS_PARAM, time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 2, shake: 0, paused: false, flash: 0, hintT: 7, hint: TOUCH ? 'Hold WEB in the air to swing · hold JUMP while falling to dive · 🔧 Skill Shop: buy WEB ZIP and GROUND POUND' : 'Hold the left mouse button in the air to swing · hold SPACE while falling to dive · U opens the Skill Shop: buy WEB ZIP (Q) and GROUND POUND' });
   if (boss.mesh) { scene.remove(boss.mesh); boss.mesh = null; } boss.alive = false; boss.kind = 'rhino'; vfx.ring.visible = false; SPOTFX.hideAll(); GAL_FX.clear(); clearHealth(); $('bossBar').classList.add('hidden');
   beacon.visible = false; resetPlayer(); updateCamera(0, true); spawnSidekick();
   try { const want = localStorage.getItem('mm3d_suit'); if (want && want !== SUIT) setSuit(want); } catch (e) { }
