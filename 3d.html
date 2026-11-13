@@ -1695,7 +1695,7 @@ function findAnchor() {
 function startSwing() {
   const a = findAnchor(); if (!a) return;
   P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
-  { const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); P.vel.x += fx * 4; P.vel.z += fz * 4; } // every new web line throws you forward P.swingHand = P.swingHand === 'L' ? 'R' : 'L'; P.swingPeak = P.pos.y;
+  { const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); P.vel.x += fx * 7; P.vel.z += fz * 7; } // every new web line throws you forward P.swingHand = P.swingHand === 'L' ? 'R' : 'L'; P.swingPeak = P.pos.y;
   AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3); if (LOOK.comic && Math.random() < 0.5) floatText(hero.position.clone().add(V3(0.8, 3.2, 0)), 'THWIP', '#fff', 22);
 }
 function stopSwing(boost) {
@@ -1727,12 +1727,12 @@ function updatePlayer(dt) {
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    const pump = 30 * [1, 1.25, 1.5][LV('swing')];
+    const pump = 45 * [1, 1.25, 1.5][LV('swing')];
     P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 5) * dt;
     P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 5) * dt;
     // reel the web in hardest at the bottom of the arc, like a pendulum pumping: every swing climbs higher than the last
     const below = clamp((P.anchor.y - P.pos.y) / Math.max(1, P.ropeLen), 0, 1);
-    P.ropeLen = Math.max(5, P.ropeLen - dt * (3 + 9 * below * below));
+    P.ropeLen = Math.max(5, P.ropeLen - dt * (4 + 12 * below * below));
     // a gust of wind particles off the hands and feet at speed
     const spd = P.vel.length(); if (spd > 16 && Math.random() < dt * spd * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0);
     P.pos.addScaledVector(P.vel, dt);
@@ -1741,7 +1741,7 @@ function updatePlayer(dt) {
       d.multiplyScalar(1 / L); P.pos.copy(P.anchor).addScaledVector(d, P.ropeLen);
       const out = P.vel.dot(d); if (out > 0) P.vel.addScaledVector(d, -out);
     }
-    P.vel.multiplyScalar(1 - 0.012 * dt);
+    P.vel.multiplyScalar(1 - 0.004 * dt);
     const sp = Math.hypot(P.vel.x, P.vel.z); if (sp > 0.5) P.facing = Math.atan2(P.vel.x, P.vel.z);
     P.onGround = false;
   } else if (P.onWall && !P.onGround && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.3) {
@@ -3931,8 +3931,9 @@ function animateHero(dt) {
     const lead = P.swingHand === 'L' ? p.armL : p.armR, trail = P.swingHand === 'L' ? p.armR : p.armL, ls = P.swingHand === 'L' ? -1 : 1;
     // through the arc: tucked and leaning forward at the bottom (falling fast), stretched out and chest-up at the top
     const phase = clamp(P.vel.y / 22, -1, 1), sw = Math.sin(P.swingT * 5);
-    lead.rotation.x = Math.PI - armAng; lead.rotation.z = ls * -0.15 - armSide * 0.6; lead.joint.rotation.x = 0;
-    trail.rotation.x = -0.9 + phase * 0.6 + sw * 0.15; trail.rotation.z = -ls * 0.55; trail.joint.rotation.x = -1.2;
+    lead.rotation.x = Math.PI - armAng; lead.rotation.z = ls * -0.1 - clamp(armSide, -0.5, 0.5) * 0.5; lead.joint.rotation.x = 0;
+    // the free arm trails back and out to the side, well clear of the web line, never up across the other hand
+    trail.rotation.x = 0.5 + phase * 0.35 + sw * 0.12; trail.rotation.z = -ls * 0.7; trail.joint.rotation.x = -0.5;
     p.legL.rotation.x = 0.9 - phase * 0.7 + sw * 0.15; p.legR.rotation.x = 0.5 - phase * 0.5 - sw * 0.15;
     bodyX = clamp(-phase * 0.7 + 0.35, -0.6, 1.0);
   } else if (climbing) {
@@ -3970,7 +3971,7 @@ function animateHero(dt) {
   const elbowFor = arm => (P.onGround && sp > 0.5) ? -0.5 - Math.max(0, -arm.rotation.x) * 0.8 : (!P.onGround ? -1.0 : -0.2);
   p.legL.joint.rotation.x = kneeFor(p.legL); p.legR.joint.rotation.x = kneeFor(p.legR);
   p.armL.joint.rotation.x = elbowFor(p.armL); p.armR.joint.rotation.x = elbowFor(p.armR);
-  if (P.swinging) { const lead = P.swingHand === 'L' ? p.armL : p.armR, trail = P.swingHand === 'L' ? p.armR : p.armL; lead.joint.rotation.x = 0; trail.joint.rotation.x = -1.2; const ph = clamp(P.vel.y / 22, -1, 1); p.legL.joint.rotation.x = 1.2 - ph * 0.6; p.legR.joint.rotation.x = 0.8 - ph * 0.5; }
+  if (P.swinging) { const lead = P.swingHand === 'L' ? p.armL : p.armR, trail = P.swingHand === 'L' ? p.armR : p.armL; lead.joint.rotation.x = 0; trail.joint.rotation.x = -0.5; const ph = clamp(P.vel.y / 22, -1, 1); p.legL.joint.rotation.x = 1.2 - ph * 0.6; p.legR.joint.rotation.x = 0.8 - ph * 0.5; }
   if (P.flipT > 0) { const k = 1 - P.flipT / 0.8; bodyX = -k * Math.PI * 2; p.body.position.y = 0.3 + Math.sin(k * Math.PI) * 0.3; p.legL.rotation.x = p.legR.rotation.x = -1.5; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.9; p.armL.rotation.x = p.armR.rotation.x = -0.8; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -1.4; }
   if (P.diving) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.15; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.1; }
   if (P.zip) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = 0; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.6; }
