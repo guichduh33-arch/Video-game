@@ -1689,7 +1689,7 @@ function findAnchor() {
     if (toA.x * fx + toA.z * fz < -0.1 && a.distanceTo(P.pos) > 12) continue;
     const d = a.distanceTo(ideal); if (d < bestD) { bestD = d; best = a; }
   }
-  if (!best && P.pos.y < 140) best = V3(ideal.x, Math.max(ideal.y, 30), ideal.z); // sky-hook so you are never stuck
+  if (!best && P.pos.y < 140) best = V3(ideal.x, clamp(ideal.y, 30, 100), ideal.z); // sky-hook so you are never stuck, but never above the skyline: high swings arc back down
   return best;
 }
 function startSwing() {
@@ -1734,7 +1734,9 @@ function updatePlayer(dt) {
     const below = clamp((P.anchor.y - P.pos.y) / Math.max(1, P.ropeLen), 0, 1);
     P.ropeLen = Math.max(5, P.ropeLen - dt * (4 + 12 * below * below));
     // a gust of wind particles off the hands and feet at speed
-    const spd = P.vel.length(); if (spd > 16 && Math.random() < dt * spd * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0);
+    const spd = P.vel.length(); if (spd > 16 && Math.random() < dt * spd * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0, 0.3);
+    // flying above the anchor: the web would go slack, so let go and fly free; holding the button fires the next line ahead
+    if (P.vel.y > 0 && (P.pos.y > P.anchor.y - 2 || P.pos.clone().sub(P.anchor).length() < P.ropeLen * 0.6)) { stopSwing(false); P.webCd = 0.3; P.flipT = 0; P.vel.y = Math.min(P.vel.y, 12); }
     P.pos.addScaledVector(P.vel, dt);
     const d = P.pos.clone().sub(P.anchor), L = d.length();
     if (L > P.ropeLen) {
@@ -1742,6 +1744,7 @@ function updatePlayer(dt) {
       const out = P.vel.dot(d); if (out > 0) P.vel.addScaledVector(d, -out);
     }
     P.vel.multiplyScalar(1 - 0.004 * dt);
+    P.vel.y = Math.min(P.vel.y, 24); { const hs = Math.hypot(P.vel.x, P.vel.z); if (hs > 72) { P.vel.x *= 72 / hs; P.vel.z *= 72 / hs; } } // fast, but never off into space
     const sp = Math.hypot(P.vel.x, P.vel.z); if (sp > 0.5) P.facing = Math.atan2(P.vel.x, P.vel.z);
     P.onGround = false;
   } else if (P.onWall && !P.onGround && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.3) {
@@ -1778,7 +1781,7 @@ function updatePlayer(dt) {
     if (P.diving) {
       P.diveT += dt; P.vel.y -= GRAV * 0.5 * dt; // dives fall faster
       if (Math.hypot(P.vel.x, P.vel.z) > 1.5) P.facing = Math.atan2(P.vel.x, P.vel.z); // dive along the fall, not sideways
-      if (P.diveT > 0.5 && Math.random() < dt * 20) burst(P.pos.clone().add(V3(rand(-0.4, 0.4), rand(0.5, 2.2), rand(-0.4, 0.4))), 1, 0xffffff, 1.5, 0.3, 0); // wind tearing past
+      if (P.diveT > 0.5 && Math.random() < dt * 20) burst(P.pos.clone().add(V3(rand(-0.4, 0.4), rand(0.5, 2.2), rand(-0.4, 0.4))), 1, 0xffffff, 1.5, 0.3, 0, 0.3); // wind tearing past
       const lm = LV('leap'), h = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius), need = Math.max(3.2 - lm * 0.4, -P.vel.y * (0.13 - lm * 0.02));
       if (h < need && P.vel.y < -16 && P.webCd <= 0) { // the last-second web: inches from the street
         P.diving = false; const was = P.vel.y; startSwing();
@@ -1818,7 +1821,7 @@ function updatePlayer(dt) {
   if (P.zip) {
     const d = P.zip.to.clone().sub(P.pos.clone().add(V3(0, 1.5, 0))), L = d.length(); P.zip.t -= dt;
     if (L < 3 || P.zip.t <= 0 || P.onWall) { P.zip = null; P.vel.multiplyScalar(0.55); }
-    else { d.multiplyScalar(1 / L); const v = [0, 45, 60][LV('zip')]; P.vel.copy(d).multiplyScalar(v); P.facing = Math.atan2(d.x, d.z); P.pos.addScaledVector(P.vel, dt); if (Math.random() < dt * 30) burst(P.pos.clone().add(V3(0, 1.5, 0)), 1, 0xffffff, 1.5, 0.2, 0); }
+    else { d.multiplyScalar(1 / L); const v = [0, 45, 60][LV('zip')]; P.vel.copy(d).multiplyScalar(v); P.facing = Math.atan2(d.x, d.z); P.pos.addScaledVector(P.vel, dt); if (Math.random() < dt * 30) burst(P.pos.clone().add(V3(0, 1.5, 0)), 1, 0xffffff, 1.5, 0.2, 0, 0.3); }
   }
   // --- combat ---
   if (inPunch() && P.punchCd <= 0) {
@@ -1845,10 +1848,10 @@ function updatePlayer(dt) {
 const particles = [], texts = [], enemies = [], bullets = [];
 const partGeo = new THREE.BoxGeometry(0.22, 0.22, 0.22);
 const partMats = {};
-function burst(pos, n, color, speed = 6, life = 0.5, grav = 20) {
+function burst(pos, n, color, speed = 6, life = 0.5, grav = 20, size = 1) {
   partMats[color] = partMats[color] || new THREE.MeshBasicMaterial({ color });
   for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(partGeo, partMats[color]); m.position.copy(pos); scene.add(m);
+    const m = new THREE.Mesh(partGeo, partMats[color]); m.position.copy(pos); if (size !== 1) m.scale.setScalar(size); scene.add(m);
     particles.push({ m, v: V3(rand(-1, 1), rand(-0.6, 1), rand(-1, 1)).normalize().multiplyScalar(speed * rand(0.4, 1.2)), life, max: life, grav });
   }
 }
