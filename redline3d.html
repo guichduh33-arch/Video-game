@@ -960,13 +960,40 @@ armL.pivot.scale.y = armR.pivot.scale.y = 0.95; legL.pivot.scale.y = legR.pivot.
 const RIG = { ready: false };
 // first-person swing hand: one red glove in the lower right of the view that reaches toward the web anchor
 const fpHand = new THREE.Group();
+// first-person hand: a real gloved right hand (palm, four jointed fingers, a thumb, glove cuff with a web-shooter, a suit sleeve) whose fingers curl into poses:
+// relaxed, a tight fist for punches, the "thwip" web-shooting sign (middle and ring fingers down), a grip on the web line, and an open hand when healing
 {
-  const fistMat = pixMat(fist), gloveMat = pixMat(armFront), sleeve = new THREE.MeshStandardMaterial({ color: PAL.k1, roughness: 0.75 });
-  const f = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.11), [gloveMat, gloveMat, fistMat, fistMat, fistMat, gloveMat]); f.position.z = 0.02;
-  const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.105, 0.105, 0.05), new THREE.MeshStandardMaterial({ color: PAL.r0, roughness: 0.6 })); cuff.position.z = -0.06;
-  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.095, 0.34), sleeve); arm.position.z = -0.25;
-  fpHand.add(f, cuff, arm); fpHand.userData.tip = new THREE.Object3D(); fpHand.userData.tip.position.z = 0.08; fpHand.add(fpHand.userData.tip);
+  const glove = matRed, sleeveM = matSuit, dark = new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.4, metalness: 0.6 });
+  const segGeo = (r, len) => new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 6, 12).rotateX(Math.PI / 2).translate(0, 0, len / 2);
+  const hand = new THREE.Group(); hand.scale.setScalar(1.35); hand.rotation.x = -0.35; hand.position.set(-0.02, 0.03, 0.02); fpHand.add(hand);   // a bit bigger, tipped up so you see the back of the glove and the fingers
+  const palm = new THREE.Mesh(new RoundedBoxGeometry(0.088, 0.034, 0.094, 4, 0.014), glove); palm.position.set(0, 0, 0.047); hand.add(palm);
+  for (const x of [-0.03, -0.01, 0.01, 0.03]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 10), glove); k.position.set(x, 0.009, 0.092); hand.add(k); }   // knuckles
+  const fingers = [];
+  [[-0.03, [0.042, 0.027, 0.021], 0.0098], [-0.01, [0.046, 0.03, 0.022], 0.0102], [0.01, [0.043, 0.028, 0.021], 0.0098], [0.03, [0.034, 0.022, 0.018], 0.0086]].forEach(([x, L, r]) => {
+    const joints = []; let parent = hand, z = 0.092;
+    for (let k = 0; k < 3; k++) {
+      const j = new THREE.Group(); j.position.set(k ? 0 : x, k ? 0 : -0.003, z); parent.add(j);
+      j.add(new THREE.Mesh(segGeo(r * (1 - k * 0.07), L[k]), glove)); joints.push(j); parent = j; z = L[k];
+    }
+    fingers.push(joints);
+  });
+  const thumb = []; { let parent = hand; const L = [0.036, 0.027]; const base = new THREE.Group(); base.position.set(-0.047, -0.008, 0.028); base.rotation.set(0.15, -0.75, 0.55); hand.add(base); parent = base;
+    let z = 0; for (let k = 0; k < 2; k++) { const j = new THREE.Group(); j.position.z = z; parent.add(j); j.add(new THREE.Mesh(segGeo(0.0115 * (1 - k * 0.08), L[k]), glove)); thumb.push(j); parent = j; z = L[k]; } }
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.047, 0.038, 20).rotateX(Math.PI / 2), glove); cuff.position.z = -0.012; hand.add(cuff);
+  const shooter = new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.014, 0.034, 2, 0.005), dark); shooter.position.set(0, -0.046, -0.008); hand.add(shooter);   // web-shooter on the inner wrist
+  const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.01, 8).rotateX(Math.PI / 2), dark); nozzle.position.set(0, -0.046, 0.013); hand.add(nozzle);
+  const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.2, 6, 16).rotateX(Math.PI / 2), sleeveM); sleeve.position.z = -0.15; hand.add(sleeve);
+  hand.traverse(o => { if (o.isMesh) { o.castShadow = false; } });
+  fpHand.userData = { tip: new THREE.Object3D(), hand, fingers, thumb, curl: [0.4, 0.45, 0.5, 0.55], th: 0.3 };
+  fpHand.userData.tip.position.set(0, -0.02, 0.09); fpHand.add(fpHand.userData.tip);
   fpHand.visible = false; camera.add(fpHand); scene.add(camera);
+}
+// the finger poses: [index, middle, ring, pinky] curl and the thumb curl
+const HAND_POSES = { relax: [[0.35, 0.42, 0.5, 0.58], 0.3], fist: [[1.55, 1.6, 1.6, 1.55], 1.05], thwip: [[0.04, 1.6, 1.6, 0.06], 0.05], grip: [[1.1, 1.15, 1.2, 1.2], 0.85], open: [[0.08, 0.06, 0.08, 0.12], 0.0] };
+function poseFpHand(name, dt) {
+  const u = fpHand.userData, [want, th] = HAND_POSES[name] || HAND_POSES.relax, k = Math.min(1, dt * 14);
+  u.fingers.forEach((joints, i) => { u.curl[i] += (want[i] - u.curl[i]) * k; const c = u.curl[i]; joints[0].rotation.x = c * 0.85; joints[1].rotation.x = c * 1.05; joints[2].rotation.x = c * 0.75; });
+  u.th += (th - u.th) * k; u.thumb[0].rotation.x = u.th * 0.5; u.thumb[1].rotation.x = u.th * 0.9;
 }
 const FP_NEGZ = new THREE.Vector3(0, 0, -1), FP_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 function heroHand() { return firstPerson && state === 'play' && fpHand.visible ? fpHand.userData.tip.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
@@ -3789,6 +3816,8 @@ function updateCamera(dt) {
     } else if (act) { hy = -0.3; hz = -0.42; }
     else if (P.heal) { hx = 0.18; hy = -0.1 + Math.sin(t * 10) * 0.012; }                // hand raised while healing                   // kicks: the hand pulls back for balance
     fpHand.position.set(hx, hy, hz);
+    poseFpHand(act && /punch|kick|spin|power/.test(act.kind) ? 'fist' : act && act.kind === 'web' ? 'thwip' : P.rope ? (P.rope.age = (P.rope.age || 0) + dt, P.rope.age < 0.35 ? 'thwip' : 'grip') : P.heal ? 'open' : 'relax', dt);
+    fpHand.userData.hand.rotation.z = P.rope ? -0.35 : act && act.kind === 'web' ? -0.5 : -0.15;   // turn the wrist a little, more for the web-shooting sign
     {   // aim the hand in the camera's own space (not with world "up"), so it never spins or flips when you look straight up or down or swing from an anchor overhead
       const tgtL = P.rope ? camera.worldToLocal(P.rope.clone()) : new THREE.Vector3(hx * 0.3, hy * 0.3 + (act && act.kind === 'web' ? 0.4 : 0.15), -6);
       const dirL = tgtL.sub(fpHand.position); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
