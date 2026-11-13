@@ -20,14 +20,11 @@
   canvas { display: block; touch-action: none; -webkit-user-select: none; user-select: none; }
   #hud { position: fixed; inset: 0; pointer-events: none; transition: opacity .35s; }
   /* crosshair: a thin ring with four ticks in the middle of the screen; turns red and grows when a thug is in the web's auto-aim */
-  #xhair { position: fixed; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; pointer-events: none; display: none; opacity: .9; transition: transform .12s, opacity .2s; }
-  #xhair::before { content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,.8), inset 0 0 5px rgba(0,0,0,.6); }
-  #xhair i { position: absolute; background: #fff; box-shadow: 0 0 4px rgba(0,0,0,.9); border-radius: 2px; }
-  #xhair i:nth-child(1), #xhair i:nth-child(2) { width: 3px; height: 18px; left: 20.5px; } #xhair i:nth-child(1) { top: -22px; } #xhair i:nth-child(2) { bottom: -22px; }
-  #xhair i:nth-child(3), #xhair i:nth-child(4) { height: 3px; width: 18px; top: 20.5px; } #xhair i:nth-child(3) { left: -22px; } #xhair i:nth-child(4) { right: -22px; }
-  #xhair i:nth-child(5) { width: 6px; height: 6px; left: 19px; top: 19px; border-radius: 50%; }
+  #xhair { position: fixed; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; pointer-events: none; display: none; opacity: .95; transition: transform .12s, opacity .2s; }
+  #xhair i { display: none; }
+  #xhair::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.6), 0 0 5px rgba(0,0,0,.6); }
   body.play #xhair { display: block; }
-  #xhair.lock { transform: scale(1.25); opacity: 1; } #xhair.lock::before { border-color: #ff3a1c; } #xhair.lock i { background: #ff3a1c; }
+  #xhair.lock { transform: scale(1.4); opacity: 1; } #xhair.lock::before { background: #ff3a1c; }
   /* lock-on marker: a red diamond that sits on the thug the next web will hit */
   #lockon { position: fixed; left: 0; top: 0; width: 44px; height: 44px; margin: -22px 0 0 -22px; pointer-events: none; display: none; border: 2px solid #ff3a1c; transform: rotate(45deg); box-shadow: 0 0 6px rgba(255,58,28,.8), inset 0 0 6px rgba(255,58,28,.5); animation: lockpulse .6s ease-in-out infinite alternate; }
   #lockon.on { display: block; }
