@@ -4300,7 +4300,8 @@ function storyIntro(done) {
 function storyBoss(kind, gal) {
   if (!boss.mesh) return; const bm = boss.mesh.position.clone(); const d = V3(P.pos.x - bm.x, 0, P.pos.z - bm.z).normalize(); if (!d.lengthSq()) d.set(0, 0, 1);
   const L = gal ? [gal.name, gal.title || 'Enter the rogue'] : (BOSS_LINES[kind] || [boss.name, 'Here we go.']);
-  const img = snap(() => { camAt(bm.clone().add(d.clone().multiplyScalar(7.5)).add(V3(0, 3.6, 0)), bm.clone().add(V3(0, 2.8, 0)), 48); });
+  const box = new THREE.Box3().setFromObject(boss.mesh), size = box.getSize(V3()), c = box.getCenter(V3()), big = Math.max(size.x, size.y, size.z, 2);
+  const img = snap(() => { camAt(c.clone().add(d.clone().multiplyScalar(big * 1.9 + 3)).add(V3(0, big * 0.35, 0)), c.clone().add(V3(0, -size.y * 0.05, 0)), 46); });
   storyShow([{ kick: 'BROOKLYN NIGHTS · ' + L[0] }, { wide: true, img, cap: L[0] + ' has arrived.', who: L[0], say: L[1] }]);
 }
 function storyAct2(done) {
