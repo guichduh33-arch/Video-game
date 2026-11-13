@@ -1698,7 +1698,7 @@ function stopSwing(boost) {
   if (boost) { // let go at the top: a big launch, a somersault, and a THWIP of air
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), sp = Math.hypot(P.vel.x, P.vel.z);
     P.vel.y = Math.max(P.vel.y, 8) + 7 + 2 * LV('swing'); P.vel.x += fx * Math.min(8, 3 + sp * 0.15); P.vel.z += fz * Math.min(8, 3 + sp * 0.15);
-    P.flipT = 0.8; AudioSys.jump(); burst(hero.position.clone().add(V3(0, 1.5, 0)), 10, 0xffffff, 5, 0.35); G.score += 10; }
+    P.flipT = 0.8; P.webCd = 0.55; AudioSys.jump(); burst(hero.position.clone().add(V3(0, 1.5, 0)), 10, 0xffffff, 5, 0.35); G.score += 10; } // half a second of free air so the flip plays before the next web
 }
 function updatePlayer(dt) {
   if (!P.alive) { P.deadT += dt; P.vel.y -= GRAV * dt; P.pos.addScaledVector(P.vel, dt); const gh = groundHeight(P.pos.x, P.pos.z, P.radius); if (P.pos.y < gh) { P.pos.y = gh; P.vel.set(0, 0, 0); } return; }
