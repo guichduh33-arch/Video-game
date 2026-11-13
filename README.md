@@ -573,6 +573,12 @@ the auto-tuning.
 | Gwen on / off | `G` |
 | Talk to Gwen | `T` or the 💬 button |
 | Cycle suits | `N` forward, `B` back |
+| First person | `C` or the VIEW button: the camera sits in the mask; the torso is hidden, your own hands, web shooters and feet stay visible |
+| Leap of faith | Hold `Space` (or JUMP) while falling: Miles dives head-first, the camera looks down past him at the street, and a few metres up the web fires by itself, time slows and he swings out of it |
+| Web Zip | `Q` or the ZIP button, once bought in the Skill Shop: fires a line and rockets to the nearest anchor |
+| Ground Pound | PUNCH high in the air, once bought: slams down, the shockwave stuns every thug nearby |
+| Time of day | `H` or the 🌗 button jumps to the next phase. The clock also runs on its own: dawn, day, sunset and night over nine minutes; windows and street lamps light up after dark |
+| Story | A new game opens with a comic page whose pictures are rendered from the game world; `Space`/`Enter` or NEXT turns the page, `Esc` or SKIP goes straight to the roof. Each boss gets a cover panel, Act II and the ending get their own pages |
 | Soundtrack | `M` or the 🎵 button: Brooklyn Nights → Sunflower → off |
 | Tech Lab (upgrades) | `U` or the 🔧 button (also on the title screen) |
 
