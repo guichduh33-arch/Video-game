@@ -201,7 +201,7 @@
     <p><b>Esc</b> pause · <b>F</b> fullscreen · <b>V</b> comic / realistic look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen (🎤 or <b>Y</b> to speak) · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack (Brooklyn Nights · Sunflower · off) · <b>U</b> Tech Lab: spend tech points on web shooters and skills</p>
     <p class="dim">Touch: left stick moves, drag the right side to look, buttons for the rest.</p>
   </div>
-  <div class="row"><button id="startBtn">PLAY</button><button id="techBtn2" class="alt">🔧 TECH LAB</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
+  <div class="row"><button id="startBtn" disabled>LOADING…</button><button id="techBtn2" class="alt">🔧 TECH LAB</button><button id="fsBtn2" class="alt">⛶ FULLSCREEN</button><button id="installBtn" class="alt hidden">⤓ INSTALL APP</button></div>
   <a class="sequel" href="spiderman2.html">▶ PLAY THE SEQUEL: SPIDER-MAN 2</a>
   <p id="installHint" class="hidden" style="opacity:.7;margin-top:14px"></p>
 </div>
@@ -223,7 +223,7 @@
   <div id="chatLog"></div>
   <form id="chatForm" autocomplete="off"><button id="micBtn" type="button" title="Hold to talk (or press Y)">🎤</button><input id="chatIn" maxlength="300" placeholder="Talk to Gwen, or give an order…"><button id="chatSend" type="submit">SEND</button></form>
 </div>
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
 'use strict';
@@ -1393,7 +1393,7 @@ function lensPatchGeo(shape, R, ox, oy, rings = 6) {
 // a toy web shooter strapped over the wrist: black body, a spoked drum with silver screws, a hex nut, silver zigzag strips,
 // a grey strap and a barrel with a glowing blue suction dart at the tip. Built in forearm space (wrist at y = 0, back of the wrist toward -z).
 const SHOOTER_MAT = { body: new THREE.MeshStandardMaterial({ color: 0x15161b, roughness: 0.55, metalness: 0.2 }), silver: new THREE.MeshStandardMaterial({ color: 0xd4d8de, roughness: 0.3, metalness: 0.9 }),
-  strap: new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.95 }), dart: new THREE.MeshPhysicalMaterial({ color: 0x4a5cff, roughness: 0.15, transmission: 0.35, thickness: 0.05, emissive: 0x2233ff, emissiveIntensity: 0.6, transparent: true, opacity: 0.9 }) };
+  strap: new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.95 }), dart: new THREE.MeshPhysicalMaterial({ color: 0x4a5cff, roughness: 0.15, clearcoat: 1, emissive: 0x2233ff, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 }) };
 function makeWebShooter(sx) {
   const g = new THREE.Group(), M = SHOOTER_MAT, box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
   const strap = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 18), M.strap); strap.rotation.x = Math.PI / 2; g.add(strap);
@@ -3285,7 +3285,7 @@ function buildSociety() {
   const pad = new THREE.Mesh(new THREE.RingGeometry(2.2, 3.0, 32), new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false })); pad.rotation.x = -Math.PI / 2; pad.position.set(portal.position.x, b.h + 0.08, portal.position.z + 3.2); scene.add(pad); SOC.pad = pad;
   // HQ structure: a glass pavilion with an orange steel frame, holo-screens, the Society emblem, landing lights
   const frameMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, roughness: 0.4, metalness: 0.6, emissive: 0x5a2000, emissiveIntensity: 0.4 });
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0xbfe6ff, roughness: 0.05, metalness: 0.1, transmission: 0.85, thickness: 0.5, transparent: true, opacity: 0.55, envMapIntensity: 1.5 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0xbfe6ff, roughness: 0.05, metalness: 0.1, clearcoat: 1, transparent: true, opacity: 0.4, envMapIntensity: 1.5 }); // no transmission: that costs a whole extra scene render per frame
   const pav = new THREE.Group(); pav.position.set(b.x + b.w / 4, b.h, b.z + b.d / 4);
   const pw = Math.min(10, b.w / 2.4), pd = Math.min(8, b.d / 2.4), ph = 4.2;
   const walls = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, pd), glass); walls.position.y = ph / 2; pav.add(walls);
@@ -4128,6 +4128,7 @@ function overlay(title, sub, lines, btn) {
   $('ovBody').innerHTML = lines.map(l => `<p>${l}</p>`).join(''); $('startBtn').textContent = btn;
 }
 function startGame() {
+  bootAll();
   AudioSys.ensure(); AudioSys.ambient(); MUSIC.start(AudioSys.ctx()); G.sirenT = 8 + Math.random() * 20;
   for (const e of enemies) scene.remove(e.mesh); enemies.length = 0;
   for (const b of bullets) scene.remove(b.mesh); bullets.length = 0;
@@ -4208,18 +4209,26 @@ $('overlay').addEventListener('touchstart', () => AudioSys.ensure(), { passive: 
 
 // ---------- Main loop ----------
 genCity(); resetPlayer(); updateCamera(0, true);
-// build Gwen, the Society and the enemy material pool now, while the title screen is up, then compile every shader once
-spawnSidekick(); SK.mesh.visible = false; SK.line.visible = false;
-buildSociety();
-// shader warm-up: one of every enemy, boss and effect lives far below the city so renderer.compile sees their materials now, not mid-fight
+// The city is up: let the player in now. Everything else (Gwen, the Society HQ, one of every enemy, boss, suit and effect
+// for the shader warm-up) is built one piece per frame while the title screen is showing, so the page never freezes.
+// Anything still queued when PLAY is pressed is finished right then.
 const WARM = new THREE.Group(); WARM.position.y = -600; scene.add(WARM);
-for (const t of ['thug', 'gunner', 'symb']) WARM.add(makeEnemyMesh(t));
-WARM.add(makeBossMesh(), makeVenomMesh(), makeProwlerMesh(), makeSpotMesh(), galBuild(GALLERY.mysterio), galBuild(GALLERY.electro), makeHealthMesh(true));
-for (const name of SUIT_ORDER) if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name].build(); WARM.add(SUITS[name]); }
+const BOOT = { q: [], done: false };
+const boot = fn => BOOT.q.push(fn);
+boot(() => { spawnSidekick(); SK.mesh.visible = false; SK.line.visible = false; });
+boot(buildSociety);
+for (const t of ['thug', 'gunner', 'symb']) boot(() => WARM.add(makeEnemyMesh(t)));
+for (const mk of [makeBossMesh, makeVenomMesh, makeProwlerMesh, makeSpotMesh, () => galBuild(GALLERY.mysterio), () => galBuild(GALLERY.electro), () => makeHealthMesh(true)]) boot(() => WARM.add(mk()));
+for (const name of SUIT_ORDER) boot(() => { if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name].build(); WARM.add(SUITS[name]); } });
 { const c = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.3, 6, 12), cocoonMat), w = new THREE.Mesh(new THREE.CapsuleGeometry(0.76, 1.3, 3, 8), cocoonWireMat), f = new THREE.Mesh(webBallGeo, EMAT.flash), b = new THREE.Mesh(bulletGeo, bulletMat), r = new THREE.Mesh(new THREE.RingGeometry(1, 2, 8), VMAT.ring); WARM.add(c, w, f, b, r); }
-WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } });
+// shaders: compile each warm-up object in its own frame instead of the whole scene in one long block
+boot(() => { WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } }); });
+boot(() => { for (const c of WARM.children) boot(() => renderer.compile(c, camera, scene)); });
+function bootStep() { const fn = BOOT.q.shift(); if (!fn) { BOOT.done = true; return; } try { fn(); } catch (e) { console.warn('boot step failed', e); } }
+function bootAll() { let guard = 2000; while (!BOOT.done && guard-- > 0) bootStep(); }
 applyLevel(PERF.level);
-renderer.compile(scene, camera);
+renderer.compile(hero, camera, scene);
+$('startBtn').disabled = false; $('startBtn').textContent = 'PLAY';
 if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned body is opt-in: ?hero=mocap
 let last = performance.now();
 function frame(now) {
@@ -4234,8 +4243,8 @@ function frame(now) {
     AudioSys.setHeight(P.pos.y); MUSIC.setMood(boss.alive ? 1 : G.crime ? 0.6 : 0.25, G.paused); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
-    // idle: slow orbit on the title screen
-    look.yaw += dt * 0.08; P.animT += dt;
+    // idle: slow orbit on the title screen, and one more piece of the warm-up each frame
+    look.yaw += dt * 0.08; P.animT += dt; if (!BOOT.done) bootStep();
   }
   updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open) GAL_FX.update(dt); animateHero(dt);
   updateCamera(dt, false); updateHUD();
