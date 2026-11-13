@@ -3945,7 +3945,7 @@ function animateHero(dt) {
   } else if (P.onGround && sp > 0.5) {
     const c = Math.sin(t * 13 * clamp(sp / RUN, 0.4, 1.3)), a = 0.9 * clamp(sp / RUN, 0.3, 1.1);
     p.legL.rotation.x = c * a; p.legR.rotation.x = -c * a; p.armL.rotation.x = -c * a * 0.9; p.armR.rotation.x = c * a * 0.9;
-    p.armL.rotation.z = 0.15; p.armR.rotation.z = -0.15; bodyX = 0.18 * clamp(sp / RUN, 0, 1);
+    p.armL.rotation.z = -0.15; p.armR.rotation.z = 0.15; bodyX = 0.18 * clamp(sp / RUN, 0, 1);
   } else if (P.rollT > 0) {
     // landing roll: tuck and tumble forward once
     const k = 1 - P.rollT / 0.5; bodyX = k * Math.PI * 2; p.body.position.y = -0.55 + Math.sin(k * Math.PI) * 0.1;
@@ -3955,18 +3955,18 @@ function animateHero(dt) {
     p.armL.rotation.x = p.armR.rotation.x = -2.9; p.armL.rotation.z = 0.15; p.armR.rotation.z = -0.15; p.legL.rotation.x = 0.5; p.legR.rotation.x = 0.7; bodyX = 1.0;
   } else if (P.pound) {
     // ground pound: fist down, knees up
-    p.armR.rotation.x = 0.8; p.armR.rotation.z = -0.2; p.armL.rotation.x = -1.8; p.armL.rotation.z = 0.6; p.legL.rotation.x = p.legR.rotation.x = -1.3; bodyX = 0.5;
+    p.armR.rotation.x = 0.8; p.armR.rotation.z = 0.2; p.armL.rotation.x = -1.8; p.armL.rotation.z = -0.5; p.legL.rotation.x = p.legR.rotation.x = -1.3; bodyX = 0.5;
   } else if (P.diving) {
     // head-first dive: body flat, arms swept back along the sides, legs straight, with a little flutter
     const k = Math.min(1, P.diveT * 3), fl = Math.sin(t * 9) * 0.08;
-    bodyX = 2.45 * k; p.armL.rotation.x = 0.9 * k + fl; p.armR.rotation.x = 0.9 * k - fl; p.armL.rotation.z = 0.3; p.armR.rotation.z = -0.3;
+    bodyX = 2.45 * k; p.armL.rotation.x = 0.9 * k + fl; p.armR.rotation.x = 0.9 * k - fl; p.armL.rotation.z = -0.25; p.armR.rotation.z = 0.25;
     p.legL.rotation.x = -0.05 + fl; p.legR.rotation.x = -0.05 - fl; p.body.position.y = 0.9 * k;
   } else if (!P.onGround) {
     const f = clamp(-P.vel.y / 25, 0, 1);
-    p.armL.rotation.x = -2.4 + f * 1.5; p.armR.rotation.x = -2.4 + f * 1.5; p.armL.rotation.z = 0.7; p.armR.rotation.z = -0.7;
+    p.armL.rotation.x = -2.4 + f * 1.5; p.armR.rotation.x = -2.4 + f * 1.5; p.armL.rotation.z = -0.55; p.armR.rotation.z = 0.55; // spread outward: the hands never meet over the head
     p.legL.rotation.x = -0.6 + f * 0.9; p.legR.rotation.x = 0.4; bodyX = 0.15;
   } else {
-    const b = Math.sin(t * 2.5) * 0.06; p.armL.rotation.x = b; p.armR.rotation.x = -b; p.armL.rotation.z = 0.12; p.armR.rotation.z = -0.12; p.legL.rotation.x = 0; p.legR.rotation.x = 0;
+    const b = Math.sin(t * 2.5) * 0.06; p.armL.rotation.x = b; p.armR.rotation.x = -b; p.armL.rotation.z = -0.12; p.armR.rotation.z = 0.12; p.legL.rotation.x = 0; p.legR.rotation.x = 0;
     p.body.position.y = Math.sin(t * 2.5) * 0.03; if (P.landT > 0) p.body.position.y -= P.landT * 0.8;
   }
   // secondary joints: knees bend when the leg trails, elbows bend when the arm trails or reaches
