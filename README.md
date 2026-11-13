@@ -915,3 +915,5 @@ Each yellow caption box is now part of a comic panel with its own drawing: a nor
 ## Venom Strike (the old pulse, F)
 
 The shockwave is now Redline's **Venom Strike**, in blue like Miles Morales' bio-electric power: a blue-white fireball at his hands, dozens of jagged lightning arcs that flicker in every direction, forked bolts that jump to every enemy in range, a blue light flash, two blue shock rings and a crackling sound. The HUD calls it VENOM STRIKE.
+
+First-person hand fix: the view hand is now aimed in the camera's own space, so it no longer spins or flips when you look straight up or down or swing from an anchor overhead; and the resting lie-down animation is skipped in first person (the camera is in his head, so it used to send the view and the hand tumbling).
