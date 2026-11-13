@@ -1694,7 +1694,8 @@ function findAnchor() {
 }
 function startSwing() {
   const a = findAnchor(); if (!a) return;
-  P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1; P.swingHand = P.swingHand === 'L' ? 'R' : 'L'; P.swingPeak = P.pos.y;
+  P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
+  { const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); P.vel.x += fx * 4; P.vel.z += fz * 4; } // every new web line throws you forward P.swingHand = P.swingHand === 'L' ? 'R' : 'L'; P.swingPeak = P.pos.y;
   AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3); if (LOOK.comic && Math.random() < 0.5) floatText(hero.position.clone().add(V3(0.8, 3.2, 0)), 'THWIP', '#fff', 22);
 }
 function stopSwing(boost) {
@@ -1726,12 +1727,12 @@ function updatePlayer(dt) {
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    const pump = 20 * [1, 1.25, 1.5][LV('swing')];
+    const pump = 30 * [1, 1.25, 1.5][LV('swing')];
     P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 5) * dt;
     P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 5) * dt;
     // reel the web in hardest at the bottom of the arc, like a pendulum pumping: every swing climbs higher than the last
     const below = clamp((P.anchor.y - P.pos.y) / Math.max(1, P.ropeLen), 0, 1);
-    P.ropeLen = Math.max(5, P.ropeLen - dt * (2 + 7 * below * below));
+    P.ropeLen = Math.max(5, P.ropeLen - dt * (3 + 9 * below * below));
     // a gust of wind particles off the hands and feet at speed
     const spd = P.vel.length(); if (spd > 16 && Math.random() < dt * spd * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0);
     P.pos.addScaledVector(P.vel, dt);
@@ -1740,7 +1741,7 @@ function updatePlayer(dt) {
       d.multiplyScalar(1 / L); P.pos.copy(P.anchor).addScaledVector(d, P.ropeLen);
       const out = P.vel.dot(d); if (out > 0) P.vel.addScaledVector(d, -out);
     }
-    P.vel.multiplyScalar(1 - 0.03 * dt);
+    P.vel.multiplyScalar(1 - 0.012 * dt);
     const sp = Math.hypot(P.vel.x, P.vel.z); if (sp > 0.5) P.facing = Math.atan2(P.vel.x, P.vel.z);
     P.onGround = false;
   } else if (P.onWall && !P.onGround && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.3) {
@@ -1808,6 +1809,7 @@ function updatePlayer(dt) {
   if (P.pos.y > gh + 0.3) P.onGround = false;
   if (!P.onWall) P.climbT = 0;
 
+  if (wasPressed('View')) toggleFP(); // the touch VIEW button
   // --- bought skills: web zip and ground pound ---
   if (wasPressed('KeyQ', 'Zip') && !P.zip && P.zipCd <= 0) {
     if (LV('zip') > 0) { const a = findAnchor(); if (a) { if (P.swinging) stopSwing(false); P.zip = { to: a, t: 0.9 }; P.zipCd = [0, 2, 1][LV('zip')]; P.onGround = false; P.pos.y += 0.1; AudioSys.thwip(); burst(P.pos.clone().add(V3(0, 2, 0)), 6, 0xffffff, 6, 0.3); } }
