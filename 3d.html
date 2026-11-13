@@ -19,6 +19,19 @@
   html, body { margin: 0; height: 100%; background: #d4e6f7; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
   canvas { display: block; touch-action: none; -webkit-user-select: none; user-select: none; }
   #hud { position: fixed; inset: 0; pointer-events: none; transition: opacity .35s; }
+  /* crosshair: a thin ring with four ticks in the middle of the screen; turns red and grows when a thug is in the web's auto-aim */
+  #xhair { position: fixed; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; pointer-events: none; display: none; opacity: .85; transition: transform .12s, opacity .2s; }
+  #xhair::before { content: ''; position: absolute; inset: 0; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 4px rgba(0,0,0,.7), inset 0 0 4px rgba(0,0,0,.5); }
+  #xhair i { position: absolute; background: #fff; box-shadow: 0 0 3px rgba(0,0,0,.8); }
+  #xhair i:nth-child(1), #xhair i:nth-child(2) { width: 2px; height: 7px; left: 12px; } #xhair i:nth-child(1) { top: -9px; } #xhair i:nth-child(2) { bottom: -9px; }
+  #xhair i:nth-child(3), #xhair i:nth-child(4) { height: 2px; width: 7px; top: 12px; } #xhair i:nth-child(3) { left: -9px; } #xhair i:nth-child(4) { right: -9px; }
+  #xhair i:nth-child(5) { width: 4px; height: 4px; left: 11px; top: 11px; border-radius: 50%; }
+  body.play #xhair { display: block; }
+  #xhair.lock { transform: scale(1.3); opacity: 1; } #xhair.lock::before { border-color: #ff3a1c; } #xhair.lock i { background: #ff3a1c; }
+  /* lock-on marker: a red diamond that sits on the thug the next web will hit */
+  #lockon { position: fixed; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; pointer-events: none; display: none; border: 2px solid #ff3a1c; transform: rotate(45deg); box-shadow: 0 0 6px rgba(255,58,28,.8), inset 0 0 6px rgba(255,58,28,.5); animation: lockpulse .6s ease-in-out infinite alternate; }
+  #lockon.on { display: block; }
+  @keyframes lockpulse { from { transform: rotate(45deg) scale(1); } to { transform: rotate(45deg) scale(1.18); } }
   .panel { background: var(--glass); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   /* ---- status panel: health, venom, camouflage, suit ---- */
   #stats { position: absolute; left: 18px; top: 18px; width: 232px; padding: 12px 14px 10px; display: flex; flex-direction: column; gap: 7px; }
@@ -162,6 +175,7 @@
 </style>
 </head>
 <body>
+<div id="xhair"><i></i><i></i><i></i><i></i><i></i></div><div id="lockon"></div>
 <div id="hud">
   <div id="stats" class="panel">
     <div id="hp" class="bar"><i></i><b>HP</b></div>
@@ -4091,7 +4105,25 @@ const fmtTime = t => { const m = Math.floor(t / 60), s = Math.floor(t % 60); ret
 const HUDC = {};
 function setIf(key, el, prop, val) { if (HUDC[key] !== val) { HUDC[key] = val; el[prop] = val; } }
 function styleIf(key, el, prop, val) { if (HUDC[key] !== val) { HUDC[key] = val; el.style[prop] = val; } }
+// what the next web shot will hit: the nearest living, unwebbed thug (or a webbable boss) in front of the camera
+function aimTarget() {
+  const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), range = 34 + 10 * LV('range');
+  let best = null, bd = 1e9;
+  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > range || Math.abs(d.y) > 14) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; if (flat < bd) { bd = flat; best = e.mesh; } }
+  if (boss.alive && boss.mesh && (boss.kind === 'prowler' || boss.kind === 'spot' || boss.kind === 'gallery') && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge') { const d = boss.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); const dot = (d.x * fx + d.z * fz) / (flat || 1); if (flat < range && Math.abs(d.y) < 14 && dot > 0.45 && flat < bd) best = boss.mesh; }
+  return best;
+}
+const _aimV = new THREE.Vector3();
+function updateCrosshair() {
+  const playing = G.state === 'play' && !G.paused && !CHAT.open && !UPG.open;
+  if (HUDC.play !== playing) { HUDC.play = playing; document.body.classList.toggle('play', playing); }
+  if (!playing) { if (HUDC.lock) { HUDC.lock = false; $('xhair').classList.remove('lock'); $('lockon').classList.remove('on'); } return; }
+  const t = aimTarget(), lock = !!t;
+  if (HUDC.lock !== lock) { HUDC.lock = lock; $('xhair').classList.toggle('lock', lock); $('lockon').classList.toggle('on', lock); }
+  if (t) { _aimV.copy(t.position).add(V3(0, 1.6, 0)).project(camera); const x = (_aimV.x + 1) / 2 * innerWidth, y = (1 - _aimV.y) / 2 * innerHeight; const el = $('lockon'); el.style.left = x.toFixed(0) + 'px'; el.style.top = y.toFixed(0) + 'px'; el.style.visibility = _aimV.z < 1 ? 'visible' : 'hidden'; }
+}
 function updateHUD() {
+  updateCrosshair();
   styleIf('hp', $('hp').firstElementChild, 'width', clamp(P.hp / MAXHP() * 100, 0, 100).toFixed(1) + '%');
   styleIf('venom', $('venom').firstElementChild, 'width', clamp(P.venom, 0, 100).toFixed(0) + '%');
   { const ready = P.venom >= VENOM_COST(); if (HUDC.venomB !== ready) { HUDC.venomB = ready; $('venom').classList.toggle('ready', ready); } }
