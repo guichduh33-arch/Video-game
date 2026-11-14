@@ -439,7 +439,7 @@ class Car {
   forward() { return new THREE.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading)); }
   speed() { return this.vel.length(); }
   step(dt) {
-    const sp = this.spec, f = this.forward(), r = new THREE.Vector3(f.z, 0, -f.x);
+    const sp = this.spec, f = this.forward(), r = new THREE.Vector3(-f.z, 0, f.x); // r = screen right
     let vf = this.vel.dot(f), vr = this.vel.dot(r);
     const near = T.S[this.idx], pr = T.project(near, this.pos.x, this.pos.z);
     const onRoad = Math.abs(pr.lat) < HALF_W + 1.0; this.onGrass = !onRoad;
@@ -472,7 +472,7 @@ class Car {
     const latLimit = (onRoad ? 15 : 7.5) * (this.handbrake ? 1.7 : 1) * (this.slip > 5.5 ? 1.25 : 1);
     const maxYaw = latLimit / Math.max(4, Math.abs(vf));
     yaw = clamp(yaw, -maxYaw, maxYaw);
-    this.heading += yaw * dt;
+    this.heading -= yaw * dt;
     this.vel.copy(f).multiplyScalar(vf).addScaledVector(r, vr);
     this.pos.addScaledVector(this.vel, dt);
     // barrier
@@ -500,7 +500,7 @@ class Car {
     const hf = T.groundH(this.pos.x + f.x * 1.4, this.pos.z + f.z * 1.4), hb = T.groundH(this.pos.x - f.x * 1.4, this.pos.z - f.z * 1.4);
     const hl = T.groundH(this.pos.x - r.x * 0.9, this.pos.z - r.z * 0.9), hr = T.groundH(this.pos.x + r.x * 0.9, this.pos.z + r.z * 0.9);
     this.pitch = lerp(this.pitch, -Math.atan2(hf - hb, 2.8) + acc * -0.004, Math.min(1, dt * 8));
-    this.roll = lerp(this.roll, Math.atan2(hr - hl, 1.8) + vr * 0.012 + this.steer * vf * 0.004, Math.min(1, dt * 8));
+    this.roll = lerp(this.roll, -Math.atan2(hr - hl, 1.8) + vr * 0.012 - this.steer * vf * 0.004, Math.min(1, dt * 8));
     this.hitT = Math.max(0, this.hitT - dt * 2);
     this.syncMesh(dt);
   }
@@ -513,7 +513,7 @@ class Car {
     this.mesh.position.copy(this.pos);
     const e = new THREE.Euler(this.pitch, this.heading, this.roll, 'YXZ'); this.mesh.quaternion.setFromEuler(e);
     for (const w of this.mesh.userData.wheels) w.rotation.x = this.wheelRot;
-    for (const p of this.mesh.userData.front) p.rotation.y = this.steer;
+    for (const p of this.mesh.userData.front) p.rotation.y = -this.steer;
     const boosting = this.nitroOn && this.nitro > 0; for (const fl of this.mesh.userData.flames) { fl.visible = boosting; if (boosting) fl.scale.set(1, 0.7 + Math.random() * 0.8, 1); }
     this.mesh.userData.tailMat.emissiveIntensity = this.brake > 0 || this.handbrake ? 4 : 1.2;
   }
@@ -530,7 +530,7 @@ function driveAI(c, dt, all) {
   const j = (c.idx + Math.round(look / segLen)) % TRACK_N, s = T.S[j];
   const tx = s.p.x + s.nrm.x * c.lane - c.pos.x, tz = s.p.z + s.nrm.z * c.lane - c.pos.z;
   const f = c.forward(); const ang = Math.atan2(f.x * tz - f.z * tx, f.x * tx + f.z * tz);
-  c.steerInput = clamp(-ang * 2.6, -1, 1);
+  c.steerInput = clamp(ang * 2.6, -1, 1);
   // speed target from curvature ahead
   let maxCurv = 0.0005; const lookN = Math.round((18 + v * 1.7) / segLen);
   for (let k = 4; k < lookN; k++) { const cv = Math.abs(T.S[(c.idx + k) % TRACK_N].curv); const w = 1 - 0.35 * (k / lookN); if (cv * w > maxCurv) maxCurv = cv * w; }
@@ -734,7 +734,7 @@ function frame(now) {
     if (p.timer > 0) { p.timer -= dt; p.mesh.visible = p.ring.visible = false; continue; } p.mesh.visible = p.ring.visible = true;
     for (const c of cars) { if (Math.abs(c.pos.x - p.pos.x) < 2.4 && Math.abs(c.pos.z - p.pos.z) < 2.4) { c.nitro = Math.min(1, c.nitro + 0.5); p.timer = 12; if (c === player) { audio.beep(1760, 0.2, 0.2, 'triangle'); showMsg('', 'nitro +50%', 0.7); } } } }
   // skids & smoke
-  for (const c of cars) { const f = c.forward(), r = new THREE.Vector3(f.z, 0, -f.x); const skidding = c.slip > 3.5 || (c.handbrake && c.speed() > 6) || (c.brake > 0 && c.speed() > 25);
+  for (const c of cars) { const f = c.forward(), r = new THREE.Vector3(-f.z, 0, f.x); const skidding = c.slip > 3.5 || (c.handbrake && c.speed() > 6) || (c.brake > 0 && c.speed() > 25);
     for (const side of [-1, 1]) { const id = c.id + side; const wx = c.pos.x - f.x * 1.45 + r.x * side * 1.0, wz = c.pos.z - f.z * 1.45 + r.z * side * 1.0;
       if (skidding && !c.onGrass) skid.add(id, wx, T.groundH(wx, wz) + 0.09, wz, r.x, r.z); else skid.stop(id);
       if ((skidding || (c.onGrass && c.speed() > 8)) && Math.random() < 0.5) smoke.spawn(wx, c.pos.y + 0.3, wz, -c.vel.x, -c.vel.z, c.onGrass); } }
