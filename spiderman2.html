@@ -81,10 +81,18 @@
   #overlay button:active { transform: scale(.96); }
   .hidden { display: none !important; }
   #touch { position: fixed; inset: 0; pointer-events: none; display: none; }
-  .tbtn { position: absolute; width: 72px; height: 72px; border-radius: 50%; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.4); font: 700 12px system-ui; color: #fff; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; pointer-events: auto; text-shadow: 0 1px 2px #000; }
-  .tbtn.on { background: rgba(255,45,71,.55); }
-  #stick { position: absolute; left: 40px; bottom: 40px; width: 140px; height: 140px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.06); pointer-events: auto; }
-  #knob { position: absolute; left: 45px; top: 45px; width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.4); }
+  .tbtn { position: absolute; width: 74px; height: 74px; border-radius: 50%; background: rgba(10,12,24,.4); border: 2.5px solid rgba(255,255,255,.4); font: 800 12px system-ui; color: #fff; display: flex; align-items: center; justify-content: center; letter-spacing: .5px; pointer-events: auto; text-shadow: 0 1px 3px #000; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); transition: transform .05s, background .1s; user-select: none; }
+  .tbtn.big { width: 82px; height: 82px; font-size: 13px; }
+  .tbtn.med { width: 64px; height: 64px; font-size: 11px; }
+  .tbtn.sm { width: 50px; height: 50px; font-size: 10px; border-width: 2px; }
+  .tbtn.on { transform: scale(.9); filter: brightness(1.5); }
+  .tbtn.c-move { border-color: #37d6ff; background: rgba(20,80,110,.42); box-shadow: 0 0 12px rgba(55,214,255,.25); }
+  .tbtn.c-atk { border-color: #ff4d5e; background: rgba(110,24,34,.42); box-shadow: 0 0 12px rgba(255,77,94,.25); }
+  .tbtn.c-pow { border-color: #ffd23f; background: rgba(110,86,10,.42); box-shadow: 0 0 12px rgba(255,210,63,.25); color: #fff6d8; }
+  .tbtn.c-def { border-color: #9a6bff; background: rgba(60,36,110,.42); box-shadow: 0 0 12px rgba(154,107,255,.22); }
+  .tbtn.c-util { border-color: rgba(255,255,255,.35); background: rgba(10,12,24,.5); }
+  #stick { position: absolute; left: 36px; bottom: 36px; width: 150px; height: 150px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.3); background: rgba(255,255,255,.07); pointer-events: auto; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  #knob { position: absolute; left: 48px; top: 48px; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,.5); box-shadow: 0 2px 8px rgba(0,0,0,.4); }
   #dmg { position: absolute; inset: 0; pointer-events: none; }
   .ft { position: absolute; font-weight: 900; font-size: 20px; text-shadow: 0 2px 6px #000; transform: translate(-50%,-50%); white-space: nowrap; }
   body.comic .ft { font-family: Impact, 'Arial Black', system-ui; font-style: italic; letter-spacing: 1px; -webkit-text-stroke: 1.5px #000; text-shadow: 3px 3px 0 #000, -2px 0 0 #00e5ff, 2px 0 0 #ff2d47; transform: translate(-50%,-50%) rotate(-6deg); }
@@ -123,17 +131,17 @@
 </div>
 <div id="touch">
   <div id="stick"><div id="knob"></div></div>
-  <div class="tbtn" id="bJump" style="right:40px;bottom:130px">JUMP</div>
-  <div class="tbtn" id="bWeb" style="right:130px;bottom:40px">WEB</div>
-  <div class="tbtn" id="bPunch" style="right:40px;bottom:40px">PUNCH</div>
-  <div class="tbtn" id="bVenom" style="right:130px;bottom:130px">VENOM</div>
-  <div class="tbtn" id="bCamo" style="right:220px;bottom:40px">CAMO</div>
-  <div class="tbtn" id="bSuit" style="right:220px;bottom:130px;font-size:11px">SUIT</div>
-  <div class="tbtn" id="bShoot" style="right:310px;bottom:85px;font-size:11px">SHOOT</div>
-  <div class="tbtn" id="bView" style="right:310px;bottom:175px;font-size:11px">VIEW</div>
-  <div class="tbtn" id="bWings" style="right:40px;bottom:220px;font-size:11px">WINGS</div>
-  <div class="tbtn" id="bParry" style="right:130px;bottom:220px;font-size:11px">PARRY</div>
-  <div class="tbtn" id="bSwap" style="right:220px;bottom:220px;font-size:11px">SWAP</div>
+  <div class="tbtn big c-atk" id="bPunch" style="right:34px;bottom:38px">PUNCH</div>
+  <div class="tbtn big c-move" id="bJump" style="right:132px;bottom:54px">JUMP</div>
+  <div class="tbtn big c-move" id="bWeb" style="right:46px;bottom:136px">WEB</div>
+  <div class="tbtn med c-atk" id="bShoot" style="right:146px;bottom:150px">SHOOT</div>
+  <div class="tbtn med c-pow" id="bVenom" style="right:232px;bottom:64px">POWER</div>
+  <div class="tbtn med c-def" id="bParry" style="right:238px;bottom:156px">PARRY</div>
+  <div class="tbtn med c-def" id="bCamo" style="right:322px;bottom:112px">CAMO</div>
+  <div class="tbtn med c-move" id="bWings" style="right:120px;bottom:240px">WINGS</div>
+  <div class="tbtn sm c-util" id="bSwap" style="right:28px;top:88px">SWAP</div>
+  <div class="tbtn sm c-util" id="bSuit" style="right:86px;top:88px">SUIT</div>
+  <div class="tbtn sm c-util" id="bView" style="right:144px;top:88px">VIEW</div>
 </div>
 <div id="overlay">
   <h1>SPIDER-MAN 2</h1>
@@ -2883,6 +2891,7 @@ function updateHUD() {
   $('camo').firstElementChild.style.width = (P.camo ? P.camoT / (SUIT === 'noir' ? 10 : 6) * 100 : P.camoCd > 0 ? (1 - P.camoCd / (SUIT === 'noir' ? 4 : 8)) * 100 : 100) + '%';
   $('suitName').textContent = SUIT_DEFS[SUIT].name; $('heroTag').textContent = (TOUCH ? 'SWAP' : 'TAB') + ': PLAY AS ' + HEROES[otherHero()].short + ' · ' + Math.round(HS[otherHero()].hp) + '% HP';
   $('powerLabel').textContent = HEROES[HERO].power; $('camo').style.display = HERO === 'miles' ? '' : 'none';
+  if (TOUCH) { const bv = $('bVenom'); if (bv) { const lbl = HERO === 'miles' ? 'VENOM' : (SUIT === 'black' ? 'SURGE' : 'ARMS'); if (bv.textContent !== lbl) bv.textContent = lbl; } const bc = $('bCamo'); if (bc) { const disp = HERO === 'miles' ? 'flex' : 'none'; if (bc.style.display !== disp) bc.style.display = disp; } }
   $('score').firstChild.textContent = G.score;
   $('score').querySelector('small').innerHTML = `CRIMES ${G.crimes} / 8 &nbsp;·&nbsp; ${fmtTime(G.time)}`;
   const cb = $('combo'); cb.style.opacity = G.combo > 1 ? 1 : 0; cb.textContent = G.combo > 1 ? `x${G.combo} COMBO` : ''; cb.style.fontSize = (30 + Math.min(G.combo, 10) * 1.5) + 'px';
