@@ -587,6 +587,9 @@ the auto-tuning.
 | Cycle suits | `N` forward, `B` back |
 | First person | `C` or the VIEW button: the camera sits in the mask; the torso is hidden, your own hands, web shooters and feet stay visible |
 | Leap of faith | Hold `Space` (or JUMP) while falling: Miles dives head-first, the camera looks down past him at the street, and a few metres up the web fires by itself, time slows and he swings out of it |
+| Switch Spider-Man | `N` / `B` or the SUIT button cycle the suits. One of them is **SPIDER-MAN** (red and blue, not Miles) — a whole other hero you switch to |
+| Fly | Only the other Spider-Man can fly (Miles can't). Jump, then hold `JUMP` in the air to soar: the camera aims, the stick steers, `JUMP` climbs |
+| Spider-Society help | Ask Claude (or say) "spider society help" and a squad of Spider-People flies in, follows you anywhere, and fights the thugs, bosses and sea monsters with you for a while |
 | Wall run / wall crawl | Run or jump straight into a wall and keep pushing: Miles sprints up it on his feet until the momentum is gone, then sticks and crawls (`W` fast, `S` back down, sideways to traverse). `Space` kicks off the wall; the top of the wall vaults him onto the roof |
 | Web Zip | `Q` or the ZIP button, once bought in the Skill Shop: fires a line and rockets to the nearest anchor |
 | Ground Pound | PUNCH high in the air, once bought: slams down, the shockwave stuns every thug nearby |

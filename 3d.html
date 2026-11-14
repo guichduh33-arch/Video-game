@@ -8917,6 +8917,18 @@ const SUIT_DEFS = {
       const tendrils = []; for (let i = 0; i < 5; i++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.8 + Math.random() * 0.4, 6), skin); t.geometry.translate(0, 0.45, 0); const piv = new THREE.Group(); piv.position.set(-0.3 + i * 0.15, 1.95 + (i % 2) * 0.12, -0.28); piv.rotation.x = -1.6 - Math.random() * 0.4; piv.rotation.z = (i - 2) * 0.45; piv.add(t); body.add(piv); tendrils.push(piv); }
       g.parts.tendrils = tendrils;
     }); } },
+  spider2: { name: 'SPIDER-MAN', perk: 'Not Miles. Can FLY: hold JUMP in the air to soar', build: () => {
+    const red = phys(0xc8161d, { map: webTex(0.25, 0.3, 28, 9, true, '#c8161d', '#2a0a10') }), redP = phys(0xc8161d), blue = phys(0x1430a0, { map: fabricTex('#1430a0', true) }), white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.5 });
+    return buildSuit({ black: red, red: blue, web: red, webShoulder: red, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: blue, swoosh: blue, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body, head) => {
+      body.add(logoPlane(spiderMat('#0a0a0a', false), 0.6, 1.92, 0.33)); body.add(logoPlane(spiderMat('#f2f2f2', true), 0.95, 1.82, -0.28, true)); // black spider front, big white spider on the back
+      for (const sx of [-1, 1]) { const boot = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.3, 4, 10), blue); boot.position.y = -0.34; (sx < 0 ? g.parts.legL : g.parts.legR).joint.add(boot); const glove = new THREE.Mesh(new THREE.CapsuleGeometry(0.1, 0.26, 4, 10), blue); glove.position.y = -0.3; (sx < 0 ? g.parts.armL : g.parts.armR).joint.add(glove); }
+      // web-wings: a red membrane from each arm down to the hip, the glider that lets this Spider-Man fly
+      const wingMat = new THREE.MeshStandardMaterial({ color: 0xc8161d, transparent: true, opacity: 0.72, side: THREE.DoubleSide, roughness: 0.6, emissive: 0x3a0607 });
+      const wings = [];
+      for (const sx of [-1, 1]) { const sh = new THREE.Shape(); sh.moveTo(0, 0); sh.lineTo(sx * 0.12, -1.55); sh.lineTo(sx * 1.05, -1.15); sh.lineTo(sx * 0.22, 0.12); sh.closePath(); const w = new THREE.Mesh(new THREE.ShapeGeometry(sh), wingMat); w.position.set(sx * 0.5, 2.02, -0.04); w.rotation.y = sx * 0.22; w.castShadow = false; body.add(w); wings.push(w); }
+      g.parts.wings = wings;
+      g.parts.head.traverse(o => { if (o.isMesh && o.material === MAT.red) o.material = white; }); // white lens rims
+    }); } },
   classic: { name: 'PETER PARKER · CLASSIC', perk: 'Triple jump', build: () => {
     const blue = phys(0x1f3fa6, { map: fabricTex('#1f3fa6', true) }), red = phys(0xc0141e, { map: webTex(0.25, 0.3, 28, 9, true, '#c0141e', '#1a1016') }), redPlain = phys(0xc0141e), black = phys(0x151515);
     return buildSuit({ black: blue, red: redPlain, web: red, webShoulder: red, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: redPlain, swoosh: redPlain, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body) => {
@@ -8951,7 +8963,9 @@ const SUIT_DEFS = {
       head.traverse(o => { if (o.isMesh && o.material === MAT.red) o.material = rim; });
     }); } },
 };
-const SUIT_ORDER = ['spiderverse', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
+const SUIT_ORDER = ['spiderverse', 'spider2', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
+const FLYERS = new Set(['spider2', 'classic', 'm2099']); // the non-Miles Spider-Men can fly; Miles (the hoodie) cannot
+const isFlyer = () => FLYERS.has(SUIT);
 scene.remove(hero); hero = SUIT_DEFS.spiderverse.build(); scene.add(hero);
 const SUITS = { spiderverse: hero };
 let SUIT = 'spiderverse';
@@ -8985,7 +8999,7 @@ const P = {
   onGround: false, onWall: null, coyote: 0, jumpsLeft: 1, climbT: 0, wallRun: 0, wallHit: 0,
   swinging: false, anchor: V3(), ropeLen: 0, swingT: 0, webCd: 0,
   hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0,
-  punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0, diving: false, diveT: 0, rollT: 0, leapT: 0, flipT: 0, swingHand: 'R', swingPeak: 0, zip: null, zipCd: 0, pound: false,
+  punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0, diving: false, diveT: 0, rollT: 0, leapT: 0, flipT: 0, swingHand: 'R', swingPeak: 0, zip: null, zipCd: 0, pound: false, flying: false,
 };
 function respawnPoint() {
   if (HOME.b) return V3(HOME.b.x - 2.5, HOME.b.h, HOME.b.z - 1); // start at home: the roof of the brownstone, the hatch two steps away
@@ -8995,7 +9009,7 @@ function respawnPoint() {
 function resetPlayer() {
   const s = respawnPoint();
   P.pos.copy(s); P.vel.set(0, 0, 0);
-  Object.assign(P, { onGround: true, onWall: null, jumpsLeft: 1, swinging: false, hp: MAXHP(), venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, poisonT: 0 });
+  Object.assign(P, { onGround: true, onWall: null, jumpsLeft: 1, swinging: false, hp: MAXHP(), venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, poisonT: 0, flying: false });
   look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25;
 }
 
@@ -9042,7 +9056,7 @@ function findAnchor() {
 }
 function startSwing() {
   const a = findAnchor(); if (!a) return;
-  P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
+  P.swinging = true; P.flying = false; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
   { const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); P.vel.x += fx * 7; P.vel.z += fz * 7; } // every new web line throws you forward P.swingHand = P.swingHand === 'L' ? 'R' : 'L'; P.swingPeak = P.pos.y;
   AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3); if (LOOK.comic && Math.random() < 0.5) floatText(hero.position.clone().add(V3(0.8, 3.2, 0)), 'THWIP', '#fff', 22);
 }
@@ -9161,22 +9175,38 @@ function updatePlayer(dt) {
       if (P.onGround || P.coyote > 0) { P.vel.y = JUMP_V; P.onGround = false; P.coyote = 0; AudioSys.jump(); }
       else if (P.jumpsLeft > 0) { P.vel.y = JUMP_V * 0.9; P.jumpsLeft--; AudioSys.jump(); burst(hero.position.clone().add(V3(0, 0.3, 0)), 8, 0xffffff, 4, 0.3); }
     }
-    // leap of faith: hold JUMP while falling to dive head-first; near the ground the web fires on its own and you swing out of it
-    const wantDive = !P.onGround && !P.onWall && P.vel.y < -2 && (isDown('Space') || touch.held.Jump);
-    if (wantDive && !P.diving) { P.diving = true; P.diveT = 0; }
-    if (P.diving && (!wantDive || P.onGround)) P.diving = false;
-    if (P.diving) {
-      P.diveT += dt; P.vel.y -= GRAV * 0.5 * dt; // dives fall faster
-      if (Math.hypot(P.vel.x, P.vel.z) > 1.5) P.facing = Math.atan2(P.vel.x, P.vel.z); // dive along the fall, not sideways
-      if (P.diveT > 0.5 && Math.random() < dt * 20) burst(P.pos.clone().add(V3(rand(-0.4, 0.4), rand(0.5, 2.2), rand(-0.4, 0.4))), 1, 0xffffff, 1.5, 0.3, 0, 0.3); // wind tearing past
-      const lm = LV('leap'), h = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius), need = Math.max(3.2 - lm * 0.4, -P.vel.y * (0.13 - lm * 0.02));
-      if (h < need && P.vel.y < -16 && P.webCd <= 0) { // the last-second web: inches from the street
-        P.diving = false; const was = P.vel.y; startSwing();
-        if (P.swinging) { const pts = [250, 500, 1000][lm]; P.leapT = 1.2; G.slowT = 0.9 + lm * 0.3; G.flash = 0.7; G.score += pts; shake(0.35); G.hint = 'LEAP OF FAITH!'; G.hintT = 2.5; floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'LEAP OF FAITH +' + pts, '#ffd23f', 34); burst(P.pos.clone().add(V3(0, 0.2, 0)), 24, 0xffffff, 9, 0.5); P.vel.y = was * 0.7; P.ropeLen = Math.max(5, P.ropeLen * 0.9); AudioSys.thwip(); AudioSys.jump(); }
+    // the other Spider-Man can FLY (Miles can't): hold JUMP in the air to take off and soar; the camera aims it, the stick pushes it, JUMP climbs
+    const flyer = isFlyer(), flyHeld = isDown('Space') || touch.held.Jump;
+    if (flyer && !P.onGround && !P.flying && flyHeld && P.vel.y < 9 && !P.diving) { P.flying = true; P.webCd = 0.2; AudioSys.jump(); burst(hero.position.clone().add(V3(0, 1.5, 0)), 12, 0x9fd6ff, 6, 0.4); floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'FLYING!', '#9fd6ff', 24); }
+    if (P.flying && (P.onGround || !flyer)) P.flying = false;
+    if (P.flying) {
+      const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), speed = 24 + 3 * LV('swing');
+      let tx, tz;
+      if (mv.mag > 0.1) { tx = mv.x * speed; tz = mv.z * speed; P.facing = Math.atan2(mv.x, mv.z); }
+      else { tx = fx * speed * 0.5; tz = fz * speed * 0.5; P.facing = Math.atan2(fx, fz); }
+      P.vel.x += (tx - P.vel.x) * Math.min(1, dt * 3); P.vel.z += (tz - P.vel.z) * Math.min(1, dt * 3);
+      const ty = flyHeld ? 11 : (mv.mag > 0.1 ? -Math.sin(look.pitch) * speed * 0.6 : -2.2); // hold JUMP to climb; otherwise glide along the camera pitch with a slow sink
+      P.vel.y += (ty - P.vel.y) * Math.min(1, dt * 3);
+      if (Math.random() < dt * 12) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0, 2), rand(-0.6, 0.6))), 1, 0x9fd6ff, 2, 0.3, 0, 0.3);
+      P.pos.addScaledVector(P.vel, dt);
+    } else {
+      // leap of faith (Miles): hold JUMP while falling to dive head-first; near the ground the web fires on its own and you swing out of it
+      const wantDive = !flyer && !P.onGround && !P.onWall && P.vel.y < -2 && flyHeld;
+      if (wantDive && !P.diving) { P.diving = true; P.diveT = 0; }
+      if (P.diving && (!wantDive || P.onGround)) P.diving = false;
+      if (P.diving) {
+        P.diveT += dt; P.vel.y -= GRAV * 0.5 * dt; // dives fall faster
+        if (Math.hypot(P.vel.x, P.vel.z) > 1.5) P.facing = Math.atan2(P.vel.x, P.vel.z); // dive along the fall, not sideways
+        if (P.diveT > 0.5 && Math.random() < dt * 20) burst(P.pos.clone().add(V3(rand(-0.4, 0.4), rand(0.5, 2.2), rand(-0.4, 0.4))), 1, 0xffffff, 1.5, 0.3, 0, 0.3); // wind tearing past
+        const lm = LV('leap'), h = P.pos.y - groundHeight(P.pos.x, P.pos.z, P.radius), need = Math.max(3.2 - lm * 0.4, -P.vel.y * (0.13 - lm * 0.02));
+        if (h < need && P.vel.y < -16 && P.webCd <= 0) { // the last-second web: inches from the street
+          P.diving = false; const was = P.vel.y; startSwing();
+          if (P.swinging) { const pts = [250, 500, 1000][lm]; P.leapT = 1.2; G.slowT = 0.9 + lm * 0.3; G.flash = 0.7; G.score += pts; shake(0.35); G.hint = 'LEAP OF FAITH!'; G.hintT = 2.5; floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'LEAP OF FAITH +' + pts, '#ffd23f', 34); burst(P.pos.clone().add(V3(0, 0.2, 0)), 24, 0xffffff, 9, 0.5); P.vel.y = was * 0.7; P.ropeLen = Math.max(5, P.ropeLen * 0.9); AudioSys.thwip(); AudioSys.jump(); }
+        }
       }
+      P.vel.y = Math.max(MAX_FALL * 1.4, P.vel.y - GRAV * (G.gravMul || 1) * dt);
+      P.pos.addScaledVector(P.vel, dt);
     }
-    P.vel.y = Math.max(MAX_FALL * 1.4, P.vel.y - GRAV * (G.gravMul || 1) * dt);
-    P.pos.addScaledVector(P.vel, dt);
   }
   if (P.leapT > 0) P.leapT -= dt; if (P.rollT > 0) P.rollT -= dt; if (P.flipT > 0) P.flipT -= dt; if (P.onGround || P.swinging) P.flipT = 0;
   resolveHorizontal(P);
@@ -9702,7 +9732,24 @@ function makeSeaMonster(def) {
   for (let i = 1; i <= 5; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry((4.2 + (7 - 4.2) * (1 - i / 6)) * S * 1.02, 0.35 * S, 6, 24), dark); ring.rotation.x = Math.PI / 2; ring.position.y = neckLen * i / 6; ring.userData.ring = i / 6; neck.add(ring); ring.position.y = -neckLen / 2 + neckLen * i / 6; }
   const head = new THREE.Group(); head.position.y = neckLen; g.add(head);
   const ds = def.dome || [2.3, 0.8, 1.15]; const dome = sph(R, skin, 0, 5 * S, -1 * S, ds[0], ds[1], ds[2], 28); head.add(dome); // the wide, flat, manta-like skull
-  if (def.eater) { const fin = sph(R, dark, 0, 10 * S, -3 * S, 0.12, 0.9, 0.7, 12); head.add(fin); for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(1.2 * S, 4 * S, 6), dark); sp.position.set(0, -neckLen / 2 + neckLen * (i + 1) / 7, -6 * S + i * 0.2 * S); sp.rotation.x = -0.5; neck.add(sp); } } // the Sea Eater's fin and the spines down its neck
+  if (def.eater) {
+    const glowM = M(def.glow, { emissive: def.glow, emissiveIntensity: 1.6, roughness: 0.3 });
+    // a torn, jagged dorsal crest: a row of tall blades down the head, tallest at the brow
+    for (let i = 0; i < 9; i++) { const k = i / 8, bw = (1.3 - k * 0.7) * S, bh = (5.5 - k * 2.5) * S; const bsh = new THREE.Shape(); bsh.moveTo(-bw, 0); bsh.lineTo(0, bh); bsh.lineTo(bw, 0); bsh.closePath(); const blade = new THREE.Mesh(new THREE.ExtrudeGeometry(bsh, { depth: 0.3 * S, bevelEnabled: false }), dark); blade.position.set(0, 8 * S - i * 1.4 * S, -4 * S - i * 1.1 * S); blade.rotation.x = -0.25; head.add(blade); }
+    for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(1.2 * S, 4 * S, 6), dark); sp.position.set(0, -neckLen / 2 + neckLen * (i + 1) / 7, -6 * S + i * 0.2 * S); sp.rotation.x = -0.5; neck.add(sp); }
+    // gill slits, three down each side of the neck
+    for (const sx of [-1, 1]) for (let i = 0; i < 3; i++) { const gill = new THREE.Mesh(new THREE.BoxGeometry(0.4 * S, 3 * S - i * 0.4 * S, 1.2 * S), black); gill.position.set(sx * 5.5 * S, neckLen - 6 * S - i * 3 * S, 1 * S); gill.rotation.z = sx * 0.3; neck.add(gill); }
+    // an anglerfish lure: a bony stalk arching over the mouth with a glowing bulb, the light that draws prey into the dark
+    const stalk = new THREE.Group(); head.add(stalk); stalk.position.set(0, 7.5 * S, 1 * S);
+    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.3 * S, 0.5 * S, 7 * S, 8), dark); s1.position.set(0, 3 * S, 2 * S); s1.rotation.x = 0.5; stalk.add(s1);
+    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.22 * S, 0.3 * S, 5 * S, 8), dark); s2.position.set(0, 6 * S, 6 * S); s2.rotation.x = 1.15; stalk.add(s2);
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(1.3 * S, 16, 12), glowM); bulb.position.set(0, 7 * S, 9.5 * S); stalk.add(bulb); SEA.lure = bulb;
+    bulb.add(new THREE.PointLight(def.glow, 2.2, 60 * S, 1.8));
+    // bioluminescent spots scattered on the dome
+    for (let i = 0; i < 22; i++) { const r = (0.25 + Math.random() * 0.4) * S, dot = new THREE.Mesh(new THREE.SphereGeometry(r, 6, 6), glowM); const u = (Math.random() - 0.5); dot.position.set(u * 3.4 * R, 3 * S + Math.random() * 6 * S, -2 * S + (1 - Math.abs(u) * 1.5) * 2 * R); head.add(dot); }
+    // longer fangs at the front of the mouth
+    for (const sx of [-1, 1]) { const fang = new THREE.Mesh(new THREE.ConeGeometry(0.85 * S, 5 * S, 8), tooth); fang.position.set(sx * 1.2 * R, 3.6 * S, 11 * S); fang.rotation.x = Math.PI; head.add(fang); }
+  } // the Sea Eater: jagged crest, gills, an anglerfish lure, glowing spots and front fangs
   for (const sx of [-1, 1]) { const lobe = sph(R, skin, sx * 2.1 * R, 1.5 * S, -2 * S, 0.7, 0.42, 0.7, 20); lobe.rotation.z = sx * 0.35; head.add(lobe); } // swept side fins
   head.add(sph(R, black, 0, 1.5 * S, 3 * S, 1.95, 0.55, 1.0, 24)); // the mouth: a huge black grin
   head.add(sph(R, lipM, 0, 6.3 * S, 4 * S, 1.9, 0.16, 0.95, 20)); // upper lip
@@ -9731,7 +9778,7 @@ function spawnSea(kind) {
   if (SEA.mesh) scene.remove(SEA.mesh);
   const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.tail = m.tail; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
 
-  SEA.alive = true; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
+  SEA.alive = true; if (!def.eater) SEA.lure = null; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
   const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 12 + 14 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
   SEA.headHome.set(0, SEA.neckLen, 0);
   if (def.helper) spawnCthulhu(); else if (HELPER.mesh) helperEnd(false); // Grandma brings Cthulhu up with her
@@ -10846,7 +10893,15 @@ function updateSidekick(dt) {
 }
 
 // ---------- Spider-Society HQ: a tower full of Spider-People and a portal that drops you on the crime ----------
-const SOC = { hq: null, portal: null, npcs: [], beam: null, cd: 0, built: false, ring: null, disc: null, pad: null };
+const SOC = { hq: null, portal: null, npcs: [], allies: [], allyT: 0, beam: null, cd: 0, built: false, ring: null, disc: null, pad: null };
+function makeMask(faceHex, lensRimHex) { // a spider mask for display: a face dome with two white lenses and coloured rims
+  const grp = new THREE.Group();
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 24, 18), new THREE.MeshStandardMaterial({ color: faceHex, roughness: 0.55 }));
+  head.scale.set(0.95, 1.08, 0.98); head.castShadow = true; grp.add(head);
+  const rimM = new THREE.MeshStandardMaterial({ color: lensRimHex, roughness: 0.5 }), lensM = new THREE.MeshStandardMaterial({ color: 0xf4f4f6, emissive: 0x888888, roughness: 0.2 });
+  for (const sx of [-1, 1]) { const lens = new THREE.Mesh(lensPatchGeo(lensShape(0.56, sx), 0.432, sx * 0.07, 0.02), lensM), rim = new THREE.Mesh(lensPatchGeo(lensShape(0.66, sx), 0.424, sx * 0.05, 0.01), rimM); lens.castShadow = rim.castShadow = false; head.add(lens, rim); }
+  return grp;
+}
 const randSuit = () => { const r = () => Math.random();
   const h = r(), c1 = new THREE.Color().setHSL(h, 0.55 + r() * 0.3, 0.18 + r() * 0.25), c2 = new THREE.Color().setHSL((h + 0.35 + r() * 0.3) % 1, 0.7, 0.5 + r() * 0.2);
   const base = std(c1.getHex(), { map: fabricTex('#' + c1.getHexString(), true) }), acc = std(c2.getHex());
@@ -10870,6 +10925,13 @@ function buildSociety() {
   const roof = shadowed(new THREE.Mesh(new THREE.BoxGeometry(pw + 0.8, 0.3, pd + 0.8), frameMat)); roof.position.y = ph + 0.15; pav.add(roof);
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const post = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.3, ph, 0.3), frameMat)); post.position.set(sx * pw / 2, ph / 2, sz * pd / 2); pav.add(post); }
   scene.add(pav);
+  // two spider masks on stands by the pavilion: Miles' black mask and the classic red Spider-Man mask
+  for (const [sx, mk] of [[-1, makeMask(0x15151c, 0xe0162c)], [1, makeMask(0xc8161d, 0x101016)]]) {
+    const stand = new THREE.Group(); stand.position.set(pav.position.x + sx * (pw / 2 + 2.2), b.h, pav.position.z - pd / 2);
+    const pole = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 2.2, 10), frameMat)); pole.position.y = 1.1; stand.add(pole);
+    const base = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 0.2, 16), frameMat)); base.position.y = 0.1; stand.add(base);
+    mk.position.set(0, 2.5, 0); mk.rotation.y = sx > 0 ? -0.5 : 0.5; stand.add(mk); scene.add(stand);
+  }
   // holo-screens: floating panels with a scrolling canvas of multiverse data
   const holoTex = canvasTex(256, 128, (g, w, h) => { g.fillStyle = 'rgba(255,120,30,0.08)'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,170,80,0.6)'; g.lineWidth = 2; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(10, 20 + i * 18); g.lineTo(60 + Math.random() * 180, 20 + i * 18); g.stroke(); } g.strokeStyle = 'rgba(255,220,160,0.9)'; g.beginPath(); for (let x = 0; x <= w; x += 8) g.lineTo(x, 100 - Math.abs(Math.sin(x * 0.11)) * 40); g.stroke(); g.fillStyle = 'rgba(255,200,120,0.9)'; g.font = 'bold 14px monospace'; g.fillText('EARTH-1610 · CANON STABLE', 10, 118); }); holoTex.repeat.set(1, 1);
   const holoMat = new THREE.MeshBasicMaterial({ map: holoTex, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
@@ -10891,6 +10953,54 @@ function buildSociety() {
   });
 }
 const SOC_LINES = ['Welcome to the Society, kid.', 'Canon event in progress. Don\'t touch anything.', 'Miguel says no portals without a watch. Ignore him.', 'Nice hoodie.', 'Which Earth are you from again?', 'The portal goes to the crime. Don\'t ask how.', 'We\'ve all lost an Uncle Ben. Hang in there.', 'Gwen talks about you. A lot.'];
+function summonSociety(n = 4) {
+  if (!SOC.built) return 0;
+  n = Math.min(n, 5 - SOC.allies.length);
+  if (n <= 0) { SOC.allyT = Math.max(SOC.allyT, G.time + 30); return SOC.allies.length; }
+  const makers = [randSuit, randSuit, () => SUIT_DEFS.m2099.build(), () => SUIT_DEFS.classic.build(), randSuit];
+  for (let i = 0; i < n; i++) {
+    const mk = makers[(SOC.allies.length + i) % makers.length], g = stripLights(mk());
+    g.traverse(o => { if (o.isMesh && o.material === GMAT.none) o.visible = false; });
+    const from = SOC.hq ? V3(SOC.hq.x + rand(-6, 6), SOC.hq.h + 6, SOC.hq.z + rand(-6, 6)) : P.pos.clone().add(V3(rand(-8, 8), 14, rand(-8, 8)));
+    g.position.copy(from); g.scale.setScalar(0.92); scene.add(g);
+    SOC.allies.push({ mesh: g, pos: from.clone(), vel: V3(), off: V3(rand(-6, 6), rand(3, 7), rand(-6, 6)), animT: rand(0, 10), punchCd: rand(0, 1), kos: 0 });
+  }
+  SOC.allyT = G.time + 45;
+  floatText(P.pos.clone().add(V3(0, 5, 0)), 'SPIDER-SOCIETY, GO!', '#ff9a3a', 26); AudioSys.thwip();
+  return SOC.allies.length;
+}
+function updateSocietyAllies(dt) {
+  if (!SOC.allies.length) return;
+  const expire = G.time > SOC.allyT;
+  for (let i = SOC.allies.length - 1; i >= 0; i--) {
+    const a = SOC.allies[i], m = a.mesh; a.animT += dt; if (a.punchCd > 0) a.punchCd -= dt;
+    // a target to help with: the nearest living thug, then the boss, then the sea monster's head
+    let target = null, td = 1e9;
+    if (!expire && P.alive) {
+      for (const e of enemies) { if (!e.alive) continue; const d = e.mesh.position.distanceTo(a.pos); if (d < 120 && d < td) { td = d; target = { pos: e.mesh.position, e }; } }
+      if (!target && boss.alive && !['charge', 'leap', 'sink', 'emerge', 'cloud', 'dive'].includes(boss.state) && boss.mesh) { if (boss.mesh.position.distanceTo(a.pos) < 150) target = { pos: boss.mesh.position, boss: true }; }
+      if (!target && SEA.alive && SEA.state !== 'rise' && SEA.state !== 'die') { const hp = SEA.head.getWorldPosition(V3()); if (hp.distanceTo(a.pos) < 220) target = { pos: hp, sea: true }; }
+    }
+    const goal = expire ? (SOC.hq ? V3(SOC.hq.x, SOC.hq.h + 44, SOC.hq.z) : P.pos.clone().add(V3(0, 70, 0))) : target ? target.pos.clone().add(V3(0, target.sea ? 3 : 1.4, 0)) : P.pos.clone().add(a.off);
+    const to = goal.clone().sub(a.pos), d = to.length(); if (d > 0.01) to.multiplyScalar(1 / d);
+    const sp = expire ? 36 : target ? 30 : 16;
+    a.vel.lerp(to.multiplyScalar(sp), Math.min(1, dt * 2.2)); a.pos.addScaledVector(a.vel, dt); m.position.copy(a.pos);
+    if (Math.hypot(a.vel.x, a.vel.z) > 0.5) { let f = Math.atan2(a.vel.x, a.vel.z) - m.rotation.y; f = Math.atan2(Math.sin(f), Math.cos(f)); m.rotation.y += f * Math.min(1, dt * 8); }
+    if (!expire && target && d < (target.sea ? 6 : target.boss ? 4 : 2.4) && a.punchCd <= 0) {
+      a.punchCd = 0.5; const dir = V3(Math.sin(m.rotation.y), 0, Math.cos(m.rotation.y));
+      if (target.sea) seaHit(1, 'SOCIETY', target.pos.clone());
+      else if (target.boss) hitBoss(1, 'SOCIETY');
+      else { const was = target.e.alive; hitEnemy(target.e, 1, dir, 'SOCIETY', 0.4); if (was && !target.e.alive) a.kos++; }
+      burst(a.pos.clone(), 6, 0xff9a3a, 5, 0.3);
+    }
+    // flight pose, with a punch when it just swung
+    const p = m.parts, t = a.animT, fl = Math.sin(t * 6) * 0.1;
+    p.body.rotation.x = 1.3; p.armL.rotation.x = 0.7 + fl; p.armR.rotation.x = 0.7 - fl; p.armL.rotation.z = -0.5; p.armR.rotation.z = 0.5; p.legL.rotation.x = -0.1 + fl; p.legR.rotation.x = -0.1 - fl;
+    p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.2; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.05;
+    if (a.punchCd > 0.3) { const arm = a.kos % 2 ? p.armL : p.armR; arm.rotation.x = -2.2; arm.joint.rotation.x = -0.1; }
+    if (expire && (a.pos.y > (SOC.hq ? SOC.hq.h + 38 : 60) || d < 4)) { scene.remove(m); SOC.allies.splice(i, 1); }
+  }
+}
 function updateSociety(dt) {
   if (!SOC.built) return;
   const t = G.time; SOC.ring.rotation.z += dt * 0.6; SOC.disc.rotation.z -= dt * 1.4; SOC.disc.material.opacity = 0.75 + Math.sin(t * 5) * 0.2; SOC.pad.scale.setScalar(1 + Math.sin(t * 4) * 0.08);
@@ -10942,7 +11052,7 @@ function portalToCrime(label) { // a Spider-Society portal: drop Miles out of th
 const ORD = { until: {}, order: null };
 const ORDER_RULES = [ // settings first so 'stop the music' is not read as 'stop'
   { kind: 'music', re: /(play|start|turn|put|drop|unmute|stop|kill|mute|cut|pause|shut|switch).*(music|song|beat\b|track|tune|soundtrack)|(music|song|beat\b|track|tune|soundtrack).*\b(off|on|up|down|stop|back)\b|sunflower|brooklyn nights/i },
-  { kind: 'suit', re: /(wear|switch|change|put on|swap|give me|go)\b.*(suit|noir|punk|classic|2099|symbiote|venom|spider-?verse|hoodie|peter|miguel)/i },
+  { kind: 'suit', re: /(wear|switch|change|put on|swap|give me|go)\b.*(suit|noir|punk|classic|2099|symbiote|venom|spider-?verse|spider-?man|flying|hoodie|peter|miguel)/i },
   { kind: 'comic', re: /comic (look|mode|style)|cartoon|realistic|real look|toggle (the )?look/i },
   { kind: 'home', re: /go home|take me home|way home|where('s| is) (my|the|our) (house|home|place|apartment)|my place|mom|dad|rio|jeff/i },
   { kind: 'medkit', re: /medkit|med kit|first aid|health pack|heal me|patch me|need (some )?(health|hp)|i'?m (hurt|low|dying|bleeding)|low on (health|hp)/i },
@@ -10953,7 +11063,7 @@ const ORDER_RULES = [ // settings first so 'stop the music' is not read as 'stop
   { kind: 'back', re: /stay back|hang back|hold (back|off|on|position|up)|stand down|\bstop\b|\bwait\b|back off|don'?t (fight|attack|hit)|let me (do|handle|take)|leave (him|them|it) to me|stay out/i },
   { kind: 'come', re: /come (here|to me|back|over)|follow me|stay (close|with me|near|on me)|\bon me\b|get over here|where are you|keep up|with me/i },
 ];
-const SUIT_WORDS = [['noir', 'noir'], ['punk', 'punk'], ['2099', 'm2099'], ['miguel', 'm2099'], ['symbiote', 'symbiote'], ['venom', 'symbiote'], ['classic', 'classic'], ['peter', 'classic'], ['hoodie', 'spiderverse'], ['verse', 'spiderverse'], ['miles', 'spiderverse']];
+const SUIT_WORDS = [['noir', 'noir'], ['punk', 'punk'], ['2099', 'm2099'], ['miguel', 'm2099'], ['symbiote', 'symbiote'], ['venom', 'symbiote'], ['classic', 'classic'], ['peter', 'classic'], ['spider-man', 'spider2'], ['spiderman', 'spider2'], ['flying', 'spider2'], ['fly suit', 'spider2'], ['hoodie', 'spiderverse'], ['verse', 'spiderverse'], ['miles', 'spiderverse']];
 const say = (txt, color = '#ff7ab8') => { if (SK.mesh && SK.on) floatText(SK.pos.clone().add(V3(0, 3.8, 0)), txt, color, 17); };
 function gwenMedkit() {
   const left = (ORD.until.medkit || 0) - G.time; if (left > 0) return { ok: false, line: `I'm out of medkits. Give me ${Math.ceil(left)} seconds to grab another.` };
@@ -11301,6 +11411,8 @@ function gameCommand(t) {
   if (has('first person')) { look.fp = true; return 'Done: first person. Press C or VIEW to go back.'; }
   if (has('third person')) { look.fp = false; return 'Done: third person.'; }
   if (has('double jump', 'triple jump')) { P.jumpsLeft = 3; return 'Done: three jumps in a row, right now. Go!'; }
+  if (has('spider society', 'spider-society', 'society', 'backup', 'call the spider', 'help me fight', 'other spider', 'more spider')) { if (!SOC.built) return 'The Spider-Society tower is still warming up. Try again in a moment.'; storeClose(); const k = summonSociety(4); return k ? 'Done: the Spider-Society is flying in to fight with you! They can fly anywhere and will help for a while.' : 'The whole Society is already out here with you!'; }
+  if (has('fly', 'flying') && has('suit', 'can i', 'how', 'make me')) { if (isFlyer()) return 'You are already a flying Spider-Man! Jump, then hold JUMP in the air to soar.'; setSuit('spider2'); return 'Done: now wearing the SPIDER-MAN suit. Jump, then hold JUMP in the air to FLY!'; }
   return null;
 }
 function runTags(reply) { // the live Claude ends a change with [[tag]]; run it and hide the tag
@@ -11314,7 +11426,7 @@ async function claudeBrain() {
   const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
-const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[bring sea eater]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[bring sea eater]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[society]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
 function pocketClaude(t) {
   const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const has = (...w) => w.some(x => q.includes(x));
@@ -11871,6 +11983,11 @@ function animateHero(dt) {
   } else if (P.pound) {
     // ground pound: fist down, knees up
     p.armR.rotation.x = 0.8; p.armR.rotation.z = 0.2; p.armL.rotation.x = -1.8; p.armL.rotation.z = -0.5; p.legL.rotation.x = p.legR.rotation.x = -1.3; bodyX = 0.5;
+  } else if (P.flying) {
+    // flight: body flat and pointing where you aim, arms swept back, legs together, head up
+    const fl = Math.sin(t * 6) * 0.06;
+    bodyX = 1.45; p.armL.rotation.x = 0.7 + fl; p.armR.rotation.x = 0.7 - fl; p.armL.rotation.z = -0.5; p.armR.rotation.z = 0.5;
+    p.legL.rotation.x = -0.1 + fl; p.legR.rotation.x = -0.1 - fl; p.body.position.y = 0.6;
   } else if (P.diving) {
     // head-first dive: body flat, arms swept back along the sides, legs straight, with a little flutter
     const k = Math.min(1, P.diveT * 3), fl = Math.sin(t * 9) * 0.08;
@@ -11892,6 +12009,7 @@ function animateHero(dt) {
   if (P.swinging) { const lead = P.swingHand === 'L' ? p.armL : p.armR, trail = P.swingHand === 'L' ? p.armR : p.armL; lead.joint.rotation.x = 0; trail.joint.rotation.x = -0.5; const ph = clamp(P.vel.y / 22, -1, 1); p.legL.joint.rotation.x = 1.2 - ph * 0.6; p.legR.joint.rotation.x = 0.8 - ph * 0.5; }
   if (P.flipT > 0) { const k = 1 - P.flipT / 0.8; bodyX = -k * Math.PI * 2; p.body.position.y = 0.3 + Math.sin(k * Math.PI) * 0.3; p.legL.rotation.x = p.legR.rotation.x = -1.5; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.9; p.armL.rotation.x = p.armR.rotation.x = -0.8; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -1.4; }
   if (P.diving) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.15; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.1; }
+  if (P.flying) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = -0.2; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.05; }
   if (P.zip) { p.armL.joint.rotation.x = p.armR.joint.rotation.x = 0; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 0.6; }
   if (P.pound) { p.armR.joint.rotation.x = -0.1; p.armL.joint.rotation.x = -1.5; p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.9; }
   if (P.rollT > 0) { p.legL.joint.rotation.x = p.legR.joint.rotation.x = 1.8; p.armL.joint.rotation.x = p.armR.joint.rotation.x = -1.6; }
@@ -12277,7 +12395,7 @@ function frame(now) {
     G.time += dt; DAY.t += dt * DAY.speed; if (!BOOT.done) bootStep();
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateSea(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateStreetLife(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateSea(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateSocietyAllies(dt); if (SEA.lure && SEA.alive && SEA.kind === 'eater') SEA.lure.material.emissiveIntensity = 1.2 + Math.sin(G.time * 3.5) * 0.7; updateStreetLife(dt);
     AudioSys.setHeight(P.pos.y); MUSIC.setMood(boss.alive ? 1 : G.crime ? 0.6 : 0.25, G.paused); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
@@ -12302,7 +12420,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { SEA, HELPER, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { SEA, HELPER, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, summonSociety, gameCommand, isFlyer, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
