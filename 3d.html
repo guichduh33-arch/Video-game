@@ -2136,6 +2136,7 @@ function punch() {
     if (dot < 0.3 && flat > 1.2) continue;
     if (flat < bestD) { bestD = flat; target = e; }
   }
+  if (SEA.alive && SEA.head) { const hw = SEA.head.getWorldPosition(V3()); if (P.pos.clone().add(V3(0, 1.5, 0)).distanceTo(hw) < 10 * SEA.S + 3) seaHit((1 + 0.5 * LV('fists')) * (SUIT === 'symbiote' ? 2 : 1), 'POW', P.pos.clone().add(V3(0, 2.5, 0))); }
   if (boss.alive && boss.kind === 'gallery' && GAL_FX.decoys.length) { // Mysterio's doubles pop when punched
     const bflat = Math.hypot(boss.mesh.position.x - P.pos.x, boss.mesh.position.z - P.pos.z);
     for (let i = 0; i < GAL_FX.decoys.length; i++) { const dc = GAL_FX.decoys[i]; const d = dc.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); const dot = (d.x * fx + d.z * fz) / (flat || 1); if (flat < 5.5 && Math.abs(d.y) < 4.5 && (dot > 0.2 || flat < 3) && flat < bflat) { P.facing = Math.atan2(d.x, d.z); galPopDecoy(i); return; } }
@@ -2180,6 +2181,7 @@ function venomStrike() {
     const dir = V3(d.x, 0, d.z).normalize(); hitEnemy(e, 3 + LV('strike'), dir, 'VENOM STRIKE', 1.2); e.vel.y = 9; hits++;
   }
   if (boss.alive && boss.mesh.position.distanceTo(P.pos) < 9 + 2 * LV('strike')) { hitBoss(3 + LV('strike'), 'VENOM STRIKE'); hits++; }
+  if (SEA.alive && SEA.head && SEA.head.getWorldPosition(V3()).distanceTo(P.pos) < 10 * SEA.S + 8 + 2 * LV('strike')) { if (seaHit(3 + LV('strike'), 'VENOM STRIKE')) hits++; }
   if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); }
   if (hits === 0) floatText(c.clone().add(V3(0, 2, 0)), 'ZAP', '#ffd23f', 18);
   venomArc.show(c);
@@ -2455,6 +2457,7 @@ function updateWebShots(dt) {
     else if (boss.alive && boss.kind === 'prowler' && boss.state !== 'stunned' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { webProwler(); hit = boss; }
     else if (boss.alive && boss.kind === 'spot' && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { jamSpot(); hit = boss; }
     else if (boss.alive && boss.kind === 'gallery' && boss.webCd <= 0 && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.8) { galWebbed(); hit = boss; }
+    if (!hit && SEA.alive && seaWebHit(w.pos, pad)) hit = true;
     if (!hit && SK.on && SK.mesh && !SK.grab && w.pos.distanceTo(SK.pos.clone().add(V3(0, 1.5, 0))) < 1.6 + pad) { SK.grab = grabStart('gwen', SK.pos.clone()); floatText(SK.pos.clone().add(V3(0, 3.6, 0)), 'HEY!', '#ff7ab8', 18); hit = true; }
     if (!hit && grabTry(w.pos, pad)) hit = true;
     const wall = groundHeight(w.pos.x, w.pos.z) > w.pos.y;
@@ -2503,18 +2506,117 @@ function spawnCrime() {
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
   AudioSys.crime(); G.hint = 'Crime in progress — follow the red beacon'; G.hintT = 5;
 }
+// ---------- The Sea: the East River past the end of Brooklyn, and the monsters that rise out of it ----------
+const SEA = { x0: 334, built: false, water: null, foam: null, alive: false, kind: null, def: null, mesh: null, head: null, neck: null, jaw: null, eyes: [], hp: 0, maxHp: 0, name: '', t: 0, state: 'rise', stateT: 0, S: 1, next: null, beaten: {}, flinch: 0, spitCd: 4, roarCd: 6, biteT: 0, headHome: V3(), headTo: V3(), base: V3() };
+const SEA_DEFS = {
+  maja: { name: 'EL GRAN MAJA', hp: 28, color: 0x3a48ee, dark: 0x2230c0, lip: 0xe0101e, eyes: 6, size: 1.0, neck: 34, bite: 24, glow: 0, line: 'Something enormous and blue is rising out of the East River. Six eyes. Too many teeth.' },
+  bloop: { name: 'THE BLOOP', hp: 40, color: 0x2a3550, dark: 0x171f34, lip: 0x6e1526, eyes: 2, size: 1.35, neck: 30, bite: 28, glow: 0xaaf0ff, line: 'The water is shaking. The Bloop has come up from the deepest part of the ocean, and it is hungry.' },
+  grandma: { name: 'GRANDMA MAJA', hp: 56, color: 0x7384e0, dark: 0x4c5cc0, lip: 0xc0102c, eyes: 8, size: 1.8, neck: 44, bite: 32, glow: 0xffe08a, line: "El Gran Maja's grandmother. Older, paler, and much, much bigger." },
+};
+function buildSea() {
+  if (SEA.built) return; SEA.built = true;
+  const waveTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#1d5fa6'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 3; for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = 10 + Math.random() * 20; g.beginPath(); g.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } }, [14, 40]);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ map: waveTex, color: 0xffffff, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.94, envMapIntensity: 1.4 }));
+  water.rotation.x = -Math.PI / 2; water.position.set(SEA.x0 + 230, 0.06, 0); water.receiveShadow = true; scene.add(water); SEA.water = water;
+  const sand = new THREE.Mesh(new THREE.BoxGeometry(44, 0.3, 1500), new THREE.MeshStandardMaterial({ color: 0xd9c79a, roughness: 1 })); sand.position.set(SEA.x0 - 22, 0.12, 0); sand.receiveShadow = true; scene.add(sand);
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(2, 1.4, 1500), concreteMat); wall.position.set(SEA.x0 - 1, 0.7, 0); scene.add(wall);
+  for (let i = -700; i <= 700; i += 90) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 5, 8), new THREE.MeshStandardMaterial({ color: 0x5a3b26, roughness: 0.9 })); post.position.set(SEA.x0 + 6 + (i % 180 ? 0 : 4), 1.5, i); scene.add(post); }
+  const sign = textSprite('EAST RIVER', '#9fd6ff', 7); sign.position.set(SEA.x0 + 30, 14, 0); scene.add(sign);
+}
+function makeSeaMonster(def) {
+  const S = def.size, g = new THREE.Group(), R = 9 * S;
+  const M = (c, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.5, metalness: 0.05 }, o));
+  const skin = M(def.color), dark = M(def.dark), black = M(0x06070e, { roughness: 0.9 }), lipM = M(def.lip, { roughness: 0.4 }), tooth = M(0xf4f4f8, { roughness: 0.3 }), eyeW = M(0xffffff, { emissive: def.glow || 0x222222, emissiveIntensity: def.glow ? 1.2 : 0.5 }), pupil = M(0x0a0a14);
+  const neckLen = def.neck * S;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(4.2 * S, 7 * S, neckLen, 18), skin); neck.position.y = neckLen / 2; neck.castShadow = true; g.add(neck); SEA.neckLen = neckLen;
+  for (let i = 1; i <= 5; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry((4.2 + (7 - 4.2) * (1 - i / 6)) * S * 1.02, 0.35 * S, 6, 24), dark); ring.rotation.x = Math.PI / 2; ring.position.y = neckLen * i / 6; ring.userData.ring = i / 6; neck.add(ring); ring.position.y = -neckLen / 2 + neckLen * i / 6; }
+  const head = new THREE.Group(); head.position.y = neckLen; g.add(head);
+  const dome = sph(R, skin, 0, 5 * S, -1 * S, 2.3, 0.8, 1.15, 28); head.add(dome); // the wide, flat, manta-like skull
+  for (const sx of [-1, 1]) { const lobe = sph(R, skin, sx * 2.1 * R, 1.5 * S, -2 * S, 0.7, 0.42, 0.7, 20); lobe.rotation.z = sx * 0.35; head.add(lobe); } // swept side fins
+  head.add(sph(R, black, 0, 1.5 * S, 3 * S, 1.95, 0.55, 1.0, 24)); // the mouth: a huge black grin
+  head.add(sph(R, lipM, 0, 6.3 * S, 4 * S, 1.9, 0.16, 0.95, 20)); // upper lip
+  const teethRow = (parent, y, up) => { for (let i = 0; i < 19; i++) { const u = (i / 18) * 2 - 1; const x = u * 1.78 * R, z = 11 * S - u * u * 6.5 * S; const t = new THREE.Mesh(new THREE.ConeGeometry(0.55 * S, 2.3 * S, 6), tooth); t.position.set(x, y, z); t.rotation.x = up ? 0 : Math.PI; t.castShadow = true; parent.add(t); } };
+  teethRow(head, 4.4 * S, false);
+  const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -1 * S, -3 * S);
+  const jawInner = new THREE.Group(); jawInner.position.set(0, 1 * S, 3 * S); jaw.add(jawInner);
+  jawInner.add(sph(R, lipM, 0, -3.3 * S, 4 * S, 1.9, 0.16, 0.95, 20)); teethRow(jawInner, -2.2 * S, true);
+  jawInner.add(sph(R, skin, 0, -5 * S, 1 * S, 1.6, 0.35, 0.9, 20)); // chin
+  // eyes on the dome, two rows, looking forward
+  const a = 2.3 * R, b = 0.8 * R, c = 1.15 * R, eyes = [];
+  for (let i = 0; i < def.eyes; i++) { const row = i % 2, k = Math.floor(i / 2), n = Math.ceil(def.eyes / 2); const phi = ((k + 0.5) / n - 0.5) * 1.6 + (row ? 0.0 : 0.0), th = row ? 0.78 : 0.52; const ex = a * Math.sin(th) * Math.sin(phi) * (row ? 1.15 : 0.8), ey = 5 * S + b * Math.cos(th) * (row ? 0.9 : 1.0), ez = -1 * S + c * Math.sin(th) * Math.cos(phi) * (row ? 0.9 : 1.05);
+    const eye = sph(0.95 * S, eyeW, ex, ey, ez, 1, 1, 1, 14); head.add(eye); const pp = sph(0.42 * S, pupil, 0, 0.15 * S, 0.75 * S, 1, 1, 1, 10); eye.add(pp); const rim = new THREE.Mesh(new THREE.TorusGeometry(1.05 * S, 0.18 * S, 6, 18), dark); rim.position.copy(eye.position); rim.lookAt(eye.position.clone().add(V3(0, 1, 1.4))); head.add(rim); eyes.push(eye); }
+  if (def.size > 1.5) for (let i = 0; i < 4; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(R * (1.6 + i * 0.25), 0.25 * S, 6, 30, Math.PI), dark); w.position.set(0, 7 * S + i * 1.2 * S, -1 * S); w.rotation.x = -Math.PI / 2 + 0.5; head.add(w); } // grandma's wrinkles
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return { g, head, neck, jaw, eyes };
+}
+function spawnSea(kind) {
+  if (SEA.alive || !SEA.built) return; const def = SEA_DEFS[kind]; if (!def) return;
+  if (SEA.mesh) scene.remove(SEA.mesh);
+  const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
+  SEA.alive = true; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
+  const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 42 + 22 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
+  SEA.headHome.set(0, SEA.neckLen, 0);
+  G.crime = { sea: true, boss: false, name: def.name, b: { x: SEA.x0 - 4, z, h: 0, w: 10, d: 10 }, t: 0 };
+  beacon.visible = true; beacon.position.set(SEA.x0 - 4, 0, z);
+  $('bossBar').classList.remove('hidden'); $('bossBar').querySelector('b').textContent = def.name;
+  G.hint = def.line + ' Web its eyes, punch it when it bites. Red arrow: the river.'; G.hintT = 8; AudioSys.crime(); shake(0.6);
+  storyShow([{ kick: 'BROOKLYN NIGHTS · ' + def.name }, { wide: true, img: snap(() => { const bp = SEA.base.clone(); bp.y = 0; const tgt = bp.clone().add(V3(0, 24 * def.size, 0)); SEA.mesh.position.set(bp.x, 0, bp.z); camAt(V3(SEA.x0 - 40, 26 * def.size, z + 60 * def.size), tgt, 52); SEA.mesh.position.copy(SEA.base); }), cap: def.name + ' rises from the East River.', who: 'GWEN', say: kind === 'maja' ? 'Miles… that is NOT a whale.' : kind === 'bloop' ? 'Okay. Okay. Aim for the eyes and do not get bitten.' : 'She is bigger than the bridge. I have no plan. Do you have a plan?' }]);
+}
+function seaHit(n, label, at) {
+  if (!SEA.alive || SEA.state === 'rise' || SEA.state === 'die') return false;
+  SEA.hp -= n; SEA.flinch = 0.7; G.score += 40 * Math.round(n); G.combo++; G.comboT = 3; shake(0.25); AudioSys.punch();
+  floatText((at || SEA.head.getWorldPosition(V3())).add(V3(0, 2, 0)), label, '#ffd23f', 22);
+  for (const e of SEA.eyes) if (e.material.emissive) { e.material.emissive.setHex(0xff2030); setTimeout(() => e.material.emissive.setHex(SEA.def.glow || 0x222222), 150); }
+  if (SEA.hp <= 0) { SEA.state = 'die'; SEA.stateT = 0; G.score += 1500 * SEA.S | 0; upgAdd(3, P.pos); floatText(P.pos.clone().add(V3(0, 4, 0)), SEA.name + ' DEFEATED', '#ffd23f', 32); G.flash = 0.8; shake(1); AudioSys.win?.(); SEA.beaten[SEA.kind] = true; }
+  return true;
+}
+function seaWebHit(wp, pad = 0) {
+  if (!SEA.alive || SEA.state === 'rise' || SEA.state === 'die') return false;
+  for (const e of SEA.eyes) { const ep = e.getWorldPosition(V3()); if (wp.distanceTo(ep) < 1.6 * SEA.S + pad + 0.6) { seaHit(1 + LV('impact'), 'RIGHT IN THE EYE', ep); burst(ep, 10, 0xffffff, 6, 0.4); return true; } }
+  const hp = SEA.head.getWorldPosition(V3()); if (wp.distanceTo(hp) < 11 * SEA.S + pad) { burst(wp.clone(), 6, 0xffffff, 3, 0.3); floatText(wp.clone(), 'the eyes, Miles!', '#9fd6ff', 14); return true; }
+  return false;
+}
+function updateSea(dt) {
+  if (SEA.water) { SEA.water.material.map.offset.x += dt * 0.015; SEA.water.material.map.offset.y += dt * 0.01; }
+  if (!SEA.alive || !SEA.mesh) return;
+  SEA.t += dt; SEA.stateT += dt; if (SEA.flinch > 0) SEA.flinch -= dt; SEA.spitCd -= dt; SEA.roarCd -= dt;
+  const def = SEA.def, S = SEA.S, m = SEA.mesh, head = SEA.head;
+  // face the player
+  const dx = P.pos.x - m.position.x, dz = P.pos.z - m.position.z; const want = Math.atan2(dx, dz); let d = want - m.rotation.y; d = Math.atan2(Math.sin(d), Math.cos(d)); m.rotation.y += d * Math.min(1, dt * 1.5);
+  const sway = Math.sin(SEA.t * 0.8) * 1.5 * S;
+  let jawOpen = 0.12 + Math.sin(SEA.t * 1.3) * 0.08, target = SEA.headHome.clone().add(V3(sway, Math.sin(SEA.t * 0.6) * 1.2 * S, 0));
+  if (SEA.state === 'rise') { m.position.y = lerp(SEA.base.y, 0, Math.min(1, SEA.stateT / 3.2)); if (Math.random() < dt * 30) burst(m.position.clone().add(V3(rand(-12, 12) * S, 0.5, rand(-12, 12) * S)), 2, 0x9fd6ff, 9, 0.8, 18); if (SEA.stateT < 0.2) shake(0.8); if (SEA.stateT > 3.2) { m.position.y = 0; SEA.state = 'idle'; SEA.stateT = 0; } }
+  else if (SEA.state === 'idle') { if (SEA.stateT > 2.5 + Math.random()) { const local = m.worldToLocal(P.pos.clone()); const reach = Math.hypot(local.x, local.z, local.y - SEA.neckLen * 0.3); if (reach < def.bite + SEA.neckLen * 0.9 && P.alive) { SEA.state = 'bite'; SEA.stateT = 0; SEA.headTo.copy(local).add(V3(0, 3 * S, 0)); } else if (SEA.spitCd <= 0) { SEA.state = 'spit'; SEA.stateT = 0; SEA.spitCd = 5 + Math.random() * 3; } else if (SEA.roarCd <= 0) { SEA.state = 'roar'; SEA.stateT = 0; SEA.roarCd = 9; } else SEA.stateT = 1.5; } }
+  else if (SEA.state === 'bite') { const k = SEA.stateT; const go = Math.min(1, k / 0.9), back = clamp((k - 1.5) / 1.1, 0, 1); const ease = go * go * (3 - 2 * go); target = SEA.headHome.clone().lerp(SEA.headTo, ease * (1 - back)); jawOpen = k < 0.9 ? 0.9 : k < 1.2 ? 0.05 : 0.3;
+    if (k > 0.9 && k < 1.25 && !SEA.bit) { SEA.bit = true; const hw = head.getWorldPosition(V3()); if (P.alive && P.pos.clone().add(V3(0, 1.5, 0)).distanceTo(hw) < 9 * S + 3) { takeDamage(22, hw); P.vel.add(P.pos.clone().sub(hw).setY(0).normalize().multiplyScalar(18)); P.vel.y = 12; floatText(P.pos.clone().add(V3(0, 3, 0)), 'CHOMP!', '#ff2d47', 26); } else floatText(hw.add(V3(0, 4, 0)), 'MISSED', '#9fd6ff', 18); shake(0.6); AudioSys.land?.(); }
+    if (k > 2.6) { SEA.state = 'idle'; SEA.stateT = 0; SEA.bit = false; } }
+  else if (SEA.state === 'spit') { jawOpen = 0.8; if (SEA.stateT > 0.5 && !SEA.spat) { SEA.spat = true; const from = head.getWorldPosition(V3()).add(V3(0, -2 * S, 0)); for (let i = 0; i < 3; i++) { const to = P.pos.clone().add(V3(rand(-3, 3), 1.4 + rand(0, 2), rand(-3, 3))); const dir = to.sub(from); const dist = dir.length(); dir.normalize(); const b = new THREE.Mesh(new THREE.SphereGeometry(1.1 * S, 10, 8), new THREE.MeshStandardMaterial({ color: 0x5fb4ff, transparent: true, opacity: 0.85, roughness: 0.2 })); b.position.copy(from); scene.add(b); const sp = 26; bullets.push({ mesh: b, pos: from.clone(), vel: dir.multiplyScalar(sp).add(V3(0, dist * 0.35, 0)), life: 5, grav: 16, dmg: 14, knock: 10, spin: true }); } AudioSys.thwip(); }
+    if (SEA.stateT > 1.6) { SEA.state = 'idle'; SEA.stateT = 0; SEA.spat = false; } }
+  else if (SEA.state === 'roar') { jawOpen = 1.0; target.y += Math.sin(SEA.stateT * 20) * 0.6 * S; if (SEA.stateT < 1.6) shake(0.25); if (SEA.stateT < 0.1) { floatText(head.getWorldPosition(V3()).add(V3(0, 6 * S, 0)), 'RRRAAAAAHHH', '#fff', 34); for (const g of pigeons) if (Math.hypot(g.pos.x - m.position.x, g.pos.z - m.position.z) < 160) g.t = -1; } if (SEA.stateT > 1.8) { SEA.state = 'idle'; SEA.stateT = 0; } }
+  else if (SEA.state === 'die') { m.position.y = lerp(0, SEA.base.y, Math.min(1, SEA.stateT / 4.5)); m.rotation.z = Math.sin(SEA.stateT * 2) * 0.1; jawOpen = 0.9; if (Math.random() < dt * 40) burst(m.position.clone().add(V3(rand(-14, 14) * S, 1, rand(-14, 14) * S)), 2, 0x9fd6ff, 10, 0.9, 18); if (SEA.stateT > 4.6) { scene.remove(m); SEA.mesh = null; SEA.alive = false; G.hint = SEA.name + ' sank back into the river. Brooklyn is safe… for now'; G.hintT = 5; } }
+  if (SEA.flinch > 0) target.add(V3(rand(-0.6, 0.6) * S, rand(-0.3, 0.3) * S, -2 * S));
+  // move the head, bend the neck to follow it
+  head.position.lerp(target, Math.min(1, dt * 4)); const hp = head.position, dist = hp.length(); const dir = hp.clone().normalize();
+  SEA.neck.position.copy(hp).multiplyScalar(0.5); SEA.neck.quaternion.setFromUnitVectors(V3(0, 1, 0), dir); SEA.neck.scale.y = Math.max(0.3, dist / SEA.neckLen);
+  head.rotation.x = Math.atan2(Math.hypot(hp.x, hp.z), Math.max(1, hp.y)) * 0.85; head.rotation.y = Math.atan2(hp.x, Math.max(0.1, hp.z)) * 0.15;
+  SEA.jaw.rotation.x = lerp(SEA.jaw.rotation.x, jawOpen, Math.min(1, dt * 6));
+  // eyes track Miles
+  const pw = P.pos.clone().add(V3(0, 1.5, 0)); for (const e of SEA.eyes) { const ep = e.getWorldPosition(V3()); const l = e.parent.worldToLocal(pw.clone()); const pp = e.children[0]; if (pp) { const dl = l.sub(e.position).normalize(); pp.position.set(dl.x * 0.7 * S, 0.1 * S + dl.y * 0.3 * S, 0.75 * S); } }
+}
 function updateCrimes(dt) {
   if (!G.crime) { G.crimeSpawnT -= dt; if (G.crimeSpawnT <= 0) {
     if (G.forceBoss) { const k = G.forceBoss; G.forceBoss = null; spawnBoss(k); boss.forced = true; }
     else if (G.act === 2) { if (G.rogueNext) { G.rogueNext = false; spawnBoss(G.rogues[G.rogueIdx]); } else spawnCrime(); }
+    else if (SEA.next && SEA.built && !SEA.alive) { const k = SEA.next; SEA.next = null; spawnSea(k); }
     else if (G.crimes >= 8) spawnBoss(['rhino', 'venom', 'spot', 'prowler'][Math.min(G.bossesBeaten, 3)]); else spawnCrime(); } return; }
+  if (G.crime.sea) { if (!SEA.alive) { G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); G.crimeSpawnT = 5; } return; }
   G.crime.t += dt; beacon.ring.scale.setScalar(1 + Math.sin(G.time * 5) * 0.15); beacon.rotation.y += dt;
   if (G.crime.boss) {
     if (!boss.alive) {
       G.crime = null; beacon.visible = false; $('bossBar').classList.add('hidden'); upgAdd(3, P.pos);
       if (boss.forced) { G.crimeSpawnT = 3; G.hint = boss.name + ' is down. Back on patrol'; G.hintT = 4; P.hp = Math.min(MAXHP(), P.hp + 40); return; }
       if (G.act === 2) { G.rogueIdx++; if (G.rogueIdx >= G.rogues.length) winGame(); else { G.crimeSpawnT = 4; G.hint = boss.name + ' is down. ' + (G.rogues.length - G.rogueIdx) + ' of the Sinister Ten left'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); } return; }
-      G.bossesBeaten++;
+      G.bossesBeaten++; SEA.next = ['maja', 'bloop', 'grandma'][G.bossesBeaten - 1] || null; // after each land boss, something comes up out of the river
       if (G.bossesBeaten >= 4) winGame();
       else { G.crimeSpawnT = 5; G.hint = G.bossesBeaten === 1 ? 'The Rhino is down… but something black is moving across the rooftops' : G.bossesBeaten === 2 ? 'Venom is down… but black holes are opening in the rooftops. Something is coming through' : 'The Spot is gone… but a purple shape just vanished off a rooftop. Someone is watching you'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); }
     }
@@ -3949,6 +4051,7 @@ function gameCommand(t) {
   if (has('sunset', 'evening')) { DAY.t = 0.5; dayApply(true); return 'Done: sunset. The whole sky is orange.'; }
   if (has('dawn', 'sunrise')) { DAY.t = 0.02; dayApply(true); return 'Done: dawn is breaking.'; }
   if (has('daytime', 'make it day', 'morning', 'sunny')) { DAY.t = 0.25; dayApply(true); return 'Done: bright daytime.'; }
+  if (has('maja', 'gran ma', 'granmaja', 'grandma', 'bloop', 'sea monster')) { const k = has('bloop') ? 'bloop' : has('grandma', 'grand ma') ? 'grandma' : 'maja'; if (SEA.alive) return SEA.name + ' is already in the river!'; if (!SEA.built) return 'The river is not ready yet, give me a second.'; storeClose(); spawnSea(k); return 'Done: ' + SEA_DEFS[k].name + ' is rising out of the East River. Follow the red arrow, web the eyes!'; }
   for (const k of ['rhino', 'venom', 'spot', 'prowler', 'scorpion', 'electro', 'mysterio', 'sandman', 'vulture', 'lizard', 'kraven', 'shocker', 'hobgoblin', 'tombstone']) if (q.includes(k) && has('bring', 'spawn', 'make', 'call', 'fight', 'send', 'summon', 'want', 'where')) { if (boss.alive) return 'A boss is already here! Beat ' + boss.name + ' first.'; try { spawnBoss(k); return 'Done: ' + k.toUpperCase() + ' is on a rooftop near you. Follow the red beacon. Good luck!'; } catch (e) { return 'I could not find ' + k + ' in this city.'; } }
   if (has('thug', 'bad guy', 'crime', 'robber', 'enemies')) { if (!G.crime) spawnCrime(); return 'Done: a crime just started. Follow the red beacon!'; }
   if (has('tech point', 'points', 'coins', 'money')) { const n = Math.min(10, Math.max(1, +num || 3)); upgAdd(n, P.pos); return `Done: +${n} tech points. Spend them in the Skill Shop (U or the wrench).`; }
@@ -3984,7 +4087,7 @@ async function claudeBrain() {
   const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
-const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
 function pocketClaude(t) {
   const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const has = (...w) => w.some(x => q.includes(x));
@@ -4691,6 +4794,7 @@ function updateHUD() {
   const cb = $('combo'); styleIf('cbo', cb, 'opacity', G.combo > 1 ? '1' : '0'); setIf('cbt', cb, 'textContent', G.combo > 1 ? `x${G.combo} COMBO` : ''); styleIf('cbs', cb, 'fontSize', (30 + Math.min(G.combo, 10) * 1.5) + 'px');
   $('crime').textContent = !G.crime && SOC.built && (G.crimes < 8 || G.act === 2) ? 'PATROLLING… · orange arrow: Spider-Society HQ' : G.crime ? (G.crime.boss ? `⚠ ${G.crime.name}` + (boss.state === 'stunned' ? (boss.kind === 'prowler' ? ' · TANGLED' : boss.kind === 'spot' || boss.kind === 'gallery' ? ' · STUNNED' : ' · DAZED') : '') : `⚠ ${G.crime.name} · ${enemies.filter(e => e.alive).length} LEFT`) : (G.crimes < 8 ? 'PATROLLING…' : '');
   if (boss.mesh) $('bossBar').firstElementChild.nextElementSibling.style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
+  else if (SEA.alive) $('bossBar').firstElementChild.nextElementSibling.style.width = clamp(SEA.hp / SEA.maxHp * 100, 0, 100) + '%';
   styleIf('crimeC', $('crime'), 'color', G.crime ? '#ff2d47' : '#9fb0ff');
   const h = $('hint'); setIf('hint', h, 'textContent', G.hintT > 0 ? G.hint : ''); styleIf('hintO', h, 'opacity', (clamp(G.hintT, 0, 1) * 0.9).toFixed(2));
   styleIf('flash', $('flash'), 'opacity', G.flash.toFixed(2)); if (G.flash > 0) G.flash = Math.max(0, G.flash - 0.04);
@@ -4894,7 +4998,7 @@ const WARM = new THREE.Group(); WARM.position.y = -600; scene.add(WARM);
 const BOOT = { q: [], done: false };
 const boot = fn => BOOT.q.push(fn);
 boot(() => { spawnSidekick(); SK.mesh.visible = false; SK.line.visible = false; });
-boot(buildSociety); boot(buildRoom);
+boot(buildSociety); boot(buildRoom); boot(buildSea);
 for (const t of ['thug', 'gunner', 'symb']) boot(() => WARM.add(makeEnemyMesh(t)));
 for (const mk of [makeBossMesh, makeVenomMesh, makeProwlerMesh, makeSpotMesh, () => galBuild(GALLERY.mysterio), () => galBuild(GALLERY.electro), () => makeHealthMesh(true)]) boot(() => WARM.add(mk()));
 for (const name of SUIT_ORDER) boot(() => { if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name].build(); WARM.add(SUITS[name]); } });
@@ -4929,7 +5033,7 @@ function frame(now) {
     G.time += dt; DAY.t += dt * DAY.speed; if (!BOOT.done) bootStep();
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateStreetLife(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateSea(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateStreetLife(dt);
     AudioSys.setHeight(P.pos.y); MUSIC.setMood(boss.alive ? 1 : G.crime ? 0.6 : 0.25, G.paused); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
@@ -4954,7 +5058,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { SEA, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
