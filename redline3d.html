@@ -995,6 +995,7 @@ function poseFpHand(name, dt) {
   u.fingers.forEach((joints, i) => { u.curl[i] += (want[i] - u.curl[i]) * k; const c = u.curl[i]; joints[0].rotation.x = c * 0.85; joints[1].rotation.x = c * 1.05; joints[2].rotation.x = c * 0.75; });
   u.th += (th - u.th) * k; u.thumb[0].rotation.x = u.th * 0.5; u.thumb[1].rotation.x = u.th * 0.9;
 }
+const FP_REST_DIR = new THREE.Vector3(-0.5, 0.55, -0.67), FP_REST_ROLL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -1.0);
 const FP_NEGZ = new THREE.Vector3(0, 0, -1), FP_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 function heroHand() { return firstPerson && state === 'play' && fpHand.visible ? fpHand.userData.tip.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
 // ---- realistic web: procedural silk textures, twisting multi-strand lines, anchor splats ----
@@ -3808,7 +3809,7 @@ function updateCamera(dt) {
     camera.updateMatrixWorld(true);
     const act = P.act && P.act.t < P.act.dur ? P.act : null, moving = P.state === 'ground' && Math.hypot(P.vel.x, P.vel.z) > 1.5;
     const bob = moving ? Math.sin(P.anim * 13) * 0.018 : Math.sin(t * 2) * 0.004;
-    let hx = 0.21, hy = -0.2 + bob, hz = -0.43;
+    let hx = 0.19, hy = -0.2 + bob, hz = -0.38;
     if (P.rope) { hx = 0.24; hy = -0.2 + Math.sin(t * 9) * 0.008; }
     else if (act && /punch|spin|web/.test(act.kind)) {
       const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
@@ -3820,8 +3821,11 @@ function updateCamera(dt) {
     fpHand.userData.hand.rotation.z = P.rope ? -0.35 : act && act.kind === 'web' ? -0.5 : -0.15;   // turn the wrist a little, more for the web-shooting sign
     {   // aim the hand in the camera's own space (not with world "up"), so it never spins or flips when you look straight up or down or swing from an anchor overhead
       const tgtL = P.rope ? camera.worldToLocal(P.rope.clone()) : new THREE.Vector3(hx * 0.3, hy * 0.3 + (act && act.kind === 'web' ? 0.4 : 0.15), -6);
-      const dirL = tgtL.sub(fpHand.position); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
-      fpHand.quaternion.setFromUnitVectors(FP_NEGZ, dirL).multiply(FP_FLIP);
+      const aiming = P.rope || (act && /punch|web|spin/.test(act.kind));
+      // at rest the hand is held up in view like in a real first-person game: fingers pointing up and in toward the middle, the back of the glove turned to you
+      const dirL = aiming ? tgtL.sub(fpHand.position) : FP_REST_DIR.clone(); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
+      const want = new THREE.Quaternion().setFromUnitVectors(FP_NEGZ, dirL).multiply(FP_FLIP); if (!aiming) want.multiply(FP_REST_ROLL);
+      fpHand.quaternion.slerp(want, Math.min(1, dt * 14));
     }
     fpHand.updateMatrixWorld(true);
     if (P.rope) {
