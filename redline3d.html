@@ -962,10 +962,10 @@ const RIG = { ready: false };
 const fpHand = new THREE.Group();
 // first-person arm, Minecraft style: one blocky pixel arm in the hero's suit and glove colours, coming up from the lower right
 {
-  const geo = new THREE.BoxGeometry(4 * PX * 2.4, 12 * PX * 2.4, 4 * PX * 2.4).rotateX(-Math.PI / 2).translate(0, 0, -0.2);   // the glove end points forward
+  const geo = new THREE.BoxGeometry(0.085, 0.3, 0.085).rotateX(-Math.PI / 2).translate(0, 0, -0.13);   // the glove end points forward
   const arm = new THREE.Mesh(geo, [armOther, armOther, armTop, fist, armFront, armOther].map(pixMat)); fpHand.add(arm);
   fpHand.userData = { tip: new THREE.Object3D() };
-  fpHand.userData.tip.position.set(0, 0, 0.12); fpHand.add(fpHand.userData.tip);
+  fpHand.userData.tip.position.set(0, 0, 0.03); fpHand.add(fpHand.userData.tip);
   fpHand.visible = false; camera.add(fpHand); scene.add(camera);
 }
 // the finger poses: [index, middle, ring, pinky] curl and the thumb curl
@@ -976,7 +976,7 @@ function poseFpHand(name, dt) {
   u.fingers.forEach((joints, i) => { u.curl[i] += (want[i] - u.curl[i]) * k; const c = u.curl[i]; joints[0].rotation.x = c * 0.85; joints[1].rotation.x = c * 1.05; joints[2].rotation.x = c * 0.75; });
   u.th += (th - u.th) * k; u.thumb[0].rotation.x = u.th * 0.5; u.thumb[1].rotation.x = u.th * 0.9;
 }
-const FP_REST_DIR = new THREE.Vector3(-0.32, 0.42, -0.85), FP_REST_ROLL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.25);
+const FP_REST_DIR = new THREE.Vector3(-0.22, 0.2, -0.95), FP_REST_ROLL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.25);
 const FP_NEGZ = new THREE.Vector3(0, 0, -1), FP_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 function heroHand() { return firstPerson && state === 'play' && fpHand.visible ? fpHand.userData.tip.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
 // ---- realistic web: procedural silk textures, twisting multi-strand lines, anchor splats ----
@@ -3790,7 +3790,7 @@ function updateCamera(dt) {
     camera.updateMatrixWorld(true);
     const act = P.act && P.act.t < P.act.dur ? P.act : null, moving = P.state === 'ground' && Math.hypot(P.vel.x, P.vel.z) > 1.5;
     const bob = moving ? Math.sin(P.anim * 13) * 0.018 : Math.sin(t * 2) * 0.004;
-    let hx = 0.27, hy = -0.28 + bob, hz = -0.42;
+    let hx = 0.22, hy = -0.21 + bob, hz = -0.4;
     if (P.rope) { hx = 0.24; hy = -0.2 + Math.sin(t * 9) * 0.008; }
     else if (act && /punch|spin|web/.test(act.kind)) {
       const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
