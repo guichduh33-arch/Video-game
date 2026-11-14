@@ -965,11 +965,11 @@ const fpHand = new THREE.Group();
 {
   const glove = matRed, sleeveM = matSuit, dark = new THREE.MeshStandardMaterial({ color: 0x15161a, roughness: 0.4, metalness: 0.6 });
   const segGeo = (r, len) => new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 6, 12).rotateX(Math.PI / 2).translate(0, 0, len / 2);
-  const hand = new THREE.Group(); hand.scale.setScalar(1.35); hand.rotation.x = -0.35; hand.position.set(-0.02, 0.03, 0.02); fpHand.add(hand);   // a bit bigger, tipped up so you see the back of the glove and the fingers
-  const palm = new THREE.Mesh(new RoundedBoxGeometry(0.088, 0.034, 0.094, 4, 0.014), glove); palm.position.set(0, 0, 0.047); hand.add(palm);
-  for (const x of [-0.03, -0.01, 0.01, 0.03]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 10), glove); k.position.set(x, 0.009, 0.092); hand.add(k); }   // knuckles
+  const hand = new THREE.Group(); hand.scale.setScalar(1.55); hand.rotation.set(-0.25, 0.45, 0); hand.position.set(-0.03, 0.02, 0.02); fpHand.add(hand);   // bigger, turned in toward the middle so you see the back and side of the glove and the thumb   // a bit bigger, tipped up so you see the back of the glove and the fingers
+  const palm = new THREE.Mesh(new RoundedBoxGeometry(0.09, 0.04, 0.094, 4, 0.016), glove); palm.position.set(0, 0, 0.047); hand.add(palm);
+  for (const x of [-0.03, -0.01, 0.01, 0.03]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.0135, 12, 10), glove); k.position.set(x, 0.009, 0.092); hand.add(k); }   // knuckles
   const fingers = [];
-  [[-0.03, [0.042, 0.027, 0.021], 0.0098], [-0.01, [0.046, 0.03, 0.022], 0.0102], [0.01, [0.043, 0.028, 0.021], 0.0098], [0.03, [0.034, 0.022, 0.018], 0.0086]].forEach(([x, L, r]) => {
+  [[-0.03, [0.044, 0.029, 0.023], 0.0118], [-0.01, [0.048, 0.032, 0.024], 0.0122], [0.01, [0.045, 0.03, 0.023], 0.0118], [0.03, [0.036, 0.024, 0.02], 0.0104]].forEach(([x, L, r]) => {
     const joints = []; let parent = hand, z = 0.092;
     for (let k = 0; k < 3; k++) {
       const j = new THREE.Group(); j.position.set(k ? 0 : x, k ? 0 : -0.003, z); parent.add(j);
@@ -978,11 +978,11 @@ const fpHand = new THREE.Group();
     fingers.push(joints);
   });
   const thumb = []; { let parent = hand; const L = [0.036, 0.027]; const base = new THREE.Group(); base.position.set(-0.047, -0.008, 0.028); base.rotation.set(0.15, -0.75, 0.55); hand.add(base); parent = base;
-    let z = 0; for (let k = 0; k < 2; k++) { const j = new THREE.Group(); j.position.z = z; parent.add(j); j.add(new THREE.Mesh(segGeo(0.0115 * (1 - k * 0.08), L[k]), glove)); thumb.push(j); parent = j; z = L[k]; } }
+    let z = 0; for (let k = 0; k < 2; k++) { const j = new THREE.Group(); j.position.z = z; parent.add(j); j.add(new THREE.Mesh(segGeo(0.014 * (1 - k * 0.08), L[k]), glove)); thumb.push(j); parent = j; z = L[k]; } }
   const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.047, 0.038, 20).rotateX(Math.PI / 2), glove); cuff.position.z = -0.012; hand.add(cuff);
   const shooter = new THREE.Mesh(new RoundedBoxGeometry(0.03, 0.014, 0.034, 2, 0.005), dark); shooter.position.set(0, -0.046, -0.008); hand.add(shooter);   // web-shooter on the inner wrist
   const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.005, 0.01, 8).rotateX(Math.PI / 2), dark); nozzle.position.set(0, -0.046, 0.013); hand.add(nozzle);
-  const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.2, 6, 16).rotateX(Math.PI / 2), sleeveM); sleeve.position.z = -0.15; hand.add(sleeve);
+  const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.043, 0.047, 0.12, 18).rotateX(Math.PI / 2), sleeveM); sleeve.position.z = -0.085; hand.add(sleeve);   // only a short bit of sleeve shows
   hand.traverse(o => { if (o.isMesh) { o.castShadow = false; } });
   fpHand.userData = { tip: new THREE.Object3D(), hand, fingers, thumb, curl: [0.4, 0.45, 0.5, 0.55], th: 0.3 };
   fpHand.userData.tip.position.set(0, -0.02, 0.09); fpHand.add(fpHand.userData.tip);
@@ -3808,7 +3808,7 @@ function updateCamera(dt) {
     camera.updateMatrixWorld(true);
     const act = P.act && P.act.t < P.act.dur ? P.act : null, moving = P.state === 'ground' && Math.hypot(P.vel.x, P.vel.z) > 1.5;
     const bob = moving ? Math.sin(P.anim * 13) * 0.018 : Math.sin(t * 2) * 0.004;
-    let hx = 0.26, hy = -0.24 + bob, hz = -0.5;
+    let hx = 0.21, hy = -0.2 + bob, hz = -0.43;
     if (P.rope) { hx = 0.24; hy = -0.2 + Math.sin(t * 9) * 0.008; }
     else if (act && /punch|spin|web/.test(act.kind)) {
       const k = act.t / act.dur, out = Math.sin(Math.min(1, k * 1.6) * Math.PI);
