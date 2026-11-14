@@ -53,6 +53,8 @@
   #snakeC { display: block; width: min(92vw, 520px); height: auto; background: #06081a; border-radius: 10px; margin: 0 auto; touch-action: none; }
   body:has(#store.open) #hud, body:has(#store.open) .sideBtn, body:has(#store.open) #touch, body:has(#store.open) #xhair { opacity: 0 !important; pointer-events: none; }
   body.appOpen #hud, body.appOpen .sideBtn, body.appOpen #touch, body.appOpen #xhair, body.appOpen #lockon { opacity: 0 !important; pointer-events: none !important; }
+  #under { position: fixed; inset: 0; pointer-events: none; display: none; background: radial-gradient(ellipse at 50% 30%, rgba(90,170,255,.25), rgba(6,40,90,.45) 70%); mix-blend-mode: multiply; }
+  body.under #under { display: block; }
   #store, #mini, #story, #storyBar { z-index: 60; } #mini { z-index: 62; } #storyBar { z-index: 61; } #errBar { z-index: 99; }
   #store input, #mini input, .cform input { font-size: 16px; } /* 16px stops iPad Safari from zooming the page when a field is tapped */
   /* THWIP!: the little game on Miles' PC and console */
@@ -235,7 +237,7 @@
 </style>
 </head>
 <body>
-<div id="xhair"><i></i><i></i><i></i><i></i><i></i></div><div id="lockon"></div>
+<div id="under"></div><div id="xhair"><i></i><i></i><i></i><i></i><i></i></div><div id="lockon"></div>
 <div id="store"><div id="storeHead"><h2>App Store</h2><div class="seg"><button data-f="all" class="on">All</button><button data-f="Games">Games</button><button data-f="Apps">Apps</button><button data-f="mine">Downloaded</button></div><button id="storeX">✕</button></div><div id="storeBody"><div class="feat"><small>TODAY</small><h3>Everything Miles has on his tablet</h3><p>Games, Claude, a camera, the radio and more. Tap GET to download an app, then OPEN to use it. Downloads are kept.</p></div><div class="apps" id="appGrid"></div><div id="appView"></div></div></div>
 <div id="mini"><div id="miniBox"><h3>THWIP! <span id="miniScore">0</span></h3><canvas id="miniC" width="560" height="340"></canvas><p><span id="miniMsg">Catch the spiders with the web ball · drag, or A / D</span><button id="miniClose">QUIT</button></p></div></div>
 <div id="story"><div id="storyPage"></div></div><div id="storyBar"><button id="storySkip" class="alt">SKIP</button><button id="storyNext">NEXT ▶</button></div>
@@ -1892,7 +1894,7 @@ function resolveHorizontal(p) {
     else { p.pos.z = b.z + Math.sign(dz || 1) * hd; p.onWall = { b, nx: 0, nz: Math.sign(dz || 1) }; if (p.vel.z * Math.sign(dz || 1) < 0) p.vel.z = 0; }
   }
   const lim = WORLD / 2 + 60;
-  p.pos.x = clamp(p.pos.x, -lim, lim); p.pos.z = clamp(p.pos.z, -lim, lim);
+  p.pos.x = clamp(p.pos.x, -lim, (p === P && SEA.built) ? SEA.x0 + 400 : lim); p.pos.z = clamp(p.pos.z, -lim, lim); // Miles may swim out into the river
 }
 function findAnchor() {
   // ideal anchor: ahead of the camera, well above the hero
@@ -1949,7 +1951,22 @@ function updatePlayer(dt) {
   if (P.swinging && inJump()) { stopSwing(true); }
 
   const ground = P.onGround;
-  if (P.swinging) {
+  const swimNow = SEA.built && P.pos.x > SEA.x0 + 2 && P.pos.y < 0.6 && !P.swinging;
+  if (!swimNow) P.swimming = false;
+  if (swimNow) { // in the East River: float at the surface, look down and push forward to dive, JUMP to come up or leap out
+    if (!P.swimming) { P.swimming = true; P.diving = false; P.flipT = 0; P.rollT = 0; P.zip = null; P.pound = false; if (P.vel.y < -6) { burst(P.pos.clone().setY(0.2), 26, 0x9fd6ff, 9, 0.8, 14); shake(0.3); AudioSys.land?.(); floatText(P.pos.clone().add(V3(0, 2.5, 0)), 'SPLASH', '#9fd6ff', 22); } P.vel.multiplyScalar(0.3); }
+    const sp = 9 + 2 * LV('swing'), upHeld = isDown('Space') || touch.held.Jump;
+    const fwd = clamp(mv.x * -Math.sin(look.yaw) + mv.z * -Math.cos(look.yaw), -1, 1);
+    const vy = upHeld ? 6 : mv.mag > 0.1 ? -Math.sin(look.pitch) * sp * fwd : (P.pos.y < -0.4 ? 1.6 : 0);
+    P.vel.x += (mv.x * sp - P.vel.x) * Math.min(1, dt * 3); P.vel.z += (mv.z * sp - P.vel.z) * Math.min(1, dt * 3); P.vel.y += (vy - P.vel.y) * Math.min(1, dt * 3);
+    P.pos.addScaledVector(P.vel, dt);
+    if (P.pos.y > 0.1 && P.vel.y > 0 && !upHeld) { P.pos.y = 0.1; P.vel.y = 0; }
+    if (upHeld && P.pos.y > 0.05) P.vel.y = 9; // leap out of the water
+    if (P.pos.y < -38) { P.pos.y = -38; P.vel.y = Math.max(0, P.vel.y); }
+    if (mv.mag > 0.1) P.facing = Math.atan2(mv.x, mv.z);
+    P.onGround = false; P.jumpsLeft = 1; P.coyote = 0;
+    if (P.pos.y < -0.5 && Math.random() < dt * 7) burst(P.pos.clone().add(V3(rand(-0.3, 0.3), 1.9, rand(-0.3, 0.3))), 1, 0xdff4ff, 1.2, 1.4, -5, 0.35); // bubbles
+  } else if (P.swinging) {
     P.swingT += dt;
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
@@ -2021,7 +2038,7 @@ function updatePlayer(dt) {
   if (P.leapT > 0) P.leapT -= dt; if (P.rollT > 0) P.rollT -= dt; if (P.flipT > 0) P.flipT -= dt; if (P.onGround || P.swinging) P.flipT = 0;
   resolveHorizontal(P);
   // vertical: land on roofs / street
-  const gh = groundHeight(P.pos.x, P.pos.z, P.radius * 0.6);
+  const gh = (SEA.built && P.pos.x > SEA.x0 + 2) ? -40 : groundHeight(P.pos.x, P.pos.z, P.radius * 0.6); // over the river the bed is forty metres down
   if (P.pos.y <= gh + 0.02 && P.vel.y <= 0) {
     if (!ground && P.vel.y < -18) { shake(0.4); AudioSys.land(); burst(P.pos.clone(), 10, 0x888888, 5, 0.4); }
     if (!ground) P.landT = 0.25;
@@ -2137,6 +2154,7 @@ function punch() {
     if (dot < 0.3 && flat > 1.2) continue;
     if (flat < bestD) { bestD = flat; target = e; }
   }
+  if (HELPER.alive && HELPER.mesh && P.pos.distanceTo(HELPER.pos.clone().add(V3(0, 8, 0))) < 9) helperHit(1 + 0.5 * LV('fists'), 'POW');
   if (SEA.alive && SEA.head) { const hw = SEA.head.getWorldPosition(V3()); if (P.pos.clone().add(V3(0, 1.5, 0)).distanceTo(hw) < 10 * SEA.S + 3) seaHit((1 + 0.5 * LV('fists')) * (SUIT === 'symbiote' ? 2 : 1), 'POW', P.pos.clone().add(V3(0, 2.5, 0))); }
   if (boss.alive && boss.kind === 'gallery' && GAL_FX.decoys.length) { // Mysterio's doubles pop when punched
     const bflat = Math.hypot(boss.mesh.position.x - P.pos.x, boss.mesh.position.z - P.pos.z);
@@ -2183,6 +2201,7 @@ function venomStrike() {
   }
   if (boss.alive && boss.mesh.position.distanceTo(P.pos) < 9 + 2 * LV('strike')) { hitBoss(3 + LV('strike'), 'VENOM STRIKE'); hits++; }
   if (SEA.alive && SEA.head && SEA.head.getWorldPosition(V3()).distanceTo(P.pos) < 10 * SEA.S + 8 + 2 * LV('strike')) { if (seaHit(3 + LV('strike'), 'VENOM STRIKE')) hits++; }
+  if (HELPER.alive && HELPER.mesh && P.pos.distanceTo(HELPER.pos.clone().add(V3(0, 8, 0))) < 12 + 2 * LV('strike')) { if (helperHit(4 + LV('strike'), 'VENOM STRIKE')) hits++; }
   if (P.camo) { P.camo = false; P.camoCd = CAMO_CD(); }
   if (hits === 0) floatText(c.clone().add(V3(0, 2, 0)), 'ZAP', '#ffd23f', 18);
   venomArc.show(c);
@@ -2459,6 +2478,7 @@ function updateWebShots(dt) {
     else if (boss.alive && boss.kind === 'spot' && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { jamSpot(); hit = boss; }
     else if (boss.alive && boss.kind === 'gallery' && boss.webCd <= 0 && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.8) { galWebbed(); hit = boss; }
     if (!hit && SEA.alive && seaWebHit(w.pos, pad)) hit = true;
+    if (!hit && HELPER.alive && HELPER.mesh && w.pos.distanceTo(HELPER.pos.clone().add(V3(0, 12, 0))) < 4.5 + pad) { helperHit(1 + LV('impact'), 'WEBBED'); burst(w.pos.clone(), 8, 0xffffff, 5, 0.4); hit = true; }
     if (!hit && SK.on && SK.mesh && !SK.grab && w.pos.distanceTo(SK.pos.clone().add(V3(0, 1.5, 0))) < 1.6 + pad) { SK.grab = grabStart('gwen', SK.pos.clone()); floatText(SK.pos.clone().add(V3(0, 3.6, 0)), 'HEY!', '#ff7ab8', 18); hit = true; }
     if (!hit && grabTry(w.pos, pad)) hit = true;
     const wall = groundHeight(w.pos.x, w.pos.z) > w.pos.y;
@@ -2512,7 +2532,8 @@ const SEA = { x0: 334, built: false, water: null, foam: null, alive: false, kind
 const SEA_DEFS = {
   maja: { name: 'EL GRAN MAJA', hp: 28, color: 0x3a48ee, dark: 0x2230c0, lip: 0xe0101e, eyes: 6, size: 1.0, neck: 34, bite: 24, glow: 0, line: 'Something enormous and blue is rising out of the East River. Six eyes. Too many teeth.' },
   bloop: { name: 'THE BLOOP', hp: 40, color: 0x2a3550, dark: 0x171f34, lip: 0x6e1526, eyes: 2, size: 1.35, neck: 30, bite: 28, glow: 0xaaf0ff, line: 'The water is shaking. The Bloop has come up from the deepest part of the ocean, and it is hungry.' },
-  grandma: { name: 'GRANDMA MAJA', hp: 56, color: 0x7384e0, dark: 0x4c5cc0, lip: 0xc0102c, eyes: 8, size: 1.8, neck: 44, bite: 32, glow: 0xffe08a, line: "El Gran Maja's grandmother. Older, paler, and much, much bigger." },
+  grandma: { name: 'GRANDMA MAJA', hp: 56, color: 0x7384e0, dark: 0x4c5cc0, lip: 0xc0102c, eyes: 8, size: 1.8, neck: 44, bite: 32, glow: 0xffe08a, tail: true, helper: true, line: "El Gran Maja's grandmother. Older, paler, and much, much bigger. Her tail goes on forever, and something is swimming under her." },
+  eater: { name: 'SEA EATER', hp: 80, color: 0x4a1016, dark: 0x240709, lip: 0xa00e22, eyes: 2, size: 2.2, neck: 40, bite: 38, glow: 0xff7a1a, tail: true, eater: true, dome: [1.7, 0.75, 2.1], line: 'The strongest thing in any ocean. Even El Gran Maja hides from the SEA EATER.' },
 };
 function buildSea() {
   if (SEA.built) return; SEA.built = true;
@@ -2523,6 +2544,11 @@ function buildSea() {
   const wall = new THREE.Mesh(new THREE.BoxGeometry(2, 1.4, 1500), concreteMat); wall.position.set(SEA.x0 - 1, 0.7, 0); scene.add(wall);
   for (let i = -700; i <= 700; i += 90) { const post = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 5, 8), new THREE.MeshStandardMaterial({ color: 0x5a3b26, roughness: 0.9 })); post.position.set(SEA.x0 + 6 + (i % 180 ? 0 : 4), 1.5, i); scene.add(post); }
   const sign = textSprite('EAST RIVER', '#9fd6ff', 7); sign.position.set(SEA.x0 + 30, 14, 0); scene.add(sign);
+  // the river bed, forty metres down: dark sand, rocks, weed
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ color: 0x2f4a3f, roughness: 1, fog: true })); bed.rotation.x = -Math.PI / 2; bed.position.set(SEA.x0 + 230, -40, 0); scene.add(bed);
+  const rockM = new THREE.MeshStandardMaterial({ color: 0x3a4652, roughness: 0.95 }), weedM = new THREE.MeshStandardMaterial({ color: 0x1f7a4a, roughness: 0.8, side: THREE.DoubleSide });
+  for (let i = 0; i < 70; i++) { const r = 2 + Math.random() * 7, rk = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), rockM); rk.position.set(SEA.x0 + 20 + Math.random() * 380, -40 + r * 0.4, (Math.random() - 0.5) * 1000); rk.scale.set(1, 0.6, 1); scene.add(rk); }
+  for (let i = 0; i < 160; i++) { const h = 4 + Math.random() * 9, wd = new THREE.Mesh(new THREE.PlaneGeometry(1.2, h), weedM); wd.position.set(SEA.x0 + 15 + Math.random() * 300, -40 + h / 2, (Math.random() - 0.5) * 900); wd.rotation.y = Math.random() * TAU; scene.add(wd); }
 }
 function makeSeaMonster(def) {
   const S = def.size, g = new THREE.Group(), R = 9 * S;
@@ -2532,12 +2558,13 @@ function makeSeaMonster(def) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(4.2 * S, 7 * S, neckLen, 18), skin); neck.position.y = neckLen / 2; neck.castShadow = true; g.add(neck); SEA.neckLen = neckLen;
   for (let i = 1; i <= 5; i++) { const ring = new THREE.Mesh(new THREE.TorusGeometry((4.2 + (7 - 4.2) * (1 - i / 6)) * S * 1.02, 0.35 * S, 6, 24), dark); ring.rotation.x = Math.PI / 2; ring.position.y = neckLen * i / 6; ring.userData.ring = i / 6; neck.add(ring); ring.position.y = -neckLen / 2 + neckLen * i / 6; }
   const head = new THREE.Group(); head.position.y = neckLen; g.add(head);
-  const dome = sph(R, skin, 0, 5 * S, -1 * S, 2.3, 0.8, 1.15, 28); head.add(dome); // the wide, flat, manta-like skull
+  const ds = def.dome || [2.3, 0.8, 1.15]; const dome = sph(R, skin, 0, 5 * S, -1 * S, ds[0], ds[1], ds[2], 28); head.add(dome); // the wide, flat, manta-like skull
+  if (def.eater) { const fin = sph(R, dark, 0, 10 * S, -3 * S, 0.12, 0.9, 0.7, 12); head.add(fin); for (let i = 0; i < 6; i++) { const sp = new THREE.Mesh(new THREE.ConeGeometry(1.2 * S, 4 * S, 6), dark); sp.position.set(0, -neckLen / 2 + neckLen * (i + 1) / 7, -6 * S + i * 0.2 * S); sp.rotation.x = -0.5; neck.add(sp); } } // the Sea Eater's fin and the spines down its neck
   for (const sx of [-1, 1]) { const lobe = sph(R, skin, sx * 2.1 * R, 1.5 * S, -2 * S, 0.7, 0.42, 0.7, 20); lobe.rotation.z = sx * 0.35; head.add(lobe); } // swept side fins
   head.add(sph(R, black, 0, 1.5 * S, 3 * S, 1.95, 0.55, 1.0, 24)); // the mouth: a huge black grin
   head.add(sph(R, lipM, 0, 6.3 * S, 4 * S, 1.9, 0.16, 0.95, 20)); // upper lip
   const teethRow = (parent, y, up) => { for (let i = 0; i < 19; i++) { const u = (i / 18) * 2 - 1; const x = u * 1.78 * R, z = 11 * S - u * u * 6.5 * S; const t = new THREE.Mesh(new THREE.ConeGeometry(0.55 * S, 2.3 * S, 6), tooth); t.position.set(x, y, z); t.rotation.x = up ? 0 : Math.PI; t.castShadow = true; parent.add(t); } };
-  teethRow(head, 4.4 * S, false);
+  teethRow(head, 4.4 * S, false); if (def.eater) teethRow(head, 3.2 * S, false); // a second row of teeth
   const jaw = new THREE.Group(); head.add(jaw); jaw.position.set(0, -1 * S, -3 * S);
   const jawInner = new THREE.Group(); jawInner.position.set(0, 1 * S, 3 * S); jaw.add(jawInner);
   jawInner.add(sph(R, lipM, 0, -3.3 * S, 4 * S, 1.9, 0.16, 0.95, 20)); teethRow(jawInner, -2.2 * S, true);
@@ -2547,13 +2574,20 @@ function makeSeaMonster(def) {
   for (let i = 0; i < def.eyes; i++) { const row = i % 2, k = Math.floor(i / 2), n = Math.ceil(def.eyes / 2); const phi = ((k + 0.5) / n - 0.5) * 1.6 + (row ? 0.0 : 0.0), th = row ? 0.78 : 0.52; const ex = a * Math.sin(th) * Math.sin(phi) * (row ? 1.15 : 0.8), ey = 5 * S + b * Math.cos(th) * (row ? 0.9 : 1.0), ez = -1 * S + c * Math.sin(th) * Math.cos(phi) * (row ? 0.9 : 1.05);
     const eye = sph(0.95 * S, eyeW, ex, ey, ez, 1, 1, 1, 14); head.add(eye); const pp = sph(0.42 * S, pupil, 0, 0.15 * S, 0.75 * S, 1, 1, 1, 10); eye.add(pp); const rim = new THREE.Mesh(new THREE.TorusGeometry(1.05 * S, 0.18 * S, 6, 18), dark); rim.position.copy(eye.position); rim.lookAt(eye.position.clone().add(V3(0, 1, 1.4))); head.add(rim); eyes.push(eye); }
   if (def.size > 1.5) for (let i = 0; i < 4; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(R * (1.6 + i * 0.25), 0.25 * S, 6, 30, Math.PI), dark); w.position.set(0, 7 * S + i * 1.2 * S, -1 * S); w.rotation.x = -Math.PI / 2 + 0.5; head.add(w); } // grandma's wrinkles
+  // under the surface: the body, two flippers, and for the big ones a long straight tail out to sea
+  g.add(sph(R * 1.6, skin, 0, -13 * S, -2 * S, 1.3, 0.75, 2.1, 22));
+  for (const sx of [-1, 1]) { const fl = sph(R * 0.9, skin, sx * R * 2.1, -14 * S, 2 * S, 1.1, 0.25, 0.6, 14); fl.rotation.z = sx * 0.4; fl.rotation.y = -sx * 0.5; g.add(fl); }
+  const tail = [];
+  if (def.tail) { for (let i = 0; i < 12; i++) { const k = 1 - i / 13; const seg = sph(R * (0.95 * k + 0.1), skin, 0, -14 * S + i * 0.25 * S, -R * 3.6 - i * R * 1.05, 0.95, 0.75, 1.1, 16); g.add(seg); tail.push(seg); if (i % 3 === 1) { const rg = new THREE.Mesh(new THREE.TorusGeometry(R * (0.95 * k + 0.1) * 0.98, 0.3 * S, 6, 20), dark); rg.position.copy(seg.position); rg.rotation.x = Math.PI / 2; g.add(rg); tail.push(rg); } }
+    for (const sx of [-1, 1]) { const fin = sph(R * 0.8, skin, sx * R * 0.9, -11 * S, -R * 3.6 - 12 * R * 1.05, 0.9, 0.2, 1.3, 12); fin.rotation.y = sx * 0.6; g.add(fin); tail.push(fin); } }
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  return { g, head, neck, jaw, eyes };
+  return { g, head, neck, jaw, eyes, tail };
 }
 function spawnSea(kind) {
   if (SEA.alive || !SEA.built) return; const def = SEA_DEFS[kind]; if (!def) return;
   if (SEA.mesh) scene.remove(SEA.mesh);
-  const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
+  const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.tail = m.tail; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
+  if (def.helper) spawnCthulhu(); else if (HELPER.mesh) helperEnd(false);
   SEA.alive = true; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
   const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 12 + 14 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
   SEA.headHome.set(0, SEA.neckLen, 0);
@@ -2568,7 +2602,7 @@ function seaHit(n, label, at) {
   SEA.hp -= n; SEA.flinch = 0.7; G.score += 40 * Math.round(n); G.combo++; G.comboT = 3; shake(0.25); AudioSys.punch();
   floatText((at || SEA.head.getWorldPosition(V3())).add(V3(0, 2, 0)), label, '#ffd23f', 22);
   for (const e of SEA.eyes) if (e.material.emissive) { e.material.emissive.setHex(0xff2030); setTimeout(() => e.material.emissive.setHex(SEA.def.glow || 0x222222), 150); }
-  if (SEA.hp <= 0) { SEA.state = 'die'; SEA.stateT = 0; G.score += 1500 * SEA.S | 0; upgAdd(3, P.pos); floatText(P.pos.clone().add(V3(0, 4, 0)), SEA.name + ' DEFEATED', '#ffd23f', 32); G.flash = 0.8; shake(1); AudioSys.win?.(); SEA.beaten[SEA.kind] = true; }
+  if (SEA.hp <= 0) { SEA.state = 'die'; SEA.stateT = 0; G.score += 1500 * SEA.S | 0; upgAdd(3, P.pos); floatText(P.pos.clone().add(V3(0, 4, 0)), SEA.name + ' DEFEATED', '#ffd23f', 32); G.flash = 0.8; shake(1); AudioSys.win?.(); SEA.beaten[SEA.kind] = true; if (HELPER.mesh) helperEnd(false); if (SEA.final && SEA.kind === 'eater') setTimeout(() => { if (G.state === 'play') winGame(); }, 5200); }
   return true;
 }
 function seaWebHit(wp, pad = 0) {
@@ -2576,6 +2610,49 @@ function seaWebHit(wp, pad = 0) {
   for (const e of SEA.eyes) { const ep = e.getWorldPosition(V3()); if (wp.distanceTo(ep) < 1.6 * SEA.S + pad + 0.6) { seaHit(1 + LV('impact'), 'RIGHT IN THE EYE', ep); burst(ep, 10, 0xffffff, 6, 0.4); return true; } }
   const hp = SEA.head.getWorldPosition(V3()); if (wp.distanceTo(hp) < 11 * SEA.S + pad) { burst(wp.clone(), 6, 0xffffff, 3, 0.3); floatText(wp.clone(), 'the eyes, Miles!', '#9fd6ff', 14); return true; }
   return false;
+}
+// ---------- Cthulhu: Grandma Maja's helper, waiting under the water. He heals her unless you dive down and deal with him ----------
+const HELPER = { mesh: null, alive: false, hp: 0, maxHp: 14, home: V3(), pos: V3(), state: 'lurk', t: 0, grabCd: 0, healCd: 6, flinch: 0, tent: [] };
+function makeCthulhu() {
+  const g = new THREE.Group(), S = 1.6;
+  const skin = new THREE.MeshStandardMaterial({ color: 0x2f6b3a, roughness: 0.6 }), dark = new THREE.MeshStandardMaterial({ color: 0x1b4024, roughness: 0.7 }), eyeM = new THREE.MeshStandardMaterial({ color: 0xff3a1c, emissive: 0xff2a10, emissiveIntensity: 1.5 });
+  g.add(sph(2.2 * S, skin, 0, 4 * S, 0, 1.1, 1.35, 0.9, 16)); // torso
+  const headG = new THREE.Group(); headG.position.y = 8 * S; g.add(headG); headG.add(sph(2.3 * S, skin, 0, 0, 0, 1.15, 1.05, 1.1, 18));
+  for (const sx of [-1, 1]) headG.add(sph(0.45 * S, eyeM, sx * 1.0 * S, 0.5 * S, 2.1 * S, 1, 1, 1, 10));
+  for (let i = 0; i < 8; i++) { const a = (i / 8 - 0.5) * 2.2; const t = new THREE.Mesh(new THREE.CylinderGeometry(0.12 * S, 0.45 * S, 5 * S, 8), skin); t.position.set(Math.sin(a) * 1.9 * S, -2.8 * S, Math.cos(a) * 1.9 * S); t.rotation.x = 0.25 * Math.cos(a); t.rotation.z = -0.2 * Math.sin(a); headG.add(t); HELPER.tent.push(t); }
+  for (const sx of [-1, 1]) { const arm = sph(0.8 * S, skin, sx * 3.0 * S, 4.2 * S, 0.5 * S, 0.5, 2.2, 0.5, 10); g.add(arm); const claw = sph(0.9 * S, dark, sx * 3.2 * S, 0.6 * S, 1.2 * S, 1, 0.8, 1.2, 10); g.add(claw); }
+  for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.ConeGeometry(4 * S, 9 * S, 4), dark); w.position.set(sx * 4.5 * S, 6 * S, -2.5 * S); w.rotation.z = sx * 1.3; w.rotation.x = 0.5; w.scale.set(1, 1, 0.25); g.add(w); }
+  for (const sx of [-1, 1]) g.add(sph(1.1 * S, skin, sx * 1.2 * S, 0.8 * S, 0, 0.6, 1.6, 0.6, 10)); // legs
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+function spawnCthulhu() {
+  if (HELPER.mesh) scene.remove(HELPER.mesh); HELPER.tent.length = 0;
+  HELPER.mesh = makeCthulhu(); HELPER.alive = true; HELPER.hp = HELPER.maxHp; HELPER.state = 'lurk'; HELPER.t = 0; HELPER.grabCd = 2; HELPER.healCd = 8; HELPER.flinch = 0;
+  HELPER.home.set(SEA.base.x - 26, -24, SEA.base.z + 18); HELPER.pos.copy(HELPER.home); HELPER.mesh.position.copy(HELPER.pos); scene.add(HELPER.mesh);
+  setTimeout(() => { if (HELPER.alive) { G.hint = 'Gwen: "Something green is swimming under Grandma… it is HEALING her. Dive and deal with it, Miles!"'; G.hintT = 6; } }, 9000);
+}
+function helperHit(n, label) {
+  if (!HELPER.alive) return false; HELPER.hp -= n; HELPER.flinch = 0.5; G.score += 60; shake(0.2); AudioSys.punch(); floatText(HELPER.pos.clone().add(V3(0, 14, 0)), label, '#9fff9a', 20);
+  if (HELPER.hp <= 0) helperEnd(true); return true;
+}
+function helperEnd(killed) {
+  if (!HELPER.mesh) return; HELPER.alive = false;
+  if (killed) { G.score += 800; upgAdd(1, P.pos); floatText(HELPER.pos.clone().add(V3(0, 12, 0)), 'CTHULHU IS DOWN', '#ffd23f', 28); burst(HELPER.pos.clone().add(V3(0, 8, 0)), 30, 0x6fdc8c, 9, 0.8, 0, 0.6); G.hint = 'Cthulhu is gone. Nobody heals Grandma now'; G.hintT = 4; }
+  const m = HELPER.mesh; HELPER.mesh = null; let t = 0; const iv = setInterval(() => { t += 0.05; m.position.y -= 0.6; m.rotation.z += 0.03; if (t > 2.5) { clearInterval(iv); scene.remove(m); } }, 50);
+}
+function updateCthulhu(dt) {
+  if (!HELPER.mesh || !HELPER.alive) return;
+  HELPER.t += dt; if (HELPER.grabCd > 0) HELPER.grabCd -= dt; if (HELPER.flinch > 0) HELPER.flinch -= dt; HELPER.healCd -= dt;
+  const m = HELPER.mesh, pw = P.pos.clone().add(V3(0, 1, 0)), under = P.swimming && P.pos.y < -1.5, d = HELPER.pos.distanceTo(pw);
+  if (under && d < 80 && P.alive) { // hunt the diver
+    const dir = pw.clone().sub(HELPER.pos).normalize(); HELPER.pos.addScaledVector(dir, dt * (d > 10 ? 7 : 3)); HELPER.state = 'hunt';
+    if (d < 7 && HELPER.grabCd <= 0) { HELPER.grabCd = 2.6; takeDamage(15, HELPER.pos); const away = pw.clone().sub(HELPER.pos).setY(0).normalize(); P.vel.add(away.multiplyScalar(14)); P.vel.y = 9; floatText(P.pos.clone().add(V3(0, 3, 0)), 'TENTACLES!', '#9fff9a', 24); shake(0.6); }
+  } else { HELPER.state = 'lurk'; HELPER.pos.lerp(HELPER.home.clone().add(V3(Math.sin(HELPER.t * 0.5) * 6, Math.sin(HELPER.t * 0.8) * 2, Math.cos(HELPER.t * 0.4) * 6)), Math.min(1, dt * 0.6)); }
+  HELPER.pos.y = clamp(HELPER.pos.y, -38, -4);
+  m.position.copy(HELPER.pos); const fy = Math.atan2(pw.x - HELPER.pos.x, pw.z - HELPER.pos.z); let dd = fy - m.rotation.y; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); m.rotation.y += dd * Math.min(1, dt * 2);
+  m.rotation.z = Math.sin(HELPER.t * 1.3) * 0.08 + (HELPER.flinch > 0 ? Math.sin(HELPER.t * 40) * 0.1 : 0);
+  HELPER.tent.forEach((t, i) => { t.rotation.x = 0.25 + Math.sin(HELPER.t * 2.2 + i) * 0.35; t.rotation.z = Math.cos(HELPER.t * 1.7 + i * 0.8) * 0.3; });
+  if (HELPER.healCd <= 0 && SEA.alive && SEA.hp < SEA.maxHp && SEA.state !== 'die') { HELPER.healCd = 6; SEA.hp = Math.min(SEA.maxHp, SEA.hp + 2); floatText(SEA.head.getWorldPosition(V3()).add(V3(0, 5, 0)), '+2 · CTHULHU HEALS HER', '#9fff9a', 20); burst(HELPER.pos.clone().add(V3(0, 10, 0)), 8, 0x9fff9a, 6, 0.8, -6); }
 }
 function updateSea(dt) {
   if (SEA.water) { SEA.water.material.map.offset.x += dt * 0.015; SEA.water.material.map.offset.y += dt * 0.01; }
@@ -2601,6 +2678,8 @@ function updateSea(dt) {
   SEA.neck.position.copy(hp).multiplyScalar(0.5); SEA.neck.quaternion.setFromUnitVectors(V3(0, 1, 0), dir); SEA.neck.scale.y = Math.max(0.3, dist / SEA.neckLen);
   head.rotation.x = Math.atan2(Math.hypot(hp.x, hp.z), Math.max(1, hp.y)) * 0.85; head.rotation.y = Math.atan2(hp.x, Math.max(0.1, hp.z)) * 0.15;
   SEA.jaw.rotation.x = lerp(SEA.jaw.rotation.x, jawOpen, Math.min(1, dt * 6));
+  if (SEA.tail) SEA.tail.forEach((seg, i) => { seg.position.x = Math.sin(SEA.t * 1.1 - i * 0.35) * 2.2 * S * (i / SEA.tail.length); });
+  updateCthulhu(dt);
   // eyes track Miles
   const pw = P.pos.clone().add(V3(0, 1.5, 0)); for (const e of SEA.eyes) { const ep = e.getWorldPosition(V3()); const l = e.parent.worldToLocal(pw.clone()); const pp = e.children[0]; if (pp) { const dl = l.sub(e.position).normalize(); pp.position.set(dl.x * 0.7 * S, 0.1 * S + dl.y * 0.3 * S, 0.75 * S); } }
 }
@@ -2618,7 +2697,7 @@ function updateCrimes(dt) {
       if (boss.forced) { G.crimeSpawnT = 3; G.hint = boss.name + ' is down. Back on patrol'; G.hintT = 4; P.hp = Math.min(MAXHP(), P.hp + 40); return; }
       if (G.act === 2) { G.rogueIdx++; if (G.rogueIdx >= G.rogues.length) winGame(); else { G.crimeSpawnT = 4; G.hint = boss.name + ' is down. ' + (G.rogues.length - G.rogueIdx) + ' of the Sinister Ten left'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); } return; }
       G.bossesBeaten++; SEA.next = ['maja', 'bloop', 'grandma'][G.bossesBeaten - 1] || null; // after each land boss, something comes up out of the river
-      if (G.bossesBeaten >= 4) winGame();
+      if (G.bossesBeaten >= 4) { SEA.next = 'eater'; SEA.final = true; G.crimeSpawnT = 4; G.hint = 'The Prowler is down… but the river is boiling. The SEA EATER is coming'; G.hintT = 6; }
       else { G.crimeSpawnT = 5; G.hint = G.bossesBeaten === 1 ? 'The Rhino is down… but something black is moving across the rooftops' : G.bossesBeaten === 2 ? 'Venom is down… but black holes are opening in the rooftops. Something is coming through' : 'The Spot is gone… but a purple shape just vanished off a rooftop. Someone is watching you'; G.hintT = 5; P.hp = Math.min(MAXHP(), P.hp + 40); }
     }
     return;
@@ -4052,7 +4131,7 @@ function gameCommand(t) {
   if (has('sunset', 'evening')) { DAY.t = 0.5; dayApply(true); return 'Done: sunset. The whole sky is orange.'; }
   if (has('dawn', 'sunrise')) { DAY.t = 0.02; dayApply(true); return 'Done: dawn is breaking.'; }
   if (has('daytime', 'make it day', 'morning', 'sunny')) { DAY.t = 0.25; dayApply(true); return 'Done: bright daytime.'; }
-  if (has('maja', 'gran ma', 'granmaja', 'grandma', 'bloop', 'sea monster')) { const k = has('bloop') ? 'bloop' : has('grandma', 'grand ma') ? 'grandma' : 'maja'; if (SEA.alive) return SEA.name + ' is already in the river!'; if (!SEA.built) return 'The river is not ready yet, give me a second.'; storeClose(); spawnSea(k); return 'Done: ' + SEA_DEFS[k].name + ' is rising out of the East River. Follow the red arrow, web the eyes!'; }
+  if (has('maja', 'gran ma', 'granmaja', 'grandma', 'bloop', 'sea monster', 'sea eater', 'cthulhu')) { const k = has('sea eater', 'eater') ? 'eater' : has('bloop') ? 'bloop' : has('grandma', 'grand ma', 'cthulhu') ? 'grandma' : 'maja'; if (SEA.alive) return SEA.name + ' is already in the river!'; if (!SEA.built) return 'The river is not ready yet, give me a second.'; storeClose(); spawnSea(k); return 'Done: ' + SEA_DEFS[k].name + ' is rising out of the East River. Follow the red arrow, web the eyes!'; }
   for (const k of ['rhino', 'venom', 'spot', 'prowler', 'scorpion', 'electro', 'mysterio', 'sandman', 'vulture', 'lizard', 'kraven', 'shocker', 'hobgoblin', 'tombstone']) if (q.includes(k) && has('bring', 'spawn', 'make', 'call', 'fight', 'send', 'summon', 'want', 'where')) { if (boss.alive) return 'A boss is already here! Beat ' + boss.name + ' first.'; try { spawnBoss(k); return 'Done: ' + k.toUpperCase() + ' is on a rooftop near you. Follow the red beacon. Good luck!'; } catch (e) { return 'I could not find ' + k + ' in this city.'; } }
   if (has('thug', 'bad guy', 'crime', 'robber', 'enemies')) { if (!G.crime) spawnCrime(); return 'Done: a crime just started. Follow the red beacon!'; }
   if (has('tech point', 'points', 'coins', 'money')) { const n = Math.min(10, Math.max(1, +num || 3)); upgAdd(n, P.pos); return `Done: +${n} tech points. Spend them in the Skill Shop (U or the wrench).`; }
@@ -4088,7 +4167,7 @@ async function claudeBrain() {
   const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
-const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[bring sea eater]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
 function pocketClaude(t) {
   const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const has = (...w) => w.some(x => q.includes(x));
@@ -4620,6 +4699,11 @@ function animateHero(dt) {
     const c = Math.sin(t * 13 * clamp(sp / RUN, 0.4, 1.3)), a = 0.9 * clamp(sp / RUN, 0.3, 1.1);
     p.legL.rotation.x = c * a; p.legR.rotation.x = -c * a; p.armL.rotation.x = -c * a * 0.9; p.armR.rotation.x = c * a * 0.9;
     p.armL.rotation.z = -0.15; p.armR.rotation.z = 0.15; bodyX = 0.18 * clamp(sp / RUN, 0, 1);
+  } else if (P.swimming) {
+    // swimming: flat in the water, alternating strokes when moving, treading when still
+    const mvg = Math.hypot(P.vel.x, P.vel.z) + Math.abs(P.vel.y) > 1.5, c = Math.sin(t * 5);
+    bodyX = mvg ? 1.35 + Math.sin(look.pitch) * 0.6 : 0.5; p.armL.rotation.x = mvg ? -2.0 + c * 1.1 : -0.6 + c * 0.3; p.armR.rotation.x = mvg ? -2.0 - c * 1.1 : -0.6 - c * 0.3; p.armL.rotation.z = -0.5; p.armR.rotation.z = 0.5;
+    p.legL.rotation.x = c * 0.6; p.legR.rotation.x = -c * 0.6; p.body.position.y = mvg ? 0.9 : 0.2;
   } else if (P.rollT > 0) {
     // landing roll: tuck and tumble forward once
     const k = 1 - P.rollT / 0.5; bodyX = k * Math.PI * 2; p.body.position.y = -0.55 + Math.sin(k * Math.PI) * 0.1;
@@ -4751,10 +4835,12 @@ function updateCamera(dt, first) {
     const c = target.clone().addScaledVector(dir, dist * f);
     if (groundHeight(c.x, c.z, 0.6) < c.y && c.y > 0.8) { want = c; break; }
   }
-  if (want.y < 1) want.y = 1;
+  if (want.y < 1 && !(SEA.built && want.x > SEA.x0)) want.y = 1; // the camera may follow Miles under the water
   if (first) camSmooth.copy(want); else camSmooth.lerp(want, Math.min(1, dt * 12));
   camera.position.copy(camSmooth);
   if (G.shake > 0) { camera.position.add(V3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(G.shake * 0.4)); G.shake = Math.max(0, G.shake - dt * 2); }
+  const under = SEA.built && camera.position.y < 0.1 && camera.position.x > SEA.x0; if (under !== G.under) { G.under = under; document.body.classList.toggle('under', under); }
+  if (under) { scene.fog.color.setHex(0x0b3d78); scene.background.copy(scene.fog.color); scene.fog.near = 2; scene.fog.far = 85; }
   camera.lookAt(target);
   // bank with the swing: roll the camera into sideways motion, like a chase helicopter
   const side = V3(Math.cos(look.yaw), 0, -Math.sin(look.yaw)).dot(P.vel); G.camRoll = lerp(G.camRoll || 0, (P.swinging || !P.onGround) ? clamp(-side * 0.006, -0.2, 0.2) : 0, Math.min(1, dt * 3)); camera.rotateZ(G.camRoll);
