@@ -3825,16 +3825,19 @@ function appTapInner(a) {
     const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur); STORE.dl[a.id] = k; if (k < 1) { storeRender(); requestAnimationFrame(tick); } else { delete STORE.dl[a.id]; STORE.inst[a.id] = Date.now(); appSave(); try { AudioSys.heal?.(); } catch (e) { } storeRender(); } };
     tick(); return;
   }
-  if (a.url) { // one of the other games in this folder: open it in its own tab, straight from the tap so no popup blocker steps in
-    const local = location.protocol.startsWith('http') && !/claude|anthropic|usercontent|artifact/i.test(location.hostname);
-    const url = local ? a.url : 'https://rawcdn.githack.com/guichduh33-arch/Video-game/claude/miles-morales-game/' + a.url;
-    const w = window.open(url, '_blank'); if (!w) { const l = document.createElement('a'); l.href = url; l.target = '_blank'; l.rel = 'noopener'; document.body.appendChild(l); l.click(); l.remove(); }
-    return;
-  }
+  if (a.url) { appShow('ext', a); return; } // one of the other games in this folder: it plays right here, inside the store
   a.open();
 }
-function appShow(view) {
+function extUrl(a) { const local = location.protocol.startsWith('http') && !/claude|anthropic|usercontent|artifact/i.test(location.hostname); return local ? a.url : 'https://rawcdn.githack.com/guichduh33-arch/Video-game/claude/miles-morales-game/' + a.url; }
+function appShow(view, a) {
   STORE.view = view; $('store').classList.add('app'); const v = $('appView'); const back = '<button class="back">‹ App Store</button>';
+  if (view === 'ext') {
+    const url = extUrl(a);
+    v.innerHTML = back + `<div class="card"><h3>${a.icon} ${a.name}</h3><iframe id="extFrame" src="${url}" allow="fullscreen; autoplay; gamepad; accelerometer; gyroscope" allowfullscreen style="display:block;width:100%;height:min(72vh,720px);border:0;border-radius:14px;background:#000"></iframe><div class="row2" style="margin-top:10px"><button id="extFull" class="on">FULL SCREEN</button><button id="extSafari">OPEN IN SAFARI INSTEAD</button></div><p style="font-size:12px;color:#9aa3c7;margin:10px 0 0">The game runs in this window with its own controls. If it stays black, use OPEN IN SAFARI INSTEAD.</p></div>`;
+    tapOn($('extFull'), () => { const f = $('extFrame'); (f.requestFullscreen || f.webkitRequestFullscreen || (() => { })).call(f); });
+    tapOn($('extSafari'), () => { const w = window.open(url, '_blank'); if (!w) location.href = url; });
+    tapOn(v.querySelector('.back'), appBack); return;
+  }
   if (view === 'claude') {
     v.innerHTML = back + `<div class="card"><h3>✴️ Claude <span style="float:right;display:flex;gap:8px"><button id="clVoice" class="back" title="Claude speaks out loud" style="padding:0;font-size:22px">${STORE.cl.voice ? '🔊' : '🔇'}</button></span></h3><div class="clog" id="clLog"></div><form class="cform" id="clForm"><button type="button" id="clMic" title="Talk to Claude" style="background:rgba(255,255,255,.12)">🎤</button><input id="clIn" maxlength="400" placeholder="Ask Claude anything, or tell him to change the game…" autocomplete="off"><button type="submit">SEND</button></form><p id="clNote" style="font-size:12px;color:#9aa3c7;margin:8px 0 0"></p></div>`;
     if (!STORE.cl.turns.length) { const hello = "Hi Miles! I'm Claude. Ask me anything, or tell me to change your game: 'make it night', 'bring the Rhino', 'give me 3 tech points', 'make me giant', 'moon gravity', 'super swing'. Tap the microphone to talk to me."; claudeMsg('ai', hello); claudeSpeak(hello); }
