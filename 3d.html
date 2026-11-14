@@ -593,6 +593,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xd4e6f7);
 scene.fog = new THREE.Fog(0xd4e6f7, 180, 820);
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.3, 2400);
+function lockPointer() { try { const p = renderer.domElement.requestPointerLock && renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => { }); } catch (e) { } } // never an error on screen when the browser wants a gesture first
 const hemi = new THREE.HemisphereLight(0xbfd9ff, 0x7a7466, 0.55); scene.add(hemi);
 const SUN_DIR = V3(0.45, 0.8, 0.3).normalize();
 const sun = new THREE.DirectionalLight(0xfff1d6, 2.6); sun.position.copy(SUN_DIR).multiplyScalar(400); scene.add(sun); scene.add(sun.target);
@@ -1376,7 +1377,7 @@ renderer.domElement.addEventListener('mousedown', e => {
   if (G.state !== 'play') return;
   if (CHAT.open) { closeChat(); return; }
   if (e.button === 0) mouse.down = true; if (e.button === 2) { mouse.rdown = true; pressed.Punch = true; }
-  if (!mouse.locked && !TOUCH) renderer.domElement.requestPointerLock?.();
+  if (!mouse.locked && !TOUCH) lockPointer();
 });
 addEventListener('mouseup', e => { if (e.button === 0) mouse.down = false; if (e.button === 2) mouse.rdown = false; });
 addEventListener('contextmenu', e => e.preventDefault());
@@ -1483,7 +1484,7 @@ function openUpgrades() {
   if (UPG.open) return; if (CHAT.open) closeChat();
   UPG.open = true; UPG.told = true; $('upg').classList.remove('hidden'); upgRender(); document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false;
 }
-function closeUpgrades() { if (!UPG.open) return; UPG.open = false; $('upg').classList.add('hidden'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function closeUpgrades() { if (!UPG.open) return; UPG.open = false; $('upg').classList.add('hidden'); if (G.state === 'play' && !G.paused && !TOUCH) lockPointer(); }
 function toggleUpgrades() { UPG.open ? closeUpgrades() : openUpgrades(); }
 $('upgList').addEventListener('click', e => { const b = e.target.closest('button[data-id]'); if (b && !b.disabled) upgBuy(b.dataset.id); });
 for (const t of document.querySelectorAll('#upgBox nav .tab')) t.addEventListener('click', () => { UPG.tab = t.dataset.tab; upgRender(); });
@@ -2515,8 +2516,8 @@ const SEA_DEFS = {
 };
 function buildSea() {
   if (SEA.built) return; SEA.built = true;
-  const waveTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#1d5fa6'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 3; for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = 10 + Math.random() * 20; g.beginPath(); g.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } }, [14, 40]);
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ map: waveTex, color: 0xffffff, roughness: 0.12, metalness: 0.25, transparent: true, opacity: 0.94, envMapIntensity: 1.4 }));
+  const waveTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#0d3f82'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 3; for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = 10 + Math.random() * 20; g.beginPath(); g.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } }, [14, 40]);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ map: waveTex, color: 0x7fb0ff, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.96, envMapIntensity: 0.5 }));
   water.rotation.x = -Math.PI / 2; water.position.set(SEA.x0 + 230, 0.06, 0); water.receiveShadow = true; scene.add(water); SEA.water = water;
   const sand = new THREE.Mesh(new THREE.BoxGeometry(44, 0.3, 1500), new THREE.MeshStandardMaterial({ color: 0xd9c79a, roughness: 1 })); sand.position.set(SEA.x0 - 22, 0.12, 0); sand.receiveShadow = true; scene.add(sand);
   const wall = new THREE.Mesh(new THREE.BoxGeometry(2, 1.4, 1500), concreteMat); wall.position.set(SEA.x0 - 1, 0.7, 0); scene.add(wall);
@@ -2554,13 +2555,13 @@ function spawnSea(kind) {
   if (SEA.mesh) scene.remove(SEA.mesh);
   const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
   SEA.alive = true; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
-  const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 42 + 22 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
+  const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 12 + 14 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
   SEA.headHome.set(0, SEA.neckLen, 0);
   G.crime = { sea: true, boss: false, name: def.name, b: { x: SEA.x0 - 4, z, h: 0, w: 10, d: 10 }, t: 0 };
   beacon.visible = true; beacon.position.set(SEA.x0 - 4, 0, z);
   $('bossBar').classList.remove('hidden'); $('bossBar').querySelector('b').textContent = def.name;
   G.hint = def.line + ' Web its eyes, punch it when it bites. Red arrow: the river.'; G.hintT = 8; AudioSys.crime(); shake(0.6);
-  storyShow([{ kick: 'BROOKLYN NIGHTS · ' + def.name }, { wide: true, img: snap(() => { const bp = SEA.base.clone(); bp.y = 0; const tgt = bp.clone().add(V3(0, 24 * def.size, 0)); SEA.mesh.position.set(bp.x, 0, bp.z); camAt(V3(SEA.x0 - 40, 26 * def.size, z + 60 * def.size), tgt, 52); SEA.mesh.position.copy(SEA.base); }), cap: def.name + ' rises from the East River.', who: 'GWEN', say: kind === 'maja' ? 'Miles… that is NOT a whale.' : kind === 'bloop' ? 'Okay. Okay. Aim for the eyes and do not get bitten.' : 'She is bigger than the bridge. I have no plan. Do you have a plan?' }]);
+  storyShow([{ kick: 'BROOKLYN NIGHTS · ' + def.name }, { wide: true, img: snap(() => { const bp = SEA.base.clone(); bp.y = 0; const tgt = bp.clone().add(V3(0, 26 * def.size, 0)); SEA.mesh.position.set(bp.x, 0, bp.z); camAt(V3(SEA.x0 - 70 - 20 * def.size, 30 * def.size, z + 70 * def.size), tgt, 50); SEA.mesh.position.copy(SEA.base); }), cap: def.name + ' rises from the East River.', who: 'GWEN', say: kind === 'maja' ? 'Miles… that is NOT a whale.' : kind === 'bloop' ? 'Okay. Okay. Aim for the eyes and do not get bitten.' : 'She is bigger than the bridge. I have no plan. Do you have a plan?' }]);
 }
 function seaHit(n, label, at) {
   if (!SEA.alive || SEA.state === 'rise' || SEA.state === 'die') return false;
@@ -2586,7 +2587,7 @@ function updateSea(dt) {
   const sway = Math.sin(SEA.t * 0.8) * 1.5 * S;
   let jawOpen = 0.12 + Math.sin(SEA.t * 1.3) * 0.08, target = SEA.headHome.clone().add(V3(sway, Math.sin(SEA.t * 0.6) * 1.2 * S, 0));
   if (SEA.state === 'rise') { m.position.y = lerp(SEA.base.y, 0, Math.min(1, SEA.stateT / 3.2)); if (Math.random() < dt * 30) burst(m.position.clone().add(V3(rand(-12, 12) * S, 0.5, rand(-12, 12) * S)), 2, 0x9fd6ff, 9, 0.8, 18); if (SEA.stateT < 0.2) shake(0.8); if (SEA.stateT > 3.2) { m.position.y = 0; SEA.state = 'idle'; SEA.stateT = 0; } }
-  else if (SEA.state === 'idle') { if (SEA.stateT > 2.5 + Math.random()) { const local = m.worldToLocal(P.pos.clone()); const reach = Math.hypot(local.x, local.z, local.y - SEA.neckLen * 0.3); if (reach < def.bite + SEA.neckLen * 0.9 && P.alive) { SEA.state = 'bite'; SEA.stateT = 0; SEA.headTo.copy(local).add(V3(0, 3 * S, 0)); } else if (SEA.spitCd <= 0) { SEA.state = 'spit'; SEA.stateT = 0; SEA.spitCd = 5 + Math.random() * 3; } else if (SEA.roarCd <= 0) { SEA.state = 'roar'; SEA.stateT = 0; SEA.roarCd = 9; } else SEA.stateT = 1.5; } }
+  else if (SEA.state === 'idle') { if (SEA.stateT > 2.5 + Math.random()) { const local = m.worldToLocal(P.pos.clone()); const reach = Math.hypot(local.x, local.z, local.y - SEA.neckLen * 0.3); if (reach < def.bite + SEA.neckLen * 1.15 && P.alive) { SEA.state = 'bite'; SEA.stateT = 0; SEA.headTo.copy(local).add(V3(0, 3 * S, 0)); } else if (SEA.spitCd <= 0) { SEA.state = 'spit'; SEA.stateT = 0; SEA.spitCd = 5 + Math.random() * 3; } else if (SEA.roarCd <= 0) { SEA.state = 'roar'; SEA.stateT = 0; SEA.roarCd = 9; } else SEA.stateT = 1.5; } }
   else if (SEA.state === 'bite') { const k = SEA.stateT; const go = Math.min(1, k / 0.9), back = clamp((k - 1.5) / 1.1, 0, 1); const ease = go * go * (3 - 2 * go); target = SEA.headHome.clone().lerp(SEA.headTo, ease * (1 - back)); jawOpen = k < 0.9 ? 0.9 : k < 1.2 ? 0.05 : 0.3;
     if (k > 0.9 && k < 1.25 && !SEA.bit) { SEA.bit = true; const hw = head.getWorldPosition(V3()); if (P.alive && P.pos.clone().add(V3(0, 1.5, 0)).distanceTo(hw) < 9 * S + 3) { takeDamage(22, hw); P.vel.add(P.pos.clone().sub(hw).setY(0).normalize().multiplyScalar(18)); P.vel.y = 12; floatText(P.pos.clone().add(V3(0, 3, 0)), 'CHOMP!', '#ff2d47', 26); } else floatText(hw.add(V3(0, 4, 0)), 'MISSED', '#9fd6ff', 18); shake(0.6); AudioSys.land?.(); }
     if (k > 2.6) { SEA.state = 'idle'; SEA.stateT = 0; SEA.bit = false; } }
@@ -3491,7 +3492,7 @@ function startAct2() {
   G.crime = null; G.crimeSpawnT = 2.5; P.hp = 100; P.alive = true; P.poisonT = 0; GAL_FX.clear(); clearHealth();
   G.hint = 'ACT II: THE SINISTER TEN. Ten rogues loose in Brooklyn, one night to catch them'; G.hintT = 7;
   AudioSys.ensure(); MUSIC.start(AudioSys.ctx()); AudioSys.crime();
-  $('overlay').classList.add('hidden'); storyAct2(() => { if (!TOUCH) renderer.domElement.requestPointerLock?.(); });
+  $('overlay').classList.add('hidden'); storyAct2(() => { if (!TOUCH) lockPointer(); });
 }
 
 // ---------- AI partner: Spider-Gwen ----------
@@ -3979,7 +3980,7 @@ function storeToast(msg) { let t = $('storeToast'); if (!t) { t = document.creat
 const appSave = () => { try { localStorage.setItem('mm3d_apps', JSON.stringify(STORE.inst)); } catch (e) { } };
 function appOverlayClass() { document.body.classList.toggle('appOpen', !!(STORE.open || MINI.open || STORY.open)); }
 function storeOpen() { if (STORE.open) return; STORE.open = true; appOverlayClass(); $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
-function storeClose() { if (!STORE.open) return; STORE.open = false; appOverlayClass(); STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function storeClose() { if (!STORE.open) return; STORE.open = false; appOverlayClass(); STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) lockPointer(); }
 function appBack() { STORE.view = null; snakeStop(); $('store').classList.remove('app'); storeRender(); }
 function storeRender() {
   const grid = $('appGrid'); grid.innerHTML = '';
@@ -4175,7 +4176,7 @@ function miniOpen(src) {
   $('mini').classList.add('open'); $('miniMsg').textContent = 'Catch the spiders with the web ball · drag, or A / D · 25 seconds'; $('miniClose').textContent = 'QUIT'; document.exitPointerLock?.();
   cancelAnimationFrame(MINI.raf); MINI.raf = requestAnimationFrame(miniFrame);
 }
-function miniClose() { if (!MINI.open) return; MINI.open = false; appOverlayClass(); $('mini').classList.remove('open'); cancelAnimationFrame(MINI.raf); if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function miniClose() { if (!MINI.open) return; MINI.open = false; appOverlayClass(); $('mini').classList.remove('open'); cancelAnimationFrame(MINI.raf); if (G.state === 'play' && !TOUCH) lockPointer(); }
 function miniFrame(now) {
   if (!MINI.open) return; MINI.raf = requestAnimationFrame(miniFrame);
   const cv = $('miniC'), g = cv.getContext('2d'), W = cv.width, H = cv.height, dt = Math.min(0.05, (now - MINI.last) / 1000); MINI.last = now;
@@ -4282,7 +4283,7 @@ function openChat() {
   if (!$('chatLog').children.length) addMsg('gwen', 'Radio\'s open. What\'s up, Miles? Give me orders too: medkit · come here · attack · stay back · web him · distract him · portal · suit noir · music off');
   gwenBrain(); setTimeout(() => $('chatIn').focus(), 50);
 }
-function closeChat() { CHAT.open = false; $('chat').classList.remove('open'); $('chatIn').blur(); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function closeChat() { CHAT.open = false; $('chat').classList.remove('open'); $('chatIn').blur(); if (G.state === 'play' && !G.paused && !TOUCH) lockPointer(); }
 async function sendChat(text) {
   text = text.trim(); if (!text || CHAT.busy) return;
   addMsg('me', text); CHAT.busy = true; $('chatSend').disabled = true;
@@ -4792,7 +4793,7 @@ function updateHUD() {
   setIf('score', $('score').firstChild, 'textContent', String(G.score));
   setIf('small', $('score').querySelector('small'), 'innerHTML', G.act === 2 ? `ROGUES ${G.rogueIdx} / ${G.rogues.length} &nbsp;·&nbsp; ${fmtTime(G.time)}` : `CRIMES ${G.crimes} / 8 &nbsp;·&nbsp; ${fmtTime(G.time)}`);
   const cb = $('combo'); styleIf('cbo', cb, 'opacity', G.combo > 1 ? '1' : '0'); setIf('cbt', cb, 'textContent', G.combo > 1 ? `x${G.combo} COMBO` : ''); styleIf('cbs', cb, 'fontSize', (30 + Math.min(G.combo, 10) * 1.5) + 'px');
-  $('crime').textContent = !G.crime && SOC.built && (G.crimes < 8 || G.act === 2) ? 'PATROLLING… · orange arrow: Spider-Society HQ' : G.crime ? (G.crime.boss ? `⚠ ${G.crime.name}` + (boss.state === 'stunned' ? (boss.kind === 'prowler' ? ' · TANGLED' : boss.kind === 'spot' || boss.kind === 'gallery' ? ' · STUNNED' : ' · DAZED') : '') : `⚠ ${G.crime.name} · ${enemies.filter(e => e.alive).length} LEFT`) : (G.crimes < 8 ? 'PATROLLING…' : '');
+  $('crime').textContent = !G.crime && SOC.built && (G.crimes < 8 || G.act === 2) ? 'PATROLLING… · orange arrow: Spider-Society HQ' : G.crime && G.crime.sea ? `⚠ ${G.crime.name} · web the eyes, punch the bite` : G.crime ? (G.crime.boss ? `⚠ ${G.crime.name}` + (boss.state === 'stunned' ? (boss.kind === 'prowler' ? ' · TANGLED' : boss.kind === 'spot' || boss.kind === 'gallery' ? ' · STUNNED' : ' · DAZED') : '') : `⚠ ${G.crime.name} · ${enemies.filter(e => e.alive).length} LEFT`) : (G.crimes < 8 ? 'PATROLLING…' : '');
   if (boss.mesh) $('bossBar').firstElementChild.nextElementSibling.style.width = clamp(boss.hp / boss.maxHp * 100, 0, 100) + '%';
   else if (SEA.alive) $('bossBar').firstElementChild.nextElementSibling.style.width = clamp(SEA.hp / SEA.maxHp * 100, 0, 100) + '%';
   styleIf('crimeC', $('crime'), 'color', G.crime ? '#ff2d47' : '#9fb0ff');
@@ -4867,7 +4868,7 @@ function storyNext() {
 }
 function storyEnd() {
   if (!STORY.open) return; STORY.open = false; appOverlayClass(); $('story').classList.remove('open'); $('storyPage').innerHTML = '';
-  const d = STORY.done; STORY.done = null; if (d) d(); else if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.();
+  const d = STORY.done; STORY.done = null; if (d) d(); else if (G.state === 'play' && !TOUCH) lockPointer();
 }
 tapOn($('storyNext'), storyNext); tapOn($('storySkip'), storyEnd);
 const BOSS_LINES = { rhino: ['THE RHINO', 'Little spider. Big mistake.'], venom: ['VENOM', 'We are going to eat your heart, Spider-Man.'], spot: ['THE SPOT', 'I am not a villain of the week. I am your nemesis.'], prowler: ['THE PROWLER', 'Nothing personal, kid.'] };
@@ -4920,7 +4921,7 @@ function startGame() {
   try { const want = localStorage.getItem('mm3d_suit'); if (want && want !== SUIT) setSuit(want); } catch (e) { }
   $('overlay').classList.add('hidden');
   DAY.t = 0.47; // every new game starts at sunset and swings into the night
-  storyIntro(() => { if (!TOUCH) renderer.domElement.requestPointerLock?.(); });
+  storyIntro(() => { if (!TOUCH) lockPointer(); });
 }
 function endGame(won) {
   G.state = won ? 'won' : 'lost'; MUSIC.stop(won ? 2.5 : 1.2);
@@ -4940,7 +4941,7 @@ function togglePause() {
   if (UPG.open) { closeUpgrades(); return; }
   G.paused = !G.paused;
   if (G.paused) { document.exitPointerLock?.(); overlay('PAUSED', 'ACROSS THE SPIDER-VERSE', ['<b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump · <b>Hold left mouse</b> / <b>Shift</b> web-swing', '<b>J</b> punch · <b>E</b> web shot · <b>K</b> Venom Strike · <b>L</b> camouflage · <b>F</b> fullscreen · <b>V</b> comic / real look · <b>G</b> Gwen on / off · <b>T</b> talk to Gwen · <b>N</b> / <b>B</b> cycle suits · <b>M</b> soundtrack: Brooklyn Nights / Sunflower / off · <b>U</b> Tech Lab · <b>Esc</b> resume'], 'RESUME'); }
-  else { $('overlay').classList.add('hidden'); if (!TOUCH) renderer.domElement.requestPointerLock?.(); }
+  else { $('overlay').classList.add('hidden'); if (!TOUCH) lockPointer(); }
 }
 function musicHint(st) { $('musicBtn').classList.toggle('off', !st.on); $('musicBtn').title = `Soundtrack: ${st.on ? st.name : 'off'} · M cycles Brooklyn Nights / Sunflower / off`; G.hint = st.on ? `♫ ${st.name}${st.track === 'sunflower' ? ' · an original, sunny track' : ''}` : 'Soundtrack OFF'; G.hintT = 2.5; }
 function toggleMusic() { musicHint(MUSIC.cycle()); }
@@ -4974,7 +4975,7 @@ $('fsBtn2').addEventListener('click', () => toggleFullscreen());
 for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => {
   const on = isFullscreen(); $('fsBtn').textContent = on ? '✕' : (!FS_ALLOWED && FRAMED ? '⧉' : '⛶'); $('fsBtn2').textContent = on ? '✕ EXIT FULLSCREEN' : (!FS_ALLOWED && FRAMED ? '⧉ OPEN FULL TAB' : '⛶ FULLSCREEN');
   // entering or leaving fullscreen drops pointer lock; grab it again while playing
-  if (G.state === 'play' && !G.paused && !TOUCH) setTimeout(() => renderer.domElement.requestPointerLock?.(), 150);
+  if (G.state === 'play' && !G.paused && !TOUCH) setTimeout(() => lockPointer(), 150);
 });
 if (TOUCH) document.body.classList.add('touch');
 // ---------- App install (PWA) ----------
