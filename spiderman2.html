@@ -93,9 +93,15 @@
   body.comic #overlay h2 { text-shadow: 2px 0 0 #00e5ff, -2px 0 0 #ff2d47; }
   body.comic #score, body.comic #combo, body.comic #crime { font-family: Impact, 'Arial Black', system-ui; letter-spacing: 1px; -webkit-text-stroke: 1px #000; text-shadow: 3px 3px 0 #000; }
   body.comic #combo { transform: rotate(-6deg); color: #ffd23f; }
+  #boot { position: fixed; inset: 0; z-index: 50; background: #0b0b14; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font-family: system-ui, sans-serif; }
+  #boot b { font-size: 22px; letter-spacing: 6px; font-weight: 900; color: #ff2d47; }
+  #boot small { font-size: 12px; letter-spacing: 2px; opacity: .7; }
+  #boot .bspin { width: 46px; height: 46px; border-radius: 50%; border: 4px solid rgba(255,255,255,.18); border-top-color: #ff2d47; animation: bspin 0.9s linear infinite; margin-bottom: 6px; }
+  @keyframes bspin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
+<div id="boot"><div class="bspin"></div><b>LOADING</b><small>Building New York…</small></div>
 <div id="hud">
   <div id="hp" class="bar"><i></i><b>HP</b></div>
   <div id="venom" class="bar"><i></i><b id="powerLabel">FOCUS</b></div>
@@ -513,6 +519,8 @@ function hvac(x, y, z, r) {
 function genCity() {
   const r = rng(20251009);
   const off = -RIVER_BX * PITCH, offZ = -((NZ - 1) / 2) * PITCH;
+  sidewalkTex.repeat.set((BLOCK + 6) / 8, (BLOCK + 6) / 8); const sidewalkMat = new THREE.MeshStandardMaterial({ map: sidewalkTex, roughness: 0.95 });
+  grassTex.repeat.set(6, 6); const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
   for (let i = 0; i <= NX; i++) streetX.push(off - BLOCK / 2 - STREET / 2 + i * PITCH);
   for (let i = 0; i <= NZ; i++) streetZ.push(offZ - BLOCK / 2 - STREET / 2 + i * PITCH);
   for (const i of BRIDGE_ROWS) BRIDGE_Z.push(streetZ[i]);
@@ -523,8 +531,7 @@ function genCity() {
     const west = bx < RIVER_BX; // Manhattan side
     const dist = Math.hypot(cx * 0.7, cz) / (WORLD_Z / 2);
     // sidewalk slab around every block
-    const sw = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK + 6, 0.3, BLOCK + 6), new THREE.MeshStandardMaterial({ map: sidewalkTex, roughness: 0.95 })));
-    sw.material.map = sidewalkTex.clone(); sw.material.map.needsUpdate = true; sw.material.map.repeat.set((BLOCK + 6) / 8, (BLOCK + 6) / 8);
+    const sw = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK + 6, 0.3, BLOCK + 6), sidewalkMat));
     sw.position.set(cx, 0.15, cz); scene.add(sw);
     // trees, lamps and parked cars along each side
     for (const side of [0, 1, 2, 3]) {
@@ -541,8 +548,8 @@ function genCity() {
     }
     if (west && bx === 2 && bz === 4) { buildOscorp(cx, cz, r); continue; }
     if (r() < (west ? 0.03 : 0.1) && dist > 0.3) { // a park
-      const grass = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 })));
-      grass.material.map = grassTex.clone(); grass.material.map.needsUpdate = true; grass.material.map.repeat.set(6, 6); grass.position.set(cx, 0.32, cz); scene.add(grass);
+      const grass = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), grassMat));
+      grass.position.set(cx, 0.32, cz); scene.add(grass);
       for (let i = 0; i < 14; i++) trees.push({ x: cx + (r() - 0.5) * (BLOCK - 10), z: cz + (r() - 0.5) * (BLOCK - 10), s: 1 + r() * 0.8, a: r() * TAU });
       continue;
     }
@@ -619,9 +626,11 @@ function genCity() {
   const cloudMat = new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.92 });
   for (let i = 0; i < 34; i++) { const c = new THREE.Sprite(cloudMat); const sc = 140 + r() * 220; c.scale.set(sc, sc * 0.45, 1); c.position.set((r() - 0.5) * 2600, 260 + r() * 160, (r() - 0.5) * 2600); c.userData.drift = 1.5 + r() * 2; scene.add(c); clouds.push(c); }
   // image-based lighting from the sky so glass and the suit pick up reflections
-  const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene();
-  envScene.add(sky.clone()); const envGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshBasicMaterial({ color: 0x6b6a66 })); envGround.rotation.x = -Math.PI / 2; envGround.position.y = -2; envScene.add(envGround);
-  scene.environment = pmrem.fromScene(envScene, 0.04, 1, 5000).texture; pmrem.dispose();
+  if (QUALITY === 'high') { // the reflection map is expensive to build; skip it on phones/tablets to load faster
+    const pmrem = new THREE.PMREMGenerator(renderer); const envScene = new THREE.Scene();
+    envScene.add(sky.clone()); const envGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshBasicMaterial({ color: 0x6b6a66 })); envGround.rotation.x = -Math.PI / 2; envGround.position.y = -2; envScene.add(envGround);
+    scene.environment = pmrem.fromScene(envScene, 0.04, 1, 5000).texture; pmrem.dispose();
+  }
 }
 const carBodyGeo = new THREE.BoxGeometry(4.3, 1.1, 1.9), carCabGeo = new THREE.BoxGeometry(2.3, 0.75, 1.7), wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.3, 10);
 wheelGeo.rotateX(Math.PI / 2);
@@ -2922,6 +2931,7 @@ function frame(now) {
   update(dt, now);
   if (LOOK.comic) post.render(now / 1000, Math.min(1, G.shake + G.flash)); else renderer.render(scene, camera);
   document.body.classList.toggle('comic', LOOK.comic);
+  if (!G.booted) { G.booted = true; const el = document.getElementById('boot'); if (el) el.remove(); }
 }
 requestAnimationFrame(frame);
 window.__game = { tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt, performance.now()); }, keys, pressed, spawnEnemy, usePower, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, hitBoss, boss, SK, story, showAct, CHAT, sendChat, setSuit, suit: () => SUIT, hero: () => HERO, HS, swapHero, peds, pigeons, PADS, TUNNELS, LANDMARK, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
