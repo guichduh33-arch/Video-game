@@ -1647,6 +1647,24 @@ const SUIT_DEFS = {
         // shoulders: smaller, so the arm flows out of the torso instead of a ball sitting on it
         for (const o of body.children) if (o.isMesh && Math.abs(Math.abs(o.position.x) - 0.5) < 0.01 && Math.abs(o.position.y - 2.18) < 0.01) o.scale.set(0.85, 0.75, 0.8);
       }
+      // ---- blocky body, Minecraft style: every round torso and limb piece is hidden and a box takes its place; the head stays round ----
+      const isRound = o => o.isMesh && o.geometry && (o.geometry.type === 'SphereGeometry' || o.geometry.type === 'CylinderGeometry' || o.geometry.type === 'CapsuleGeometry' || o.geometry.type === 'TorusGeometry');
+      const box = (parent, w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+      for (const o of body.children) if (isRound(o) && o !== head) o.visible = false; // chest, pecs, abdomen, hips, back, shoulders, neck
+      box(body, 0.8, 1.2, 0.42, navy, 0, 1.7, 0);      // torso: 8 x 12 x 4, like the real thing
+      box(body, 0.24, 0.3, 0.24, navy, 0, 2.4, 0);     // neck block under the round head
+      for (const sx of [-1, 1]) {
+        const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
+        for (const o of arm.children) if (isRound(o)) o.visible = false; for (const o of arm.joint.children) if (isRound(o)) o.visible = false;
+        for (const o of leg.children) if (isRound(o)) o.visible = false; for (const o of leg.joint.children) if (isRound(o)) o.visible = false;
+        box(arm, 0.22, 0.58, 0.22, navy, 0, -0.28, 0); box(arm.joint, 0.2, 0.5, 0.2, navy, 0, -0.26, 0);
+        box(leg, 0.24, 0.62, 0.24, navy, 0, -0.3, 0); box(leg.joint, 0.22, 0.56, 0.22, navy, 0, -0.28, 0);
+        // hands: a block with red fingertips; feet: a block with a red sole
+        const hand = arm.tip; for (const o of hand.children) o.visible = false;
+        box(hand, 0.2, 0.2, 0.2, navy, 0, -0.06, 0); box(hand, 0.2, 0.06, 0.2, red, 0, -0.19, 0);
+        const foot = leg.tip; for (const o of foot.children) o.visible = false; foot.scale.set(1, 1, 1);
+        box(foot, 0.24, 0.14, 0.34, navy, 0, 0.05, 0.05); box(foot, 0.24, 0.04, 0.34, red, 0, -0.04, 0.05);
+      }
     });
   } },
   symbiote: { name: 'VENOM SYMBIOTE', perk: 'Double punch damage, longer reach, no camouflage', build: () => {
