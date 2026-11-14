@@ -1655,7 +1655,9 @@ const SUIT_DEFS = {
         const lensGeo = lensPatchGeo(lensShape(0.5, sx), R + 0.012, sx * 0.06, -0.02), rimGeo = lensPatchGeo(lensShape(0.6, sx), R + 0.004, sx * 0.045, -0.03);
         const lens = new THREE.Mesh(lensGeo, white), rim = new THREE.Mesh(rimGeo, red); lens.castShadow = rim.castShadow = false; head.add(lens, rim);
       }
-      body.add(logoPlane(atsvSpider('#ff3a1c', false), 0.56, 1.9, 0.215)); body.add(logoPlane(atsvSpider('#ff3a1c', true), 0.8, 1.8, -0.2, true));
+      // chest: the big red block N with a thin white inner stripe, like the toy
+      const nMat = (() => { const t = canvasTex(256, 256, (g, w, h) => { g.clearRect(0, 0, w, h); const N = (col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'butt'; g.lineJoin = 'miter'; g.beginPath(); g.moveTo(58, 226); g.lineTo(58, 30); g.lineTo(198, 226); g.lineTo(198, 30); g.stroke(); }; N('#111', 58); N('#e8102a', 46); N('#ffffff', 10); N('#e8102a', 4); }); t.repeat.set(1, 1); t.magFilter = THREE.LinearFilter; return new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide }); })();
+      body.add(logoPlane(nMat, 0.5, 1.95, 0.215)); body.add(logoPlane(atsvSpider('#ff3a1c', true), 0.8, 1.8, -0.2, true));
       for (const sx of [-1, 1]) {
         // flank stripe: one thin line from the armpit down the side of the torso to the hip
         for (const [x, y, len, rz] of [[0.405, 1.92, 0.34, 0], [0.3, 1.62, 0.3, sx * 0.3], [0.25, 1.33, 0.3, sx * -0.15]]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.022, len, 0.05), red); st.position.set(sx * x, y, 0.0); st.rotation.z = rz; body.add(st); }
