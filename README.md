@@ -8,7 +8,7 @@ Everything in the game (art, sound effects, physics, city generation) is written
 plain JavaScript on an HTML5 canvas. There are no dependencies, no build step and no
 external assets.
 
-Six games live in this repo:
+Eight games live in this repo:
 
 - `index.html` – the original 2D side-scrolling game (no dependencies at all).
 - `3d.html` – **Brooklyn Nights 3D**: a third-person, fully 3D remake built on
@@ -29,10 +29,53 @@ Six games live in this repo:
 - `car.html` – **Apex Drift 3D**: an arcade racing game. Three laps against three AI
   rivals on a procedurally generated circuit, with handbrake drifting, nitro pickups,
   three cars and three track themes. See [Apex Drift 3D](#apex-drift-3d) below.
+- `redline.html` – **Redline: Night Swing**: an original black-and-red 2D swinging game.
+  Hold to fire a line at a crane hook, let go to fly over a rain-soaked red-moon skyline,
+  climb walls, smash drones and rooftop gunmen, and fire a red shockwave (`X` / PULSE).
+  Every touch of the street costs one of your five hearts. One file, no dependencies.
+- `redline3d.html` – **Redline 3D**: the black-and-red hero in a full 3D city (Three.js). The hero is
+  a blocky voxel figure (about 1.6 m) with a round head: pixel-art torso, arms and legs drawn
+  pixel by pixel on tiny canvases (plain black fabric, red bolt on the chest, red gloves with knuckles,
+  red boots), and a smooth glossy mask with two crisp, rounded white lenses in red rims. Sound starts off; `M` turns it on. Real sky, sun shadows, bloom, glass, concrete, brick and sandstone
+  towers, sidewalks, parks, trees, street lamps and traffic. Pick **Day**, **Sunset** or **Rainy Night**
+  (`T`), and **High** or **Low** graphics (`G`). Hold left click or Shift to swing (the web goes where you look: it flies along the view ray, up and down included, and sticks to the exact spot
+  on the first building wall that ray hits (the red diamond marks it), never the sky or a corner (the wall gently pushes your swing back out and you slide along it instead of losing the web). If a swing stalls
+  for half a second you get a **web zip**: he is whipped along the web almost instantly to a spot beside the wall and flung
+  along it, so you never crawl; if you look at nothing in range it falls back to the
+  closest suitable wall, even from far above the roofs), `Q` or right click to punch, `R` to
+  kick (mix them for named combos: DOUBLE PUNCH, DOUBLE KICK, PUNCH KICK, DOUBLE PUNCH KICK), `X` for a homing
+  web shot (it grabs anything it hits: enemies, people and cars get yanked in tumbling, swung round your head like a lasso, slammed onto the ground (slow-motion impact, shockwave, cracks) and stuck there for 10 seconds; hold `X` and release for a big web wall that blocks shots and webs enemies), `C` to dive, `F` for a shockwave, Space in the air for a front flip. `B` (or the VIEW button) switches
+  between third person and first person, where the camera looks out from behind Redline's eyes; one red glove
+  always sits in the lower right: it bobs as you walk, jabs on punches, points ahead for web shots and reaches
+  toward the anchor while swinging (the web line comes out of it); the legs show only during kicks. Jump off a tall building for a
+  **base jump**: a front flip off the edge that opens into a swan dive. Takedowns, combos, tricks, swinging and
+  the boss earn XP, saved in the browser; each level unlocks a skill: 2 kick, 3 double punch, 4 double kick,
+  5 backflip dodge (`V`), 6 power kick (`Z`), 7 spin-kick finisher, 8 corkscrew (Space twice in the air). Enemies: gunmen,
+  drones, armored brutes that charge you on their roof, snipers with a red laser that warns before they
+  fire, and jetpack troopers with homing rockets. After 10 takedowns, then every 15, a boss arrives under a red beacon, in turn:
+  **El Aguamaha** (a blue U-shaped creature who leaps roof to roof, slams
+  where he lands and throws rooftop units; he is stuck for a moment after each landing). Each returns as
+  MK 2, MK 3... with more health. The city is 22 x 22 blocks (about 1.4 km): low-rise outskirts with more
+  parks, midtown, and a supertall downtown core, with people walking the sidewalks, traffic lights that
+  cycle at every intersection, and drifting clouds by day.
 - `cola.html` – **Cola Rocket 3D**: build a cola-and-mints rocket in the backyard. Collect
   bottles and mint rolls, shake the bottle, drop the mints in, run, and watch it fly. Upgrade
   it in the garage until it reaches the edge of space. See [Cola Rocket 3D](#cola-rocket-3d)
   below.
+
+**Worlds.** Redline 3D has two worlds. **World 1** is the city. Beat its boss (the blue El Aguamaha) and you travel to **World 2, the sea port**: a round harbour of towers, oil rigs, masts, ships and piers on open
+water, with a clear bay in the middle. That is the final world, and its boss is **the Sea Eater**. You can also pick a
+world on the title screen. The Sea Eater is a colossal beast shaped like a smooth, rounded dome rising out of the sea: pale blue-gray with small round dots,
+no eyes, horns or ridges. Its mouth is a huge smooth black arch that fills almost the whole front of the dome (about 86% of its width), sitting almost entirely on the body with just its bottom edge dipping into the water
+(no teeth or spikes). The mouth is always open; the core hides
+under the water inside it and rises into view when it can be hit. It has two arms, one at each side, each with a shoulder,
+biceps, elbow, forearm and a mountain-shaped hand (a broad palm mound with thick, fused fingers rising to a peak at the middle, and a thumb).
+The arms are short, so they only slam what is close to the Sea Eater (watch the red circles); it lunges to bite and,
+at half health, sends a wave across the water. It does not shoot anything. In world 2 the sea does not hurt: if you fall in you swim on the surface (WASD to swim, Space or
+the swing button to leap out or swing from the water, and you can climb any pier or wall you swim into), so you can reach the
+Sea Eater without taking damage. Your web shot (X) damages it, from up to about 60 m away. The core is
+only exposed while it is raised: after a bite, after three slams in a row, or when you web it; then dive into the mouth and hit
+the core. Beat it to win.
 
 ## Spider-Man 2: Brooklyn Nights
 
@@ -773,3 +816,125 @@ are saved in the browser.
 This is a non-commercial fan tribute. Spider-Man, Peter Parker, Miles Morales, the
 Lizard, Kraven, Venom and related characters are trademarks of Marvel. This project is not affiliated with or endorsed by Marvel, Sony or Insomniac
 Games, and it must not be sold or distributed commercially.
+
+
+`H` heals: channel for 1.4 s in Redline 3D to get a heart back for 40 charge; a hit breaks the channel and refunds half.
+
+## Biker Society (switch heroes)
+
+Press `Y` or `Tab` (or the SWITCH button) to switch between eight original web heroes of the Biker Society, each a different color with its own perk: **Redline** (black/red, balanced), **Chrome** (orange, punches +50%), **Volt** (yellow, webs twice as fast), **Ghost** (cyan, longer dodge), **Viper** (green), **Royal** (purple/gold), **Blaze** (white/ember) and **Azure** (blue/red). Heroes have a ready stance with breathing and head glances, a sprint with pumping arms, and a swing pose.
+
+In World 2 the three heroes you are not playing fight beside you on foot, on the roof or road you last stood on (no bikes, no flying): they run with you, shoot webs at the Sea Eater team and web its crew. Now and then the Sea Eater knocks one down for a few seconds, then they respond and get back up. Together they can wear the Sea Eater down.
+
+Falling: a hard landing on solid ground (roof, road, pier) costs one heart in every world; small drops cost nothing, and diving onto things is safe. The sea itself never hurts.
+
+## The Sea Eater team
+
+World 2's big gray Sea Eater now has a team: four smaller sea eaters in different colors (**green, red, blue, purple**) that circle the port, then wind up and lunge across the water at you. A bite costs a heart if you are low near the water, so stay up high or dodge. Each has 6 HP: punch, kick, shockwave or web them (a web hit damages instead of wrapping), and your Biker Society allies shoot them too. They stay until you beat them.
+
+The Sea Eater is now 2.4 times bigger than before (mouth, arms, slams, bites and waves all scaled up) and has a proper creature voice: a deep layered bellow when it rises, growls before each attack, roars on its lunge and wave, a chomp, splashes when its fists land, and a long groan when it falls. Sound starts off: press `M` to turn it on.
+
+## Look
+
+Redline is drawn as a 7-year-old boy (about 1.2 m tall): a small body with a big head and short arms and legs, hands hanging down when standing and a real running stride whose speed follows yours. The mask is plain glossy black with white lenses, the chest carries a letter **N**, and the hero wears a backpack with a clear pocket holding a cartoon photo of a kid bitten by a spider.
+
+## The bag: paper and pencil
+
+Press `I` or the BAG button (top bar) to open your bag. Inside are a sheet of paper and a pencil: draw anything (six colors, three sizes, an eraser). **DONE** turns your drawing into the framed picture in your backpack pocket (look at your back) and keeps it for next time. **MY PICTURE** shows it again. **GIVE TO MY PARTNERS** puts it in your partners' backpacks (the Biker Society heroes who fight beside you in World 2), and **SHARE** sends the picture to friends through your device's share sheet, or saves it as a picture file you can send.
+
+## Boss order
+
+1. **El Aguamaha** (World 1, a blue short-U-shaped creature with a bar across the top of the U, six eyes, a U-shaped mouth and a tail)
+2. **The Sea Eater** (World 2)
+3. **The Bloop** (World 2): when the Sea Eater falls, a deep-blue glowing giant with bright spots rises (about 1.3 times bigger, 320 HP) with its own deep "bloop" sound.
+4. **The God Sea Eater** (World 2): when the Bloop falls it awakens as a golden, glowing, haloed giant, about 1.7 times bigger than the Sea Eater, with 420 HP, plus five more of the small colored sea eaters. Beat it to win.
+
+## Clear water and diving
+
+The sea in World 2 is now clear: you can see through it to the sea floor and to what lives below. Swim as before, then **look down to sink** (only works in water; the further down you look, the faster you go) or hold C (or Ctrl, or the DIVE button) to dive under the surface, **hold Space to rise**, and press Space at the surface to leap out. Underwater the world turns blue-green and murky.
+
+**The Bloop lives only under the water**: it rises to just below the surface and stays there, so you can see its dark blue body through the water. Dive down to its glowing core while its mouth is open to hurt it (a hit shoves you up toward the surface).
+
+The Bloop is not like the Sea Eater: it has two realistic eyes (amber iris, slit pupil, heavy brow) on top of its dome, a row of fine sharp ivory teeth along the arch of its mouth, and slim arms with small hands.
+
+The Bloop fights only with its hands and its mouth: it smashes with its small hands (a small red circle shows where, and only that small area hurts) and it bites with its mouth. It has no water wave.
+
+## Polish
+
+- **El Gramaha** is really silly now: huge googly eyes with wobbling pupils, big eyebrows and a red clown nose.
+- **The Sea Eater, the Bloop and the God Sea Eater** animate properly: they breathe, sway, rear back and swell before a bite, lean back and tremble as a hand rises, throw their weight forward on a smash, and wobble when dazed. The Bloop's eyes follow you and blink.
+- **The Bloop is slow**: it drifts slowly, rises slowly, winds up for longer, lunges at a crawl and swings its hands slowly, so you have time to see each attack coming.
+
+The Bloop's mouth is the same smooth black arch as the Sea Eater's, with only a short, natural row of small teeth along the top (no teeth around the sides).
+
+The Sea Eater and the Bloop fight alone: no small sea eaters, no gunmen or drones, no backup calls. Only the God Sea Eater brings a team.
+
+Difficulty was lowered: bosses have about half the health, wind up for longer before each attack, rest longer between attacks and stay stunned longer; your hits and your partners' hits do more damage; you are invulnerable for longer after being hit; fewer regular enemies spawn; and only very hard falls cost a heart.
+
+**El Aguamaha** is not silly any more: a short blue U standing on its curve, a dark bar closing the top of the U, six amber slit-pupil eyes (two on the bar, two on each arm) that follow you, a U-shaped mouth with small sharp teeth, a glowing core in the opening of the U and a segmented tail that sways.
+
+**El Aguamaha, redone from your description:** a short blue U; six red eyes, only on top (three on the tip of each arm); a U-shaped mouth with a slightly spiky edge and really long, sharp teeth; and a blue tail. The bar across the top is gone.
+
+## World 1 bosses (final)
+
+1. **El Aguamaha**: a big, thick, solid 3D blue U (about 1.5 times bigger than before), six red eyes on top, a U-shaped mouth that is red inside with long sharp teeth and a slightly spiky rim, and a blue tail.
+2. **El Grande**: a second, full-bodied boss (not a U): a big round violet-blue body on four stout legs, a head with six red eyes on top, a wide mouth that is red inside with long sharp teeth, a tail and a glowing core on its chest. It leaps and stomps like El Aguamaha.
+
+After El Grande you travel to World 2: the Sea Eater, the Bloop, then the God Sea Eater.
+
+**El Grande** was redone: it is no longer dog-like. It is now a huge round, armored, violet-blue ball of a creature with two thick arms and big fists, no legs and no snout; six red eyes in an arc on top of the dome; a wide U-shaped mouth across the front that is red inside with long sharp teeth; a thick tail; and a glowing core above the mouth.
+
+## El Gran Maja (World 1's boss), copied from your picture
+
+The only boss of World 1 is now **El Gran Maja**, built to match the reference picture you showed: a bright blue head with a huge wide crescent mouth whose brim sweeps up at both ends, black inside with red lips and two rows of long needle-like white teeth; a blue dome on top with **six eyes** (white dots in dark rings, in two triangles); and a long, thick, tapering blue stalk for a body with a darker band and curved marks. Its glowing core sits in the dark of the mouth. It leaps from roof to roof and stomps. After it you travel to World 2.
+
+## Boss order (final)
+
+- **World 1:** El Aguamaha (the blue 3D U with six red eyes on top, a red-inside U mouth with long sharp teeth and a blue tail).
+- **World 2 (the Sea Eater world):** the Sea Eater, then **El Gran Maja** (copied from your picture, leaping across the sea port's towers), then the Bloop, then the God Sea Eater.
+
+**El Gran Maja stands in the water.** In World 2 he wades through the sea (his stalk half under the clear water) toward you instead of leaping across towers, stomping when you are close and stuck for a moment afterwards. His stalk stands straight and his head looks straight to the front, toward you, with no tilting.
+
+El Gran Maja's stalk (his tail) now goes straight down into the water, all the way to the sea floor, so only his head and the top of the stalk stand out of the sea and the rest shows through the clear water.
+
+El Gran Maja is now fully under the water, like the Bloop: his face (the dome and the big mouth) and his short, straight tail both stay below the surface, and you see him through the clear water. Dive down to him (look down, or hold C) and hit his glowing core.
+
+El Gran Maja's tail now lies level and straight under the water, stretching straight back from his head (about 21 m), pointing neither down nor up. His head, with its six eyes and wide mouth, stays below the surface facing you.
+
+El Gran Maja is now way bigger (2.75 times bigger than before; his head is bigger than a tower and his tail is about 57 m long). His stomp reaches much further (about 25 m), he wades faster, and he is easier to hit from a distance: punches and web shots now reach him from further away.
+
+El Gran Maja is bigger still (4 times his original size: a head wider than a whole tower, a tail about 100 m long). His stomp reaches about 45 m, and you can hit him from further away.
+
+El Gran Maja is bigger again: the whole body is 4.8 times its original size and the face is another 60% bigger (a super big mouth), while the tail is only a little longer (about 125 m) and slimmer. Your webs now really hurt him (each web shot damages him) instead of just bouncing off his spiky mouth, and his red stomp circle now shows on the water surface so you can see it coming.
+
+El Gran Maja is now SO big: the body is 9 times its original size (a face wider than 170 m, a tail over 240 m long). His stomp covers about 110 m, he wades at about 12 m/s, and you can hit him from up to about 500 m away. His core is about 30 m under the surface.
+
+## El Gran Maja: full animation
+
+- **Entrance:** he rises from the deep (about 5 seconds), with a bellow, screen shake and splashes all over the bay.
+- **Idle:** he bobs in the swell, breathes, his six eyes blink and the white dots look toward you, his core throbs, his tail swishes a little, bubbles drift up from him and ripples spread across the surface above.
+- **Jaws:** the upper and lower jaw move apart and snap together. The mouth opens a little more as an attack gets closer.
+- **Stomp:** he rears his head back and opens wide with a roar, then slams down: a double shock ring, a splash column, a flash, a camera kick and a short slow-motion beat.
+- **Stunned:** his mouth hangs open and trembles, his head droops and his core throbs fast: that is your chance to hit it.
+
+## Story, smooth HIGH and the resting animation
+
+- **Story scene:** the first time you press SWING (and any time from the STORY button on the title screen) a comic-style story plays. Yellow caption boxes pop in one by one as you click or press Space, ending with the biggest box in the middle. Redline's own line is in a yellow box too. SKIP jumps past it.
+- **Smooth HIGH:** the HIGH graphics setting now adapts: if the frame rate dips it lowers the resolution a notch (and raises it again when there is room), and the hero and camera animation use smoothed frame times, so it no longer stutters or glitches.
+- **Resting:** stand still for 6 seconds and Redline does a backflip, lands on his back and lies there like in a bed with both hands folded behind his head (with little "Z z z" now and then). Any move or button gets him up with a quick roll.
+
+## HIGH quality, pushed to the maximum
+
+HIGH now keeps itself smooth: it draws the hero between physics steps (no judder on 60, 90, 120 or 144 Hz screens), it lowers the resolution a notch whenever frames dip and raises it again when there is room, shadows refresh every other frame when the device is struggling, and bloom is dropped first if it gets really slow. The HIGH/LOW button shows your live frame rate (for example `HIGH 58`).
+
+## The story now has pictures
+
+Each yellow caption box is now part of a comic panel with its own drawing: a normal kid in the city, the spider and the bite, Redline's half-masked shocked face, the city and the sea at sunset, the five bosses in silhouette (El Aguamaha, El Gran Maja, the Sea Eater, the Bloop and the haloed God Sea Eater), the four Biker Society heroes, and a big last panel of Redline swinging between the towers with the biggest caption. The panels pop in one by one as you read and end up together as one comic page.
+
+## Venom Strike (the old pulse, F)
+
+The shockwave is now Redline's **Venom Strike**, in blue like Miles Morales' bio-electric power: a blue-white fireball at his hands, dozens of jagged lightning arcs that flicker in every direction, forked bolts that jump to every enemy in range, a blue light flash, two blue shock rings and a crackling sound. The HUD calls it VENOM STRIKE.
+
+First-person hand fix: the view hand is now aimed in the camera's own space, so it no longer spins or flips when you look straight up or down or swing from an anchor overhead; and the resting lie-down animation is skipped in first person (the camera is in his head, so it used to send the view and the hand tumbling).
+
+**First-person hand:** a real gloved hand now (palm, knuckles, four jointed fingers, a thumb, a glove cuff with a web-shooter on the inner wrist, and the suit sleeve) in your hero's colors. The fingers move: relaxed when you stand or run, a tight fist for punches and kicks, the web-shooting sign (middle and ring fingers folded, index and pinky out) when you fire a web or start a swing, a grip on the line while swinging, and an open hand while healing.
