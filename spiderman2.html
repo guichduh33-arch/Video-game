@@ -124,6 +124,7 @@
   <div class="tbtn" id="bCamo" style="right:220px;bottom:40px">CAMO</div>
   <div class="tbtn" id="bSuit" style="right:220px;bottom:130px;font-size:11px">SUIT</div>
   <div class="tbtn" id="bShoot" style="right:310px;bottom:85px;font-size:11px">SHOOT</div>
+  <div class="tbtn" id="bView" style="right:310px;bottom:175px;font-size:11px">VIEW</div>
   <div class="tbtn" id="bWings" style="right:40px;bottom:220px;font-size:11px">WINGS</div>
   <div class="tbtn" id="bParry" style="right:130px;bottom:220px;font-size:11px">PARRY</div>
   <div class="tbtn" id="bSwap" style="right:220px;bottom:220px;font-size:11px">SWAP</div>
@@ -886,7 +887,7 @@ function groundHeight(x, z, pad = 0) { let h = 0; for (const b of buildings) if 
 // ---------- Input ----------
 const keys = {}, pressed = {};
 const TOUCH = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-const look = { yaw: 0, pitch: 0.25, dist: 7.5 };
+const look = { yaw: 0, pitch: 0.25, dist: 7.5, fp: false };
 const mouse = { down: false, rdown: false, locked: false };
 const G = { state: 'title', time: 0, score: 0, combo: 0, comboT: 0, crimes: 0, bossesBeaten: 0, crime: null, crimeSpawnT: 0, shake: 0, best: 0, bestTime: 0, paused: false, flash: 0, hintT: 18, hint: '', fovBoost: 0 };
 try { G.best = +localStorage.getItem('sm2_best') || 0; G.bestTime = +localStorage.getItem('sm2_best_time') || 0; } catch (e) { }
@@ -904,6 +905,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyN' && G.state === 'play') toggleSuit(1);
   if (e.code === 'KeyB' && G.state === 'play') toggleSuit(-1);
   if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
+  if (e.code === 'KeyR' && G.state === 'play') toggleFP();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -924,7 +926,7 @@ addEventListener('mousemove', e => {
 const touch = { stick: null, sx: 0, sy: 0, mx: 0, my: 0, lookId: null, lx: 0, ly: 0, held: {} };
 if (TOUCH) {
   $('touch').style.display = 'block';
-  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bWings: 'Wings', bParry: 'Parry', bSwap: 'Swap' };
+  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bWings: 'Wings', bParry: 'Parry', bSwap: 'Swap', bView: 'View' };
   for (const id in btnMap) {
     const el = $(id), k = btnMap[id];
     const on = e => { e.preventDefault(); AudioSys.ensure(); if (!touch.held[k]) pressed[k] = true; touch.held[k] = true; el.classList.add('on'); };
@@ -1389,6 +1391,7 @@ function toggleSuit(dir = 1) {
   const i = Math.max(0, list.indexOf(SUIT)); setSuit(list[(i + dir + list.length) % list.length]);
   G.hint = SUIT_DEFS[SUIT].name + ' — ' + SUIT_DEFS[SUIT].perk; G.hintT = 3.5;
 }
+function toggleFP() { if (hero.userData) hero.userData.fp = undefined; look.fp = !look.fp; G.hint = look.fp ? 'First person · R or VIEW to go back' : 'Third person'; G.hintT = 2.5; }
 function swapHero() {
   if (G.state !== 'play' || !P.alive || G.swapCd > 0) return;
   if (!SK.mesh) spawnSidekick();
@@ -1429,7 +1432,7 @@ function resetPlayer() {
   const s = respawnPoint();
   P.pos.copy(s); P.vel.set(0, 0, 0);
   Object.assign(P, { onGround: true, onWall: null, wallRun: 0, wallHit: 0, jumpsLeft: 1, swinging: false, hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, gliding: false, parryT: 0, armsT: 0, surgeT: 0, launchT: 0, inTunnel: 0 });
-  look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25;
+  look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25; look.fp = false;
 }
 
 // ---------- Physics ----------
@@ -1475,6 +1478,7 @@ function findAnchor() {
 function startSwing() {
   const a = findAnchor(); if (!a) return;
   P.swinging = true; P.anchor.copy(a); P.ropeLen = Math.max(5, a.distanceTo(P.pos) * 0.98); P.swingT = 0; P.jumpsLeft = 1;
+  { const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); P.vel.x += fx * 7; P.vel.z += fz * 7; } // every new web line throws you forward
   AudioSys.thwip(); burst(hero.position.clone().add(V3(0, 2, 0)), 4, 0xffffff, 6, 0.3); if (LOOK.comic && Math.random() < 0.5) floatText(hero.position.clone().add(V3(0.8, 3.2, 0)), 'THWIP', '#fff', 22);
 }
 function stopSwing(boost) {
@@ -1503,18 +1507,25 @@ function updatePlayer(dt) {
   if (P.swinging) {
     P.swingT += dt;
     P.vel.y -= GRAV * dt;
-    // pump forward along the camera direction
-    const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * 8 + mv.x * 4) * dt;
-    P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * 8 + mv.z * 4) * dt;
-    P.ropeLen = Math.max(5, P.ropeLen - dt * 2.2); // reel in slightly for height
+    // pump forward along the camera direction, hard, so each swing carries real momentum
+    const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), pump = 45;
+    P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 5) * dt;
+    P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 5) * dt;
+    // reel the web in hardest at the bottom of the arc, like a pendulum pumping: every swing climbs higher than the last
+    const below = clamp((P.anchor.y - P.pos.y) / Math.max(1, P.ropeLen), 0, 1);
+    P.ropeLen = Math.max(5, P.ropeLen - dt * (4 + 12 * below * below));
+    // a gust of wind particles off the body at speed
+    const spd0 = P.vel.length(); if (spd0 > 16 && Math.random() < dt * spd0 * 0.6) burst(P.pos.clone().add(V3(rand(-0.6, 0.6), rand(0.3, 2.4), rand(-0.6, 0.6))), 1, 0xffffff, 2, 0.25, 0, 0.3);
+    // rising past the anchor: the web would go slack, so let go and fly free
+    if (P.vel.y > 0 && (P.pos.y > P.anchor.y - 2 || P.pos.clone().sub(P.anchor).length() < P.ropeLen * 0.6)) { stopSwing(false); P.webCd = 0.3; P.vel.y = Math.min(P.vel.y, 12); }
     P.pos.addScaledVector(P.vel, dt);
     const d = P.pos.clone().sub(P.anchor), L = d.length();
     if (L > P.ropeLen) {
       d.multiplyScalar(1 / L); P.pos.copy(P.anchor).addScaledVector(d, P.ropeLen);
       const out = P.vel.dot(d); if (out > 0) P.vel.addScaledVector(d, -out);
     }
-    P.vel.multiplyScalar(1 - 0.15 * dt);
+    P.vel.multiplyScalar(1 - 0.004 * dt); // very little drag, so momentum is conserved like a real pendulum
+    P.vel.y = Math.min(P.vel.y, 24); { const hs = Math.hypot(P.vel.x, P.vel.z); if (hs > 72) { P.vel.x *= 72 / hs; P.vel.z *= 72 / hs; } }
     const sp = Math.hypot(P.vel.x, P.vel.z); if (sp > 0.5) P.facing = Math.atan2(P.vel.x, P.vel.z);
     P.onGround = false;
   } else if (P.gliding) {
@@ -1587,6 +1598,7 @@ function updatePlayer(dt) {
     if (P.onGround) { P.vel.x = lerp(P.vel.x, tvx, Math.min(1, accel * dt / RUN)); P.vel.z = lerp(P.vel.z, tvz, Math.min(1, accel * dt / RUN)); }
     else { P.vel.x += (tvx - P.vel.x) * clamp(accel * dt / 40, 0, 1) * (mv.mag > 0 ? 1 : 0.1); P.vel.z += (tvz - P.vel.z) * clamp(accel * dt / 40, 0, 1) * (mv.mag > 0 ? 1 : 0.1); }
     if (mv.mag > 0.1) P.facing = Math.atan2(mv.x, mv.z);
+    if (look.fp && !P.swinging) P.facing = look.yaw + Math.PI; // first person: the body faces where you look
     if (P.onGround) { P.coyote = 0.12; P.jumpsLeft = SUIT === 'classic' ? 2 : 1; }
     // --- slingshot pad: stand on it and jump ---
     const pad = P.onGround ? PADS.find(pd => Math.hypot(pd.x - P.pos.x, pd.z - P.pos.z) < 2.3 && Math.abs(pd.y - P.pos.y) < 1.5) : null;
@@ -1626,6 +1638,7 @@ function updatePlayer(dt) {
   if (inShoot() && P.shootCd <= 0) shootWeb();
   if (wasPressed('Suit')) toggleSuit(1);
   if (wasPressed('Swap')) swapHero();
+  if (wasPressed('KeyR', 'View')) toggleFP();
   if (inParry() && P.parryCd <= 0) { P.parryT = 0.32; P.parryCd = 0.6; P.punchT = Math.max(P.punchT, 0.15); AudioSys.thwip(); }
   if (inVenom() && P.venom >= VENOM_COST()) usePower();
   if (inCamo() && !P.camo && P.camoCd <= 0) { if (HERO === 'peter') { G.hint = SUIT === 'black' ? 'The symbiote can\'t hide. Hit harder instead' : 'Only Miles can camouflage. Tab swaps to him; Q parries'; G.hintT = 2.5; } else { P.camo = true; P.camoT = SUIT === 'noir' ? 10 : 6; AudioSys.camo(); for (const e of enemies) e.alert = false; } }
@@ -2504,6 +2517,7 @@ function updateSidekick(dt) {
   if (SK.animT % 0.5 < dt) SK.prev.copy(SK.pos);
   // --- place and animate ---
   const m = SK.mesh, p = m.parts; m.position.copy(SK.pos);
+  if (m.userData.fp) { m.userData.fp = false; p.head.visible = true; for (const o of p.body.children) if (o.isMesh) o.visible = true; } // restore a mesh that was first-person-hidden when it was the player
   let f = SK.facing - m.rotation.y; f = Math.atan2(Math.sin(f), Math.cos(f)); m.rotation.y += f * Math.min(1, dt * 12);
   const t = SK.animT, sp = Math.hypot(SK.vel.x, SK.vel.z);
   const setJ = (kL, kR, eL, eR) => { p.legL.joint.rotation.x = kL; p.legR.joint.rotation.x = kR; p.armL.joint.rotation.x = eL; p.armR.joint.rotation.x = eR; };
@@ -2705,6 +2719,8 @@ function animateHero(dt) {
   if (P.gliding) lean = clamp(-turn * 2.2, -0.7, 0.7); // bank into turns
   p.body.rotation.x = lerp(p.body.rotation.x, bodyX, Math.min(1, dt * 10)); p.body.rotation.z = lerp(p.body.rotation.z, lean, Math.min(1, dt * 8));
   if (P.launchT > 0) p.body.rotation.x = -(1.1 - P.launchT) * TAU * 1.3; // slingshot somersault
+  p.head.visible = !look.fp; // first person: you look out of the mask
+  if (hero.userData.fp !== look.fp) { hero.userData.fp = look.fp; for (const o of p.body.children) if (o.isMesh) o.visible = !look.fp; for (const k of ['armL', 'armR']) p[k].traverse(o => { if (o.isMesh) o.visible = true; }); }
   const lookYaw = Math.atan2(Math.sin(look.yaw + Math.PI - hero.rotation.y), Math.cos(look.yaw + Math.PI - hero.rotation.y));
   p.head.rotation.y = lerp(p.head.rotation.y, (P.swinging || G.headTrack === false) ? 0 : clamp(lookYaw, -0.9, 0.9), Math.min(1, dt * 6));
   p.head.rotation.x = lerp(p.head.rotation.x, P.swinging ? -0.3 : (P.onGround ? clamp(look.pitch * 0.5, -0.3, 0.35) : -0.2), Math.min(1, dt * 6));
@@ -2727,7 +2743,18 @@ const camSmooth = V3();
 function updateCamera(dt, first) {
   const sp = P.vel.length();
   G.fovBoost = lerp(G.fovBoost, clamp((sp - 12) / 30, 0, 1), dt * 4);
-  camera.fov = 70 + G.fovBoost * 18; camera.updateProjectionMatrix();
+  if (look.fp) {
+    // first person: the camera sits in the mask, looks where you look, bobs with the run and banks with the swing
+    camera.near = 0.08; camera.fov = 82 + G.fovBoost * 12; camera.updateProjectionMatrix();
+    const fwd = V3(-Math.sin(look.yaw) * Math.cos(look.pitch), -Math.sin(look.pitch), -Math.cos(look.yaw) * Math.cos(look.pitch));
+    const bob = P.onGround && sp > 0.5 ? Math.sin(P.animT * 13) * 0.04 : 0;
+    const eye = P.pos.clone().add(V3(0, (2.68 + bob) * hero.scale.y, 0)).addScaledVector(fwd, 0.3 + Math.max(0, -fwd.y) * 0.25);
+    camSmooth.copy(eye); camera.position.copy(eye);
+    if (G.shake > 0) { camera.position.add(V3(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(G.shake * 0.15)); G.shake = Math.max(0, G.shake - dt * 2); }
+    camera.lookAt(eye.clone().add(fwd)); camera.rotateZ(P.swinging ? clamp(P.vel.x * 0.004, -0.15, 0.15) : 0);
+    return;
+  }
+  camera.near = 0.3; camera.fov = 70 + G.fovBoost * 18; camera.updateProjectionMatrix();
   const target = P.pos.clone().add(V3(0, 2.0, 0));
   const dist = look.dist + G.fovBoost * 2;
   const dir = V3(Math.sin(look.yaw) * Math.cos(look.pitch), Math.sin(look.pitch), Math.cos(look.yaw) * Math.cos(look.pitch));
