@@ -260,6 +260,7 @@
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 'use strict';
 
 // ============================================================
@@ -1500,6 +1501,29 @@ function makeWebShooter(sx) {
   const muzzle = new THREE.Object3D(); muzzle.position.set(0, -0.25, -0.1); g.add(muzzle); g.muzzle = muzzle;
   return g;
 }
+// ---- chunky figure: tapered rounded torso, ball shoulders, rounded-block limbs, big gloves, tall boots, a belt; the round head stays ----
+function chunkify(g, C) {
+  const body = g.parts.body, head = g.parts.head;
+  const isRound = o => o.isMesh && o.geometry && /Sphere|Cylinder|Capsule|Torus/.test(o.geometry.type);
+  const thin = o => o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && (o.geometry.parameters.width < 0.05 || o.geometry.parameters.height < 0.05);
+  const rb = (w, h, d, r = 0.08) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.2, h / 2.2, d / 2.2));
+  const add = (parent, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  for (const o of body.children) if (o !== head && (isRound(o) || thin(o))) o.visible = false;
+  const torso = rb(0.86, 1.2, 0.5, 0.14); { const pa = torso.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 + 0.2 * (y / 0.6))); pa.setZ(i, pa.getZ(i) * (1 + 0.08 * (y / 0.6))); } torso.computeVertexNormals(); }
+  add(body, torso, C.suit, 0, 1.72, 0);
+  if (C.panel) add(body, rb(0.6, 0.5, 0.08, 0.04), C.panel, 0, 2.0, 0.25);
+  add(body, new THREE.CylinderGeometry(0.11, 0.13, 0.26, 12), C.suit, 0, 2.4, 0);
+  add(body, rb(0.74, 0.13, 0.46, 0.05), C.belt, 0, 1.2, 0); add(body, rb(0.14, 0.09, 0.05, 0.02), C.buckle, 0, 1.2, 0.235);
+  for (const sx of [-1, 1]) {
+    const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
+    for (const grp of [arm, arm.joint, leg, leg.joint]) for (const o of grp.children) if (isRound(o) || thin(o)) o.visible = false;
+    add(body, new THREE.SphereGeometry(0.18, 16, 12), C.arm || C.suit, sx * 0.5, 2.2, 0);
+    add(arm, rb(0.26, 0.56, 0.26, 0.09), C.arm || C.suit, 0, -0.3, 0); add(arm.joint, rb(0.24, 0.48, 0.24, 0.08), C.suit, 0, -0.25, 0);
+    const hand = arm.tip; for (const o of hand.children) o.visible = false; add(hand, rb(0.3, 0.3, 0.3, 0.1), C.glove, 0, -0.1, 0); add(hand, rb(0.32, 0.07, 0.32, 0.03), C.glove, 0, 0.06, 0);
+    add(leg, rb(0.28, 0.62, 0.28, 0.09), C.suit, 0, -0.3, 0); add(leg.joint, rb(0.26, 0.5, 0.26, 0.08), C.suit, 0, -0.26, 0);
+    const foot = leg.tip; for (const o of foot.children) o.visible = false; foot.scale.set(1, 1, 1); add(foot, rb(0.3, 0.42, 0.32, 0.08), C.boot, 0, 0.12, 0.02); add(foot, rb(0.32, 0.08, 0.4, 0.03), C.boot, 0, -0.05, 0.06);
+  }
+}
 function makeHand(sx) {
   const hand = new THREE.Group();
   hand.add(sph(0.075, MAT.black, 0, -0.03, 0, 1, 1.25, 0.6)); // palm
@@ -1647,24 +1671,7 @@ const SUIT_DEFS = {
         // shoulders: smaller, so the arm flows out of the torso instead of a ball sitting on it
         for (const o of body.children) if (o.isMesh && Math.abs(Math.abs(o.position.x) - 0.5) < 0.01 && Math.abs(o.position.y - 2.18) < 0.01) o.scale.set(0.85, 0.75, 0.8);
       }
-      // ---- blocky body, Minecraft style: every round torso and limb piece is hidden and a box takes its place; the head stays round ----
-      const isRound = o => o.isMesh && o.geometry && (o.geometry.type === 'SphereGeometry' || o.geometry.type === 'CylinderGeometry' || o.geometry.type === 'CapsuleGeometry' || o.geometry.type === 'TorusGeometry');
-      const box = (parent, w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
-      for (const o of body.children) if (isRound(o) && o !== head) o.visible = false; // chest, pecs, abdomen, hips, back, shoulders, neck
-      box(body, 0.8, 1.2, 0.42, navy, 0, 1.7, 0);      // torso: 8 x 12 x 4, like the real thing
-      box(body, 0.24, 0.3, 0.24, navy, 0, 2.4, 0);     // neck block under the round head
-      for (const sx of [-1, 1]) {
-        const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
-        for (const o of arm.children) if (isRound(o)) o.visible = false; for (const o of arm.joint.children) if (isRound(o)) o.visible = false;
-        for (const o of leg.children) if (isRound(o)) o.visible = false; for (const o of leg.joint.children) if (isRound(o)) o.visible = false;
-        box(arm, 0.22, 0.58, 0.22, navy, 0, -0.28, 0); box(arm.joint, 0.2, 0.5, 0.2, navy, 0, -0.26, 0);
-        box(leg, 0.24, 0.62, 0.24, navy, 0, -0.3, 0); box(leg.joint, 0.22, 0.56, 0.22, navy, 0, -0.28, 0);
-        // hands: a block with red fingertips; feet: a block with a red sole
-        const hand = arm.tip; for (const o of hand.children) o.visible = false;
-        box(hand, 0.2, 0.2, 0.2, navy, 0, -0.06, 0); box(hand, 0.2, 0.06, 0.2, red, 0, -0.19, 0);
-        const foot = leg.tip; for (const o of foot.children) o.visible = false; foot.scale.set(1, 1, 1);
-        box(foot, 0.24, 0.14, 0.34, navy, 0, 0.05, 0.05); box(foot, 0.24, 0.04, 0.34, red, 0, -0.04, 0.05);
-      }
+      chunkify(g, { suit: navy, glove: red, boot: red, belt: red, buckle: white });
     });
   } },
   symbiote: { name: 'VENOM SYMBIOTE', perk: 'Double punch damage, longer reach, no camouflage', build: () => {
@@ -3279,6 +3286,7 @@ function makeGwen() { // build the hero rig with Gwen's palette: white suit, bla
   // black chest panel with a white spider, black upper arms (the suit's signature split)
   const chest = sph(0.3, GMAT.black, 0, 1.92, 0.06, 1.05, 0.9, 0.7); g.parts.body.add(chest);
   const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.5), GMAT.logo); logo.position.set(0, 1.9, 0.33); logo.rotation.x = -0.12; g.parts.body.add(logo);
+  chunkify(g, { suit: GMAT.white, arm: GMAT.black, glove: GMAT.white, boot: GMAT.teal, belt: GMAT.magenta, buckle: GMAT.white, panel: GMAT.black });
   stripLights(g);
   return g;
 }
