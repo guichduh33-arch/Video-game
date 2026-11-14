@@ -1388,7 +1388,7 @@ function upgSave() { try { localStorage.setItem('mm3d_tech', JSON.stringify({ pt
 function upgTotal() { return UPG_DEFS.reduce((n, d) => n + d.cost.length, 0); }
 function upgSpent() { return UPG_DEFS.reduce((n, d) => n + LV(d.id), 0); }
 function upgAdd(n, where) {
-  UPG.pts += n; upgSave(); AudioSys.pickup();
+  UPG.pts += n; upgSave(); (AudioSys.pickup || AudioSys.heal || (() => { }))();
   if (where) floatText(where.clone().add(V3(0, 5.2, 0)), `+${n} TECH`, '#00e5ff', 22);
   if (!UPG.told && upgSpent() < upgTotal()) { UPG.told = true; G.hint = `${UPG.pts} tech point${UPG.pts > 1 ? 's' : ''} · press U (or 🔧) to upgrade your web shooters and skills`; G.hintT = 5; }
   upgBadge();
@@ -3946,7 +3946,7 @@ async function claudeAsk(text) {
   if (sample) {
     try { const { text: out } = await sample([{ role: 'user', content: CLAUDE_RULES }, ...STORE.cl.turns.slice(-12)], { cache: false, modelTier: 'quick', onText: ({ text: t }) => { if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = t.replace(/\[\[[^\]]*\]?\]?$/, ''); } } }); reply = runTags(out.trim()); }
     catch (e) { if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'not_declared' || e.code === 'capability_disabled')) STORE.cl.sample = null; reply = (e && e.text) || gameCommand(text) || pocketClaude(text); }
-  } else { await new Promise(r => setTimeout(r, 300 + Math.random() * 400)); reply = gameCommand(text) || pocketClaude(text); }
+  } else { await new Promise(r => setTimeout(r, 300 + Math.random() * 400)); try { reply = gameCommand(text) || pocketClaude(text); } catch (e) { console.warn(e); reply = 'Oops, that one broke something. Try it another way?'; } }
   STORE.cl.turns.push({ role: 'assistant', content: reply }); if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = reply; } STORE.cl.busy = false; const inp = $('clIn'); if (inp) inp.focus(); claudeSpeak(reply);
 }
 // --- Web Snake ---
