@@ -3805,7 +3805,9 @@ function updateCamera(dt) {
       const aiming = P.rope || (act && /punch|web|spin/.test(act.kind));
       // at rest the hand is held up in view like in a real first-person game: fingers pointing up and in toward the middle, the back of the glove turned to you
       const dirL = aiming ? tgtL.sub(fpHand.position) : FP_REST_DIR.clone(); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
-      const want = new THREE.Quaternion().setFromUnitVectors(FP_NEGZ, dirL).multiply(FP_FLIP); if (!aiming) want.multiply(FP_REST_ROLL);
+      // a fixed "up" (the top of the screen) keeps the arm from rolling like a wheel as the aim moves around
+      const up = Math.abs(dirL.y) > 0.97 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+      const want = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), dirL.clone().negate(), up)); if (!aiming) want.multiply(FP_REST_ROLL);
       fpHand.quaternion.slerp(want, Math.min(1, dt * 14));
     }
     fpHand.updateMatrixWorld(true);
