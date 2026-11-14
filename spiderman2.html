@@ -204,6 +204,17 @@ const AudioSys = (() => {
     const g = ac.createGain(); g.gain.value = vol;
     s.connect(f).connect(g).connect(ac.destination); s.start(t);
   }
+  // decaying, swept, filtered noise — the building block for real-sounding impacts, whooshes and thumps
+  function nz(dur = 0.1, vol = 0.15, { type = 'lowpass', f = 1000, f2 = null, q = 0.7 } = {}) {
+    if (!ac) return;
+    const t = ac.currentTime, n = Math.floor(ac.sampleRate * dur);
+    const buf = ac.createBuffer(1, n, ac.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.setValueAtTime(f, t); if (f2 != null) fl.frequency.exponentialRampToValueAtTime(Math.max(f2, 20), t + dur); fl.Q.value = q;
+    const g = ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(fl).connect(g).connect(ac.destination); src.start(t);
+  }
   let amb = null;
   function ambient() { // looping city bed: filtered noise for wind and a low traffic rumble, sirens now and then
     if (!ac || amb) return;
@@ -231,20 +242,20 @@ const AudioSys = (() => {
     ensure, ambient, siren,
     setHeight(h) { if (!amb) return; const k = clamp(h / 120, 0, 1); amb.wg.gain.value = 0.02 + k * 0.07; amb.rg.gain.value = 0.09 * (1 - k * 0.8); amb.wf.frequency.value = 400 + k * 500; },
     flutter() { for (let i = 0; i < 5; i++) noise(0.05, 0.05, 1800 + i * 300); tone({ f: 2400, f2: 1800, type: 'sine', dur: 0.08, vol: 0.02, delay: 0.05 }); },
-    thwip() { tone({ f: 1000, f2: 250, type: 'square', dur: 0.09, vol: 0.07 }); noise(0.08, 0.07, 2500); },
-    jump() { tone({ f: 280, f2: 620, type: 'triangle', dur: 0.12, vol: 0.09 }); },
-    punch() { noise(0.07, 0.18, 600); tone({ f: 160, f2: 60, type: 'square', dur: 0.08, vol: 0.1 }); },
-    hit() { tone({ f: 220, f2: 70, type: 'sawtooth', dur: 0.14, vol: 0.11 }); noise(0.1, 0.14, 300); },
+    thwip() { nz(0.11, 0.1, { type: 'bandpass', f: 3200, f2: 700, q: 1.3 }); tone({ f: 1500, f2: 420, type: 'sine', dur: 0.07, vol: 0.05 }); }, // airy web-shot swoosh
+    jump() { nz(0.12, 0.05, { type: 'highpass', f: 1200, f2: 2600 }); tone({ f: 260, f2: 560, type: 'triangle', dur: 0.12, vol: 0.07 }); }, // a soft effort/whoosh
+    punch() { nz(0.09, 0.26, { type: 'lowpass', f: 1600, f2: 320, q: 1 }); tone({ f: 130, f2: 45, type: 'sine', dur: 0.12, vol: 0.2 }); nz(0.02, 0.12, { type: 'highpass', f: 3200 }); }, // body thump + slap transient
+    hit() { nz(0.1, 0.22, { type: 'lowpass', f: 1200, f2: 240, q: 1.1 }); tone({ f: 170, f2: 60, type: 'sine', dur: 0.12, vol: 0.14 }); }, // a meaty connect
     venom() { tone({ f: 1400, f2: 180, type: 'sawtooth', dur: 0.35, vol: 0.16 }); noise(0.3, 0.18, 1500); tone({ f: 70, f2: 35, type: 'sine', dur: 0.45, vol: 0.3 }); },
     camo() { tone({ f: 500, f2: 1600, type: 'sine', dur: 0.3, vol: 0.09 }); },
     uncamo() { tone({ f: 1600, f2: 500, type: 'sine', dur: 0.25, vol: 0.07 }); },
-    hurt() { tone({ f: 420, f2: 90, type: 'square', dur: 0.2, vol: 0.13 }); },
-    shot() { noise(0.06, 0.12, 800); tone({ f: 900, f2: 200, type: 'square', dur: 0.05, vol: 0.05 }); },
-    ko() { tone({ f: 520, f2: 50, type: 'sawtooth', dur: 0.3, vol: 0.11 }); },
-    crime() { tone({ f: 440, type: 'square', dur: 0.1, vol: 0.07 }); tone({ f: 660, type: 'square', dur: 0.18, vol: 0.07, delay: 0.12 }); },
+    hurt() { nz(0.16, 0.16, { type: 'lowpass', f: 1000, f2: 200, q: 1 }); tone({ f: 240, f2: 80, type: 'sine', dur: 0.18, vol: 0.12 }); }, // a winded grunt-thud
+    shot() { nz(0.05, 0.26, { type: 'highpass', f: 1400 }); tone({ f: 200, f2: 55, type: 'sine', dur: 0.07, vol: 0.14 }); }, // a sharp crack with a low thump
+    ko() { tone({ f: 300, f2: 55, type: 'sine', dur: 0.26, vol: 0.16 }); nz(0.22, 0.16, { type: 'lowpass', f: 900, f2: 160, q: 1 }); }, // a knockdown and a body hitting the roof
+    crime() { for (const [f, dl] of [[523, 0], [392, 0.18], [523, 0.36]]) tone({ f, type: 'triangle', dur: 0.22, vol: 0.06, attack: 0.02, delay: dl }); nz(0.5, 0.03, { type: 'bandpass', f: 1200, q: 2 }); }, // a softer three-note alert
     sense() { tone({ f: 1800, f2: 2400, type: 'sine', dur: 0.12, vol: 0.05 }); },
-    land() { noise(0.05, 0.08, 400); },
-    win() { [523, 659, 784, 1046].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.35, vol: 0.14, delay: i * 0.14 })); },
+    land() { nz(0.09, 0.16, { type: 'lowpass', f: 700, f2: 180, q: 1 }); tone({ f: 85, f2: 50, type: 'sine', dur: 0.1, vol: 0.1 }); }, // a weighty footfall
+    win() { [523, 659, 784, 1046].forEach((f, i) => { tone({ f, type: 'sine', dur: 0.5, vol: 0.12, attack: 0.02, delay: i * 0.12 }); tone({ f: f * 2, type: 'sine', dur: 0.35, vol: 0.03, attack: 0.02, delay: i * 0.12 }); }); }, // a warm chime
     lose() { [392, 349, 311, 262].forEach((f, i) => tone({ f, type: 'sawtooth', dur: 0.4, vol: 0.1, delay: i * 0.2 })); },
     wings() { noise(0.25, 0.1, 900); tone({ f: 300, f2: 700, type: 'sine', dur: 0.25, vol: 0.06 }); },
     gust() { noise(0.4, 0.12, 400); },
@@ -2009,13 +2020,13 @@ const CRIMEMAT = {
 function makeVictim() {
   const g = new THREE.Group(), M = CRIMEMAT;
   g.add(box(0.46, 0.72, 0.3, M.shirt, 0, 1.02, 0)); // torso
-  g.add(box(0.2, 0.62, 0.26, M.pants, -0.11, 0.5, 0)); g.add(box(0.2, 0.62, 0.26, M.pants, 0.11, 0.5, 0)); // legs
+  const legs = []; for (const sx of [-1, 1]) { const lg = new THREE.Group(); lg.position.set(sx * 0.11, 0.82, 0); lg.add(box(0.2, 0.62, 0.24, M.pants, 0, -0.32, 0)); g.add(lg); legs.push(lg); } // legs on hip pivots
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), M.skin); head.position.set(0, 1.56, 0.02); g.add(head);
   g.add(box(0.26, 0.1, 0.26, new THREE.MeshStandardMaterial({ color: 0x6a4a32, roughness: 1 }), 0, 1.68, 0)); // hair
   const arms = [];
   for (const sx of [-1, 1]) { const a = new THREE.Group(); a.position.set(sx * 0.3, 1.3, 0); a.add(box(0.14, 0.6, 0.14, M.shirt, 0, -0.3, 0)); a.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), M.skin).translateY(-0.6)); a.rotation.z = sx * 0.3; a.rotation.x = -2.5; g.add(a); arms.push(a); } // hands up
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  g.parts = { head, arms }; return g;
+  g.parts = { head, arms, legs }; return g;
 }
 function makeLoot() {
   const g = new THREE.Group(), M = CRIMEMAT;
@@ -2044,9 +2055,15 @@ function updateCrimeScene(dt) {
   }
   for (let i = crimeFades.length - 1; i >= 0; i--) {
     const f = crimeFades[i]; f.t -= dt;
-    if (f.victim) { // the rescued civilian runs for the stairs, waving
-      const run = 6; f.victim.position.x += Math.sin(f.dir) * run * dt; f.victim.position.z += Math.cos(f.dir) * run * dt; f.victim.rotation.y = f.dir;
-      f.victim.position.y = Math.abs(Math.sin(f.t * 12)) * 0.08; f.phase += dt; f.victim.parts.arms.forEach((a, k) => a.rotation.x = -0.6 + Math.sin(f.phase * 12 + k) * 1.0);
+    if (f.victim) { // the rescued civilian sprints for the fire escape, then climbs down out of sight
+      const v = f.victim, run = 7.5; v.position.x += Math.sin(f.dir) * run * dt; v.position.z += Math.cos(f.dir) * run * dt; v.rotation.y = f.dir;
+      f.phase += dt * 15; const c = Math.sin(f.phase);
+      v.parts.legs[0].rotation.x = c * 0.95; v.parts.legs[1].rotation.x = -c * 0.95; // legs pump
+      v.parts.arms[0].rotation.set(-0.5 + c * 0.9, 0, 0.18); v.parts.arms[1].rotation.set(-0.5 - c * 0.9, 0, -0.18); // arms swing, down from the cower
+      v.parts.head.rotation.x = 0.12; v.rotation.x = 0.16; // lean into the run
+      const b = f.b; const off = Math.abs(v.position.x - b.x) > b.w / 2 || Math.abs(v.position.z - b.z) > b.d / 2;
+      v.position.y = off ? v.position.y - 9 * dt : Math.abs(c) * 0.06; // past the edge: drop down the stairs and vanish
+      if (off) f.t = Math.min(f.t, 0.8);
     }
     if (f.t <= 0) { scene.remove(f.group); crimeFades.splice(i, 1); }
   }
@@ -2061,7 +2078,7 @@ function rescueVictim() {
   const dir = Math.atan2(edge[0] - wp.x, edge[1] - wp.z);
   c.props.position.set(0, 0, 0); // bake world positions in by re-parenting children to world coords
   for (const ch of [...c.props.children]) { const w = new THREE.Vector3(); ch.getWorldPosition(w); c.props.add(ch); ch.position.copy(w); }
-  crimeFades.push({ group: c.props, victim: v, dir, phase: 0, t: 3.2 });
+  crimeFades.push({ group: c.props, victim: v, b, dir, phase: 0, t: 3.2 });
   c.victim = null; c.loot = null; c.props = null;
 }
 function clearCrimeScene() { if (G.crime && G.crime.props) { scene.remove(G.crime.props); G.crime.props = null; G.crime.victim = null; } for (const f of crimeFades) scene.remove(f.group); crimeFades.length = 0; }
