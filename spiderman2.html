@@ -1308,7 +1308,7 @@ const SUIT_DEFS = {
       // a real head shape instead of a ball: narrower skull, longer in the back, a jaw and chin; lenses moved to match
       // a seven-year-old's proportions: a big head on a small body, short arms and legs, and the whole figure smaller
       head.scale.set(0.74, 0.74, 0.74); head.position.y = 2.7; // a true ball: same size every way, no jaw bulge
-      for (const a of [g.parts.armL, g.parts.armR]) a.scale.setScalar(0.93);
+      for (const a of [g.parts.armL, g.parts.armR]) a.scale.set(0.93, 0.74, 0.93);
       for (const l of [g.parts.legL, g.parts.legR]) { l.scale.setScalar(0.96); l.position.y -= 0.047; }
       g.scale.setScalar(0.87);
           body.children[0].scale.multiply(new THREE.Vector3(1.14, 1.04, 1.08)); // broader chest, a V shape to the torso
