@@ -24,6 +24,34 @@
   #xhair i { display: none; }
   #xhair::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.6), 0 0 5px rgba(0,0,0,.6); }
   body.play #xhair { display: block; }
+  /* App Store: a phone-style store with its own little apps */
+  #store { position: fixed; inset: 0; z-index: 43; display: none; background: #0b0d14; color: #fff; font-family: -apple-system, system-ui, sans-serif; overflow: auto; -webkit-overflow-scrolling: touch; }
+  #store.open { display: block; }
+  #storeHead { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 12px; padding: 14px 18px calc(10px); background: rgba(11,13,20,.9); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,.08); }
+  #storeHead h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.5px; flex: 1; }
+  #storeHead .seg { display: flex; gap: 6px; } #storeHead .seg button { background: rgba(255,255,255,.08); border: 0; color: #cfd6ff; font: 700 13px system-ui; padding: 7px 12px; border-radius: 999px; cursor: pointer; } #storeHead .seg button.on { background: #1e90ff; color: #fff; }
+  #storeX { width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(255,255,255,.12); color: #fff; font: 800 18px system-ui; cursor: pointer; }
+  #storeBody { max-width: 1040px; margin: 0 auto; padding: 16px 18px 90px; }
+  .feat { position: relative; border-radius: 22px; padding: 22px; margin-bottom: 18px; background: linear-gradient(135deg, #ff3a1c, #7a1aff 60%, #1e90ff); box-shadow: 0 16px 40px rgba(0,0,0,.45); overflow: hidden; }
+  .feat small { font: 800 12px system-ui; letter-spacing: 2px; opacity: .85; } .feat h3 { margin: 4px 0 6px; font-size: 28px; font-weight: 900; } .feat p { margin: 0; max-width: 560px; opacity: .95; }
+  .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .app { display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center; padding: 12px; border-radius: 18px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.06); }
+  .app .ic { width: 64px; height: 64px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 34px; box-shadow: inset 0 -2px 8px rgba(0,0,0,.3), 0 4px 10px rgba(0,0,0,.35); }
+  .app b { display: block; font-size: 15px; } .app .cat { font-size: 12px; color: #9aa3c7; } .app .desc { font-size: 12px; color: #cfd6ff; margin-top: 3px; line-height: 1.3; } .app .meta { font-size: 11px; color: #8a93b8; margin-top: 3px; }
+  .app button { min-width: 72px; padding: 8px 14px; border-radius: 999px; border: 0; background: #1e90ff; color: #fff; font: 800 13px system-ui; letter-spacing: .5px; cursor: pointer; position: relative; overflow: hidden; }
+  .app button.get { background: rgba(255,255,255,.14); color: #4db2ff; } .app button.dl { background: rgba(255,255,255,.1); color: #fff; } .app button.dl i { position: absolute; left: 0; top: 0; bottom: 0; background: #1e90ff; z-index: 0; } .app button span { position: relative; z-index: 1; }
+  .app button.open { background: #1e90ff; }
+  #appView { display: none; } #store.app #storeBody > .feat, #store.app #storeBody > .apps { display: none; } #store.app #appView { display: block; }
+  #appView .back { background: none; border: 0; color: #4db2ff; font: 700 15px system-ui; cursor: pointer; padding: 6px 0 14px; }
+  #appView .card { background: rgba(255,255,255,.06); border-radius: 20px; padding: 16px; }
+  #appView h3 { margin: 0 0 10px; font-size: 22px; }
+  .clog { height: min(48vh, 420px); overflow: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px; }
+  .clog .m { max-width: 82%; padding: 9px 13px; border-radius: 16px; font-size: 14px; line-height: 1.35; white-space: pre-wrap; } .clog .m.me { align-self: flex-end; background: #1e90ff; } .clog .m.ai { align-self: flex-start; background: rgba(255,255,255,.1); } .clog .m.thinking { opacity: .6; }
+  .cform { display: flex; gap: 8px; margin-top: 10px; } .cform input { flex: 1; padding: 11px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); color: #fff; font: 500 15px system-ui; } .cform button { padding: 10px 18px; border-radius: 999px; border: 0; background: #1e90ff; color: #fff; font: 800 14px system-ui; cursor: pointer; }
+  .album { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 12px; } .album img { width: 100%; border-radius: 12px; display: block; border: 2px solid rgba(255,255,255,.1); }
+  .row2 { display: flex; flex-wrap: wrap; gap: 10px; } .row2 button { padding: 12px 18px; border-radius: 14px; border: 0; background: rgba(255,255,255,.1); color: #fff; font: 800 14px system-ui; cursor: pointer; } .row2 button.on { background: #1e90ff; }
+  #snakeC { display: block; width: min(92vw, 520px); height: auto; background: #06081a; border-radius: 10px; margin: 0 auto; touch-action: none; }
+  body:has(#store.open) #hud, body:has(#store.open) .sideBtn, body:has(#store.open) #touch, body:has(#store.open) #xhair { opacity: 0 !important; pointer-events: none; }
   /* THWIP!: the little game on Miles' PC and console */
   #mini { position: fixed; inset: 0; z-index: 42; display: none; align-items: center; justify-content: center; background: rgba(4,6,16,.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   #mini.open { display: flex; }
@@ -145,6 +173,7 @@
   /* ---- Tech Lab: upgrades ---- */
   #techBtn { top: 298px; box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 0 1px rgba(0,229,255,.45); }
   #dayBtn { top: 350px; box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 0 1px rgba(255,170,60,.45); }
+  #storeBtn { top: 402px; box-shadow: 0 6px 20px rgba(0,0,0,.35), 0 0 0 1px rgba(77,178,255,.5); }
   #techBtn.pts::after { content: attr(data-pts); position: absolute; right: -6px; top: -6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--gold); color: var(--ink); font: 800 11px/18px system-ui; text-align: center; text-shadow: none; box-shadow: 0 2px 6px rgba(0,0,0,.5); animation: pop .4s; }
   @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
   #upg { position: fixed; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; background: rgba(3,4,12,.6); pointer-events: auto; }
@@ -203,6 +232,7 @@
 </head>
 <body>
 <div id="xhair"><i></i><i></i><i></i><i></i><i></i></div><div id="lockon"></div>
+<div id="store"><div id="storeHead"><h2>App Store</h2><div class="seg"><button data-f="all" class="on">All</button><button data-f="Games">Games</button><button data-f="Apps">Apps</button><button data-f="mine">Downloaded</button></div><button id="storeX">✕</button></div><div id="storeBody"><div class="feat"><small>TODAY</small><h3>Everything Miles has on his tablet</h3><p>Games, Claude, a camera, the radio and more. Tap GET to download an app, then OPEN to use it. Downloads are kept.</p></div><div class="apps" id="appGrid"></div><div id="appView"></div></div></div>
 <div id="mini"><div id="miniBox"><h3>THWIP! <span id="miniScore">0</span></h3><canvas id="miniC" width="560" height="340"></canvas><p><span id="miniMsg">Catch the spiders with the web ball · drag, or A / D</span><button id="miniClose">QUIT</button></p></div></div>
 <div id="story"><div id="storyPage"></div></div><div id="storyBar"><button id="storySkip" class="alt">SKIP</button><button id="storyNext">NEXT ▶</button></div>
 <div id="hud">
@@ -254,6 +284,7 @@
 <div id="musicBtn" class="sideBtn" title="Soundtrack: M cycles Brooklyn Nights / Sunflower / off">🎵</div>
 <div id="techBtn" class="sideBtn" title="Tech Lab: upgrades (U)">🔧</div>
 <div id="dayBtn" class="sideBtn" title="Time of day: day / sunset / night / dawn (H)">🌗</div>
+<div id="storeBtn" class="sideBtn" title="App Store (I)">📱</div>
 <div id="upg" class="hidden">
   <div id="upgBox">
     <header><span class="t">TECH LAB</span><span class="sub">WEB SHOOTERS · SKILLS</span><span id="upgPts">⚡ 0 TECH</span><span class="x" id="upgClose" title="Close (U / Esc)">✕</span></header>
@@ -1251,6 +1282,7 @@ try { G.best = +localStorage.getItem('mm3d_best') || 0; G.bestTime = +localStora
 const isDown = (...c) => c.some(k => keys[k]);
 const wasPressed = (...c) => c.some(k => pressed[k]);
 addEventListener('keydown', e => {
+  if (STORE.open) { if (e.code === 'Escape') { if ($('store').classList.contains('app')) appBack(); else storeClose(); } if (STORE.view === 'snake' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); return; }
   if (MINI.open) { if (e.code === 'Escape') miniClose(); if (['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); keys[e.code] = true; return; }
   if (STORY.open) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') { e.preventDefault(); storyNext(); } else if (e.code === 'Escape') storyEnd(); return; }
   if (CHAT.open) { if (e.code === 'Escape') { e.preventDefault(); closeChat(); } return; }
@@ -1268,6 +1300,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyV') { LOOK.comic = !LOOK.comic; applyLook(); G.hint = LOOK.comic ? 'Spider-Verse look ON' : 'Realistic look ON'; G.hintT = 2; }
   if (e.code === 'KeyC' && G.state === 'play') toggleFP();
   if (e.code === 'KeyH') dayJump();
+  if (e.code === 'KeyI' && G.state === 'play') storeOpen();
   if (e.code === 'KeyQ') e.preventDefault();
 });
 function toggleFP() { look.fp = !look.fp; G.hint = look.fp ? 'First person · C or VIEW to go back' : 'Third person'; G.hintT = 2; }
@@ -3701,7 +3734,7 @@ function buildRoom() {
   // what you can use
   const at = (x, z, r, name, act) => ROOM.props.push({ pos: V3(c.x + x, 0, c.z + z), r, name, act });
   at(-3.4, 2.4, 1.9, 'Sleep in the bed', roomSleep);
-  at(-2.5, 3.6, 1.0, 'Read comics on the tablet', () => storyIntro(() => { }));
+  at(-2.5, 3.6, 1.0, 'Open the tablet (App Store)', storeOpen);
   at(4.3, 3.0, 1.5, 'Play THWIP! on the PC', () => miniOpen('PC'));
   at(2.6, 3.0, 0.9, 'Video call Gwen on the laptop', () => { openChat(); G.hint = 'Video call with Gwen'; G.hintT = 2; });
   at(1.9, -3.6, 1.1, 'Watch TV (music on / off)', () => { toggleMusic(); });
@@ -3735,6 +3768,121 @@ function updateRoom(dt) {
   if (best) { if (G.hintT <= 1.5) { G.hint = 'E / USE: ' + best.name; G.hintT = 0.3; } if (use) best.act(); }
   if (Math.abs(P.pos.x - ROOM.c.x) > ROOM.w / 2 + 1.5 || Math.abs(P.pos.z - ROOM.c.z) > ROOM.d / 2 + 1.5 || P.pos.y > ROOM.h + 3) leaveRoom();
 }
+// ---------- App Store: download apps onto Miles' tablet and run them ----------
+const STORE = { open: false, view: null, inst: {}, filter: 'all', dl: {}, photos: [], cl: { turns: [], busy: false, sample: undefined } };
+try { STORE.inst = JSON.parse(localStorage.getItem('mm3d_apps') || '{}') || {}; } catch (e) { }
+const APPS = [
+  { id: 'claude', name: 'Claude', cat: 'Apps', icon: '✴️', bg: 'linear-gradient(135deg,#d97757,#b85c38)', size: '48 MB', rating: '4.9', desc: 'Ask Claude anything: homework, jokes, Spider-Man trivia, how to beat the next boss.', open: () => appShow('claude') },
+  { id: 'thwip', name: 'THWIP!', cat: 'Games', icon: '🕷', bg: 'linear-gradient(135deg,#ff3a1c,#8a0a1a)', size: '12 MB', rating: '4.8', desc: 'Catch the falling spiders with the web ball. Gold ones count triple. Earns tech points.', open: () => { storeClose(); miniOpen('store'); } },
+  { id: 'snake', name: 'Web Snake', cat: 'Games', icon: '🐍', bg: 'linear-gradient(135deg,#22c55e,#0f5132)', size: '6 MB', rating: '4.6', desc: 'Grow the web line, eat the flies, never bite yourself. Swipe or use the arrow keys.', open: () => appShow('snake') },
+  { id: 'cam', name: 'Spidey Cam', cat: 'Apps', icon: '📸', bg: 'linear-gradient(135deg,#fde047,#f59e0b)', size: '21 MB', rating: '4.7', desc: 'Take a picture of wherever you are right now and keep it in the album.', open: () => appShow('cam') },
+  { id: 'clock', name: 'Day & Night', cat: 'Apps', icon: '🌗', bg: 'linear-gradient(135deg,#1e3a8a,#f97316)', size: '3 MB', rating: '4.5', desc: 'Set the time of day over Brooklyn: dawn, day, sunset or night.', open: () => appShow('clock') },
+  { id: 'radio', name: 'Brooklyn Radio', cat: 'Apps', icon: '🎵', bg: 'linear-gradient(135deg,#ec4899,#7c3aed)', size: '9 MB', rating: '4.4', desc: 'Brooklyn Nights, Sunflower, or silence. Also plays in the TV.', open: () => appShow('radio') },
+  { id: 'comics', name: 'Brooklyn Nights Comics', cat: 'Apps', icon: '📖', bg: 'linear-gradient(135deg,#facc15,#dc2626)', size: '30 MB', rating: '4.9', desc: 'Chapter One, with pictures taken in the city you are standing in.', open: () => { storeClose(); storyIntro(() => { }); } },
+  { id: 'sm2', name: 'Spider-Man 2: Brooklyn Nights', cat: 'Games', icon: '🕸', bg: 'linear-gradient(135deg,#dc2626,#111)', size: '180 MB', rating: '4.9', desc: 'The sequel: two Spider-Men, the symbiote, Kraven. A whole second game.', url: 'spiderman2.html' },
+  { id: 'rocket', name: 'Rocket Run 3D', cat: 'Games', icon: '🚀', bg: 'linear-gradient(135deg,#0ea5e9,#1e293b)', size: '140 MB', rating: '4.7', desc: 'Pilot a rocket over the city and land it in one piece.', url: 'rocket.html' },
+  { id: 'drift', name: 'Apex Drift 3D', cat: 'Games', icon: '🏎', bg: 'linear-gradient(135deg,#f97316,#1f2937)', size: '150 MB', rating: '4.6', desc: 'Three laps against three AI drivers.', url: 'car.html' },
+  { id: 'cola', name: 'Cola Rocket 3D', cat: 'Games', icon: '🥤', bg: 'linear-gradient(135deg,#ef4444,#7f1d1d)', size: '95 MB', rating: '4.5', desc: 'Build a cola-and-mints rocket in the backyard and launch it.', url: 'cola.html' },
+  { id: 'miles2d', name: 'Miles 2D', cat: 'Games', icon: '🎮', bg: 'linear-gradient(135deg,#a855f7,#312e81)', size: '4 MB', rating: '4.3', desc: 'The original side-scrolling Miles game, where it all started.', url: 'index.html' },
+];
+const appSave = () => { try { localStorage.setItem('mm3d_apps', JSON.stringify(STORE.inst)); } catch (e) { } };
+function storeOpen() { if (STORE.open) return; STORE.open = true; $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
+function storeClose() { if (!STORE.open) return; STORE.open = false; STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function appBack() { STORE.view = null; snakeStop(); $('store').classList.remove('app'); storeRender(); }
+function storeRender() {
+  const grid = $('appGrid'); grid.innerHTML = '';
+  for (const b of document.querySelectorAll('#storeHead .seg button')) b.classList.toggle('on', b.dataset.f === STORE.filter);
+  for (const a of APPS) {
+    if (STORE.filter === 'Games' && a.cat !== 'Games') continue; if (STORE.filter === 'Apps' && a.cat !== 'Apps') continue; if (STORE.filter === 'mine' && !STORE.inst[a.id]) continue;
+    const inst = !!STORE.inst[a.id], dl = STORE.dl[a.id];
+    const el = document.createElement('div'); el.className = 'app';
+    el.innerHTML = `<div class="ic" style="background:${a.bg}">${a.icon}</div><div><b>${a.name}</b><div class="cat">${a.cat} · ★ ${a.rating}</div><div class="desc">${a.desc}</div><div class="meta">${a.size}${a.url ? ' · opens in a new tab' : ''}</div></div><button class="${dl ? 'dl' : inst ? 'open' : 'get'}" data-id="${a.id}">${dl ? `<i style="width:${Math.round(dl * 100)}%"></i><span>${Math.round(dl * 100)}%</span>` : `<span>${inst ? 'OPEN' : 'GET'}</span>`}</button>`;
+    el.querySelector('button').addEventListener('click', () => appTap(a)); grid.appendChild(el);
+  }
+}
+function appTap(a) {
+  if (STORE.dl[a.id] != null) return;
+  if (!STORE.inst[a.id]) { // download: a progress bar that takes a moment, like the real thing
+    const mb = parseInt(a.size) || 10, dur = 900 + Math.min(2600, mb * 14); const t0 = performance.now(); STORE.dl[a.id] = 0; AudioSys.pickup?.();
+    const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur); STORE.dl[a.id] = k; if (k < 1) { storeRender(); requestAnimationFrame(tick); } else { delete STORE.dl[a.id]; STORE.inst[a.id] = Date.now(); appSave(); AudioSys.heal?.(); storeRender(); } };
+    tick(); return;
+  }
+  if (a.url) { // one of the other games in this folder: open it in its own tab when the server has it
+    fetch(a.url, { method: 'HEAD' }).then(r => { if (r.ok) window.open(a.url, '_blank'); else throw 0; }).catch(() => { alert(a.name + ' lives in the game folder on GitHub (guichduh33-arch/video-game). Open the game from that folder and this button will launch it.'); });
+    return;
+  }
+  a.open();
+}
+function appShow(view) {
+  STORE.view = view; $('store').classList.add('app'); const v = $('appView'); const back = '<button class="back">‹ App Store</button>';
+  if (view === 'claude') {
+    v.innerHTML = back + `<div class="card"><h3>✴️ Claude</h3><div class="clog" id="clLog"></div><form class="cform" id="clForm"><input id="clIn" maxlength="400" placeholder="Ask Claude anything…" autocomplete="off"><button type="submit">SEND</button></form><p id="clNote" style="font-size:12px;color:#9aa3c7;margin:8px 0 0"></p></div>`;
+    if (!STORE.cl.turns.length) claudeMsg('ai', "Hi Miles! I'm Claude. Ask me anything: a riddle, a fact about spiders, help with homework, or how to beat Venom.");
+    else for (const t of STORE.cl.turns) claudeMsg(t.role === 'user' ? 'me' : 'ai', t.content);
+    $('clForm').addEventListener('submit', e => { e.preventDefault(); const t = $('clIn').value; $('clIn').value = ''; claudeAsk(t); }); setTimeout(() => $('clIn').focus(), 50); claudeBrain();
+  } else if (view === 'snake') { v.innerHTML = back + `<div class="card"><h3>🐍 Web Snake <span id="snScore" style="float:right;color:#ffe14a">0</span></h3><canvas id="snakeC" width="520" height="360"></canvas><p style="font-size:12px;color:#9aa3c7;margin:8px 0 0">Arrow keys or WASD · swipe on touch · eat the flies, do not bite your own web</p></div>`; snakeStart(); }
+  else if (view === 'cam') { v.innerHTML = back + `<div class="card"><h3>📸 Spidey Cam</h3><div class="row2"><button class="on" id="camShot">TAKE A PICTURE</button></div><div class="album" id="album"></div></div>`; $('camShot').addEventListener('click', () => { const url = snap(() => { }); STORE.photos.unshift(url); if (STORE.photos.length > 8) STORE.photos.pop(); camAlbum(); AudioSys.pickup?.(); }); camAlbum(); }
+  else if (view === 'clock') { v.innerHTML = back + `<div class="card"><h3>🌗 Day & Night</h3><div class="row2">${DAY_KEYS.map(k => `<button data-t="${k.t}" class="${DAY.name === k.name ? 'on' : ''}">${k.name}</button>`).join('')}</div><p style="font-size:12px;color:#9aa3c7;margin:10px 0 0">The clock keeps running after you set it: a full day over Brooklyn takes nine minutes.</p></div>`; for (const b of v.querySelectorAll('[data-t]')) b.addEventListener('click', () => { DAY.t = +b.dataset.t; dayApply(true); appShow('clock'); }); }
+  else if (view === 'radio') { const st = MUSIC.state ? MUSIC.state() : null; v.innerHTML = back + `<div class="card"><h3>🎵 Brooklyn Radio</h3><div class="row2"><button id="rdNext" class="on">NEXT TRACK / OFF</button></div><p id="rdNow" style="font-size:13px;color:#cfd6ff;margin:10px 0 0">${st && st.on ? '♫ ' + st.name : 'Tap to cycle: Brooklyn Nights · Sunflower · off'}</p></div>`; $('rdNext').addEventListener('click', () => { toggleMusic(); $('rdNow').textContent = G.hint; }); }
+  v.querySelector('.back').addEventListener('click', appBack);
+}
+function camAlbum() { const al = $('album'); if (!al) return; al.innerHTML = STORE.photos.map(u => `<img src="${u}" alt="">`).join('') || '<p style="color:#9aa3c7;font-size:13px">No pictures yet.</p>'; }
+function claudeMsg(cls, text) { const log = $('clLog'); if (!log) return null; const el = document.createElement('div'); el.className = 'm ' + cls; el.textContent = text; log.appendChild(el); log.scrollTop = 1e9; return el; }
+async function claudeBrain() {
+  if (STORE.cl.sample !== undefined) return STORE.cl.sample;
+  try { STORE.cl.sample = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('sample') : null; } catch (e) { STORE.cl.sample = null; }
+  const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Offline mode: a pocket Claude with canned answers. Open the game from its claude.ai link inside the viewer, and allow it to use Claude, for the real one.';
+  return STORE.cl.sample;
+}
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. Answer any question honestly and kindly.';
+function pocketClaude(t) {
+  const q = t.toLowerCase();
+  if (/venom/.test(q)) return 'Venom cannot see your spider-sense coming, so hit him with a Venom Strike first, then punch hard while he is stunned!';
+  if (/rhino/.test(q)) return 'The Rhino charges in straight lines. Dodge sideways, then punch him from behind while he turns around.';
+  if (/prowler/.test(q)) return 'The Prowler goes invisible. Watch for his shadow and trust the yellow flash in your lenses.';
+  if (/spot/.test(q)) return 'The Spot jumps through his holes. Web him the moment he comes out of one.';
+  if (/swing|faster/.test(q)) return 'Hold the web button in the air, press forward to pump, and let go at the top of the arc to fly!';
+  if (/leap|dive/.test(q)) return 'Jump off a tall roof, hold JUMP while you fall, and the web fires by itself just above the street. So cool.';
+  if (/spider/.test(q)) return 'Spiders have eight legs and most have eight eyes. Some can jump fifty times their own length!';
+  if (/joke|funny/.test(q)) return 'Why did Spider-Man join the swim team? Because he is great at the web-stroke!';
+  if (/who are you|your name/.test(q)) return 'I am Claude, an AI made by Anthropic. In here I live on your tablet. Nice to meet you, Miles!';
+  if (/hello|hi|hey/.test(q)) return 'Hey Miles! Ready to swing? Ask me anything.';
+  if (/\d+\s*[\+\-x\*\/]\s*\d+/.test(q)) { try { const m = q.match(/(\d+)\s*([\+\-x\*\/])\s*(\d+)/); const a = +m[1], b = +m[3], op = m[2]; const r = op === '+' ? a + b : op === '-' ? a - b : op === '/' ? a / b : a * b; return `${a} ${op} ${b} = ${r}. Nice math!`; } catch (e) { } }
+  return 'Good question! Out here I only have a few answers in my pocket. Open the game inside claude.ai and I can really think about it with you.';
+}
+async function claudeAsk(text) {
+  text = (text || '').trim(); if (!text || STORE.cl.busy) return;
+  STORE.cl.busy = true; claudeMsg('me', text); STORE.cl.turns.push({ role: 'user', content: text }); const bubble = claudeMsg('ai thinking', '…');
+  const sample = await claudeBrain(); let reply = '';
+  if (sample) {
+    try { const { text: out } = await sample([{ role: 'user', content: CLAUDE_RULES }, ...STORE.cl.turns.slice(-12)], { cache: false, modelTier: 'quick', onText: ({ text: t }) => { if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = t; } } }); reply = out.trim(); }
+    catch (e) { if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'not_declared' || e.code === 'capability_disabled')) STORE.cl.sample = null; reply = (e && e.text) || pocketClaude(text); }
+  } else { await new Promise(r => setTimeout(r, 400 + Math.random() * 500)); reply = pocketClaude(text); }
+  STORE.cl.turns.push({ role: 'assistant', content: reply }); if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = reply; } STORE.cl.busy = false; const inp = $('clIn'); if (inp) inp.focus();
+}
+// --- Web Snake ---
+const SNAKE = { raf: 0, on: false, t: 0, dir: [1, 0], next: [1, 0], body: [], fly: [10, 7], score: 0, dead: false, step: 0.14, tx: 0, ty: 0 };
+function snakeStart() { SNAKE.on = true; SNAKE.body = [[8, 7], [7, 7], [6, 7]]; SNAKE.dir = [1, 0]; SNAKE.next = [1, 0]; SNAKE.score = 0; SNAKE.dead = false; SNAKE.t = 0; SNAKE.step = 0.14; snakeFly(); SNAKE.last = performance.now(); cancelAnimationFrame(SNAKE.raf); SNAKE.raf = requestAnimationFrame(snakeFrame);
+  const cv = $('snakeC'); if (!cv) return; cv.addEventListener('touchstart', e => { e.preventDefault(); SNAKE.tx = e.touches[0].clientX; SNAKE.ty = e.touches[0].clientY; }, { passive: false });
+  cv.addEventListener('touchmove', e => { e.preventDefault(); const dx = e.touches[0].clientX - SNAKE.tx, dy = e.touches[0].clientY - SNAKE.ty; if (Math.hypot(dx, dy) > 24) { snakeTurn(Math.abs(dx) > Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)]); SNAKE.tx = e.touches[0].clientX; SNAKE.ty = e.touches[0].clientY; } }, { passive: false });
+  cv.addEventListener('click', () => { if (SNAKE.dead) snakeStart(); }); }
+function snakeStop() { SNAKE.on = false; cancelAnimationFrame(SNAKE.raf); }
+function snakeTurn(d) { if (d[0] === -SNAKE.dir[0] && d[1] === -SNAKE.dir[1]) return; SNAKE.next = d; }
+function snakeFly() { do { SNAKE.fly = [Math.floor(Math.random() * 26), Math.floor(Math.random() * 18)]; } while (SNAKE.body.some(b => b[0] === SNAKE.fly[0] && b[1] === SNAKE.fly[1])); }
+addEventListener('keydown', e => { if (!SNAKE.on) return; const m = { ArrowUp: [0, -1], KeyW: [0, -1], ArrowDown: [0, 1], KeyS: [0, 1], ArrowLeft: [-1, 0], KeyA: [-1, 0], ArrowRight: [1, 0], KeyD: [1, 0] }[e.code]; if (m) { e.preventDefault(); snakeTurn(m); } if (e.code === 'Space' && SNAKE.dead) snakeStart(); });
+function snakeFrame(now) {
+  if (!SNAKE.on) return; SNAKE.raf = requestAnimationFrame(snakeFrame); const cv = $('snakeC'); if (!cv) return; const g = cv.getContext('2d'), W = cv.width, H = cv.height, cs = 20;
+  const dt = Math.min(0.05, (now - SNAKE.last) / 1000); SNAKE.last = now;
+  if (!SNAKE.dead) { SNAKE.t += dt; if (SNAKE.t >= SNAKE.step) { SNAKE.t = 0; SNAKE.dir = SNAKE.next; const h = [SNAKE.body[0][0] + SNAKE.dir[0], SNAKE.body[0][1] + SNAKE.dir[1]];
+    if (h[0] < 0 || h[1] < 0 || h[0] >= 26 || h[1] >= 18 || SNAKE.body.some(b => b[0] === h[0] && b[1] === h[1])) { SNAKE.dead = true; AudioSys.hurt?.(); }
+    else { SNAKE.body.unshift(h); if (h[0] === SNAKE.fly[0] && h[1] === SNAKE.fly[1]) { SNAKE.score++; SNAKE.step = Math.max(0.07, SNAKE.step * 0.97); snakeFly(); AudioSys.pickup?.(); if (SNAKE.score === 15) upgAdd(1, P.pos); } else SNAKE.body.pop(); } } }
+  g.fillStyle = '#06081a'; g.fillRect(0, 0, W, H); g.strokeStyle = 'rgba(255,255,255,.05)'; for (let x = 0; x <= 26; x++) { g.beginPath(); g.moveTo(x * cs, 0); g.lineTo(x * cs, H); g.stroke(); } for (let y = 0; y <= 18; y++) { g.beginPath(); g.moveTo(0, y * cs); g.lineTo(W, y * cs); g.stroke(); }
+  g.fillStyle = '#ffd23f'; g.beginPath(); g.ellipse(SNAKE.fly[0] * cs + 10, SNAKE.fly[1] * cs + 10, 7, 5, 0, 0, TAU); g.fill();
+  SNAKE.body.forEach((b, i) => { g.fillStyle = i === 0 ? '#ffffff' : (i % 2 ? '#e8e8f4' : '#c9cce8'); g.beginPath(); g.roundRect ? g.roundRect(b[0] * cs + 2, b[1] * cs + 2, cs - 4, cs - 4, 6) : g.rect(b[0] * cs + 2, b[1] * cs + 2, cs - 4, cs - 4); g.fill(); });
+  const sc = $('snScore'); if (sc) sc.textContent = SNAKE.score;
+  if (SNAKE.dead) { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, H); g.fillStyle = '#ff3a1c'; g.font = '900 34px system-ui'; g.textAlign = 'center'; g.fillText('TANGLED!', W / 2, H / 2 - 10); g.fillStyle = '#fff'; g.font = '700 16px system-ui'; g.fillText(SNAKE.score + ' flies · tap or Space to play again', W / 2, H / 2 + 24); }
+}
+$('storeX').addEventListener('click', storeClose); for (const b of document.querySelectorAll('#storeHead .seg button')) b.addEventListener('click', () => { STORE.filter = b.dataset.f; storeRender(); });
 // ---------- THWIP!: the mini game on the PC and the console ----------
 const MINI = { open: false, raf: 0, t: 0, score: 0, x: 0.5, spiders: [], last: 0, src: 'PC', drag: null, best: 0 };
 try { MINI.best = +localStorage.getItem('mm3d_thwip') || 0; } catch (e) { }
@@ -4342,7 +4490,7 @@ function aimTarget() {
 }
 const _aimV = new THREE.Vector3();
 function updateCrosshair() {
-  const playing = G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open;
+  const playing = G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open && !STORE.open;
   if (HUDC.play !== playing) { HUDC.play = playing; document.body.classList.toggle('play', playing); }
   if (!playing) { if (HUDC.lock) { HUDC.lock = false; $('xhair').classList.remove('lock'); $('lockon').classList.remove('on'); } return; }
   const t = aimTarget(), lock = !!t;
@@ -4554,7 +4702,7 @@ const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform 
 if (IOS && !STANDALONE && location.protocol.startsWith('http')) { $('installHint').textContent = 'Install as an app: tap Share, then "Add to Home Screen".'; $('installHint').classList.remove('hidden'); }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) { addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(() => { }); }); }
 $('overlay').addEventListener('touchstart', () => AudioSys.ensure(), { passive: true });
-$('dayBtn').addEventListener('click', () => dayJump());
+$('dayBtn').addEventListener('click', () => dayJump()); $('storeBtn').addEventListener('click', () => storeOpen());
 
 // ---------- Main loop ----------
 genCity(); resetPlayer(); updateCamera(0, true);
@@ -4573,18 +4721,27 @@ for (const name of SUIT_ORDER) boot(() => { if (!SUITS[name]) { SUITS[name] = SU
 // shaders: compile each warm-up object in its own frame instead of the whole scene in one long block
 boot(() => { WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } }); });
 boot(() => { for (const c of WARM.children) boot(() => renderer.compile(c, camera, scene)); });
-function bootStep() { const fn = BOOT.q.shift(); if (!fn) { BOOT.done = true; return; } try { fn(); } catch (e) { console.warn('boot step failed', e); } }
+function bootStep() { const fn = BOOT.q.shift(); if (!fn) { BOOT.done = true; return; } try { fn(); } catch (e) { console.warn('boot step failed', e); } BOOT.doneN++; if (!BOOT.ready && BOOT.critN) $('startBtn').textContent = 'LOADING ' + Math.min(99, Math.round(100 * BOOT.doneN / BOOT.critN)) + '%'; }
 function bootAll() { let guard = 2000; while (!BOOT.done && guard-- > 0) bootStep(); }
 applyLevel(PERF.level);
-renderer.compile(hero, camera, scene);
-$('startBtn').disabled = false; $('startBtn').textContent = 'PLAY';
+// Critical warm-up, a few items per frame with a LOADING n% readout: every texture uploaded and every shader compiled
+// before the first 3D frame is drawn, so the page never freezes on one giant first frame. PLAY unlocks the moment that is done.
+BOOT.ready = false; BOOT.doneN = 0;
+{ const crit = [], texs = new Set(), objs = [];
+  scene.traverse(o => { if (o.isMesh || o.isSprite || o.isLine || o.isPoints) { objs.push(o); const ms = Array.isArray(o.material) ? o.material : [o.material]; for (const m of ms) for (const k of ['map', 'roughnessMap', 'bumpMap', 'emissiveMap', 'alphaMap', 'normalMap']) if (m && m[k]) texs.add(m[k]); } });
+  const T = [...texs]; for (let i = 0; i < T.length; i += 8) { const part = T.slice(i, i + 8); crit.push(() => { for (const t of part) renderer.initTexture(t); }); }
+  const seen = new Set(), groups = [];
+  for (const o of objs) { const ms = Array.isArray(o.material) ? o.material : [o.material]; const key = ms.map(m => m && m.uuid).join() + (o.isInstancedMesh ? 'I' : '') + (o.isSprite ? 'S' : ''); if (seen.has(key)) continue; seen.add(key); groups.push(o); }
+  for (let i = 0; i < groups.length; i += 6) { const part = groups.slice(i, i + 6); crit.push(() => { for (const o of part) { try { renderer.compile(o, camera, scene); } catch (e) { } } }); }
+  crit.push(() => { renderer.compile(hero, camera, scene); BOOT.ready = true; $('startBtn').disabled = false; $('startBtn').textContent = 'PLAY'; });
+  BOOT.critN = crit.length; BOOT.q.unshift(...crit); }
 if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned body is opt-in: ?hero=mocap
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (G.slowT > 0) { G.slowT -= dt; dt *= 0.35; } // leap-of-faith slow motion
-  if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open) {
+  if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open && !STORE.open) {
     G.time += dt; DAY.t += dt * DAY.speed;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
@@ -4596,7 +4753,7 @@ function frame(now) {
     // idle: slow orbit on the title screen, and one more piece of the warm-up each frame
     look.yaw += dt * 0.08; P.animT += dt; if (!BOOT.done) bootStep();
   }
-  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open) GAL_FX.update(dt); animateHero(dt);
+  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open && !STORE.open) GAL_FX.update(dt); animateHero(dt);
   dayApply(false); updateCamera(dt, false); updateHUD();
   for (const b of buildings) if (b.beacon) b.beacon.visible = Math.sin(now / 400 + b.x) > 0;
   for (const c of clouds) { c.position.x += c.userData.drift * dt; if (c.position.x > 1400) c.position.x = -1400; }
@@ -4606,6 +4763,7 @@ function frame(now) {
   // shadows refresh every other frame: half the shadow cost, no visible lag at the speeds the sun moves
   if (renderer.shadowMap.enabled) { PERF.frame++; renderer.shadowMap.needsUpdate = PERF.frame % 2 === 0; }
   G.rush = lerp(G.rush || 0, G.state === 'play' ? clamp((P.vel.length() - 20) / 22, 0, 1) : 0, Math.min(1, dt * 4));
+  if (!BOOT.ready) { if (!BOOT.done) bootStep(); return; } // nothing is drawn until the warm-up has compiled the city
   if (PERF.post) post.render(now / 1000, Math.min(1, G.shake + G.flash), G.rush); else renderer.render(scene, camera);
   autoQuality(now);
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
