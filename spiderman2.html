@@ -271,7 +271,7 @@ const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120,
 // ---------- Spider-Verse comic post-process ----------
 // Renders the scene to a texture, then draws it through a shader that adds ink outlines (from depth),
 // Ben-Day halftone dots in the shadows, cel-stepped shading, misprint colour fringing, paper grain.
-const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
+const LOOK = { comic: new URLSearchParams(location.search).get('look') === 'comic' }; // realistic by default; V toggles the comic look, or add ?look=comic
 const post = (() => {
   const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
   const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, { depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType), depthBuffer: true, samples: QUALITY === 'low' ? 0 : 4 });
