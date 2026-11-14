@@ -1415,7 +1415,7 @@ const senseRing = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.8, 24), new THREE
 // ---------- Player state ----------
 const P = {
   pos: V3(), vel: V3(), radius: 0.55, height: 2.8, facing: 0,
-  onGround: false, onWall: null, coyote: 0, jumpsLeft: 1, climbT: 0,
+  onGround: false, onWall: null, coyote: 0, jumpsLeft: 1, climbT: 0, wallRun: 0, wallHit: 0,
   swinging: false, anchor: V3(), ropeLen: 0, swingT: 0, webCd: 0,
   hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0,
   punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0,
@@ -1428,7 +1428,7 @@ function respawnPoint() {
 function resetPlayer() {
   const s = respawnPoint();
   P.pos.copy(s); P.vel.set(0, 0, 0);
-  Object.assign(P, { onGround: true, onWall: null, jumpsLeft: 1, swinging: false, hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, gliding: false, parryT: 0, armsT: 0, surgeT: 0, launchT: 0, inTunnel: 0 });
+  Object.assign(P, { onGround: true, onWall: null, wallRun: 0, wallHit: 0, jumpsLeft: 1, swinging: false, hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, gliding: false, parryT: 0, armsT: 0, surgeT: 0, launchT: 0, inTunnel: 0 });
   look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25;
 }
 
@@ -1436,14 +1436,14 @@ function resetPlayer() {
 const GRAV = 32, RUN = 11, AIR_CTRL = 22, CLIMB = 7, JUMP_V = 13.5, MAX_FALL = -60;
 function resolveHorizontal(p) {
   // push the capsule out of any building wall that rises above the feet
-  p.onWall = null;
+  p.onWall = null; p.wallHit = 0;
   for (const b of buildings) {
     if (b.h < p.pos.y + 0.6) continue; // can stand on / step onto it
     const dx = p.pos.x - b.x, dz = p.pos.z - b.z, hw = b.w / 2 + p.radius, hd = b.d / 2 + p.radius;
     if (Math.abs(dx) >= hw || Math.abs(dz) >= hd) continue;
     const px = hw - Math.abs(dx), pz = hd - Math.abs(dz);
-    if (px < pz) { p.pos.x = b.x + Math.sign(dx || 1) * hw; p.onWall = { b, nx: Math.sign(dx || 1), nz: 0 }; if (p.vel.x * Math.sign(dx || 1) < 0) p.vel.x = 0; }
-    else { p.pos.z = b.z + Math.sign(dz || 1) * hd; p.onWall = { b, nx: 0, nz: Math.sign(dz || 1) }; if (p.vel.z * Math.sign(dz || 1) < 0) p.vel.z = 0; }
+    if (px < pz) { const sx = Math.sign(dx || 1); p.pos.x = b.x + sx * hw; p.onWall = { b, nx: sx, nz: 0 }; if (p.vel.x * sx < 0) { p.wallHit = Math.max(p.wallHit, -p.vel.x * sx); p.vel.x = 0; } }
+    else { const sz = Math.sign(dz || 1); p.pos.z = b.z + sz * hd; p.onWall = { b, nx: 0, nz: sz }; if (p.vel.z * sz < 0) { p.wallHit = Math.max(p.wallHit, -p.vel.z * sz); p.vel.z = 0; } }
   }
   p.pos.x = clamp(p.pos.x, -WORLD_X / 2 - 60, WORLD_X / 2 + 60); p.pos.z = clamp(p.pos.z, -WORLD_Z / 2 - 60, WORLD_Z / 2 + 60);
 }
@@ -1543,20 +1543,45 @@ function updatePlayer(dt) {
     P.facing = Math.atan2(P.vel.x, P.vel.z); P.onGround = false; P.jumpsLeft = Math.max(P.jumpsLeft, 1);
     if (inJump()) { P.gliding = false; P.wingCd = 0.25; P.vel.y = Math.max(P.vel.y, 4) + 6; AudioSys.jump(); }
   } else if (P.onWall && !P.onGround && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.3) {
-    // --- wall crawl: push into the wall to stick and climb ---
+    // --- wall run, then wall crawl: hit a wall with speed and he sprints straight up it until the momentum is spent, then sticks and crawls ---
+    const first = P.climbT <= 0;
     P.climbT += dt;
-    const up = isDown('KeyW', 'ArrowUp') || touch.my < -0.3 ? 1 : isDown('KeyS', 'ArrowDown') || touch.my > 0.3 ? -1 : 0.6;
-    P.vel.y = up * CLIMB; P.vel.x = 0; P.vel.z = 0;
-    // slide along the wall sideways
-    const tx = -P.onWall.nz, tz = P.onWall.nx, side = mv.x * tx + mv.z * tz;
-    P.pos.x += tx * side * 5 * dt; P.pos.z += tz * side * 5 * dt;
+    const nx = P.onWall.nx, nz = P.onWall.nz, tx = -nz, tz = nx, side = mv.x * tx + mv.z * tz;
+    if (first) {
+      const into = P.wallHit || 0, upv = Math.max(0, P.vel.y);
+      if (!(P.wallRun > 0) && (into > 4 || upv > 7)) P.wallRun = clamp(8 + into * 1.2 + upv * 0.8, 12, 32);
+      if (P.vel.y < -12) P.vel.y = -12; // the fingers dig in: a fall onto a wall slides a little, never streaks down it
+      AudioSys.land(); burst(P.pos.clone().add(V3(-nx * 0.4, 1.2, -nz * 0.4)), 5, 0xbbbbbb, 2.5, 0.3);
+    }
+    if (P.wallRun > 0) {
+      // the run: a vertical sprint that gravity bleeds away, feet kicking dust off the facade
+      P.wallRun -= dt * (13 + P.wallRun * 0.3);
+      P.vel.y = lerp(P.vel.y, P.wallRun, Math.min(1, dt * 14)); P.vel.x = 0; P.vel.z = 0;
+      P.pos.x += tx * side * 8 * dt; P.pos.z += tz * side * 8 * dt;
+      if (Math.random() < dt * 24) burst(P.pos.clone().add(V3(-nx * 0.35, 0.15, -nz * 0.35)), 1, 0xbbbbbb, 2, 0.25);
+      if (P.wallRun < 4) P.wallRun = 0;
+    } else {
+      // the crawl: W climbs fast, S backs down, the stick alone creeps up; the speed eases in and out instead of snapping
+      const up = isDown('KeyW', 'ArrowUp') || touch.my < -0.3 ? 1 : isDown('KeyS', 'ArrowDown') || touch.my > 0.3 ? -0.75 : 0.6;
+      P.vel.y = lerp(P.vel.y, up * CLIMB, Math.min(1, dt * 8)); P.vel.x = 0; P.vel.z = 0;
+      P.pos.x += tx * side * 7 * dt; P.pos.z += tz * side * 7 * dt;
+    }
     P.pos.y += P.vel.y * dt;
-    P.facing = Math.atan2(-P.onWall.nx, -P.onWall.nz);
+    P.pos.x -= nx * 0.05; P.pos.z -= nz * 0.05; // stay pressed into the wall so contact holds every frame
+    P.facing = Math.atan2(-nx, -nz);
     P.jumpsLeft = 1;
-    if (P.pos.y >= P.onWall.b.h) { P.pos.y = P.onWall.b.h + 0.05; P.pos.x += -P.onWall.nx * 1.2; P.pos.z += -P.onWall.nz * 1.2; P.vel.y = 4; }
-    if (inJump()) { P.vel.set(P.onWall.nx * 9, JUMP_V, P.onWall.nz * 9); P.pos.x += P.onWall.nx * 0.2; P.pos.z += P.onWall.nz * 0.2; AudioSys.jump(); P.jumpsLeft = 1; }
+    if (P.pos.y >= P.onWall.b.h) { // over the parapet: a vault onto the roof, bigger after a run
+      const k = 1 + P.wallRun * 0.03; P.pos.y = P.onWall.b.h + 0.05; P.vel.set(-nx * 8 * k, 7 * k, -nz * 8 * k); P.onWall = null; P.climbT = 0; P.wallRun = 0; AudioSys.jump(); burst(P.pos.clone(), 6, 0xcccccc, 3, 0.3);
+    } else if (inJump()) { // kick off the wall, carrying the run's momentum
+      P.vel.set(nx * 10, JUMP_V + P.wallRun * 0.35, nz * 10); P.pos.x += nx * 0.2; P.pos.z += nz * 0.2; P.wallRun = 0; AudioSys.jump(); P.jumpsLeft = 1;
+    }
   } else {
     // --- run / air ---
+    if (P.onGround && P.onWall && (P.wallHit || 0) > 4.5 && (mv.x * -P.onWall.nx + mv.z * -P.onWall.nz) > 0.5) {
+      // running flat out into a wall: straight up it
+      P.wallRun = clamp(8 + P.wallHit * 1.3, 14, 32); P.onGround = false; P.coyote = 0; P.climbT = 0; P.vel.y = 9; P.pos.y += 0.12;
+      P.pos.x -= P.onWall.nx * 0.05; P.pos.z -= P.onWall.nz * 0.05;
+    }
     const accel = P.onGround ? 60 : AIR_CTRL;
     const tvx = mv.x * RUN * (P.camo ? 0.85 : 1), tvz = mv.z * RUN * (P.camo ? 0.85 : 1);
     if (P.onGround) { P.vel.x = lerp(P.vel.x, tvx, Math.min(1, accel * dt / RUN)); P.vel.z = lerp(P.vel.z, tvz, Math.min(1, accel * dt / RUN)); }
@@ -2641,8 +2666,11 @@ function animateHero(dt) {
     p.armL.rotation.set(-0.1, 0, -1.45); p.armR.rotation.set(-0.1, 0, 1.45); p.legL.rotation.x = 0.12; p.legR.rotation.x = 0.12;
     bodyX = 1.3;
   } else if (climbing) {
-    const c = Math.sin(t * 8); p.armL.rotation.x = -2.6 + c * 0.5; p.armR.rotation.x = -2.6 - c * 0.5; p.legL.rotation.x = 0.8 - c * 0.5; p.legR.rotation.x = 0.8 + c * 0.5;
-    bodyX = -1.3; p.body.position.z = -0.1;
+    // spider crawl: arms reach up and out to the sides, legs climb alternately; the limbs pump faster during a wall run
+    const spd = P.wallRun > 0 ? 12 : 7, c = Math.sin(t * spd);
+    p.armL.rotation.x = -2.5 + c * 0.6; p.armR.rotation.x = -2.5 - c * 0.6; p.armL.rotation.z = -0.55; p.armR.rotation.z = 0.55;
+    p.legL.rotation.x = 0.7 - c * 0.6; p.legR.rotation.x = 0.7 + c * 0.6;
+    bodyX = -1.35; p.body.position.z = -0.1;
   } else if (P.onGround && sp > 0.5) {
     const c = Math.sin(t * 13 * clamp(sp / RUN, 0.4, 1.3)), a = 0.9 * clamp(sp / RUN, 0.3, 1.1);
     p.legL.rotation.x = c * a; p.legR.rotation.x = -c * a; p.armL.rotation.x = -c * a * 0.9; p.armR.rotation.x = c * a * 0.9;
