@@ -2587,10 +2587,11 @@ function spawnSea(kind) {
   if (SEA.alive || !SEA.built) return; const def = SEA_DEFS[kind]; if (!def) return;
   if (SEA.mesh) scene.remove(SEA.mesh);
   const m = makeSeaMonster(def); SEA.mesh = m.g; SEA.head = m.head; SEA.neck = m.neck; SEA.jaw = m.jaw; SEA.eyes = m.eyes; SEA.tail = m.tail; SEA.def = def; SEA.kind = kind; SEA.S = def.size;
-  if (def.helper) spawnCthulhu(); else if (HELPER.mesh) helperEnd(false);
+
   SEA.alive = true; SEA.hp = SEA.maxHp = def.hp; SEA.name = def.name; SEA.t = 0; SEA.state = 'rise'; SEA.stateT = 0; SEA.flinch = 0; SEA.spitCd = 5; SEA.roarCd = 7;
   const z = clamp(P.pos.z, -220, 220); SEA.base.set(SEA.x0 + 12 + 14 * def.size, -SEA.neckLen - 30 * def.size, z); SEA.mesh.position.copy(SEA.base); scene.add(SEA.mesh);
   SEA.headHome.set(0, SEA.neckLen, 0);
+  if (def.helper) spawnCthulhu(); else if (HELPER.mesh) helperEnd(false); // Grandma brings Cthulhu up with her
   G.crime = { sea: true, boss: false, name: def.name, b: { x: SEA.x0 - 4, z, h: 0, w: 10, d: 10 }, t: 0 };
   beacon.visible = true; beacon.position.set(SEA.x0 - 4, 0, z);
   $('bossBar').classList.remove('hidden'); $('bossBar').querySelector('b').textContent = def.name;
@@ -5145,7 +5146,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { SEA, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { SEA, HELPER, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
