@@ -8470,7 +8470,7 @@ try { G.best = +localStorage.getItem('mm3d_best') || 0; G.bestTime = +localStora
 const isDown = (...c) => c.some(k => keys[k]);
 const wasPressed = (...c) => c.some(k => pressed[k]);
 addEventListener('keydown', e => {
-  if (STORE.open) { if (e.code === 'Escape') { if ($('store').classList.contains('app')) appBack(); else storeClose(); } if (STORE.view === 'snake' && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); return; }
+  if (STORE.open) { if (e.code === 'Escape') { if ($('store').classList.contains('app')) appBack(); else storeClose(); } if ((STORE.view === 'snake' || STORE.view === 'football') && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); return; }
   if (MINI.open) { if (e.code === 'Escape') miniClose(); if (['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); keys[e.code] = true; return; }
   if (STORY.open) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') { e.preventDefault(); storyNext(); } else if (e.code === 'Escape') storyEnd(); return; }
   if (CHAT.open) { if (e.code === 'Escape') { e.preventDefault(); closeChat(); } return; }
@@ -8929,6 +8929,7 @@ const SUIT_DEFS = {
       g.parts.wings = wings;
       g.parts.head.traverse(o => { if (o.isMesh && o.material === MAT.red) o.material = white; }); // white lens rims
     }); } },
+  gwen: { name: 'GWEN', perk: 'Play as Spider-Gwen', build: () => makeGwen() },
   classic: { name: 'PETER PARKER · CLASSIC', perk: 'Triple jump', build: () => {
     const blue = phys(0x1f3fa6, { map: fabricTex('#1f3fa6', true) }), red = phys(0xc0141e, { map: webTex(0.25, 0.3, 28, 9, true, '#c0141e', '#1a1016') }), redPlain = phys(0xc0141e), black = phys(0x151515);
     return buildSuit({ black: blue, red: redPlain, web: red, webShoulder: red, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: redPlain, swoosh: redPlain, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body) => {
@@ -8963,7 +8964,7 @@ const SUIT_DEFS = {
       head.traverse(o => { if (o.isMesh && o.material === MAT.red) o.material = rim; });
     }); } },
 };
-const SUIT_ORDER = ['spiderverse', 'spider2', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
+const SUIT_ORDER = ['spiderverse', 'spider2', 'gwen', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
 const FLYERS = new Set(['spider2', 'classic', 'm2099']); // the non-Miles Spider-Men can fly; Miles (the hoodie) cannot
 const isFlyer = () => FLYERS.has(SUIT);
 scene.remove(hero); hero = SUIT_DEFS.spiderverse.build(); scene.add(hero);
@@ -8976,7 +8977,7 @@ function setSuit(name) {
     SUIT = name; applyPalette(RIG.mats, SUIT_PALETTES[name] || SUIT_PALETTES.spiderverse); buildHat(name);
     if (name === 'symbiote' && P.camo) { P.camo = false; P.camoCd = 2; }
     burst(hero.position.clone().add(V3(0, 1.6, 0)), 30, name === 'symbiote' ? 0x1a0a2a : 0xffffff, 8, 0.6);
-    AudioSys.camo(); try { localStorage.setItem('mm3d_suit', name); } catch (e) { }
+    AudioSys.camo(); try { localStorage.setItem('mm3d_suit', name); } catch (e) { } if (typeof syncPartner === 'function') syncPartner();
     return;
   }
   if (!SUITS[name]) SUITS[name] = SUIT_DEFS[name].build();
@@ -8985,7 +8986,17 @@ function setSuit(name) {
   scene.remove(hero); hero = next; scene.add(hero); SUIT = name;
   if (name === 'symbiote' && P.camo) { P.camo = false; P.camoCd = 2; }
   burst(hero.position.clone().add(V3(0, 1.6, 0)), 30, name === 'symbiote' ? 0x1a0a2a : 0xffffff, 8, 0.6);
-  AudioSys.camo(); try { localStorage.setItem('mm3d_suit', name); } catch (e) { }
+  AudioSys.camo(); try { localStorage.setItem('mm3d_suit', name); } catch (e) { } if (typeof syncPartner === 'function') syncPartner();
+}
+let partnerMiles = false;
+function syncPartner() { // the AI partner is Gwen, unless you ARE Gwen, in which case the partner is Miles
+  if (!SK.mesh) return;
+  const wantMiles = (SUIT === 'gwen');
+  if (wantMiles === partnerMiles && SK.mesh) return;
+  if (wantMiles && !SK.gwenMesh) SK.gwenMesh = SK.mesh;
+  const next = wantMiles ? (SK.milesMesh || (SK.milesMesh = SUIT_DEFS.spiderverse.build())) : (SK.gwenMesh || SK.mesh);
+  if (next !== SK.mesh) { next.position.copy(SK.mesh.position); next.rotation.y = SK.mesh.rotation.y; scene.remove(SK.mesh); SK.mesh = next; scene.add(next); SK.mesh.visible = SK.on; }
+  partnerMiles = wantMiles;
 }
 function toggleSuit(dir = 1) { const i = SUIT_ORDER.indexOf(SUIT); setSuit(SUIT_ORDER[(i + dir + SUIT_ORDER.length) % SUIT_ORDER.length]); G.hint = SUIT_DEFS[SUIT].name + ' — ' + SUIT_DEFS[SUIT].perk; G.hintT = 3.5; }
 const webLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web); webLine.frustumCulled = false; scene.add(webLine);
@@ -10798,6 +10809,7 @@ function spawnSidekick() {
   if (!SK.mesh) { SK.mesh = makeGwen(); SK.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web2 || (MAT.web2 = new THREE.LineBasicMaterial({ color: 0xffffff }))); SK.line.frustumCulled = false; scene.add(SK.mesh, SK.line); SK.webLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web2); SK.webLine.frustumCulled = false; SK.webLine.visible = false; scene.add(SK.webLine); }
   SK.pos.copy(P.pos).add(V3(-Math.sin(P.facing) * 3 + 1.5, 0, -Math.cos(P.facing) * 3)); SK.vel.set(0, 0, 0); SK.onGround = true; SK.webbing = false; SK.state = 'idle'; SK.facing = P.facing; SK.kos = 0; SK.stuckT = 0; SK.prev.copy(SK.pos);
   SK.mesh.visible = SK.on; SK.line.visible = false; SK.order = null; SK.webFx = null; if (SK.webLine) SK.webLine.visible = false;
+  SK.gwenMesh = null; SK.milesMesh = null; partnerMiles = false;
 }
 function sidekickDrop() { // catch up: swing in from above and behind the player
   SK.pos.copy(P.pos).add(V3(-Math.sin(P.facing) * 5, 16, -Math.cos(P.facing) * 5)); SK.vel.set(0, -4, 0); SK.onGround = false; SK.webbing = true;
@@ -10953,21 +10965,25 @@ function buildSociety() {
   });
 }
 const SOC_LINES = ['Welcome to the Society, kid.', 'Canon event in progress. Don\'t touch anything.', 'Miguel says no portals without a watch. Ignore him.', 'Nice hoodie.', 'Which Earth are you from again?', 'The portal goes to the crime. Don\'t ask how.', 'We\'ve all lost an Uncle Ben. Hang in there.', 'Gwen talks about you. A lot.'];
-function summonSociety(n = 4) {
-  if (!SOC.built) return 0;
-  n = Math.min(n, 5 - SOC.allies.length);
-  if (n <= 0) { SOC.allyT = Math.max(SOC.allyT, G.time + 30); return SOC.allies.length; }
-  const makers = [randSuit, randSuit, () => SUIT_DEFS.m2099.build(), () => SUIT_DEFS.classic.build(), randSuit];
-  for (let i = 0; i < n; i++) {
-    const mk = makers[(SOC.allies.length + i) % makers.length], g = stripLights(mk());
-    g.traverse(o => { if (o.isMesh && o.material === GMAT.none) o.visible = false; });
-    const from = SOC.hq ? V3(SOC.hq.x + rand(-6, 6), SOC.hq.h + 6, SOC.hq.z + rand(-6, 6)) : P.pos.clone().add(V3(rand(-8, 8), 14, rand(-8, 8)));
+function spawnAllies(builders, cap, label) {
+  for (let i = 0; i < builders.length && SOC.allies.length < cap; i++) {
+    const g = stripLights(builders[i]()); g.traverse(o => { if (o.isMesh && o.material === GMAT.none) o.visible = false; });
+    const a = SOC.allies.length * 1.25 + Math.random(), r = 3 + Math.random() * 2;
+    const from = P.pos.clone().add(V3(Math.cos(a) * r, 1.2, Math.sin(a) * r)); // right next to you
     g.position.copy(from); g.scale.setScalar(0.92); scene.add(g);
-    SOC.allies.push({ mesh: g, pos: from.clone(), vel: V3(), off: V3(rand(-6, 6), rand(3, 7), rand(-6, 6)), animT: rand(0, 10), punchCd: rand(0, 1), kos: 0 });
+    SOC.allies.push({ mesh: g, pos: from.clone(), vel: V3(), off: V3(Math.cos(a) * 5, rand(2, 5), Math.sin(a) * 5), animT: rand(0, 10), punchCd: rand(0, 1), kos: 0 });
   }
-  SOC.allyT = G.time + 45;
-  floatText(P.pos.clone().add(V3(0, 5, 0)), 'SPIDER-SOCIETY, GO!', '#ff9a3a', 26); AudioSys.thwip();
+  SOC.allyT = G.time + 60; AudioSys.thwip();
+  floatText(P.pos.clone().add(V3(0, 5, 0)), label || 'SPIDER-SOCIETY, GO!', '#ff9a3a', 26);
   return SOC.allies.length;
+}
+function summonSociety(n = 4) {
+  const makers = [randSuit, randSuit, () => SUIT_DEFS.m2099.build(), () => SUIT_DEFS.classic.build(), randSuit, randSuit];
+  return spawnAllies(makers.slice(0, Math.max(1, n)), 6, 'SPIDER-SOCIETY, GO!');
+}
+function summonEverySpiderMan() {
+  const keys = ['spiderverse', 'spider2', 'symbiote', 'classic', 'm2099', 'punk', 'noir'];
+  return spawnAllies(keys.map(k => () => SUIT_DEFS[k].build()), 8, 'EVERY SPIDER-MAN!');
 }
 function updateSocietyAllies(dt) {
   if (!SOC.allies.length) return;
@@ -11297,6 +11313,7 @@ const APPS = [
   { id: 'claude', name: 'Claude', cat: 'Apps', icon: '✴️', bg: 'linear-gradient(135deg,#d97757,#b85c38)', size: '48 MB', rating: '4.9', desc: 'Ask Claude anything: homework, jokes, Spider-Man trivia, how to beat the next boss.', open: () => appShow('claude') },
   { id: 'thwip', name: 'THWIP!', cat: 'Games', icon: '🕷', bg: 'linear-gradient(135deg,#ff3a1c,#8a0a1a)', size: '12 MB', rating: '4.8', desc: 'Catch the falling spiders with the web ball. Gold ones count triple. Earns tech points.', open: () => { storeClose(); miniOpen('store'); } },
   { id: 'snake', name: 'Web Snake', cat: 'Games', icon: '🐍', bg: 'linear-gradient(135deg,#22c55e,#0f5132)', size: '6 MB', rating: '4.6', desc: 'Grow the web line, eat the flies, never bite yourself. Swipe or use the arrow keys.', open: () => appShow('snake') },
+  { id: 'football', name: 'Street Football', cat: 'Games', icon: '⚽', bg: 'linear-gradient(135deg,#16a34a,#064e3b)', size: '18 MB', rating: '4.8', desc: 'Two-minute street football. Drag to run, SHOOT at the goal, beat the CPU. Works right on the iPad.', open: () => appShow('football') },
   { id: 'cam', name: 'Spidey Cam', cat: 'Apps', icon: '📸', bg: 'linear-gradient(135deg,#fde047,#f59e0b)', size: '21 MB', rating: '4.7', desc: 'Take a picture of wherever you are right now and keep it in the album.', open: () => appShow('cam') },
   { id: 'clock', name: 'Day & Night', cat: 'Apps', icon: '🌗', bg: 'linear-gradient(135deg,#1e3a8a,#f97316)', size: '3 MB', rating: '4.5', desc: 'Set the time of day over Brooklyn: dawn, day, sunset or night.', open: () => appShow('clock') },
   { id: 'radio', name: 'Brooklyn Radio', cat: 'Apps', icon: '🎵', bg: 'linear-gradient(135deg,#ec4899,#7c3aed)', size: '9 MB', rating: '4.4', desc: 'Brooklyn Nights, Sunflower, or silence. Also plays in the TV.', open: () => appShow('radio') },
@@ -11313,8 +11330,8 @@ function storeToast(msg) { let t = $('storeToast'); if (!t) { t = document.creat
 const appSave = () => { try { localStorage.setItem('mm3d_apps', JSON.stringify(STORE.inst)); } catch (e) { } };
 function appOverlayClass() { document.body.classList.toggle('appOpen', !!(STORE.open || MINI.open || STORY.open)); }
 function storeOpen() { if (STORE.open) return; STORE.open = true; appOverlayClass(); $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
-function storeClose() { if (!STORE.open) return; STORE.open = false; appOverlayClass(); STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) lockPointer(); }
-function appBack() { STORE.view = null; snakeStop(); $('store').classList.remove('app'); storeRender(); }
+function storeClose() { if (!STORE.open) return; STORE.open = false; appOverlayClass(); STORE.view = null; snakeStop(); footballStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) lockPointer(); }
+function appBack() { STORE.view = null; snakeStop(); footballStop(); $('store').classList.remove('app'); storeRender(); }
 function storeRender() {
   const grid = $('appGrid'); grid.innerHTML = '';
   for (const b of document.querySelectorAll('#storeHead .seg button')) b.classList.toggle('on', b.dataset.f === STORE.filter);
@@ -11361,6 +11378,20 @@ function appShow(view, a) {
   else if (view === 'cam') { v.innerHTML = back + `<div class="card"><h3>📸 Spidey Cam</h3><div class="row2"><button class="on" id="camShot">TAKE A PICTURE</button></div><div class="album" id="album"></div></div>`; $('camShot').addEventListener('click', () => { const url = snap(() => { }); STORE.photos.unshift(url); if (STORE.photos.length > 8) STORE.photos.pop(); camAlbum(); AudioSys.pickup?.(); }); camAlbum(); }
   else if (view === 'clock') { v.innerHTML = back + `<div class="card"><h3>🌗 Day & Night</h3><div class="row2">${DAY_KEYS.map(k => `<button data-t="${k.t}" class="${DAY.name === k.name ? 'on' : ''}">${k.name}</button>`).join('')}</div><p style="font-size:12px;color:#9aa3c7;margin:10px 0 0">The clock keeps running after you set it: a full day over Brooklyn takes nine minutes.</p></div>`; for (const b of v.querySelectorAll('[data-t]')) b.addEventListener('click', () => { DAY.t = +b.dataset.t; dayApply(true); appShow('clock'); }); }
   else if (view === 'radio') { const st = MUSIC.state ? MUSIC.state() : null; v.innerHTML = back + `<div class="card"><h3>🎵 Brooklyn Radio</h3><div class="row2"><button id="rdNext" class="on">NEXT TRACK / OFF</button></div><p id="rdNow" style="font-size:13px;color:#cfd6ff;margin:10px 0 0">${st && st.on ? '♫ ' + st.name : 'Tap to cycle: Brooklyn Nights · Sunflower · off'}</p></div>`; $('rdNext').addEventListener('click', () => { toggleMusic(); $('rdNow').textContent = G.hint; }); }
+  else if (view === 'football') {
+    v.innerHTML = back + `<div class="card"><h3>⚽ Street Football</h3><canvas id="fbC" width="520" height="360" style="width:100%;max-width:520px;display:block;margin:0 auto;border-radius:12px;background:#176a2e;touch-action:none"></canvas><div class="row2" style="margin-top:10px"><button class="on" id="fbShoot">⚽ SHOOT</button></div><p style="font-size:12px;color:#9aa3c7;margin:8px 0 0">Drag on the pitch to run · SHOOT (or Space) kicks at the goal · score more than the CPU in 90 seconds</p></div>`;
+    const c = $('fbC'); const rect = () => c.getBoundingClientRect();
+    const toCanvas = t => { const r = rect(); return [(t.clientX - r.left) / r.width * 520, (t.clientY - r.top) / r.height * 360]; };
+    const setStick = t => { const [x, y] = toCanvas(t); let dx = x - FB.ox, dy = y - FB.oy; const l = Math.hypot(dx, dy), m = 40; if (l > m) { dx = dx / l * m; dy = dy / l * m; } FB.mx = dx / m; FB.my = dy / m; };
+    const startStick = t => { const [x, y] = toCanvas(t); FB.ox = x; FB.oy = y; FB.mx = FB.my = 0; FB.dragging = true; };
+    const endStick = () => { FB.mx = FB.my = 0; FB.dragging = false; };
+    c.addEventListener('touchstart', e => { startStick(e.touches[0]); if (e.cancelable) e.preventDefault(); }, { passive: false });
+    c.addEventListener('touchmove', e => { if (FB.dragging) { setStick(e.touches[0]); e.preventDefault(); } }, { passive: false });
+    c.addEventListener('touchend', endStick); c.addEventListener('touchcancel', endStick);
+    c.addEventListener('mousedown', e => startStick(e)); c.addEventListener('mousemove', e => { if (FB.dragging) setStick(e); });
+    if (!FB.boundUp) { FB.boundUp = true; window.addEventListener('mouseup', endStick); }
+    tapOn($('fbShoot'), footballShoot); footballStart();
+  }
   tapOn(v.querySelector('.back'), appBack);
 }
 // --- Claude's voice: he speaks every answer, and the microphone sends what you say ---
@@ -11411,7 +11442,12 @@ function gameCommand(t) {
   if (has('first person')) { look.fp = true; return 'Done: first person. Press C or VIEW to go back.'; }
   if (has('third person')) { look.fp = false; return 'Done: third person.'; }
   if (has('double jump', 'triple jump')) { P.jumpsLeft = 3; return 'Done: three jumps in a row, right now. Go!'; }
-  if (has('spider society', 'spider-society', 'society', 'backup', 'call the spider', 'help me fight', 'other spider', 'more spider')) { if (!SOC.built) return 'The Spider-Society tower is still warming up. Try again in a moment.'; storeClose(); const k = summonSociety(4); return k ? 'Done: the Spider-Society is flying in to fight with you! They can fly anywhere and will help for a while.' : 'The whole Society is already out here with you!'; }
+  if (has('every spider', 'all spider', 'all the spider', 'spider men', 'everyone')) { storeClose(); summonEverySpiderMan(); return 'Done: every Spider-Man is right next to you now, and they will fight with you!'; }
+  if (has('spider society', 'spider-society', 'society', 'backup', 'call the spider', 'help me fight', 'other spider', 'more spider')) { storeClose(); summonSociety(5); return 'Done: the Spider-Society is right next to you! They fly anywhere and fight with you for a while.'; }
+  if (has('be gwen', 'play as gwen', 'switch to gwen', 'become gwen', 'i am gwen', 'control gwen')) { setSuit('gwen'); return 'Done: you are playing as Spider-Gwen now! Miles has your back.'; }
+  if (has('be miles', 'play as miles', 'switch to miles', 'become miles', 'back to miles')) { setSuit('spiderverse'); return 'Done: you are Miles again.'; }
+  if (has('be spider-man', 'be spiderman', 'play as spider-man', 'play as spiderman', 'the flying spider', 'flying spider-man', 'flying spiderman')) { setSuit('spider2'); return 'Done: you are the flying SPIDER-MAN now. Jump, then hold JUMP in the air to fly!'; }
+  if (has('football', 'soccer', 'play ball')) { storeOpen(); appShow('football'); return 'Done: opening Street Football. Drag to run, tap SHOOT to kick at the goal!'; }
   if (has('fly', 'flying') && has('suit', 'can i', 'how', 'make me')) { if (isFlyer()) return 'You are already a flying Spider-Man! Jump, then hold JUMP in the air to soar.'; setSuit('spider2'); return 'Done: now wearing the SPIDER-MAN suit. Jump, then hold JUMP in the air to FLY!'; }
   return null;
 }
@@ -11426,7 +11462,7 @@ async function claudeBrain() {
   const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
-const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[bring sea eater]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[society]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[bring maja]] [[bring bloop]] [[bring grandma]] [[bring sea eater]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[society]] [[every spiderman]] [[be gwen]] [[be miles]] [[be spiderman]] [[football]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
 function pocketClaude(t) {
   const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const has = (...w) => w.some(x => q.includes(x));
@@ -11505,6 +11541,68 @@ function snakeFrame(now) {
   const sc = $('snScore'); if (sc) sc.textContent = SNAKE.score;
   if (SNAKE.dead) { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, H); g.fillStyle = '#ff3a1c'; g.font = '900 34px system-ui'; g.textAlign = 'center'; g.fillText('TANGLED!', W / 2, H / 2 - 10); g.fillStyle = '#fff'; g.font = '700 16px system-ui'; g.fillText(SNAKE.score + ' flies · tap or Space to play again', W / 2, H / 2 + 24); }
 }
+
+// ---------- Street Football: a quick top-down soccer game in the App Store ----------
+const FBW = 520, FBH = 360, FB_M = 20, FB_GOALH = 120;
+const FB = { on: false, raf: 0, last: 0, t: 90, you: null, opp: null, keep: [], ball: null, sYou: 0, sOpp: 0, msg: '', msgT: 0, mx: 0, my: 0, ox: 0, oy: 0, dragging: false, over: false, key: {}, boundUp: false };
+function fbReset() {
+  FB.ball = { x: FBW / 2, y: FBH / 2, vx: 0, vy: 0, r: 7 };
+  FB.you = { x: FBW * 0.32, y: FBH / 2, vx: 0, vy: 0, r: 12, col: '#2f6bff' };
+  FB.opp = { x: FBW * 0.68, y: FBH / 2, vx: 0, vy: 0, r: 12, col: '#e01030', kickCd: 0 };
+  FB.keep = [{ x: FB_M + 8, y: FBH / 2, r: 12, col: '#1430a0', side: -1 }, { x: FBW - FB_M - 8, y: FBH / 2, r: 12, col: '#a00a1a', side: 1 }];
+}
+function footballStart() { FB.on = true; FB.t = 90; FB.sYou = 0; FB.sOpp = 0; FB.over = false; FB.msg = 'KICK OFF!'; FB.msgT = 1.2; FB.mx = FB.my = 0; FB.dragging = false; FB.key = {}; fbReset(); FB.last = performance.now(); cancelAnimationFrame(FB.raf); FB.raf = requestAnimationFrame(footballFrame); }
+function footballStop() { FB.on = false; cancelAnimationFrame(FB.raf); }
+function footballShoot() {
+  if (!FB.on) return; if (FB.over) { footballStart(); return; }
+  const b = FB.ball, y = FB.you, d = Math.hypot(b.x - y.x, b.y - y.y);
+  if (d < 36) { const tx = FBW - FB_M, ty = FBH / 2 + (Math.random() - 0.5) * (FB_GOALH - 30), dx = tx - b.x, dy = ty - b.y, l = Math.hypot(dx, dy) || 1, pw = 8.5; b.vx = dx / l * pw; b.vy = dy / l * pw; FB.msg = 'SHOOT!'; FB.msgT = 0.4; try { AudioSys.jump?.(); } catch (e) { } }
+  else { y.vx = 1; y.vy = 0; }
+}
+function fbMove(o, dt, sp) { o.x += o.vx * sp * dt; o.y += o.vy * sp * dt; o.x = clamp(o.x, FB_M + o.r, FBW - FB_M - o.r); o.y = clamp(o.y, FB_M + o.r, FBH - FB_M - o.r); }
+function footballFrame(now) {
+  if (!FB.on) return; FB.raf = requestAnimationFrame(footballFrame);
+  let dt = Math.min(0.05, (now - FB.last) / 1000); FB.last = now;
+  const c = $('fbC'); if (!c) { footballStop(); return; } const g = c.getContext('2d'); const b = FB.ball;
+  if (!FB.over) {
+    FB.t -= dt; if (FB.t <= 0) { FB.t = 0; FB.over = true; FB.msg = FB.sYou > FB.sOpp ? 'YOU WIN!' : FB.sYou < FB.sOpp ? 'YOU LOSE' : 'A DRAW'; FB.msgT = 99; }
+    if (FB.msgT > 0) FB.msgT -= dt;
+    // your player: joystick or keys
+    let ix = FB.mx, iy = FB.my;
+    if (FB.key.KeyA || FB.key.ArrowLeft) ix = -1; if (FB.key.KeyD || FB.key.ArrowRight) ix = 1; if (FB.key.KeyW || FB.key.ArrowUp) iy = -1; if (FB.key.KeyS || FB.key.ArrowDown) iy = 1;
+    const il = Math.hypot(ix, iy); if (il > 1) { ix /= il; iy /= il; }
+    FB.you.vx = ix; FB.you.vy = iy; fbMove(FB.you, dt, 155);
+    // opponent AI: chase the ball, kick it toward your goal
+    const o = FB.opp; if (o.kickCd > 0) o.kickCd -= dt;
+    const odx = b.x - o.x, ody = b.y - o.y, od = Math.hypot(odx, ody) || 1; o.vx = odx / od; o.vy = ody / od; fbMove(o, dt, 125);
+    if (od < o.r + b.r + 4 && o.kickCd <= 0) { const tx = FB_M, ty = FBH / 2 + (Math.random() - 0.5) * (FB_GOALH - 20), dx = tx - b.x, dy = ty - b.y, l = Math.hypot(dx, dy) || 1; b.vx = dx / l * 6.5; b.vy = dy / l * 6.5; o.kickCd = 1.1; }
+    // keepers track the ball's height in front of their goal
+    for (const k of FB.keep) { const ty = clamp(b.y, FBH / 2 - FB_GOALH / 2, FBH / 2 + FB_GOALH / 2); k.y += clamp(ty - k.y, -150 * dt, 150 * dt); const kd = Math.hypot(b.x - k.x, b.y - k.y); if (kd < k.r + b.r) { b.vx = k.side * Math.abs(b.vx || 3) * -1 + k.side * -2; b.vy += (b.y - k.y) * 0.12; } }
+    // players dribble / push the ball
+    for (const pl of [FB.you, FB.opp]) { const pd = Math.hypot(b.x - pl.x, b.y - pl.y) || 1; if (pd < pl.r + b.r) { const nx = (b.x - pl.x) / pd, ny = (b.y - pl.y) / pd; b.x = pl.x + nx * (pl.r + b.r); b.y = pl.y + ny * (pl.r + b.r); b.vx += pl.vx * 2.4 + nx * 1.6; b.vy += pl.vy * 2.4 + ny * 1.6; } }
+    // ball physics
+    b.x += b.vx; b.y += b.vy; b.vx *= 0.975; b.vy *= 0.975;
+    if (b.y < FB_M + b.r) { b.y = FB_M + b.r; b.vy *= -0.6; } if (b.y > FBH - FB_M - b.r) { b.y = FBH - FB_M - b.r; b.vy *= -0.6; }
+    const inMouth = Math.abs(b.y - FBH / 2) < FB_GOALH / 2;
+    if (b.x < FB_M + b.r) { if (inMouth) { FB.sOpp++; FB.msg = 'THEY SCORED'; FB.msgT = 1.5; fbReset(); } else { b.x = FB_M + b.r; b.vx *= -0.6; } }
+    else if (b.x > FBW - FB_M - b.r) { if (inMouth) { FB.sYou++; FB.msg = 'GOAL!!!'; FB.msgT = 1.6; try { AudioSys.win?.(); } catch (e) { } fbReset(); } else { b.x = FBW - FB_M - b.r; b.vx *= -0.6; } }
+  } else if (FB.msgT < 99 && FB.msgT > 0) FB.msgT -= dt;
+  // draw
+  for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#1a7533' : '#176a2e'; g.fillRect(i * FBW / 8, 0, FBW / 8 + 1, FBH); }
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 3; g.strokeRect(FB_M, FB_M, FBW - FB_M * 2, FBH - FB_M * 2);
+  g.beginPath(); g.moveTo(FBW / 2, FB_M); g.lineTo(FBW / 2, FBH - FB_M); g.stroke();
+  g.beginPath(); g.arc(FBW / 2, FBH / 2, 40, 0, TAU); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(2, FBH / 2 - FB_GOALH / 2, FB_M - 2, FB_GOALH); g.fillRect(FBW - FB_M, FBH / 2 - FB_GOALH / 2, FB_M - 2, FB_GOALH);
+  g.lineWidth = 4; g.strokeStyle = '#fff'; g.strokeRect(FB_M, FBH / 2 - FB_GOALH / 2, 6, FB_GOALH); g.strokeRect(FBW - FB_M - 6, FBH / 2 - FB_GOALH / 2, 6, FB_GOALH);
+  const circle = o => { g.fillStyle = o.col; g.beginPath(); g.arc(o.x, o.y, o.r, 0, TAU); g.fill(); g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.4)'; g.stroke(); };
+  for (const k of FB.keep) circle(k); circle(FB.opp); circle(FB.you);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(b.x, b.y, b.r, 0, TAU); g.fill(); g.strokeStyle = '#111'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = '#111'; g.beginPath(); g.arc(b.x, b.y, 2.4, 0, TAU); g.fill();
+  g.fillStyle = '#fff'; g.font = '900 22px system-ui'; g.textAlign = 'center'; g.fillText(`YOU ${FB.sYou}  -  ${FB.sOpp} CPU`, FBW / 2, 18);
+  g.textAlign = 'right'; g.font = '700 15px system-ui'; g.fillText(Math.ceil(FB.t) + 's', FBW - 8, 16);
+  if (FB.msgT > 0 && FB.msg) { g.textAlign = 'center'; if (FB.over) { g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, FBH / 2 - 46, FBW, 92); } g.fillStyle = /GOAL|WIN/.test(FB.msg) ? '#ffe14a' : '#fff'; g.font = '900 36px system-ui'; g.fillText(FB.msg, FBW / 2, FBH / 2 + 6); if (FB.over) { g.fillStyle = '#fff'; g.font = '700 15px system-ui'; g.fillText('tap SHOOT to play again', FBW / 2, FBH / 2 + 34); } }
+}
+addEventListener('keydown', e => { if (!FB.on) return; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); if (e.code === 'Space') { footballShoot(); return; } FB.key[e.code] = true; });
+addEventListener('keyup', e => { if (FB.on) FB.key[e.code] = false; });
 tapOn($('storeX'), storeClose); for (const b of document.querySelectorAll('#storeHead .seg button')) tapOn(b, () => { STORE.filter = b.dataset.f; storeRender(); });
 // ---------- THWIP!: the mini game on the PC and the console ----------
 const MINI = { open: false, raf: 0, t: 0, score: 0, x: 0.5, spiders: [], last: 0, src: 'PC', drag: null, best: 0 };
