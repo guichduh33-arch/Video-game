@@ -1186,7 +1186,7 @@ const _tQ = new THREE.Quaternion(), _tM = new THREE.Matrix4(), _tP = V3(), _tS =
 // ---------- Web grab: a web shot latches onto a car or a passer-by and yanks it through the air to Miles ----------
 const GRAB = { list: [], lineMat: new THREE.LineBasicMaterial({ color: 0xffffff }), E: new THREE.Euler() };
 function grabStart(kind, pos) {
-  const g = { kind, pos: pos.clone(), vel: V3(), rot: V3(0, 0, 0), spin: V3(rand(-3, 3), rand(-4, 4), rand(-3, 3)), t: 0, hold: 0.9, onGround: false, line: new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos, pos]), GRAB.lineMat) };
+  const g = { kind, pos: pos.clone(), vel: V3(), rot: V3(0, 0, 0), spin: V3(rand(-3, 3), rand(-4, 4), rand(-3, 3)), t: 0, hold: P.onGround ? 0.9 : 1.6, onGround: false, line: new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos, pos]), GRAB.lineMat) };
   g.line.frustumCulled = false; scene.add(g.line); GRAB.list.push(g);
   const to = P.pos.clone().add(V3(0, 1.5, 0)).sub(pos), d = Math.max(1, to.length()); to.normalize();
   g.vel.copy(to).multiplyScalar(kind === 'car' ? 15 : 19).add(V3(0, 6 + Math.min(10, d * 0.18), 0));
@@ -1195,7 +1195,7 @@ function grabStart(kind, pos) {
 }
 function grabStep(g, dt, floorY, radius) {
   g.t += dt; const hand = heroHand();
-  if (g.t < g.hold) { const to = hand.clone().sub(g.pos), d = to.length(); if (d > radius + 0.5) { to.normalize(); g.vel.addScaledVector(to, dt * 55); } g.line.visible = true; g.line.geometry.setFromPoints([hand, g.pos]); }
+  if (g.t < g.hold) { const to = hand.clone().sub(g.pos), d = to.length(); if (d > radius + 0.5) { to.normalize(); g.vel.addScaledVector(to, dt * (55 + P.vel.length() * 2.5 + d * 0.8)); const sp = g.vel.length(), cap = 45 + P.vel.length(); if (sp > cap) g.vel.multiplyScalar(cap / sp); } g.line.visible = true; g.line.geometry.setFromPoints([hand, g.pos]); }
   else g.line.visible = false;
   g.vel.y -= GRAV * dt; g.pos.addScaledVector(g.vel, dt); g.rot.addScaledVector(g.spin, dt);
   const dh = g.pos.distanceTo(hand); if (dh < radius) { const push = g.pos.clone().sub(hand).normalize(); g.pos.copy(hand).addScaledVector(push, radius); g.vel.multiplyScalar(0.3); g.vel.y = Math.max(g.vel.y, -2); }
@@ -1206,14 +1206,14 @@ function grabStep(g, dt, floorY, radius) {
 }
 function grabEnd(g) { scene.remove(g.line); const k = GRAB.list.indexOf(g); if (k >= 0) GRAB.list.splice(k, 1); }
 function grabTry(w) { // does this web shot land on a car or a passer-by?
-  for (const c of traffic) { if (c.grab || c.wx === undefined) continue; if (Math.abs(w.x - c.wx) < 2.6 && Math.abs(w.z - c.wz) < 2.6 && w.y < 3.4 && w.y > -0.5) { c.grab = grabStart('car', V3(c.wx, 0.95, c.wz)); return true; } }
+  for (const c of traffic) { if (c.grab || c.wx === undefined) continue; if (Math.abs(w.x - c.wx) < 3.2 && Math.abs(w.z - c.wz) < 3.2 && w.y < 4 && w.y > -0.5) { c.grab = grabStart('car', V3(c.wx, 0.95, c.wz)); return true; } }
   for (const p of peds) { if (p.grab || p.wx === undefined) continue; if (Math.abs(w.x - p.wx) < 1.2 && Math.abs(w.z - p.wz) < 1.2 && w.y < 2.6 && w.y > -0.5) { p.grab = grabStart('ped', V3(p.wx, 0.3, p.wz)); return true; } }
   return false;
 }
 function aimSoft() { // nearest car or passer-by in front of the camera, for the crosshair and the web
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); let best = null, bd = 1e9;
-  const test = (x, y, z, r) => { const dx = x - P.pos.x, dz = z - P.pos.z, flat = Math.hypot(dx, dz); if (flat > 46 || flat < 2 || Math.abs(y - P.pos.y) > 60) return; const dot = (dx * fx + dz * fz) / flat; if (dot < 0.9) return; const score = flat * (1.2 - dot) * 10 + flat * 0.2; if (score < bd) { bd = score; best = V3(x, y, z); } };
-  for (const c of traffic) if (!c.grab && c.wx !== undefined) test(c.wx, 1.2, c.wz, 2.6);
+  const test = (x, y, z, r, vx = 0, vz = 0) => { const dx = x - P.pos.x, dz = z - P.pos.z, flat = Math.hypot(dx, dz); if (flat > (P.onGround ? 46 : 110) || flat < 2 || Math.abs(y - P.pos.y) > 140) return; const dot = (dx * fx + dz * fz) / flat; if (dot < 0.9) return; const score = flat * (1.2 - dot) * 10 + flat * 0.2; if (score < bd) { bd = score; const tt = Math.hypot(dx, y - P.pos.y, dz) / (P.onGround ? 48 : 70); best = V3(x + vx * tt, y, z + vz * tt); } };
+  for (const c of traffic) if (!c.grab && c.wx !== undefined) test(c.wx, 1.2, c.wz, 2.6, c.vx || 0, c.vz || 0);
   for (const p of peds) if (!p.grab && p.wx !== undefined) test(p.wx, 1.0, p.wz, 1.2);
   return best;
 }
@@ -1235,7 +1235,7 @@ function updateTraffic(dt) {
       if (done) { c.t = c.along ? g.pos.x : g.pos.z; c.grab = null; grabEnd(g); }
       return;
     }
-    c.wx = x; c.wz = z;
+    c.wx = x; c.wz = z; c.vx = c.along ? c.dir * c.speed : 0; c.vz = c.along ? 0 : c.dir * c.speed;
     _tQ.setFromAxisAngle(_tUp, yaw);
     const fx = Math.cos(yaw), fz = -Math.sin(yaw), rx = Math.sin(yaw), rz = Math.cos(yaw);
     TRAFFIC.body.setMatrixAt(i, _tM.compose(_tP.set(x, 0.95, z), _tQ, _tS));
@@ -2413,7 +2413,8 @@ function shootWeb() {
     else { const soft = aimSoft(); if (soft) { dir = soft.clone().sub(from).normalize(); P.facing = Math.atan2(dir.x, dir.z); } else dir = V3(fx, -Math.sin(look.pitch) * 0.5, fz).normalize(); }
     const m = new THREE.Mesh(webBallGeo, webBallMat); m.position.copy(from); scene.add(m);
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([from, from]), MAT.web); line.frustumCulled = false; scene.add(line);
-    webShots.push({ pos: from.clone(), vel: dir.multiplyScalar(48), life: 1.2, mesh: m, line, from });
+    const far = !P.onGround; // from a swing or a fall the web flies faster and further, so the street is in reach from high up
+    webShots.push({ pos: from.clone(), vel: dir.multiplyScalar(far ? 70 : 48), life: far ? 2.4 : 1.2, mesh: m, line, from });
   };
   fire(from, best);
   // Twin Shooters: the left wrist fires at the next nearest thug (or alongside the first web)
@@ -4937,7 +4938,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { GRAB, traffic, grabTry, aimSoft, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
