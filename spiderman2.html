@@ -149,9 +149,10 @@
   <div id="chatLog"></div>
   <form id="chatForm" autocomplete="off"><button id="micBtn" type="button" title="Hold to talk (or press Y)">🎤</button><input id="chatIn" maxlength="300" placeholder="Say something to your partner…"><button id="chatSend" type="submit">SEND</button></form>
 </div>
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 'use strict';
 
 // ============================================================
@@ -1168,6 +1169,68 @@ function headProp(head, mesh, x, y, z) { mesh.position.set(x, y, z); mesh.positi
 function logoPlane(mat, size, y, z, back = false) { const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat); m.position.set(0, y, z); if (back) m.rotation.y = Math.PI; else m.rotation.x = -0.12; return m; }
 const spiderMat = (color, back = false) => new THREE.MeshStandardMaterial({ map: tintSpiderTex(color, back), transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide });
 const milesHoodie = hero;
+// ---- blocky (chunkified) Miles model helpers, ported from the first game ----
+function lensPatchGeo(shape, R, ox, oy, rings = 6) {
+  const pts = shape.getPoints(20); if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 1e-6) pts.pop();
+  const n = pts.length; let cx = 0, cy = 0; for (const q of pts) { cx += q.x; cy += q.y; } cx /= n; cy /= n;
+  const flat = [cx + ox, cy + oy], idx = [];
+  for (let r = 1; r <= rings; r++) { const t = r / rings; for (let i = 0; i < n; i++) flat.push(cx + (pts[i].x - cx) * t + ox, cy + (pts[i].y - cy) * t + oy); }
+  const id = (r, i) => r === 0 ? 0 : 1 + (r - 1) * n + (i % n);
+  for (let i = 0; i < n; i++) idx.push(0, id(1, i), id(1, i + 1));
+  for (let r = 1; r < rings; r++) for (let i = 0; i < n; i++) { const a = id(r, i), b = id(r, i + 1), c = id(r + 1, i), d = id(r + 1, i + 1); idx.push(a, c, d, a, d, b); }
+  const arr = new Float32Array(flat.length / 2 * 3);
+  for (let i = 0; i < flat.length / 2; i++) { const X = flat[i * 2], Y = flat[i * 2 + 1]; arr[i * 3] = X; arr[i * 3 + 1] = Y; arr[i * 3 + 2] = Math.sqrt(Math.max(0, R * R - X * X - Y * Y)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(arr, 3)); g.setIndex(idx); g.computeVertexNormals();
+  if (g.attributes.normal.getZ(0) < 0) { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } g.computeVertexNormals(); }
+  g.userData.lens = true; return g;
+}
+// a toy web shooter strapped over the wrist: black body, a spoked drum with silver screws, a hex nut, silver zigzag strips,
+// a grey strap and a barrel with a glowing blue suction dart at the tip. Built in forearm space (wrist at y = 0, back of the wrist toward -z).
+const SHOOTER_MAT = { body: new THREE.MeshStandardMaterial({ color: 0x15161b, roughness: 0.55, metalness: 0.2 }), silver: new THREE.MeshStandardMaterial({ color: 0xd4d8de, roughness: 0.3, metalness: 0.9 }),
+  strap: new THREE.MeshStandardMaterial({ color: 0x5c6068, roughness: 0.95 }), dart: new THREE.MeshPhysicalMaterial({ color: 0x4a5cff, roughness: 0.15, clearcoat: 1, emissive: 0x2233ff, emissiveIntensity: 0.6, transparent: true, opacity: 0.85 }) };
+function makeWebShooter(sx) {
+  const g = new THREE.Group(), M = SHOOTER_MAT, box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
+  const strap = new THREE.Mesh(new THREE.TorusGeometry(0.095, 0.022, 6, 18), M.strap); strap.rotation.x = Math.PI / 2; g.add(strap);
+  box(0.11, 0.2, 0.05, M.body, 0, 0.0, -0.1); // main body over the back of the wrist
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 20), M.body); drum.rotation.x = Math.PI / 2; drum.position.set(0, 0.045, -0.135); drum.castShadow = true; g.add(drum);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.006, 6, 18), M.body); ring.position.set(0, 0.045, -0.152); g.add(ring);
+  for (let i = 0; i < 4; i++) { const sp = box(0.095, 0.007, 0.007, M.body, 0, 0.045, -0.153); sp.rotation.z = i * Math.PI / 4; }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.012, 8), M.silver); hub.rotation.x = Math.PI / 2; hub.position.set(0, 0.045, -0.158); g.add(hub);
+  for (let i = 0; i < 5; i++) { const a = i * Math.PI * 2 / 5 + 0.3, sc = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 8), M.silver); sc.rotation.x = Math.PI / 2; sc.position.set(Math.cos(a) * 0.042, 0.045 + Math.sin(a) * 0.042, -0.152); g.add(sc); }
+  const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.03, 6), M.body); nut.rotation.x = Math.PI / 2; nut.position.set(sx * -0.015, -0.055, -0.135); nut.castShadow = true; g.add(nut);
+  for (const [x, y] of [[0.035, -0.095], [-0.035, -0.02]]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.01, 8), M.silver); sc.rotation.x = Math.PI / 2; sc.position.set(x, y, -0.127); g.add(sc); }
+  // silver zigzag strips along both edges of the body
+  for (const ex of [-1, 1]) for (const [y, rz] of [[0.075, 0.5], [0.03, -0.5], [-0.015, 0.5], [-0.06, -0.5]]) { const z = box(0.006, 0.055, 0.006, M.silver, ex * 0.058, y, -0.1); z.rotation.z = rz * ex; z.castShadow = false; }
+  // barrel over the back of the hand, with the blue suction dart loaded
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.024, 0.12, 12), M.body); barrel.position.set(0, -0.15, -0.1); barrel.castShadow = true; g.add(barrel);
+  const dart = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.012, 0.03, 12), M.dart); dart.position.set(0, -0.225, -0.1); g.add(dart);
+  const muzzle = new THREE.Object3D(); muzzle.position.set(0, -0.25, -0.1); g.add(muzzle); g.muzzle = muzzle;
+  return g;
+}
+// ---- chunky figure: tapered rounded torso, ball shoulders, rounded-block limbs, big gloves, tall boots, a belt; the round head stays ----
+function chunkify(g, C) {
+  const body = g.parts.body, head = g.parts.head;
+  const isRound = o => o.isMesh && o.geometry && /Sphere|Cylinder|Capsule|Torus/.test(o.geometry.type);
+  const thin = o => o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && (o.geometry.parameters.width < 0.05 || o.geometry.parameters.height < 0.05);
+  const rb = (w, h, d, r = 0.08) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r, w / 2.2, h / 2.2, d / 2.2));
+  const add = (parent, geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
+  for (const o of body.children) if (o !== head && (isRound(o) || thin(o))) o.visible = false;
+  const torso = rb(0.7, 1.2, 0.38, 0.12); { const pa = torso.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 + 0.18 * (y / 0.6))); pa.setZ(i, pa.getZ(i) * (1 + 0.06 * (y / 0.6))); } torso.computeVertexNormals(); }
+  add(body, torso, C.suit, 0, 1.72, 0);
+  if (C.panel) add(body, rb(0.62, 0.62, 0.06, 0.03), C.panel, 0, 1.98, 0.2);
+  add(body, new THREE.CylinderGeometry(0.11, 0.13, 0.26, 12), C.suit, 0, 2.4, 0);
+  add(body, rb(0.62, 0.13, 0.36, 0.05), C.belt, 0, 1.2, 0); add(body, rb(0.13, 0.09, 0.05, 0.02), C.buckle, 0, 1.2, 0.185);
+  for (const sx of [-1, 1]) {
+    const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
+    for (const grp of [arm, arm.joint, leg, leg.joint]) for (const o of grp.children) if (isRound(o) || thin(o)) o.visible = false;
+    add(body, new THREE.SphereGeometry(0.18, 16, 12), C.arm || C.suit, sx * 0.5, 2.2, 0);
+    add(arm, rb(0.26, 0.56, 0.26, 0.09), C.arm || C.suit, 0, -0.3, 0); add(arm.joint, rb(0.24, 0.48, 0.24, 0.08), C.suit, 0, -0.25, 0);
+    const hand = arm.tip; for (const o of hand.children) o.visible = false; add(hand, rb(0.3, 0.3, 0.3, 0.1), C.glove, 0, -0.1, 0); add(hand, rb(0.32, 0.07, 0.32, 0.03), C.glove, 0, 0.06, 0);
+    add(leg, rb(0.28, 0.62, 0.28, 0.09), C.suit, 0, -0.3, 0); add(leg.joint, rb(0.26, 0.5, 0.26, 0.08), C.suit, 0, -0.26, 0);
+    const foot = leg.tip; for (const o of foot.children) o.visible = false; foot.scale.set(1, 1, 1); add(foot, rb(0.3, 0.42, 0.32, 0.08), C.boot, 0, 0.12, 0.02); add(foot, rb(0.32, 0.08, 0.4, 0.03), C.boot, 0, -0.05, 0.06);
+  }
+}
+
 const SUIT_DEFS = {
   // ---- Peter Parker ----
   advanced: { hero: 'peter', name: 'PETER · ADVANCED SUIT 2.0', perk: 'Spider-Arms (K) hit everything in front of you', build: () => {
@@ -1208,13 +1271,73 @@ const SUIT_DEFS = {
       addSpiderArms(g, body);
     }); } },
   // ---- Miles Morales ----
-  upgraded: { hero: 'miles', name: 'MILES · UPGRADED SUIT', perk: 'Venom Strike (K) and camouflage (L)', build: () => {
-    const black = phys(0x111118, { map: fabricTex('#111118'), roughness: 0.6 }), red = phys(0xd3101f);
-    return buildSuit({ black, red, web: MAT.web, webShoulder: MAT.webShoulder, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: red, swoosh: black, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens, wing: MAT.wingDark }, (g, body) => {
-      body.add(logoPlane(spiderMat('#e0162c', true), 1.05, 1.86, 0.32)); body.add(logoPlane(spiderMat('#e0162c', true), 1.05, 1.82, -0.28, true)); // oversized red spider
-      for (const sx of [-1, 1]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.03, 6, 14), red); band.rotation.x = Math.PI / 2; band.position.y = -0.5; (sx < 0 ? g.parts.armL : g.parts.armR).joint.add(band); } // red cuffs
+  upgraded: { hero: 'miles', name: 'MILES · CLASSIC SUIT', perk: 'Venom Strike (K) and camouflage (L)', build: () => {
+    // sleek classic Miles: glossy near-black suit, red-webbed mask, a big glowing red spider, red fingertips, soles and bands
+    const black = phys(0x08080d, { map: fabricTex('#08080d'), roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.22, metalness: 0.05, envMapIntensity: 1.1 });
+    const webM = new THREE.MeshPhysicalMaterial({ map: webTex(0.25, 0.3, 32, 10, true, '#08080d', '#e01022'), color: 0xffffff, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.22, envMapIntensity: 1.0 });
+    const red = phys(0xe4111f, { roughness: 0.45, clearcoat: 0.5, clearcoatRoughness: 0.3, emissive: 0x4a0008, emissiveIntensity: 0.9 });
+    const lensM = new THREE.MeshPhysicalMaterial({ color: 0xfefefe, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.08, emissive: 0x6a0a12, emissiveIntensity: 0.35 });
+    return buildSuit({ black, red, web: webM, webShoulder: webM, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: red, swoosh: black, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: lensM, wing: MAT.wingDark }, (g, body, head) => {
+      // a bold glowing red spider on the chest and the back
+      const chestSpider = new THREE.MeshStandardMaterial({ map: tintSpiderTex('#e4111f', false), transparent: true, roughness: 0.4, emissive: 0xe01022, emissiveMap: tintSpiderTex('#e4111f', false), emissiveIntensity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+      const backSpider = new THREE.MeshStandardMaterial({ map: tintSpiderTex('#e4111f', true), transparent: true, roughness: 0.4, emissive: 0xe01022, emissiveMap: tintSpiderTex('#e4111f', true), emissiveIntensity: 0.4, depthWrite: false, side: THREE.DoubleSide });
+      body.add(logoPlane(chestSpider, 0.92, 1.9, 0.305)); body.add(logoPlane(backSpider, 1.15, 1.82, -0.275, true));
+      for (const sx of [-1, 1]) {
+        const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
+        const wrist = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.03, 6, 16), red); wrist.rotation.x = Math.PI / 2; wrist.position.y = -0.5; arm.joint.add(wrist); // red wrist band
+        const ankle = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.032, 6, 16), red); ankle.rotation.x = Math.PI / 2; ankle.position.y = -0.52; leg.joint.add(ankle); // red ankle band
+      }
+      // red glow from the chest spider
+      const spiderGlow = new THREE.PointLight(0xff2033, 2.2, 3.5, 2); spiderGlow.position.set(0, 1.9, 0.55); body.add(spiderGlow);
     }); } },
-  spiderverse: { hero: 'miles', name: 'MILES · SPIDER-VERSE', perk: 'Hoodie and Jordans. Venom Strike and camouflage', build: () => milesHoodie },
+  spiderverse: { hero: 'miles', name: 'MILES · SPIDER-VERSE', perk: 'Blocky ATSV game suit. Venom Strike and camouflage', build: () => {
+    // the game-suit spider: no round body, a long pointed abdomen, a small angular head and thin bent legs
+    const atsvSpider = (color, big) => { const t = canvasTex(256, 256, (g, w, h) => { g.clearRect(0, 0, w, h); const cx = 128, cy = 128, k = big ? 1.0 : 0.85; g.fillStyle = g.strokeStyle = color; g.lineCap = 'round'; g.lineJoin = 'round';
+        g.beginPath(); g.moveTo(cx, cy - 8 * k); g.lineTo(cx + 14 * k, cy + 14 * k); g.lineTo(cx + 9 * k, cy + 72 * k); g.lineTo(cx, cy + 92 * k); g.lineTo(cx - 9 * k, cy + 72 * k); g.lineTo(cx - 14 * k, cy + 14 * k); g.closePath(); g.fill(); // abdomen: long pointed shield
+        g.beginPath(); g.moveTo(cx, cy - 10 * k); g.lineTo(cx + 11 * k, cy - 24 * k); g.lineTo(cx + 7 * k, cy - 44 * k); g.lineTo(cx, cy - 50 * k); g.lineTo(cx - 7 * k, cy - 44 * k); g.lineTo(cx - 11 * k, cy - 24 * k); g.closePath(); g.fill(); // head
+        g.lineWidth = 7 * k;
+        const legs = [[-10, -30, -52, -70, -46, -112], [-12, -14, -70, -34, -92, -82], [-12, 6, -74, 18, -96, 66], [-12, 24, -56, 62, -40, 108]];
+        for (const sx of [-1, 1]) for (const [x1, y1, x2, y2, x3, y3] of legs) { g.beginPath(); g.moveTo(cx + sx * x1 * k, cy + y1 * k); g.lineTo(cx + sx * x2 * k, cy + y2 * k); g.lineTo(cx + sx * x3 * k, cy + y3 * k); g.stroke(); } }); t.repeat.set(1, 1); t.magFilter = THREE.LinearFilter; return new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide }); };
+    // the Across the Spider-Verse game suit: navy halftone body, orange-red comic spider, thin red side stripes, red fingertips and soles, big white lenses with orange rims
+    const halftone = (base, dot) => { const t = canvasTex(256, 256, (g, w, h) => { g.fillStyle = base; g.fillRect(0, 0, w, h); g.fillStyle = dot; for (let y = 0; y < h; y += 6) for (let x = 0; x < w; x += 6) { g.beginPath(); g.arc(x + (y / 6 % 2) * 3, y, 1.3, 0, TAU); g.fill(); } }); t.repeat.set(1, 1); return t; };
+    const navy = phys(0x0b0e2a, { roughness: 0.6, clearcoat: 0.25, clearcoatRoughness: 0.4 }), red = phys(0xff3a1c, { roughness: 0.55, emissive: 0x3a0a00 }), white = MAT.lens;
+    return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: navy, swoosh: red, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: white }, (g, body, head) => {
+      // a real head shape instead of a ball: narrower skull, longer in the back, a jaw and chin; lenses moved to match
+      // a seven-year-old's proportions: a big head on a small body, short arms and legs, and the whole figure smaller
+      head.scale.set(0.74, 0.74, 0.74); head.position.y = 2.7; // a true ball: same size every way, no jaw bulge
+      for (const a of [g.parts.armL, g.parts.armR]) a.scale.setScalar(0.93);
+      for (const l of [g.parts.legL, g.parts.legR]) { l.scale.setScalar(0.96); l.position.y -= 0.047; }
+      g.scale.setScalar(0.87);
+          body.children[0].scale.multiply(new THREE.Vector3(1.14, 1.04, 1.08)); // broader chest, a V shape to the torso
+          for (const L of [g.parts.armL, g.parts.armR, g.parts.legL, g.parts.legR]) { L.joint.children[0].scale.set(0.95, 0.8, 0.95); L.children[0].scale.set(1.05, 1, 1.05); } // flatter joints, fuller limbs
+      head.traverse(o => { if (o.isMesh && o.geometry && (o.geometry.type === 'ExtrudeGeometry' || o.geometry.userData.lens)) o.visible = false; });
+      const jaw = new THREE.Mesh(new THREE.SphereGeometry(0.3, 18, 14), navy); headProp(head, jaw, 0, -0.1, 0.04); jaw.visible = false; head.children.forEach(o => { if (o.isMesh && o.geometry && o.geometry.type === 'SphereGeometry') o.visible = false; }); jaw.scale.set(0.82 / head.scale.x * 0.62, 0.7 / head.scale.y * 0.62, 0.9 / head.scale.z * 0.62);
+      const R = 0.38;
+      for (const sx of [-1, 1]) {
+        const lensGeo = lensPatchGeo(lensShape(0.5, sx), R + 0.012, sx * 0.06, -0.02), rimGeo = lensPatchGeo(lensShape(0.6, sx), R + 0.004, sx * 0.045, -0.03);
+        const lens = new THREE.Mesh(lensGeo, white), rim = new THREE.Mesh(rimGeo, red); lens.castShadow = rim.castShadow = false; head.add(lens, rim);
+      }
+      // chest: the big red block N with a thin white inner stripe, like the toy
+      const nMat = (() => { const t = canvasTex(256, 256, (g, w, h) => { g.clearRect(0, 0, w, h); const N = (col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.lineCap = 'butt'; g.lineJoin = 'miter'; g.beginPath(); g.moveTo(58, 226); g.lineTo(58, 30); g.lineTo(198, 226); g.lineTo(198, 30); g.stroke(); }; N('#111', 58); N('#e8102a', 46); N('#ffffff', 10); N('#e8102a', 4); }); t.repeat.set(1, 1); t.magFilter = THREE.LinearFilter; return new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide }); })();
+      body.add(logoPlane(nMat, 0.5, 1.95, 0.215)); body.add(logoPlane(atsvSpider('#ff3a1c', true), 0.8, 1.8, -0.2, true));
+      for (const sx of [-1, 1]) {
+        // flank stripe: one thin line from the armpit down the side of the torso to the hip
+        for (const [x, y, len, rz] of [[0.405, 1.92, 0.34, 0], [0.3, 1.62, 0.3, sx * 0.3], [0.25, 1.33, 0.3, sx * -0.15]]) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.022, len, 0.05), red); st.position.set(sx * x, y, 0.0); st.rotation.z = rz; body.add(st); }
+        const leg = sx < 0 ? g.parts.legL : g.parts.legR, arm = sx < 0 ? g.parts.armL : g.parts.armR;
+        // legs: a thin line on the outside of the thigh and the inside of the shin, on the side, not the front
+        const up = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.5, 0.04), red); up.position.set(sx * 0.128, -0.3, -0.02); leg.add(up);
+        const lo = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.36, 0.04), red); lo.position.set(sx * -0.095, -0.3, -0.01); leg.joint.add(lo);
+        const shooter = makeWebShooter(sx); shooter.position.y = -0.46; shooter.scale.setScalar(1.25); arm.joint.add(shooter); if (sx > 0) g.parts.shooterR = shooter; else g.parts.shooterL = shooter;
+        // arms: a thin line on the inside of the upper arm
+        const ar = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.4, 0.04), red); ar.position.set(sx * -0.1, -0.3, 0); arm.add(ar);
+        // feet: a slim suit foot, navy all over with only the sole red
+        const shoe = leg.tip; shoe.scale.set(0.82, 0.9, 0.9); shoe.children.forEach((m, i) => { if (m.isMesh) m.material = i === 0 ? red : navy; });
+        // shoulders: smaller, so the arm flows out of the torso instead of a ball sitting on it
+        for (const o of body.children) if (o.isMesh && Math.abs(Math.abs(o.position.x) - 0.5) < 0.01 && Math.abs(o.position.y - 2.18) < 0.01) o.scale.set(0.85, 0.75, 0.8);
+      }
+      chunkify(g, { suit: navy, glove: red, boot: red, belt: red, buckle: white });
+    });
+  } },
   punk: { hero: 'miles', name: 'MILES · SPIDER-PUNK', perk: 'Venom Strike costs 35 and venom builds faster', build: () => {
     const navy = phys(0x16235e, { map: fabricTex('#16235e', true) }), red = phys(0xcf2030), white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.6 }), denim = new THREE.MeshStandardMaterial({ color: 0x1b1b22, roughness: 1 }), stud = new THREE.MeshStandardMaterial({ color: 0xcfcfd6, roughness: 0.3, metalness: 0.8 });
     return buildSuit({ black: navy, red: red, web: navy, webShoulder: navy, hoodie: denim, hoodieIn: denim, string: NONE_MAT, sole: white, swoosh: red, laces: white, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body, head) => {
