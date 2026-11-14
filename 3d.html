@@ -3798,6 +3798,9 @@ const APPS = [
   { id: 'cola', name: 'Cola Rocket 3D', cat: 'Games', icon: '🥤', bg: 'linear-gradient(135deg,#ef4444,#7f1d1d)', size: '95 MB', rating: '4.5', desc: 'Build a cola-and-mints rocket in the backyard and launch it.', url: 'cola.html' },
   { id: 'miles2d', name: 'Miles 2D', cat: 'Games', icon: '🎮', bg: 'linear-gradient(135deg,#a855f7,#312e81)', size: '4 MB', rating: '4.3', desc: 'The original side-scrolling Miles game, where it all started.', url: 'index.html' },
 ];
+// a tap handler that works on iPad even when the synthetic click never arrives: touchend first, click as the fallback, never both
+function tapOn(el, fn) { let last = 0; const go = e => { const now = performance.now(); if (now - last < 500) return; last = now; if (e.cancelable && e.type === 'touchend') e.preventDefault(); fn(e); }; el.addEventListener('touchend', go, { passive: false }); el.addEventListener('click', go); }
+function storeToast(msg) { let t = $('storeToast'); if (!t) { t = document.createElement('div'); t.id = 'storeToast'; t.style.cssText = 'position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:70;background:#1e90ff;color:#fff;font:700 14px system-ui;padding:8px 16px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.4);pointer-events:none;transition:opacity .3s'; document.body.appendChild(t); } t.textContent = msg; t.style.opacity = 1; clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = 0; }, 1400); }
 const appSave = () => { try { localStorage.setItem('mm3d_apps', JSON.stringify(STORE.inst)); } catch (e) { } };
 function appOverlayClass() { document.body.classList.toggle('appOpen', !!(STORE.open || MINI.open || STORY.open)); }
 function storeOpen() { if (STORE.open) return; STORE.open = true; appOverlayClass(); $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
@@ -3811,15 +3814,15 @@ function storeRender() {
     const inst = !!STORE.inst[a.id], dl = STORE.dl[a.id];
     const el = document.createElement('div'); el.className = 'app';
     el.innerHTML = `<div class="ic" style="background:${a.bg}">${a.icon}</div><div><b>${a.name}</b><div class="cat">${a.cat} · ★ ${a.rating}</div><div class="desc">${a.desc}</div><div class="meta">${a.size}${a.url ? ' · opens in a new tab' : ''}</div></div><button class="${dl ? 'dl' : inst ? 'open' : 'get'}" data-id="${a.id}">${dl ? `<i style="width:${Math.round(dl * 100)}%"></i><span>${Math.round(dl * 100)}%</span>` : `<span>${inst ? 'OPEN' : 'GET'}</span>`}</button>`;
-    el.querySelector('button').addEventListener('click', () => appTap(a)); grid.appendChild(el);
+    tapOn(el.querySelector('button'), () => appTap(a)); grid.appendChild(el);
   }
 }
-function appTap(a) { try { appTapInner(a); } catch (e) { console.error(e); __showErr('App ' + a.name + ': ' + (e && e.message || e)); } }
+function appTap(a) { try { storeToast((STORE.inst[a.id] ? 'Opening ' : 'Getting ') + a.name + '…'); appTapInner(a); } catch (e) { console.error(e); __showErr('App ' + a.name + ': ' + (e && e.message || e)); } }
 function appTapInner(a) {
   if (STORE.dl[a.id] != null) return;
   if (!STORE.inst[a.id]) { // download: a progress bar that takes a moment, like the real thing
     const mb = parseInt(a.size) || 10, dur = 900 + Math.min(2600, mb * 14); const t0 = performance.now(); STORE.dl[a.id] = 0; AudioSys.pickup?.();
-    const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur); STORE.dl[a.id] = k; if (k < 1) { storeRender(); requestAnimationFrame(tick); } else { delete STORE.dl[a.id]; STORE.inst[a.id] = Date.now(); appSave(); AudioSys.heal?.(); storeRender(); } };
+    const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur); STORE.dl[a.id] = k; if (k < 1) { storeRender(); requestAnimationFrame(tick); } else { delete STORE.dl[a.id]; STORE.inst[a.id] = Date.now(); appSave(); try { AudioSys.heal?.(); } catch (e) { } storeRender(); } };
     tick(); return;
   }
   if (a.url) { // one of the other games in this folder: open it in its own tab, straight from the tap so no popup blocker steps in
@@ -3843,7 +3846,7 @@ function appShow(view) {
   else if (view === 'cam') { v.innerHTML = back + `<div class="card"><h3>📸 Spidey Cam</h3><div class="row2"><button class="on" id="camShot">TAKE A PICTURE</button></div><div class="album" id="album"></div></div>`; $('camShot').addEventListener('click', () => { const url = snap(() => { }); STORE.photos.unshift(url); if (STORE.photos.length > 8) STORE.photos.pop(); camAlbum(); AudioSys.pickup?.(); }); camAlbum(); }
   else if (view === 'clock') { v.innerHTML = back + `<div class="card"><h3>🌗 Day & Night</h3><div class="row2">${DAY_KEYS.map(k => `<button data-t="${k.t}" class="${DAY.name === k.name ? 'on' : ''}">${k.name}</button>`).join('')}</div><p style="font-size:12px;color:#9aa3c7;margin:10px 0 0">The clock keeps running after you set it: a full day over Brooklyn takes nine minutes.</p></div>`; for (const b of v.querySelectorAll('[data-t]')) b.addEventListener('click', () => { DAY.t = +b.dataset.t; dayApply(true); appShow('clock'); }); }
   else if (view === 'radio') { const st = MUSIC.state ? MUSIC.state() : null; v.innerHTML = back + `<div class="card"><h3>🎵 Brooklyn Radio</h3><div class="row2"><button id="rdNext" class="on">NEXT TRACK / OFF</button></div><p id="rdNow" style="font-size:13px;color:#cfd6ff;margin:10px 0 0">${st && st.on ? '♫ ' + st.name : 'Tap to cycle: Brooklyn Nights · Sunflower · off'}</p></div>`; $('rdNext').addEventListener('click', () => { toggleMusic(); $('rdNow').textContent = G.hint; }); }
-  v.querySelector('.back').addEventListener('click', appBack);
+  tapOn(v.querySelector('.back'), appBack);
 }
 // --- Claude's voice: he speaks every answer, and the microphone sends what you say ---
 function claudeSpeak(text) {
@@ -3984,7 +3987,7 @@ function snakeFrame(now) {
   const sc = $('snScore'); if (sc) sc.textContent = SNAKE.score;
   if (SNAKE.dead) { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, H); g.fillStyle = '#ff3a1c'; g.font = '900 34px system-ui'; g.textAlign = 'center'; g.fillText('TANGLED!', W / 2, H / 2 - 10); g.fillStyle = '#fff'; g.font = '700 16px system-ui'; g.fillText(SNAKE.score + ' flies · tap or Space to play again', W / 2, H / 2 + 24); }
 }
-$('storeX').addEventListener('click', storeClose); for (const b of document.querySelectorAll('#storeHead .seg button')) b.addEventListener('click', () => { STORE.filter = b.dataset.f; storeRender(); });
+tapOn($('storeX'), storeClose); for (const b of document.querySelectorAll('#storeHead .seg button')) tapOn(b, () => { STORE.filter = b.dataset.f; storeRender(); });
 // ---------- THWIP!: the mini game on the PC and the console ----------
 const MINI = { open: false, raf: 0, t: 0, score: 0, x: 0.5, spiders: [], last: 0, src: 'PC', drag: null, best: 0 };
 try { MINI.best = +localStorage.getItem('mm3d_thwip') || 0; } catch (e) { }
@@ -4014,7 +4017,7 @@ function miniFrame(now) {
 { const cv = $('miniC'); const px = e => { const r = cv.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; MINI.x = clamp((t.clientX - r.left) / r.width, 0.06, 0.94); };
   cv.addEventListener('pointerdown', e => { MINI.drag = true; px(e); }); addEventListener('pointermove', e => { if (MINI.drag && MINI.open) px(e); }); addEventListener('pointerup', () => { MINI.drag = false; });
   cv.addEventListener('touchstart', e => { e.preventDefault(); px(e); }, { passive: false }); cv.addEventListener('touchmove', e => { e.preventDefault(); px(e); }, { passive: false });
-  $('miniClose').addEventListener('click', miniClose); }
+  tapOn($('miniClose'), miniClose); }
 function updateHome(dt) {
   if (!HOME.b) return; HOME.t += dt; if (HOME.cd > 0) HOME.cd -= dt; if (HOME.arrowT > 0) HOME.arrowT -= dt;
   const h = HOME.hatch, onHatch = P.alive && Math.hypot(P.pos.x - h.x, P.pos.z - h.z) < 2.4 && Math.abs(P.pos.y - h.y) < 2;
@@ -4685,7 +4688,7 @@ function storyEnd() {
   if (!STORY.open) return; STORY.open = false; appOverlayClass(); $('story').classList.remove('open'); $('storyPage').innerHTML = '';
   const d = STORY.done; STORY.done = null; if (d) d(); else if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.();
 }
-$('storyNext').addEventListener('click', storyNext); $('storySkip').addEventListener('click', storyEnd);
+tapOn($('storyNext'), storyNext); tapOn($('storySkip'), storyEnd);
 const BOSS_LINES = { rhino: ['THE RHINO', 'Little spider. Big mistake.'], venom: ['VENOM', 'We are going to eat your heart, Spider-Man.'], spot: ['THE SPOT', 'I am not a villain of the week. I am your nemesis.'], prowler: ['THE PROWLER', 'Nothing personal, kid.'] };
 function storyIntro(done) {
   const s = P.pos.clone(), f = P.facing, fx = Math.sin(f), fz = Math.cos(f), rx = Math.cos(f), rz = -Math.sin(f);
