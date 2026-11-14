@@ -1888,10 +1888,13 @@ function updateEnemies(dt) {
           if (e.attackCd <= 0 && flat < 30) { e.attackT = 0.35; e.attackCd = 2.0; }
         }
       } else {
+        // a crime in progress: gather around the victim and menace them, instead of wandering at random
+        const cc = (G.crime && G.crime.center && e.roof === G.crime.b) ? G.crime.center : null;
         e.wanderT -= dt;
-        if (e.wanderT <= 0) { e.wanderT = rand(1.5, 4); e.wander.set(e.roof.x + rand(-0.4, 0.4) * e.roof.w, 0, e.roof.z + rand(-0.4, 0.4) * e.roof.d); }
+        if (e.wanderT <= 0) { e.wanderT = rand(1.5, 4); if (cc) e.wander.set(cc.x + rand(-2.4, 2.4), 0, cc.z + rand(-2.4, 2.4)); else e.wander.set(e.roof.x + rand(-0.4, 0.4) * e.roof.w, 0, e.roof.z + rand(-0.4, 0.4) * e.roof.d); }
         const dx = e.wander.x - m.position.x, dz = e.wander.z - m.position.z, l = Math.hypot(dx, dz);
         if (l > 0.5) { m.position.x += dx / l * 2 * dt; m.position.z += dz / l * 2 * dt; e.facing = Math.atan2(dx, dz); moving = true; }
+        else if (cc) { e.facing = Math.atan2(cc.x - m.position.x, cc.z - m.position.z); } // stand over the victim
       }
     }
     if (e.attackT > 0) {
@@ -1993,6 +1996,75 @@ const CRIME_NAMES = ['ROOFTOP ROBBERY', 'ARMS DEAL', 'GANG MEETUP', 'HUNTER AMBU
 const ACTS = [['ACT I', 'SOMETHING IN THE RIVER'], ['ACT II', 'THE HUNT'], ['ACT III', 'WE ARE VENOM']];
 function showAct(i) { const a = $('act'); a.querySelector('b').textContent = ACTS[i][0]; a.querySelector('h3').textContent = ACTS[i][1]; a.classList.add('show'); clearTimeout(G.actTO); G.actTO = setTimeout(() => a.classList.remove('show'), 4500); G.act = i; }
 function story(html, secs = 8) { const s = $('story'); s.innerHTML = html; s.classList.add('show'); clearTimeout(G.storyTO); G.storyTO = setTimeout(() => s.classList.remove('show'), secs * 1000); }
+// ---------- Crime scenes: a victim the criminals are menacing, and the loot they are after ----------
+const CRIMEMAT = {
+  skin: new THREE.MeshStandardMaterial({ color: 0xc69b74, roughness: 0.85 }),
+  shirt: new THREE.MeshStandardMaterial({ color: 0x9aa7c4, roughness: 0.9 }),
+  pants: new THREE.MeshStandardMaterial({ color: 0x33373f, roughness: 0.95 }),
+  bag: new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.8 }),
+  strap: new THREE.MeshStandardMaterial({ color: 0x1d2026, roughness: 0.9 }),
+  cash: new THREE.MeshStandardMaterial({ color: 0x4caf6a, roughness: 0.7 }),
+  band: new THREE.MeshStandardMaterial({ color: 0xf4efe0, roughness: 0.7 }),
+};
+function makeVictim() {
+  const g = new THREE.Group(), M = CRIMEMAT;
+  g.add(box(0.46, 0.72, 0.3, M.shirt, 0, 1.02, 0)); // torso
+  g.add(box(0.2, 0.62, 0.26, M.pants, -0.11, 0.5, 0)); g.add(box(0.2, 0.62, 0.26, M.pants, 0.11, 0.5, 0)); // legs
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), M.skin); head.position.set(0, 1.56, 0.02); g.add(head);
+  g.add(box(0.26, 0.1, 0.26, new THREE.MeshStandardMaterial({ color: 0x6a4a32, roughness: 1 }), 0, 1.68, 0)); // hair
+  const arms = [];
+  for (const sx of [-1, 1]) { const a = new THREE.Group(); a.position.set(sx * 0.3, 1.3, 0); a.add(box(0.14, 0.6, 0.14, M.shirt, 0, -0.3, 0)); a.add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), M.skin).translateY(-0.6)); a.rotation.z = sx * 0.3; a.rotation.x = -2.5; g.add(a); arms.push(a); } // hands up
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  g.parts = { head, arms }; return g;
+}
+function makeLoot() {
+  const g = new THREE.Group(), M = CRIMEMAT;
+  const bag = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.64, 4, 10), M.bag); bag.rotation.z = Math.PI / 2; bag.position.y = 0.26; bag.castShadow = true; g.add(bag);
+  const strap = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.03, 6, 16), M.strap); strap.position.set(0, 0.42, 0); strap.rotation.x = 0.4; g.add(strap);
+  for (let i = 0; i < 3; i++) { const x = (i - 1) * 0.24, z = 0.4; g.add(box(0.2, 0.09, 0.12, M.cash, x, 0.05, z)); g.add(box(0.21, 0.03, 0.13, M.band, x, 0.05, z)); } // cash spilling out
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; }); return g;
+}
+const crimeFades = []; // { group, t } rescued scenes fading out
+function makeCrimeScene(b) {
+  const center = V3(b.x + rand(-0.12, 0.12) * b.w, b.h, b.z + rand(-0.12, 0.12) * b.d);
+  const props = new THREE.Group(); props.position.copy(center); scene.add(props);
+  const victim = makeVictim(); victim.position.set(rand(-1, 1), 0, rand(-1, 1)); props.add(victim);
+  const loot = makeLoot(); loot.position.set(rand(-1.6, 1.6), 0, rand(-1.6, 1.6)); loot.rotation.y = rand(0, TAU); props.add(loot);
+  return { center, props, victim, loot, vt: 0 };
+}
+function updateCrimeScene(dt) {
+  const c = G.crime;
+  if (c && c.victim && !c.boss) {
+    c.vt += dt; const v = c.victim;
+    // cower: shrink down, tremble, turn away from the nearest thug
+    let near = null, nd = 1e9; for (const e of enemies) if (e.alive) { const d = Math.hypot(e.mesh.position.x - (c.center.x + v.position.x), e.mesh.position.z - (c.center.z + v.position.z)); if (d < nd) { nd = d; near = e; } }
+    if (near) { const ax = c.center.x + v.position.x - near.mesh.position.x, az = c.center.z + v.position.z - near.mesh.position.z; v.rotation.y = lerp(v.rotation.y, Math.atan2(ax, az), Math.min(1, dt * 3)); }
+    v.position.y = -0.25 + Math.sin(c.vt * 9) * 0.015; v.rotation.z = Math.sin(c.vt * 11) * 0.04; // crouched and trembling
+    v.parts.arms.forEach((a, i) => { a.rotation.x = -2.5 + Math.sin(c.vt * 10 + i) * 0.08; });
+  }
+  for (let i = crimeFades.length - 1; i >= 0; i--) {
+    const f = crimeFades[i]; f.t -= dt;
+    if (f.victim) { // the rescued civilian runs for the stairs, waving
+      const run = 6; f.victim.position.x += Math.sin(f.dir) * run * dt; f.victim.position.z += Math.cos(f.dir) * run * dt; f.victim.rotation.y = f.dir;
+      f.victim.position.y = Math.abs(Math.sin(f.t * 12)) * 0.08; f.phase += dt; f.victim.parts.arms.forEach((a, k) => a.rotation.x = -0.6 + Math.sin(f.phase * 12 + k) * 1.0);
+    }
+    if (f.t <= 0) { scene.remove(f.group); crimeFades.splice(i, 1); }
+  }
+}
+function rescueVictim() {
+  const c = G.crime; if (!c || !c.victim) return;
+  const v = c.victim, wp = new THREE.Vector3(); v.getWorldPosition(wp);
+  floatText(wp.clone().add(V3(0, 2.4, 0)), ['Thank you, Spider-Man!', 'You saved me!', 'My hero!'][Math.floor(Math.random() * 3)], '#3bffd0', 18);
+  AudioSys.win(); G.score += 200;
+  // hand the victim and the loot off to a fade-out group that plays the escape, then clears
+  const b = c.b, edge = [[b.x, b.z - b.d / 2], [b.x, b.z + b.d / 2], [b.x - b.w / 2, b.z], [b.x + b.w / 2, b.z]].sort((p, q) => Math.hypot(p[0] - wp.x, p[1] - wp.z) - Math.hypot(q[0] - wp.x, q[1] - wp.z))[0];
+  const dir = Math.atan2(edge[0] - wp.x, edge[1] - wp.z);
+  c.props.position.set(0, 0, 0); // bake world positions in by re-parenting children to world coords
+  for (const ch of [...c.props.children]) { const w = new THREE.Vector3(); ch.getWorldPosition(w); c.props.add(ch); ch.position.copy(w); }
+  crimeFades.push({ group: c.props, victim: v, dir, phase: 0, t: 3.2 });
+  c.victim = null; c.loot = null; c.props = null;
+}
+function clearCrimeScene() { if (G.crime && G.crime.props) { scene.remove(G.crime.props); G.crime.props = null; G.crime.victim = null; } for (const f of crimeFades) scene.remove(f.group); crimeFades.length = 0; }
 function spawnCrime() {
   const act = G.crimes < 3 ? 1 : G.crimes < 6 ? 2 : 3;
   // usually across the river from where you are, so the bridges, wings and wind tunnels earn their keep
@@ -2007,7 +2079,8 @@ function spawnCrime() {
     const type = act === 1 ? ((i >= 2 && Math.random() < 0.5) || (G.crimes > 0 && i === 1) ? 'gunner' : 'thug') : act === 2 ? (i % 3 === 2 ? 'gunner' : 'hunter') : (i % 2 ? 'symb' : 'hunter');
     spawnEnemy(type, b.x + rand(-0.35, 0.35) * b.w, b.z + rand(-0.35, 0.35) * b.d, b);
   }
-  G.crime = { b, name: CRIME_NAMES[G.crimes % CRIME_NAMES.length], t: 0 };
+  const scn = makeCrimeScene(b);
+  G.crime = { b, name: CRIME_NAMES[G.crimes % CRIME_NAMES.length], t: 0, center: scn.center, props: scn.props, victim: scn.victim, loot: scn.loot, vt: 0 };
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
   AudioSys.crime(); G.hint = (far ? 'Crime across the river — ' : 'Crime in progress — ') + 'follow the red beacon' + (act === 2 ? ' · Kraven\'s hunters leap with spears: parry (Q) when the ring flashes' : act === 3 ? ' · symbiotes see through camouflage' : ''); G.hintT = 5;
 }
@@ -2043,6 +2116,7 @@ function updateCrimes(dt) {
     return;
   }
   if (!enemies.some(e => e.alive)) {
+    rescueVictim();
     G.crimes++; G.score += 1000; G.crime = null; beacon.visible = false; G.crimeSpawnT = 2.5;
     floatText(P.pos.clone().add(V3(0, 4, 0)), 'CRIME STOPPED +1000', '#3bffd0', 24);
     P.hp = Math.min(100, P.hp + 25);
@@ -2826,7 +2900,7 @@ function overlay(title, sub, lines, btn) {
 }
 function startGame() {
   AudioSys.ensure(); AudioSys.ambient(); G.sirenT = 8 + Math.random() * 20;
-  for (const e of enemies) scene.remove(e.mesh); enemies.length = 0;
+  for (const e of enemies) scene.remove(e.mesh); enemies.length = 0; clearCrimeScene();
   for (const b of bullets) scene.remove(b.mesh); bullets.length = 0;
   for (const w of webShots) scene.remove(w.mesh, w.line); webShots.length = 0;
   for (const p of particles) scene.remove(p.m); particles.length = 0;
@@ -2907,7 +2981,7 @@ function update(dt, now) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateStreetLife(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt);
     if (G.swapCd > 0) G.swapCd -= dt;
     AudioSys.setHeight(P.pos.y); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
