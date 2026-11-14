@@ -976,6 +976,7 @@ function poseFpHand(name, dt) {
   u.fingers.forEach((joints, i) => { u.curl[i] += (want[i] - u.curl[i]) * k; const c = u.curl[i]; joints[0].rotation.x = c * 0.85; joints[1].rotation.x = c * 1.05; joints[2].rotation.x = c * 0.75; });
   u.th += (th - u.th) * k; u.thumb[0].rotation.x = u.th * 0.5; u.thumb[1].rotation.x = u.th * 0.9;
 }
+const FP_SWING_DIR = new THREE.Vector3(-0.12, 0.7, -0.7);
 const FP_REST_DIR = new THREE.Vector3(-0.22, 0.2, -0.95), FP_REST_ROLL = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -0.25);
 const FP_NEGZ = new THREE.Vector3(0, 0, -1), FP_FLIP = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 function heroHand() { return firstPerson && state === 'play' && fpHand.visible ? fpHand.userData.tip.getWorldPosition(new THREE.Vector3()) : armR.end.getWorldPosition(new THREE.Vector3()); }
@@ -3802,12 +3803,12 @@ function updateCamera(dt) {
 
     {   // aim the hand in the camera's own space (not with world "up"), so it never spins or flips when you look straight up or down or swing from an anchor overhead
       const tgtL = P.rope ? camera.worldToLocal(P.rope.clone()) : new THREE.Vector3(hx * 0.3, hy * 0.3 + (act && act.kind === 'web' ? 0.4 : 0.15), -6);
-      const aiming = P.rope || (act && /punch|web|spin/.test(act.kind));
+      const aiming = !P.rope && act && /punch|web|spin/.test(act.kind);   // while swinging the arm holds one steady pose (raised, holding the web) instead of chasing the anchor
       // at rest the hand is held up in view like in a real first-person game: fingers pointing up and in toward the middle, the back of the glove turned to you
-      const dirL = aiming ? tgtL.sub(fpHand.position) : FP_REST_DIR.clone(); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
+      const dirL = aiming ? tgtL.sub(fpHand.position) : P.rope ? FP_SWING_DIR.clone() : FP_REST_DIR.clone(); if (dirL.lengthSq() < 1e-6) dirL.set(0, 0, -1); dirL.normalize();
       // a fixed "up" (the top of the screen) keeps the arm from rolling like a wheel as the aim moves around
       const up = Math.abs(dirL.y) > 0.97 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
-      const want = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), dirL.clone().negate(), up)); if (!aiming) want.multiply(FP_REST_ROLL);
+      const want = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(new THREE.Vector3(), dirL.clone().negate(), up)); if (!aiming && !P.rope) want.multiply(FP_REST_ROLL);
       fpHand.quaternion.slerp(want, Math.min(1, dt * 14));
     }
     fpHand.updateMatrixWorld(true);
