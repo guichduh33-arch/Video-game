@@ -2517,7 +2517,7 @@ const SEA_DEFS = {
 function buildSea() {
   if (SEA.built) return; SEA.built = true;
   const waveTex = canvasTex(256, 256, (g, w, h) => { g.fillStyle = '#0d3f82'; g.fillRect(0, 0, w, h); g.strokeStyle = 'rgba(255,255,255,0.3)'; g.lineWidth = 3; for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * h, r = 10 + Math.random() * 20; g.beginPath(); g.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.9); g.stroke(); } }, [14, 40]);
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ map: waveTex, color: 0x7fb0ff, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.96, envMapIntensity: 0.5 }));
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(460, 1500), new THREE.MeshStandardMaterial({ map: waveTex, color: 0x7fb0ff, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.96, envMapIntensity: 0.5, fog: false }));
   water.rotation.x = -Math.PI / 2; water.position.set(SEA.x0 + 230, 0.06, 0); water.receiveShadow = true; scene.add(water); SEA.water = water;
   const sand = new THREE.Mesh(new THREE.BoxGeometry(44, 0.3, 1500), new THREE.MeshStandardMaterial({ color: 0xd9c79a, roughness: 1 })); sand.position.set(SEA.x0 - 22, 0.12, 0); sand.receiveShadow = true; scene.add(sand);
   const wall = new THREE.Mesh(new THREE.BoxGeometry(2, 1.4, 1500), concreteMat); wall.position.set(SEA.x0 - 1, 0.7, 0); scene.add(wall);
