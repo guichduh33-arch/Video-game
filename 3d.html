@@ -1887,7 +1887,7 @@ function updatePlayer(dt) {
     P.vel.y -= GRAV * dt;
     // pump forward along the camera direction
     const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw);
-    const pump = 45 * [1, 1.25, 1.5][LV('swing')];
+    const pump = 45 * [1, 1.25, 1.5][LV('swing')] * (G.swingMul || 1);
     P.vel.x += (fx * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.x * 5) * dt;
     P.vel.z += (fz * mv.mag * (mv.x * fx + mv.z * fz > 0 ? 1 : 0.2) * pump + mv.z * 5) * dt;
     // reel the web in hardest at the bottom of the arc, like a pendulum pumping: every swing climbs higher than the last
@@ -1948,7 +1948,7 @@ function updatePlayer(dt) {
         if (P.swinging) { const pts = [250, 500, 1000][lm]; P.leapT = 1.2; G.slowT = 0.9 + lm * 0.3; G.flash = 0.7; G.score += pts; shake(0.35); G.hint = 'LEAP OF FAITH!'; G.hintT = 2.5; floatText(hero.position.clone().add(V3(0, 3.4, 0)), 'LEAP OF FAITH +' + pts, '#ffd23f', 34); burst(P.pos.clone().add(V3(0, 0.2, 0)), 24, 0xffffff, 9, 0.5); P.vel.y = was * 0.7; P.ropeLen = Math.max(5, P.ropeLen * 0.9); AudioSys.thwip(); AudioSys.jump(); }
       }
     }
-    P.vel.y = Math.max(MAX_FALL * 1.4, P.vel.y - GRAV * dt);
+    P.vel.y = Math.max(MAX_FALL * 1.4, P.vel.y - GRAV * (G.gravMul || 1) * dt);
     P.pos.addScaledVector(P.vel, dt);
   }
   if (P.leapT > 0) P.leapT -= dt; if (P.rollT > 0) P.rollT -= dt; if (P.flipT > 0) P.flipT -= dt; if (P.onGround || P.swinging) P.flipT = 0;
@@ -3770,7 +3770,8 @@ function updateRoom(dt) {
   if (Math.abs(P.pos.x - ROOM.c.x) > ROOM.w / 2 + 1.5 || Math.abs(P.pos.z - ROOM.c.z) > ROOM.d / 2 + 1.5 || P.pos.y > ROOM.h + 3) leaveRoom();
 }
 // ---------- App Store: download apps onto Miles' tablet and run them ----------
-const STORE = { open: false, view: null, inst: {}, filter: 'all', dl: {}, photos: [], cl: { turns: [], busy: false, sample: undefined } };
+const STORE = { open: false, view: null, inst: {}, filter: 'all', dl: {}, photos: [], cl: { turns: [], busy: false, sample: undefined, voice: true, rec: null, cvoice: null } };
+try { STORE.cl.voice = localStorage.getItem('mm3d_claude_voice') !== 'off'; } catch (e) { }
 try { STORE.inst = JSON.parse(localStorage.getItem('mm3d_apps') || '{}') || {}; } catch (e) { }
 const APPS = [
   { id: 'claude', name: 'Claude', cat: 'Apps', icon: '✴️', bg: 'linear-gradient(135deg,#d97757,#b85c38)', size: '48 MB', rating: '4.9', desc: 'Ask Claude anything: homework, jokes, Spider-Man trivia, how to beat the next boss.', open: () => appShow('claude') },
@@ -3808,8 +3809,10 @@ function appTap(a) {
     const tick = () => { const k = Math.min(1, (performance.now() - t0) / dur); STORE.dl[a.id] = k; if (k < 1) { storeRender(); requestAnimationFrame(tick); } else { delete STORE.dl[a.id]; STORE.inst[a.id] = Date.now(); appSave(); AudioSys.heal?.(); storeRender(); } };
     tick(); return;
   }
-  if (a.url) { // one of the other games in this folder: open it in its own tab when the server has it
-    fetch(a.url, { method: 'HEAD' }).then(r => { if (r.ok) window.open(a.url, '_blank'); else throw 0; }).catch(() => { alert(a.name + ' lives in the game folder on GitHub (guichduh33-arch/video-game). Open the game from that folder and this button will launch it.'); });
+  if (a.url) { // one of the other games in this folder: open it in its own tab, straight from the tap so no popup blocker steps in
+    const local = location.protocol.startsWith('http') && !/claude|anthropic|usercontent|artifact/i.test(location.hostname);
+    const url = local ? a.url : 'https://rawcdn.githack.com/guichduh33-arch/Video-game/claude/miles-morales-game/' + a.url;
+    const w = window.open(url, '_blank'); if (!w) { const l = document.createElement('a'); l.href = url; l.target = '_blank'; l.rel = 'noopener'; document.body.appendChild(l); l.click(); l.remove(); }
     return;
   }
   a.open();
@@ -3817,15 +3820,69 @@ function appTap(a) {
 function appShow(view) {
   STORE.view = view; $('store').classList.add('app'); const v = $('appView'); const back = '<button class="back">‹ App Store</button>';
   if (view === 'claude') {
-    v.innerHTML = back + `<div class="card"><h3>✴️ Claude</h3><div class="clog" id="clLog"></div><form class="cform" id="clForm"><input id="clIn" maxlength="400" placeholder="Ask Claude anything…" autocomplete="off"><button type="submit">SEND</button></form><p id="clNote" style="font-size:12px;color:#9aa3c7;margin:8px 0 0"></p></div>`;
-    if (!STORE.cl.turns.length) claudeMsg('ai', "Hi Miles! I'm Claude. Ask me anything: how to beat Venom, a spider fact, a joke, a riddle, your score, or some maths like 12 x 7.");
+    v.innerHTML = back + `<div class="card"><h3>✴️ Claude <span style="float:right;display:flex;gap:8px"><button id="clVoice" class="back" title="Claude speaks out loud" style="padding:0;font-size:22px">${STORE.cl.voice ? '🔊' : '🔇'}</button></span></h3><div class="clog" id="clLog"></div><form class="cform" id="clForm"><button type="button" id="clMic" title="Talk to Claude" style="background:rgba(255,255,255,.12)">🎤</button><input id="clIn" maxlength="400" placeholder="Ask Claude anything, or tell him to change the game…" autocomplete="off"><button type="submit">SEND</button></form><p id="clNote" style="font-size:12px;color:#9aa3c7;margin:8px 0 0"></p></div>`;
+    if (!STORE.cl.turns.length) { const hello = "Hi Miles! I'm Claude. Ask me anything, or tell me to change your game: 'make it night', 'bring the Rhino', 'give me 3 tech points', 'make me giant', 'moon gravity', 'super swing'. Tap the microphone to talk to me."; claudeMsg('ai', hello); claudeSpeak(hello); }
     else for (const t of STORE.cl.turns) claudeMsg(t.role === 'user' ? 'me' : 'ai', t.content);
     $('clForm').addEventListener('submit', e => { e.preventDefault(); const t = $('clIn').value; $('clIn').value = ''; claudeAsk(t); }); setTimeout(() => $('clIn').focus(), 50); claudeBrain();
+    $('clVoice').addEventListener('click', () => { STORE.cl.voice = !STORE.cl.voice; $('clVoice').textContent = STORE.cl.voice ? '🔊' : '🔇'; try { localStorage.setItem('mm3d_claude_voice', STORE.cl.voice ? 'on' : 'off'); } catch (e) { } if (!STORE.cl.voice && 'speechSynthesis' in window) speechSynthesis.cancel(); else claudeSpeak('Voice on. I am listening, Miles.'); });
+    $('clMic').addEventListener('click', claudeListen);
   } else if (view === 'snake') { v.innerHTML = back + `<div class="card"><h3>🐍 Web Snake <span id="snScore" style="float:right;color:#ffe14a">0</span></h3><canvas id="snakeC" width="520" height="360"></canvas><p style="font-size:12px;color:#9aa3c7;margin:8px 0 0">Arrow keys or WASD · swipe on touch · eat the flies, do not bite your own web</p></div>`; snakeStart(); }
   else if (view === 'cam') { v.innerHTML = back + `<div class="card"><h3>📸 Spidey Cam</h3><div class="row2"><button class="on" id="camShot">TAKE A PICTURE</button></div><div class="album" id="album"></div></div>`; $('camShot').addEventListener('click', () => { const url = snap(() => { }); STORE.photos.unshift(url); if (STORE.photos.length > 8) STORE.photos.pop(); camAlbum(); AudioSys.pickup?.(); }); camAlbum(); }
   else if (view === 'clock') { v.innerHTML = back + `<div class="card"><h3>🌗 Day & Night</h3><div class="row2">${DAY_KEYS.map(k => `<button data-t="${k.t}" class="${DAY.name === k.name ? 'on' : ''}">${k.name}</button>`).join('')}</div><p style="font-size:12px;color:#9aa3c7;margin:10px 0 0">The clock keeps running after you set it: a full day over Brooklyn takes nine minutes.</p></div>`; for (const b of v.querySelectorAll('[data-t]')) b.addEventListener('click', () => { DAY.t = +b.dataset.t; dayApply(true); appShow('clock'); }); }
   else if (view === 'radio') { const st = MUSIC.state ? MUSIC.state() : null; v.innerHTML = back + `<div class="card"><h3>🎵 Brooklyn Radio</h3><div class="row2"><button id="rdNext" class="on">NEXT TRACK / OFF</button></div><p id="rdNow" style="font-size:13px;color:#cfd6ff;margin:10px 0 0">${st && st.on ? '♫ ' + st.name : 'Tap to cycle: Brooklyn Nights · Sunflower · off'}</p></div>`; $('rdNext').addEventListener('click', () => { toggleMusic(); $('rdNow').textContent = G.hint; }); }
   v.querySelector('.back').addEventListener('click', appBack);
+}
+// --- Claude's voice: he speaks every answer, and the microphone sends what you say ---
+function claudeSpeak(text) {
+  if (!STORE.cl.voice || !('speechSynthesis' in window) || !text) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text.replace(/[*_#`\[\]]/g, '').slice(0, 600));
+    if (!STORE.cl.cvoice) { const vs = speechSynthesis.getVoices(), en = vs.filter(v => /^en/i.test(v.lang)); for (const p of ['Daniel', 'Google UK English Male', 'Microsoft Guy', 'Microsoft David', 'Alex', 'Fred', 'Aaron', 'Google US English', 'Male']) { const v = en.find(v => v.name.includes(p)); if (v) { STORE.cl.cvoice = v; break; } } if (!STORE.cl.cvoice && en.length) STORE.cl.cvoice = en[Math.min(1, en.length - 1)]; }
+    if (STORE.cl.cvoice) u.voice = STORE.cl.cvoice; u.rate = 1.0; u.pitch = 0.95; speechSynthesis.speak(u); } catch (e) { }
+}
+function claudeListen() {
+  const R = window.SpeechRecognition || window.webkitSpeechRecognition; const inp = $('clIn'), mic = $('clMic'); if (!inp) return;
+  if (!R) { inp.placeholder = 'No microphone support in this browser: type instead'; return; }
+  if (STORE.cl.rec) { try { STORE.cl.rec.stop(); } catch (e) { } return; }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  const rec = new R(); rec.lang = 'en-US'; rec.interimResults = true; rec.maxAlternatives = 1; STORE.cl.rec = rec; mic.style.background = '#ff3a1c'; inp.placeholder = 'Listening…'; let fin = '';
+  rec.onresult = ev => { let t = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) { t += ev.results[i][0].transcript; if (ev.results[i].isFinal) fin += ev.results[i][0].transcript; } inp.value = fin || t; };
+  rec.onerror = ev => { inp.placeholder = ev.error === 'not-allowed' || ev.error === 'service-not-allowed' ? 'Microphone blocked: allow it for this page, or type' : 'Did not catch that, try again'; };
+  rec.onend = () => { STORE.cl.rec = null; mic.style.background = 'rgba(255,255,255,.12)'; const v = inp.value.trim(); if (v) { inp.value = ''; claudeAsk(v); } };
+  try { rec.start(); } catch (e) { STORE.cl.rec = null; }
+}
+// --- Claude can change the game: plain-English orders in pocket mode, [[tags]] from the live Claude ---
+function gameCommand(t) {
+  const q = t.toLowerCase(), has = (...w) => w.some(x => q.includes(x)), num = (q.match(/\d+/) || [])[0];
+  if (has('night')) { DAY.t = 0.75; dayApply(true); return 'Done: it is night over Brooklyn. Look at the windows!'; }
+  if (has('sunset', 'evening')) { DAY.t = 0.5; dayApply(true); return 'Done: sunset. The whole sky is orange.'; }
+  if (has('dawn', 'sunrise')) { DAY.t = 0.02; dayApply(true); return 'Done: dawn is breaking.'; }
+  if (has('daytime', 'make it day', 'morning', 'sunny')) { DAY.t = 0.25; dayApply(true); return 'Done: bright daytime.'; }
+  for (const k of ['rhino', 'venom', 'spot', 'prowler', 'scorpion', 'electro', 'mysterio', 'sandman', 'vulture', 'lizard', 'kraven', 'shocker', 'hobgoblin', 'tombstone']) if (q.includes(k) && has('bring', 'spawn', 'make', 'call', 'fight', 'send', 'summon', 'want', 'where')) { if (boss.alive) return 'A boss is already here! Beat ' + boss.name + ' first.'; try { spawnBoss(k); return 'Done: ' + k.toUpperCase() + ' is on a rooftop near you. Follow the red beacon. Good luck!'; } catch (e) { return 'I could not find ' + k + ' in this city.'; } }
+  if (has('thug', 'bad guy', 'crime', 'robber', 'enemies')) { if (!G.crime) spawnCrime(); return 'Done: a crime just started. Follow the red beacon!'; }
+  if (has('tech point', 'points', 'coins', 'money')) { const n = Math.min(10, Math.max(1, +num || 3)); upgAdd(n, P.pos); return `Done: +${n} tech points. Spend them in the Skill Shop (U or the wrench).`; }
+  if (has('heal', 'full health', 'fix me', 'health')) { P.hp = MAXHP(); P.poisonT = 0; P.venom = 100; return 'Done: full health and full venom.'; }
+  for (const name of SUIT_ORDER) if (q.includes(name) || (SUIT_DEFS[name].name && q.includes(SUIT_DEFS[name].name.toLowerCase().split(' · ').pop().toLowerCase()))) { if (has('suit', 'wear', 'change', 'put on', 'costume')) { setSuit(name); return 'Done: now wearing the ' + SUIT_DEFS[name].name + ' suit.'; } }
+  if (has('gwen') && has('come', 'back', 'here', 'join', 'on')) { SK.on = true; if (SK.mesh) { SK.mesh.visible = true; sidekickDrop(); } return 'Done: Gwen is swinging in.'; }
+  if (has('gwen') && has('go', 'leave', 'home', 'off', 'away')) { SK.on = false; return 'Done: Gwen is taking a break.'; }
+  if (has('super swing', 'swing faster', 'faster swing', 'turbo')) { G.swingMul = 1.6; return 'Done: super swing! Pumping is way stronger now. Say "normal swing" to undo.'; }
+  if (has('normal swing')) { G.swingMul = 1; return 'Done: normal swing.'; }
+  if (has('moon gravity', 'low gravity', 'less gravity', 'float')) { G.gravMul = 0.35; return 'Done: moon gravity. Jumps go three times higher. Say "normal gravity" to undo.'; }
+  if (has('normal gravity', 'earth gravity')) { G.gravMul = 1; return 'Done: normal gravity.'; }
+  if (has('giant', 'huge', 'bigger', 'make me big')) { G.sizeMul = 2; hero.scale.setScalar(0.87 * 2); return 'Done: giant Miles! Say "normal size" to shrink back.'; }
+  if (has('tiny', 'small', 'shrink')) { G.sizeMul = 0.5; hero.scale.setScalar(0.87 * 0.5); return 'Done: tiny Miles. Say "normal size" to grow back.'; }
+  if (has('normal size')) { G.sizeMul = 1; hero.scale.setScalar(0.87); return 'Done: normal size.'; }
+  if (has('fast forward', 'speed up time', 'time faster')) { DAY.speed = 1 / 60; return 'Done: a whole day now takes one minute. Say "normal time" to undo.'; }
+  if (has('normal time')) { DAY.speed = 1 / 540; return 'Done: normal clock.'; }
+  if (has('take me home', 'go home', 'teleport home')) { if (HOME.b) { storeClose(); P.pos.set(HOME.b.x - 2.5, HOME.b.h + 0.1, HOME.b.z - 1); P.vel.set(0, 0, 0); } return 'Done: you are on your roof.'; }
+  if (has('tallest', 'highest')) { const b = buildings.filter(b => b.roofOk && !b.room).sort((a, c) => c.h - a.h)[0]; if (b) { storeClose(); P.pos.set(b.x, b.h + 0.1, b.z); P.vel.set(0, 0, 0); } return 'Done: top of the tallest tower in Brooklyn. Try a leap of faith from here!'; }
+  if (has('music on', 'play music', 'music off', 'stop music', 'radio')) { toggleMusic(); return 'Done: ' + G.hint; }
+  if (has('first person')) { look.fp = true; return 'Done: first person. Press C or VIEW to go back.'; }
+  if (has('third person')) { look.fp = false; return 'Done: third person.'; }
+  if (has('double jump', 'triple jump')) { P.jumpsLeft = 3; return 'Done: three jumps in a row, right now. Go!'; }
+  return null;
+}
+function runTags(reply) { // the live Claude ends a change with [[tag]]; run it and hide the tag
+  return reply.replace(/\[\[([^\]]+)\]\]/g, (m, tag) => { const r = gameCommand(tag.replace(/[:_]/g, ' ')); return ''; }).trim();
 }
 function camAlbum() { const al = $('album'); if (!al) return; al.innerHTML = STORE.photos.map(u => `<img src="${u}" alt="">`).join('') || '<p style="color:#9aa3c7;font-size:13px">No pictures yet.</p>'; }
 function claudeMsg(cls, text) { const log = $('clLog'); if (!log) return null; const el = document.createElement('div'); el.className = 'm ' + cls; el.textContent = text; log.appendChild(el); log.scrollTop = 1e9; return el; }
@@ -3835,7 +3892,7 @@ async function claudeBrain() {
   const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
-const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. Answer any question honestly and kindly.';
+const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. You can also CHANGE THE GAME: when he asks for a change, say you did it and end your message with one of these tags, which the game runs and hides: [[night]] [[sunset]] [[dawn]] [[daytime]] [[bring rhino]] [[bring venom]] [[bring spot]] [[bring prowler]] [[thugs]] [[tech points 3]] [[heal]] [[gwen come]] [[gwen go]] [[super swing]] [[normal swing]] [[moon gravity]] [[normal gravity]] [[giant]] [[tiny]] [[normal size]] [[fast forward time]] [[normal time]] [[take me home]] [[tallest]] [[music on]] [[first person]] [[third person]] [[triple jump]] [[suit classic]] (any suit name). Answer every other question honestly and kindly.';
 function pocketClaude(t) {
   const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
   const has = (...w) => w.some(x => q.includes(x));
@@ -3887,10 +3944,10 @@ async function claudeAsk(text) {
   STORE.cl.busy = true; claudeMsg('me', text); STORE.cl.turns.push({ role: 'user', content: text }); const bubble = claudeMsg('ai thinking', '…');
   const sample = await claudeBrain(); let reply = '';
   if (sample) {
-    try { const { text: out } = await sample([{ role: 'user', content: CLAUDE_RULES }, ...STORE.cl.turns.slice(-12)], { cache: false, modelTier: 'quick', onText: ({ text: t }) => { if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = t; } } }); reply = out.trim(); }
-    catch (e) { if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'not_declared' || e.code === 'capability_disabled')) STORE.cl.sample = null; reply = (e && e.text) || pocketClaude(text); }
-  } else { await new Promise(r => setTimeout(r, 400 + Math.random() * 500)); reply = pocketClaude(text); }
-  STORE.cl.turns.push({ role: 'assistant', content: reply }); if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = reply; } STORE.cl.busy = false; const inp = $('clIn'); if (inp) inp.focus();
+    try { const { text: out } = await sample([{ role: 'user', content: CLAUDE_RULES }, ...STORE.cl.turns.slice(-12)], { cache: false, modelTier: 'quick', onText: ({ text: t }) => { if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = t.replace(/\[\[[^\]]*\]?\]?$/, ''); } } }); reply = runTags(out.trim()); }
+    catch (e) { if (e && (e.code === 'not_granted' || e.code === 'sampling_disabled' || e.code === 'not_declared' || e.code === 'capability_disabled')) STORE.cl.sample = null; reply = (e && e.text) || gameCommand(text) || pocketClaude(text); }
+  } else { await new Promise(r => setTimeout(r, 300 + Math.random() * 400)); reply = gameCommand(text) || pocketClaude(text); }
+  STORE.cl.turns.push({ role: 'assistant', content: reply }); if (bubble) { bubble.classList.remove('thinking'); bubble.textContent = reply; } STORE.cl.busy = false; const inp = $('clIn'); if (inp) inp.focus(); claudeSpeak(reply);
 }
 // --- Web Snake ---
 const SNAKE = { raf: 0, on: false, t: 0, dir: [1, 0], next: [1, 0], body: [], fly: [10, 7], score: 0, dead: false, step: 0.14, tx: 0, ty: 0 };
@@ -4796,6 +4853,7 @@ function frame(now) {
   if (renderer.shadowMap.enabled) { PERF.frame++; renderer.shadowMap.needsUpdate = PERF.frame % 2 === 0; }
   G.rush = lerp(G.rush || 0, G.state === 'play' ? clamp((P.vel.length() - 20) / 22, 0, 1) : 0, Math.min(1, dt * 4));
   if (!BOOT.ready) { if (!BOOT.done) bootStep(); return; } // nothing is drawn until the warm-up has compiled the city
+  if (STORE.open || MINI.open || STORY.open) return; // an app or a comic page covers the screen: skip the 3D frame so the app runs smoothly
   if (PERF.post) post.render(now / 1000, Math.min(1, G.shake + G.flash), G.rush); else renderer.render(scene, camera);
   autoQuality(now);
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
