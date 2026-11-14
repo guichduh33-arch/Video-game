@@ -271,7 +271,7 @@ const fill = new THREE.DirectionalLight(0xbcd2ff, 0.35); fill.position.set(-120,
 // ---------- Spider-Verse comic post-process ----------
 // Renders the scene to a texture, then draws it through a shader that adds ink outlines (from depth),
 // Ben-Day halftone dots in the shadows, cel-stepped shading, misprint colour fringing, paper grain.
-const LOOK = { comic: (new URLSearchParams(location.search).get('look') || 'comic') !== 'real' };
+const LOOK = { comic: new URLSearchParams(location.search).get('look') === 'comic' }; // realistic by default; V toggles the comic look, or add ?look=comic
 const post = (() => {
   const pr = renderer.getPixelRatio(), w = Math.floor(innerWidth * pr), h = Math.floor(innerHeight * pr);
   const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, { depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType), depthBuffer: true, samples: QUALITY === 'low' ? 0 : 4 });
@@ -1359,12 +1359,12 @@ const SUIT_DEFS = {
 // HERO is the one you control; the other swings beside you as the partner (SK). Each keeps his own suit, health and power meter.
 const HEROES = {
   peter: { name: 'PETER PARKER', short: 'PETER', suits: ['advanced', 'black', 'classic', 'noir'], power: 'FOCUS', color: '#ff4d5e' },
-  miles: { name: 'MILES MORALES', short: 'MILES', suits: ['upgraded', 'spiderverse', 'm2099', 'punk'], power: 'VENOM', color: '#ffd23f' },
+  miles: { name: 'MILES MORALES', short: 'MILES', suits: ['spiderverse', 'upgraded', 'm2099', 'punk'], power: 'VENOM', color: '#ffd23f' },
 };
 let HERO = 'peter';
-const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'upgraded', hp: 100, power: 50 } };
+const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'spiderverse', hp: 100, power: 50 } };
 const otherHero = () => HERO === 'peter' ? 'miles' : 'peter';
-const SUITS = { spiderverse: hero };
+const SUITS = {};
 let SUIT = 'spiderverse';
 function suitMesh(name) { if (!SUITS[name]) SUITS[name] = SUIT_DEFS[name].build(); return SUITS[name]; }
 function restoreOpacity(m) { m.traverse(o => { if (o.isMesh && o.material.transparent) o.material.opacity = o.userData.maxOp || 1; }); }
@@ -1403,10 +1403,10 @@ function swapHero() {
   floatText(P.pos.clone().add(V3(0, 3.6, 0)), HEROES[HERO].short, HEROES[HERO].color, 26);
   $('chatName').textContent = SK.name;
 }
-function setupHeroes() { // start of a run: Peter is in the suit, Miles is on comms
-  HERO = 'peter'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'upgraded', hp: 100, power: 50 });
+function setupHeroes() { // start of a run: you play Miles; Peter swings with you as the partner
+  HERO = 'miles'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'spiderverse', hp: 100, power: 50 });
   for (const who of ['peter', 'miles']) { try { const want = localStorage.getItem('sm2_suit_' + who); if (want && SUIT_DEFS[want] && SUIT_DEFS[want].hero === who && want !== 'black') HS[who].suit = want; } catch (e) { } }
-  const next = suitMesh(HS.peter.suit); if (next !== hero) { scene.remove(hero); hero = next; scene.add(hero); } SUIT = HS.peter.suit; hero.visible = true;
+  const next = suitMesh(HS.miles.suit); if (next !== hero) { scene.remove(hero); hero = next; scene.add(hero); } SUIT = HS.miles.suit; hero.visible = true;
 }
 const webLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web); webLine.frustumCulled = false; scene.add(webLine);
 const senseRing = new THREE.Mesh(new THREE.RingGeometry(0.6, 0.8, 24), new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false })); scene.add(senseRing);
