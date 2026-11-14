@@ -52,6 +52,9 @@
   .row2 { display: flex; flex-wrap: wrap; gap: 10px; } .row2 button { padding: 12px 18px; border-radius: 14px; border: 0; background: rgba(255,255,255,.1); color: #fff; font: 800 14px system-ui; cursor: pointer; } .row2 button.on { background: #1e90ff; }
   #snakeC { display: block; width: min(92vw, 520px); height: auto; background: #06081a; border-radius: 10px; margin: 0 auto; touch-action: none; }
   body:has(#store.open) #hud, body:has(#store.open) .sideBtn, body:has(#store.open) #touch, body:has(#store.open) #xhair { opacity: 0 !important; pointer-events: none; }
+  body.appOpen #hud, body.appOpen .sideBtn, body.appOpen #touch, body.appOpen #xhair, body.appOpen #lockon { opacity: 0 !important; pointer-events: none !important; }
+  #store, #mini, #story, #storyBar { z-index: 60; } #mini { z-index: 62; } #storyBar { z-index: 61; } #errBar { z-index: 99; }
+  #store input, #mini input, .cform input { font-size: 16px; } /* 16px stops iPad Safari from zooming the page when a field is tapped */
   /* THWIP!: the little game on Miles' PC and console */
   #mini { position: fixed; inset: 0; z-index: 42; display: none; align-items: center; justify-content: center; background: rgba(4,6,16,.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
   #mini.open { display: flex; }
@@ -303,8 +306,8 @@
 // Safety net: show any error on screen, and never leave the player stuck on LOADING
 window.__errs = []; window.__bootReady = false;
 function __showErr(msg) { try { let b = document.getElementById('errBar'); if (!b) { b = document.createElement('div'); b.id = 'errBar'; b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#7a0f1a;color:#fff;font:600 12px/1.35 system-ui;padding:8px 12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.5);word-break:break-word'; document.body.appendChild(b); } b.textContent = 'Problem: ' + msg + '  —  tap PLAY again, or reload the page'; } catch (e) { } }
-addEventListener('error', e => { const m = (e.message || '') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : ''); window.__errs.push(m); if (!window.__game) __showErr(m); });
-addEventListener('unhandledrejection', e => { const m = String(e.reason && (e.reason.message || e.reason)); window.__errs.push(m); if (!window.__game) __showErr(m); });
+addEventListener('error', e => { const m = (e.message || '') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : ''); window.__errs.push(m); __showErr(m); });
+addEventListener('unhandledrejection', e => { const m = String(e.reason && (e.reason.message || e.reason)); window.__errs.push(m); __showErr(m); });
 setTimeout(() => { const b = document.getElementById('startBtn'); if (b && b.disabled) { b.disabled = false; b.textContent = window.__game ? 'PLAY' : 'RELOAD'; if (!window.__game) { __showErr(window.__errs[0] || 'the game did not finish loading (slow connection to the 3D engine?)'); b.onclick = () => location.reload(); } } }, 30000);
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
@@ -3796,8 +3799,9 @@ const APPS = [
   { id: 'miles2d', name: 'Miles 2D', cat: 'Games', icon: '🎮', bg: 'linear-gradient(135deg,#a855f7,#312e81)', size: '4 MB', rating: '4.3', desc: 'The original side-scrolling Miles game, where it all started.', url: 'index.html' },
 ];
 const appSave = () => { try { localStorage.setItem('mm3d_apps', JSON.stringify(STORE.inst)); } catch (e) { } };
-function storeOpen() { if (STORE.open) return; STORE.open = true; $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
-function storeClose() { if (!STORE.open) return; STORE.open = false; STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function appOverlayClass() { document.body.classList.toggle('appOpen', !!(STORE.open || MINI.open || STORY.open)); }
+function storeOpen() { if (STORE.open) return; STORE.open = true; appOverlayClass(); $('store').classList.add('open'); $('store').classList.remove('app'); STORE.view = null; document.exitPointerLock?.(); for (const k in keys) keys[k] = false; mouse.down = false; storeRender(); }
+function storeClose() { if (!STORE.open) return; STORE.open = false; appOverlayClass(); STORE.view = null; snakeStop(); $('store').classList.remove('open', 'app'); if (G.state === 'play' && !G.paused && !TOUCH) renderer.domElement.requestPointerLock?.(); }
 function appBack() { STORE.view = null; snakeStop(); $('store').classList.remove('app'); storeRender(); }
 function storeRender() {
   const grid = $('appGrid'); grid.innerHTML = '';
@@ -3810,7 +3814,8 @@ function storeRender() {
     el.querySelector('button').addEventListener('click', () => appTap(a)); grid.appendChild(el);
   }
 }
-function appTap(a) {
+function appTap(a) { try { appTapInner(a); } catch (e) { console.error(e); __showErr('App ' + a.name + ': ' + (e && e.message || e)); } }
+function appTapInner(a) {
   if (STORE.dl[a.id] != null) return;
   if (!STORE.inst[a.id]) { // download: a progress bar that takes a moment, like the real thing
     const mb = parseInt(a.size) || 10, dur = 900 + Math.min(2600, mb * 14); const t0 = performance.now(); STORE.dl[a.id] = 0; AudioSys.pickup?.();
@@ -3984,11 +3989,11 @@ $('storeX').addEventListener('click', storeClose); for (const b of document.quer
 const MINI = { open: false, raf: 0, t: 0, score: 0, x: 0.5, spiders: [], last: 0, src: 'PC', drag: null, best: 0 };
 try { MINI.best = +localStorage.getItem('mm3d_thwip') || 0; } catch (e) { }
 function miniOpen(src) {
-  MINI.open = true; MINI.src = src; MINI.t = 25; MINI.score = 0; MINI.x = 0.5; MINI.spiders = []; MINI.last = performance.now(); MINI.done = false;
+  MINI.open = true; appOverlayClass(); MINI.src = src; MINI.t = 25; MINI.score = 0; MINI.x = 0.5; MINI.spiders = []; MINI.last = performance.now(); MINI.done = false;
   $('mini').classList.add('open'); $('miniMsg').textContent = 'Catch the spiders with the web ball · drag, or A / D · 25 seconds'; $('miniClose').textContent = 'QUIT'; document.exitPointerLock?.();
   cancelAnimationFrame(MINI.raf); MINI.raf = requestAnimationFrame(miniFrame);
 }
-function miniClose() { if (!MINI.open) return; MINI.open = false; $('mini').classList.remove('open'); cancelAnimationFrame(MINI.raf); if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function miniClose() { if (!MINI.open) return; MINI.open = false; appOverlayClass(); $('mini').classList.remove('open'); cancelAnimationFrame(MINI.raf); if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.(); }
 function miniFrame(now) {
   if (!MINI.open) return; MINI.raf = requestAnimationFrame(miniFrame);
   const cv = $('miniC'), g = cv.getContext('2d'), W = cv.width, H = cv.height, dt = Math.min(0.05, (now - MINI.last) / 1000); MINI.last = now;
@@ -4650,8 +4655,8 @@ function snap(setup) {
   dayApply(true); for (let i = 0; i < 12; i++) animateHero(0.1); hero.position.copy(P.pos); hero.rotation.y = P.facing; if (hero.parts) hero.parts.head.visible = true;
   sun.position.copy(P.pos).addScaledVector(SUN_DIR, 400); sun.target.position.copy(P.pos); if (SKY.mesh) SKY.mesh.position.set(P.pos.x, 0, P.pos.z);
   camera.updateMatrixWorld(); if (renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate = true;
-  if (PERF.post) post.render(G.time, 0, 0); else renderer.render(scene, camera);
-  let url = ''; try { url = renderer.domElement.toDataURL('image/jpeg', 0.85); } catch (e) { }
+  if (PERF.post && !TOUCH) post.render(G.time, 0, 0); else renderer.render(scene, camera);
+  let url = ''; try { url = renderer.domElement.toDataURL('image/jpeg', 0.8); } catch (e) { }
   camera.position.copy(sv.cam); camera.quaternion.copy(sv.q); camera.fov = sv.fov; camera.near = sv.near; camera.updateProjectionMatrix();
   DAY.t = sv.t; P.pos.copy(sv.pos); P.facing = sv.f; P.diving = sv.diving; P.diveT = sv.diveT; P.onGround = sv.ground; P.swinging = sv.sw; look.fp = sv.fp; hero.visible = sv.hv;
   hero.position.copy(P.pos); hero.rotation.y = sv.r; if (hero.parts) hero.parts.body.rotation.x = sv.bodyX;
@@ -4659,7 +4664,7 @@ function snap(setup) {
   dayApply(true); return url;
 }
 function storyShow(panels, done) {
-  STORY.panels = panels; STORY.i = 0; STORY.done = done || null; STORY.open = true;
+  STORY.panels = panels; STORY.i = 0; STORY.done = done || null; STORY.open = true; appOverlayClass();
   const page = $('storyPage'); page.innerHTML = '';
   for (const pn of panels) {
     if (pn.kick) { const k = document.createElement('div'); k.className = 'kick'; k.textContent = pn.kick; page.appendChild(k); continue; }
@@ -4677,7 +4682,7 @@ function storyNext() {
   $('storyNext').textContent = STORY.i >= els.length ? 'PLAY ▶' : 'NEXT ▶'; AudioSys.pickup?.();
 }
 function storyEnd() {
-  if (!STORY.open) return; STORY.open = false; $('story').classList.remove('open'); $('storyPage').innerHTML = '';
+  if (!STORY.open) return; STORY.open = false; appOverlayClass(); $('story').classList.remove('open'); $('storyPage').innerHTML = '';
   const d = STORY.done; STORY.done = null; if (d) d(); else if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.();
 }
 $('storyNext').addEventListener('click', storyNext); $('storySkip').addEventListener('click', storyEnd);
@@ -4719,7 +4724,6 @@ function storyEnding(act2, done) {
   storyShow(panels, done);
 }
 function startGame() {
-  bootAll();
   AudioSys.ensure(); AudioSys.ambient(); MUSIC.start(AudioSys.ctx()); G.sirenT = 8 + Math.random() * 20;
   for (const e of enemies) scene.remove(e.mesh); enemies.length = 0;
   for (const b of bullets) scene.remove(b.mesh); bullets.length = 0;
@@ -4842,7 +4846,7 @@ function frame(now) {
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (G.slowT > 0) { G.slowT -= dt; dt *= 0.35; } // leap-of-faith slow motion
   if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open && !STORE.open) {
-    G.time += dt; DAY.t += dt * DAY.speed;
+    G.time += dt; DAY.t += dt * DAY.speed; if (!BOOT.done) bootStep();
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
     updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateStreetLife(dt);
