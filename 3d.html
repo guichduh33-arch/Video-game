@@ -1205,9 +1205,9 @@ function grabStep(g, dt, floorY, radius) {
   return g.t > 4.5 && g.onGround && g.vel.length() < 1.5;
 }
 function grabEnd(g) { scene.remove(g.line); const k = GRAB.list.indexOf(g); if (k >= 0) GRAB.list.splice(k, 1); }
-function grabTry(w) { // does this web shot land on a car or a passer-by?
-  for (const c of traffic) { if (c.grab || c.wx === undefined) continue; if (Math.abs(w.x - c.wx) < 3.2 && Math.abs(w.z - c.wz) < 3.2 && w.y < 4 && w.y > -0.5) { c.grab = grabStart('car', V3(c.wx, 0.95, c.wz)); return true; } }
-  for (const p of peds) { if (p.grab || p.wx === undefined) continue; if (Math.abs(w.x - p.wx) < 1.2 && Math.abs(w.z - p.wz) < 1.2 && w.y < 2.6 && w.y > -0.5) { p.grab = grabStart('ped', V3(p.wx, 0.3, p.wz)); return true; } }
+function grabTry(w, pad = 0) { // does this web shot land on a car or a passer-by?
+  for (const c of traffic) { if (c.grab || c.wx === undefined) continue; if (Math.abs(w.x - c.wx) < 3.2 + pad && Math.abs(w.z - c.wz) < 3.2 + pad && w.y < 4 + pad && w.y > -0.5 - pad) { c.grab = grabStart('car', V3(c.wx, 0.95, c.wz)); return true; } }
+  for (const p of peds) { if (p.grab || p.wx === undefined) continue; if (Math.abs(w.x - p.wx) < 1.2 + pad && Math.abs(w.z - p.wz) < 1.2 + pad && w.y < 2.6 + pad && w.y > -0.5 - pad) { p.grab = grabStart('ped', V3(p.wx, 0.3, p.wz)); return true; } }
   return false;
 }
 function aimSoft() { // nearest car or passer-by in front of the camera, for the crosshair and the web
@@ -2336,6 +2336,11 @@ function updateEnemies(dt) {
       if (e.deadT > 2.5) { scene.remove(m); enemies.splice(i, 1); }
       continue;
     }
+    if (e.grab) { // on the end of Miles' web: hauled through the air, dropped at his feet, wrapped up where he lands
+      const g = e.grab, done = grabStep(g, dt, 0, 1.4); m.position.copy(g.pos); m.rotation.x = g.rot.x * 0.4; m.rotation.z = g.rot.z * 0.4; e.stun = 2; e.animT += dt;
+      if (done) { m.rotation.x = m.rotation.z = 0; const b = nearBuildings(g.pos.x, g.pos.z).filter(b => !b.room && Math.abs(g.pos.x - b.x) < b.w / 2 && Math.abs(g.pos.z - b.z) < b.d / 2).sort((a, c) => c.h - a.h)[0]; e.roof = b || { x: g.pos.x, z: g.pos.z, w: 24, d: 24, h: 0 }; m.position.y = e.roof.h; e.vel.set(0, 0, 0); e.grab = null; grabEnd(g); webEnemy(e); G.score += 20; }
+      continue;
+    }
     e.animT += dt;
     for (const k of ['stun', 'attackCd', 'flash']) if (e[k] > 0) e[k] -= dt;
     const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
@@ -2402,7 +2407,7 @@ function shootWeb() {
   // aim: the nearest living, unwebbed enemies in front of the camera, else straight ahead
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), range = 34 + 10 * LV('range');
   const picks = [];
-  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > range || Math.abs(d.y) > 14) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; picks.push({ e, flat }); }
+  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > (P.onGround ? range : 120) || Math.abs(d.y) > (P.onGround ? 14 : 140)) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; picks.push({ e, flat }); }
   picks.sort((a, b) => a.flat - b.flat);
   let best = picks.length ? picks[0].e : null, bd = picks.length ? picks[0].flat : 1e9;
   // the Prowler and the Spot can be webbed too: generous aim while visible, a narrow cone while the Prowler is cloaked
@@ -2441,13 +2446,15 @@ function updateWebShots(dt) {
     const w = webShots[i]; w.life -= dt; w.pos.addScaledVector(w.vel, dt); w.mesh.position.copy(w.pos);
     const hand = heroHand(); w.line.geometry.setFromPoints([hand, w.pos]);
     let hit = null;
-    for (const e of enemies) if (e.alive && e.webbed <= 0 && w.pos.distanceTo(e.mesh.position.clone().add(V3(0, 1.5, 0))) < 1.4) { hit = e; break; }
-    if (hit) { const yank = P.pos.clone().sub(hit.mesh.position); yank.y = 0; const yd = yank.length(); if (yd > 3) { yank.normalize(); hit.vel.x += yank.x * Math.min(26, yd * 3); hit.vel.z += yank.z * Math.min(26, yd * 3); hit.vel.y = 6; floatText(hit.mesh.position.clone().add(V3(0, 2.6, 0)), 'GET OVER HERE!', '#fff', 16); } }
-    if (hit) { webEnemy(hit); if (LV('burst')) { const c = hit.mesh.position.clone(); for (const o of enemies) if (o !== hit && o.alive && o.webbed <= 0 && o.mesh.position.distanceTo(c) < 4) webEnemy(o); burst(c.clone().add(V3(0, 1.6, 0)), 18, 0xffffff, 9, 0.5); } }
+    const pad = w.vel.length() * dt * 0.5; // fast webs move several metres a frame: catch anything the segment passed
+    for (const e of enemies) if (e.alive && e.webbed <= 0 && !e.grab && w.pos.distanceTo(e.mesh.position.clone().add(V3(0, 1.5, 0))) < 1.4 + pad) { hit = e; break; }
+    let flew = false;
+    if (hit) { const yank = P.pos.clone().sub(hit.mesh.position); const yd = yank.length(); if (yd > 5 || !P.onGround) { hit.grab = grabStart('enemy', hit.mesh.position.clone()); hit.stun = 9; hit.attackT = 0; floatText(hit.mesh.position.clone().add(V3(0, 2.6, 0)), 'GET OVER HERE!', '#fff', 16); flew = true; } }
+    if (hit && !flew) { webEnemy(hit); if (LV('burst')) { const c = hit.mesh.position.clone(); for (const o of enemies) if (o !== hit && o.alive && o.webbed <= 0 && o.mesh.position.distanceTo(c) < 4) webEnemy(o); burst(c.clone().add(V3(0, 1.6, 0)), 18, 0xffffff, 9, 0.5); } }
     else if (boss.alive && boss.kind === 'prowler' && boss.state !== 'stunned' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { webProwler(); hit = boss; }
     else if (boss.alive && boss.kind === 'spot' && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { jamSpot(); hit = boss; }
     else if (boss.alive && boss.kind === 'gallery' && boss.webCd <= 0 && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.8) { galWebbed(); hit = boss; }
-    if (!hit && grabTry(w.pos)) hit = true;
+    if (!hit && grabTry(w.pos, pad)) hit = true;
     const wall = groundHeight(w.pos.x, w.pos.z) > w.pos.y;
     if (hit || wall || w.life <= 0) { if (!hit && wall) burst(w.pos.clone(), 6, 0xffffff, 3, 0.4); scene.remove(w.mesh, w.line); webShots.splice(i, 1); }
   }
@@ -4649,7 +4656,7 @@ function styleIf(key, el, prop, val) { if (HUDC[key] !== val) { HUDC[key] = val;
 function aimTarget() {
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw), range = 34 + 10 * LV('range');
   let best = null, bd = 1e9;
-  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > range || Math.abs(d.y) > 14) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; if (flat < bd) { bd = flat; best = e.mesh; } }
+  for (const e of enemies) { if (!e.alive || e.webbed > 0) continue; const d = e.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); if (flat > (P.onGround ? range : 120) || Math.abs(d.y) > (P.onGround ? 14 : 140)) continue; const dot = (d.x * fx + d.z * fz) / (flat || 1); if (dot < 0.45) continue; if (flat < bd) { bd = flat; best = e.mesh; } }
   if (boss.alive && boss.mesh && (boss.kind === 'prowler' || boss.kind === 'spot' || boss.kind === 'gallery') && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge') { const d = boss.mesh.position.clone().sub(P.pos); const flat = Math.hypot(d.x, d.z); const dot = (d.x * fx + d.z * fz) / (flat || 1); if (flat < range && Math.abs(d.y) < 14 && dot > 0.45 && flat < bd) best = boss.mesh; }
   return best;
 }
