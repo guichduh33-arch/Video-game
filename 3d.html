@@ -1800,6 +1800,7 @@ const P = {
   punchT: 0, punchCd: 0, shootT: 0, shootCd: 0, invulnT: 0, alive: true, deadT: 0, animT: 0, senseT: 0, landT: 0, tilt: 0, diving: false, diveT: 0, rollT: 0, leapT: 0, flipT: 0, swingHand: 'R', swingPeak: 0, zip: null, zipCd: 0, pound: false,
 };
 function respawnPoint() {
+  if (HOME.b) return V3(HOME.b.x - 2.5, HOME.b.h, HOME.b.z - 1); // start at home: the roof of the brownstone, the hatch two steps away
   const b = buildings.filter(b => b.roofOk && b.h > 50 && b.h < 90 && b.w > 20 && Math.hypot(b.x, b.z) < 120).sort((a, c) => Math.hypot(a.x, a.z) - Math.hypot(c.x, c.z))[0] || buildings[0];
   return V3(b.x, b.h, b.z);
 }
@@ -3817,7 +3818,7 @@ function appShow(view) {
   STORE.view = view; $('store').classList.add('app'); const v = $('appView'); const back = '<button class="back">‹ App Store</button>';
   if (view === 'claude') {
     v.innerHTML = back + `<div class="card"><h3>✴️ Claude</h3><div class="clog" id="clLog"></div><form class="cform" id="clForm"><input id="clIn" maxlength="400" placeholder="Ask Claude anything…" autocomplete="off"><button type="submit">SEND</button></form><p id="clNote" style="font-size:12px;color:#9aa3c7;margin:8px 0 0"></p></div>`;
-    if (!STORE.cl.turns.length) claudeMsg('ai', "Hi Miles! I'm Claude. Ask me anything: a riddle, a fact about spiders, help with homework, or how to beat Venom.");
+    if (!STORE.cl.turns.length) claudeMsg('ai', "Hi Miles! I'm Claude. Ask me anything: how to beat Venom, a spider fact, a joke, a riddle, your score, or some maths like 12 x 7.");
     else for (const t of STORE.cl.turns) claudeMsg(t.role === 'user' ? 'me' : 'ai', t.content);
     $('clForm').addEventListener('submit', e => { e.preventDefault(); const t = $('clIn').value; $('clIn').value = ''; claudeAsk(t); }); setTimeout(() => $('clIn').focus(), 50); claudeBrain();
   } else if (view === 'snake') { v.innerHTML = back + `<div class="card"><h3>🐍 Web Snake <span id="snScore" style="float:right;color:#ffe14a">0</span></h3><canvas id="snakeC" width="520" height="360"></canvas><p style="font-size:12px;color:#9aa3c7;margin:8px 0 0">Arrow keys or WASD · swipe on touch · eat the flies, do not bite your own web</p></div>`; snakeStart(); }
@@ -3831,24 +3832,55 @@ function claudeMsg(cls, text) { const log = $('clLog'); if (!log) return null; c
 async function claudeBrain() {
   if (STORE.cl.sample !== undefined) return STORE.cl.sample;
   try { STORE.cl.sample = (window.claude && typeof window.claude.use === 'function') ? await window.claude.use('sample') : null; } catch (e) { STORE.cl.sample = null; }
-  const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Offline mode: a pocket Claude with canned answers. Open the game from its claude.ai link inside the viewer, and allow it to use Claude, for the real one.';
+  const n = $('clNote'); if (n) n.textContent = STORE.cl.sample ? 'Live: the real Claude is answering.' : 'Pocket Claude: works everywhere, knows the game, spiders, space, jokes, riddles and maths. Inside the claude.ai viewer the real Claude takes over.';
   return STORE.cl.sample;
 }
 const CLAUDE_RULES = 'You are Claude, running as an app on the tablet of Miles Morales, a seven-year-old Spider-Man, inside his video game. Talk to a seven-year-old: warm, playful, simple words, two or three short sentences, no scary stuff. You know the game: web-swing with the web button, hold JUMP while falling for a leap of faith, the Skill Shop sells Web Zip and Ground Pound, bosses are the Rhino, Venom, the Spot and the Prowler, Gwen is his partner. Answer any question honestly and kindly.';
 function pocketClaude(t) {
-  const q = t.toLowerCase();
-  if (/venom/.test(q)) return 'Venom cannot see your spider-sense coming, so hit him with a Venom Strike first, then punch hard while he is stunned!';
-  if (/rhino/.test(q)) return 'The Rhino charges in straight lines. Dodge sideways, then punch him from behind while he turns around.';
-  if (/prowler/.test(q)) return 'The Prowler goes invisible. Watch for his shadow and trust the yellow flash in your lenses.';
-  if (/spot/.test(q)) return 'The Spot jumps through his holes. Web him the moment he comes out of one.';
-  if (/swing|faster/.test(q)) return 'Hold the web button in the air, press forward to pump, and let go at the top of the arc to fly!';
-  if (/leap|dive/.test(q)) return 'Jump off a tall roof, hold JUMP while you fall, and the web fires by itself just above the street. So cool.';
-  if (/spider/.test(q)) return 'Spiders have eight legs and most have eight eyes. Some can jump fifty times their own length!';
-  if (/joke|funny/.test(q)) return 'Why did Spider-Man join the swim team? Because he is great at the web-stroke!';
-  if (/who are you|your name/.test(q)) return 'I am Claude, an AI made by Anthropic. In here I live on your tablet. Nice to meet you, Miles!';
-  if (/hello|hi|hey/.test(q)) return 'Hey Miles! Ready to swing? Ask me anything.';
-  if (/\d+\s*[\+\-x\*\/]\s*\d+/.test(q)) { try { const m = q.match(/(\d+)\s*([\+\-x\*\/])\s*(\d+)/); const a = +m[1], b = +m[3], op = m[2]; const r = op === '+' ? a + b : op === '-' ? a - b : op === '/' ? a / b : a * b; return `${a} ${op} ${b} = ${r}. Nice math!`; } catch (e) { } }
-  return 'Good question! Out here I only have a few answers in my pocket. Open the game inside claude.ai and I can really think about it with you.';
+  const q = t.toLowerCase().replace(/[?!.,]/g, ' ').replace(/\s+/g, ' ').trim();
+  const has = (...w) => w.some(x => q.includes(x));
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  // maths: any expression made of numbers and + - x * / ( ), evaluated safely
+  const m = t.replace(/x|×/gi, '*').replace(/÷/g, '/').match(/[\d\s\+\-\*\/\(\)\.]{3,}/);
+  if (m && /\d\s*[\+\-\*\/]\s*\d/.test(m[0])) { try { const expr = m[0].trim(); if (/^[\d\s\+\-\*\/\(\)\.]+$/.test(expr)) { const r = Function('"use strict"; return (' + expr + ')')(); if (isFinite(r)) return `${expr.replace(/\s+/g, ' ')} = ${Math.round(r * 1000) / 1000}. ${pick(['Nice maths!', 'Easy for a Spider-Man.', 'You could do that one in your head soon.'])}`; } } catch (e) { } }
+  // the game, live
+  if (has('score')) return `Your score is ${G.score}${G.best ? `, and your best ever is ${G.best}` : ''}. ${G.crimes}/8 crimes stopped so far.`;
+  if (has('health', 'hp', 'hurt')) return P.hp >= MAXHP() ? 'Your health is full. Go get them!' : `You have ${Math.round(P.hp)} health. Sleep in your bed or rest on the roof hatch to heal up.`;
+  if (has('time is it', 'what time', 'morning', 'is it night', 'dark')) return `It is ${DAY.name.toLowerCase()} over Brooklyn right now. ${DAY.name === 'Night' ? 'Look at all the lit windows.' : 'Press H or use the Day & Night app to change it.'}`;
+  if (has('tech point', 'skill shop', 'upgrade')) return `You have ${UPG.pts} tech point${UPG.pts === 1 ? '' : 's'}. You earn one for every crime you stop and three for every boss. Spend them in the Skill Shop: press U or the wrench button.`;
+  if (has('venom')) return 'Venom cannot see your spider-sense coming, so hit him with a Venom Strike first (K or the VENOM button), then punch hard while he is stunned!';
+  if (has('rhino')) return 'The Rhino charges in straight lines. Jump or dodge sideways, then punch him from behind while he turns around.';
+  if (has('prowler')) return 'The Prowler goes invisible. Watch for his shadow and trust the yellow flash in your lenses, then web him.';
+  if (has('spot')) return 'The Spot jumps through his holes. Web him the moment he climbs out of one, then punch.';
+  if (has('scorpion', 'electro', 'sinister', 'act 2', 'act two')) return 'The Sinister Ten come in Act Two, after the first four bosses. Ten rogues, one night. Gwen will be with you.';
+  if (has('swing', 'faster', 'fast')) return 'Hold the web button in the air and press forward to pump. Let go at the very top of the arc and you fly. Every new web throws you forward.';
+  if (has('leap', 'dive', 'faith')) return 'Jump off a tall roof and hold JUMP while you fall. Miles dives head first and the web fires by itself just above the street. The Leap of Faith skill in the shop makes it even cooler.';
+  if (has('zip')) return 'Web Zip is in the Skill Shop. Once you have it, press Q or ZIP to fire a line and rocket to the nearest building.';
+  if (has('pound')) return 'Ground Pound is in the Skill Shop. Jump high and press PUNCH: Miles slams down and the shockwave stuns every thug nearby.';
+  if (has('climb', 'wall')) return 'Run straight at a wall and keep pushing. Miles sticks to it and climbs. Press JUMP to kick off.';
+  if (has('first person', 'camera', 'view')) return 'Press C or the VIEW button to see through the mask. Press it again to go back behind Miles.';
+  if (has('gwen')) return 'Gwen Stacy is your partner. Press T or the speech bubble to talk to her, and G to send her home or call her back. She swings beside you and webs thugs too.';
+  if (has('house', 'home', 'room', 'bed', 'sleep')) return 'Your house is the brownstone with the blue door and the HOME sign. Stand on the roof hatch and press E or USE to go inside. The bed heals you and brings the morning.';
+  if (has('spider-man', 'spiderman', 'miles')) return 'Miles Morales is Spider-Man from Brooklyn. He can turn invisible and shock people with his venom blast, and he never gives up. Anyone can wear the mask.';
+  if (has('spider')) return pick(['Spiders have eight legs and most have eight eyes!', 'A spider\'s silk is stronger than steel of the same thickness. That is why your webs hold.', 'Jumping spiders can leap fifty times their own length. Just like you.', 'There are about fifty thousand kinds of spiders, and almost all of them are harmless to people.']);
+  if (has('joke', 'funny', 'laugh')) return pick(['Why did Spider-Man join the swim team? Because he is great at the web-stroke!', 'What is Spider-Man\'s favourite month? Web-ruary!', 'Why does Spider-Man never get lost? He always finds his way on the world wide web!', 'What do you call a spider with twenty eyes? A spiiiiiiiiiiiider!']);
+  if (has('riddle')) return pick(['Riddle: what has keys but opens no locks? Think… a piano!', 'Riddle: what gets wetter the more it dries? A towel!', 'Riddle: what has a neck but no head? A bottle!']);
+  if (has('who are you', 'your name', 'what are you')) return 'I am Claude, an AI made by Anthropic. In here I live on your tablet. Nice to meet you, Miles!';
+  if (has('how are you')) return 'Great! I love living on a tablet in Brooklyn. How are you?';
+  if (has('hello', 'hi ', 'hey', 'yo ') || q === 'hi') return pick(['Hey Miles! Ready to swing? Ask me anything.', 'Hi! What should we figure out today?']);
+  if (has('thank')) return 'You are welcome! Go be amazing.';
+  if (has('bye', 'see you')) return 'See you, Spider-Man! Watch out for the Rhino.';
+  if (has('planet', 'space', 'moon', 'sun ')) return 'There are eight planets going round the Sun. The Moon goes round the Earth and is about 384,000 kilometres away. The Sun is a star, a huge ball of burning gas.';
+  if (has('dinosaur')) return 'Dinosaurs lived millions of years ago. The biggest ones were longer than three buses. Birds are their living cousins!';
+  if (has('ocean', 'sea ', 'fish', 'shark')) return 'The ocean covers most of the Earth. The blue whale living in it is the biggest animal ever, bigger than any dinosaur.';
+  if (has('dog', 'cat', 'animal')) return 'Dogs can smell about ten thousand times better than people, and cats sleep around sixteen hours a day. Which is your favourite animal?';
+  if (has('colour', 'color', 'rainbow')) return 'A rainbow has red, orange, yellow, green, blue, indigo and violet. Your suit has the first two!';
+  if (has('spell')) { const w = t.split(/spell/i)[1]; if (w && w.trim()) { const word = w.trim().split(' ')[0].replace(/[^a-zA-Z]/g, ''); if (word) return `${word.toUpperCase()} is spelled ${word.toUpperCase().split('').join(' - ')}.`; } }
+  if (has('count')) return 'One, two, three, four, five, six, seven, eight, nine, ten! Want me to go higher?';
+  if (has('story')) return 'Once upon a time a boy from Brooklyn got bitten by a spider from another universe. The next morning he stuck to the ceiling. Tonight he is swinging through the city, and a girl named Gwen is right behind him. That boy is you.';
+  if (has('why')) return pick(['That is a great why. Usually the answer is: because that is how the world works, and smart people keep asking why until they find out more.', 'Good question! Scientists ask why all day. Keep asking, that is how you become one.']);
+  if (has('how many', 'how much', 'how big', 'how far', 'how old')) return pick(['I do not have that number in my pocket, but it is a smart thing to wonder about. Ask a grown-up or look it up together later.', 'Hmm, I am not sure of the exact number out here. Inside claude.ai I can really look into it with you.']);
+  return pick(['Good question! Out here on the tablet I only have a few answers in my pocket. Try asking about the game, spiders, space, animals, a joke, a riddle, or some maths.', 'I am not sure about that one yet. Ask me how to beat a boss, for a joke, a riddle, or give me some maths to do!']);
 }
 async function claudeAsk(text) {
   text = (text || '').trim(); if (!text || STORE.cl.busy) return;
