@@ -24,6 +24,15 @@
   #xhair i { display: none; }
   #xhair::before { content: ''; position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 1.5px rgba(0,0,0,.6), 0 0 5px rgba(0,0,0,.6); }
   body.play #xhair { display: block; }
+  /* THWIP!: the little game on Miles' PC and console */
+  #mini { position: fixed; inset: 0; z-index: 42; display: none; align-items: center; justify-content: center; background: rgba(4,6,16,.82); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  #mini.open { display: flex; }
+  #miniBox { background: #0d1024; border: 3px solid #00e5ff; box-shadow: 0 0 40px rgba(0,229,255,.35), 8px 8px 0 #000; padding: 14px; border-radius: 10px; max-width: 96vw; }
+  #miniBox h3 { margin: 0 0 8px; color: #00e5ff; font: 800 18px var(--display, system-ui); letter-spacing: 3px; display: flex; justify-content: space-between; gap: 20px; }
+  #miniBox h3 span { color: #ffe14a; }
+  #miniC { display: block; width: min(92vw, 560px); height: auto; background: #06081a; border: 2px solid #1b2250; border-radius: 6px; touch-action: none; }
+  #miniBox p { margin: 10px 0 0; color: #cfd6ff; font: 600 13px system-ui; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  #miniBox button { font: 800 14px var(--display, system-ui); letter-spacing: 2px; padding: 9px 18px; border: 2px solid #111; background: #ff3a1c; color: #fff; box-shadow: 3px 3px 0 #111; cursor: pointer; }
   /* story: a comic page of pictures rendered from the game itself */
   #story { position: fixed; inset: 0; z-index: 40; display: none; overflow: auto; background: #1b1714 radial-gradient(ellipse at 30% 20%, #2a2420, #15110f 70%); -webkit-overflow-scrolling: touch; }
   #story.open { display: block; }
@@ -194,6 +203,7 @@
 </head>
 <body>
 <div id="xhair"><i></i><i></i><i></i><i></i><i></i></div><div id="lockon"></div>
+<div id="mini"><div id="miniBox"><h3>THWIP! <span id="miniScore">0</span></h3><canvas id="miniC" width="560" height="340"></canvas><p><span id="miniMsg">Catch the spiders with the web ball · drag, or A / D</span><button id="miniClose">QUIT</button></p></div></div>
 <div id="story"><div id="storyPage"></div></div><div id="storyBar"><button id="storySkip" class="alt">SKIP</button><button id="storyNext">NEXT ▶</button></div>
 <div id="hud">
   <div id="stats" class="panel">
@@ -223,6 +233,7 @@
   <div class="tbtn" id="bShoot" style="right:310px;bottom:85px;font-size:11px">SHOOT</div>
   <div class="tbtn" id="bView" style="right:310px;bottom:175px;font-size:11px">VIEW</div>
   <div class="tbtn" id="bZip" style="right:400px;bottom:40px;font-size:11px">ZIP</div>
+  <div class="tbtn" id="bUse" style="right:400px;bottom:130px;font-size:11px;display:none;border-color:#00e5ff">USE</div>
 </div>
 <div id="overlay">
   <p class="kicker">BROOKLYN NIGHTS 3D</p>
@@ -1240,6 +1251,7 @@ try { G.best = +localStorage.getItem('mm3d_best') || 0; G.bestTime = +localStora
 const isDown = (...c) => c.some(k => keys[k]);
 const wasPressed = (...c) => c.some(k => pressed[k]);
 addEventListener('keydown', e => {
+  if (MINI.open) { if (e.code === 'Escape') miniClose(); if (['Space', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); keys[e.code] = true; return; }
   if (STORY.open) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight') { e.preventDefault(); storyNext(); } else if (e.code === 'Escape') storyEnd(); return; }
   if (CHAT.open) { if (e.code === 'Escape') { e.preventDefault(); closeChat(); } return; }
   if (UPG.open) { if (e.code === 'Escape' || e.code === 'KeyU') { e.preventDefault(); closeUpgrades(); } return; }
@@ -1278,7 +1290,7 @@ addEventListener('mousemove', e => {
 const touch = { stick: null, sx: 0, sy: 0, mx: 0, my: 0, lookId: null, lx: 0, ly: 0, held: {} };
 if (TOUCH) {
   $('touch').style.display = 'block';
-  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bView: 'View', bZip: 'Zip' };
+  const btnMap = { bJump: 'Jump', bWeb: 'Web', bPunch: 'Punch', bVenom: 'Venom', bCamo: 'Camo', bSuit: 'Suit', bShoot: 'Shoot', bView: 'View', bZip: 'Zip', bUse: 'Use' };
   for (const id in btnMap) {
     const el = $(id), k = btnMap[id];
     const on = e => { e.preventDefault(); AudioSys.ensure(); if (!touch.held[k]) pressed[k] = true; touch.held[k] = true; el.classList.add('on'); };
@@ -1511,7 +1523,7 @@ function chunkify(g, C) {
   for (const o of body.children) if (o !== head && (isRound(o) || thin(o))) o.visible = false;
   const torso = rb(0.7, 1.2, 0.38, 0.12); { const pa = torso.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 + 0.18 * (y / 0.6))); pa.setZ(i, pa.getZ(i) * (1 + 0.06 * (y / 0.6))); } torso.computeVertexNormals(); }
   add(body, torso, C.suit, 0, 1.72, 0);
-  if (C.panel) add(body, rb(0.5, 0.48, 0.06, 0.03), C.panel, 0, 2.0, 0.2);
+  if (C.panel) add(body, rb(0.62, 0.62, 0.06, 0.03), C.panel, 0, 1.98, 0.2);
   add(body, new THREE.CylinderGeometry(0.11, 0.13, 0.26, 12), C.suit, 0, 2.4, 0);
   add(body, rb(0.62, 0.13, 0.36, 0.05), C.belt, 0, 1.2, 0); add(body, rb(0.13, 0.09, 0.05, 0.02), C.buckle, 0, 1.2, 0.185);
   for (const sx of [-1, 1]) {
@@ -1943,7 +1955,7 @@ function updatePlayer(dt) {
     if (!P.onGround && !P.swinging && hAbove > 4 && LV('pound') > 0 && !P.pound) { P.pound = true; P.diving = false; P.vel.set(P.vel.x * 0.2, -45, P.vel.z * 0.2); P.punchCd = 0.4; AudioSys.punch(); }
     else punch();
   }
-  if (inShoot() && P.shootCd <= 0) shootWeb();
+  if (inShoot() && P.shootCd <= 0 && !roomUseActive()) shootWeb();
   if (wasPressed('Suit')) toggleSuit(1);
   if (inVenom() && P.venom >= VENOM_COST()) venomStrike();
   if (inCamo() && !P.camo && P.camoCd <= 0) { if (SUIT === 'symbiote') { G.hint = 'The symbiote can\'t hide. Hit harder instead'; G.hintT = 2; } else { P.camo = true; P.camoT = (SUIT === 'noir' ? 10 : 6) + [0, 2, 4, 7][LV('camo')]; AudioSys.camo(); for (const e of enemies) e.alert = false; } }
@@ -3289,7 +3301,7 @@ function makeGwen() { // build the hero rig with Gwen's palette: white suit, bla
   const chest = sph(0.3, GMAT.black, 0, 1.92, 0.06, 1.05, 0.9, 0.7); g.parts.body.add(chest);
   // chest: a block G in Gwen's magenta with a white inner stripe, the partner of Miles' N
   const gMat = (() => { const t = canvasTex(256, 256, (g2, w, h) => { g2.clearRect(0, 0, w, h); const G = (col, lw) => { g2.strokeStyle = col; g2.lineWidth = lw; g2.lineCap = 'butt'; g2.lineJoin = 'miter'; g2.beginPath(); g2.arc(128, 128, 78, -0.55, Math.PI * 1.55, false); g2.stroke(); g2.beginPath(); g2.moveTo(206, 128); g2.lineTo(206, 200); g2.lineTo(138, 200); g2.lineTo(138, 128); g2.lineTo(206, 128); g2.stroke(); }; G('#111', 52); G('#ff3fa0', 40); G('#ffffff', 9); G('#ff3fa0', 3); }); t.repeat.set(1, 1); t.magFilter = THREE.LinearFilter; return new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide }); })();
-  const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), gMat); logo.position.set(0, 1.99, 0.236); g.parts.body.add(logo);
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.54), gMat); logo.position.set(0, 1.98, 0.236); g.parts.body.add(logo);
   g.parts.head.scale.setScalar(0.92); g.parts.head.children.forEach(o => { if (o.isMesh && o.geometry && o.geometry.type === 'SphereGeometry') o.visible = false; }); // ball head
   chunkify(g, { suit: GMAT.white, arm: GMAT.black, glove: GMAT.white, boot: GMAT.teal, belt: GMAT.magenta, buckle: GMAT.white, panel: GMAT.black });
   stripLights(g);
@@ -3643,6 +3655,116 @@ function buildHome(r, cars, trees) {
   [[1.4, 0.95], [1.4, -0.95], [-1.4, 0.95], [-1.4, -0.95]].forEach(([a, c]) => { const wh = new THREE.Mesh(wheelGeo, darkMetalMat); wh.rotation.x = Math.PI / 2; wh.position.set(a, 0.4, c); cruiser.add(wh); });
   scene.add(cruiser); HOME.cruiser = cruiser;
 }
+// ---------- Miles' room: a real bedroom you walk into from the roof hatch ----------
+const ROOM = { c: V3(318, 0, 318), w: 12, d: 10, h: 4.6, built: false, inside: false, props: [], near: null, skWas: true, distWas: 7.5, hintT: 0 };
+function registerBuilding(b) { // a collision box added after the city grid was built
+  buildings.push(b); if (!GRID.built) return;
+  const x0 = Math.floor((b.x - b.w / 2 - 3) / GRID.cell), x1 = Math.floor((b.x + b.w / 2 + 3) / GRID.cell), z0 = Math.floor((b.z - b.d / 2 - 3) / GRID.cell), z1 = Math.floor((b.z + b.d / 2 + 3) / GRID.cell);
+  for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) { const k = gridKey(cx, cz); if (!GRID.map.has(k)) GRID.map.set(k, []); GRID.map.get(k).push(b); }
+}
+function buildRoom() {
+  if (ROOM.built) return; ROOM.built = true;
+  const c = ROOM.c, W = ROOM.w, D = ROOM.d, H = ROOM.h;
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85 }, o));
+  const wood = M(0x8a5a3a, { roughness: 0.7 }), paint = M(0x35477a), white = M(0xf2f2f4), dark = M(0x1a1c24, { roughness: 0.5 }), red = M(0xe8102a), blue = M(0x2a62d8), steel = M(0x6a6f7a, { roughness: 0.4, metalness: 0.6 });
+  const screen = (hex) => new THREE.MeshBasicMaterial({ color: hex });
+  const g = new THREE.Group(); scene.add(g);
+  const add = (geo, mat, x, y, z, ry = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(c.x + x, y, c.z + z); m.rotation.y = ry; m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  const B = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+  // shell: floor, ceiling, four walls (the walls are also collision boxes), a window with a view, a door
+  add(B(W, 0.2, D), wood, 0, -0.1, 0); add(B(W, 0.2, D), white, 0, H + 0.1, 0);
+  add(B(W, H, 0.3), paint, 0, H / 2, D / 2 + 0.15); add(B(W, H, 0.3), paint, 0, H / 2, -D / 2 - 0.15); add(B(0.3, H, D), paint, -W / 2 - 0.15, H / 2, 0); add(B(0.3, H, D), paint, W / 2 + 0.15, H / 2, 0);
+  for (const [w, d, x, z] of [[W + 0.6, 0.6, 0, D / 2 + 0.3], [W + 0.6, 0.6, 0, -D / 2 - 0.3], [0.6, D, -W / 2 - 0.3, 0], [0.6, D, W / 2 + 0.3, 0]]) registerBuilding({ x: c.x + x, z: c.z + z, w, d, h: H, roofOk: false, room: true });
+  add(B(W, 0.3, 0.1), white, 0, 0.15, D / 2 - 0.05); add(B(W, 0.3, 0.1), white, 0, 0.15, -D / 2 + 0.05); add(B(0.1, 0.3, D), white, -W / 2 + 0.05, 0.15, 0); add(B(0.1, 0.3, D), white, W / 2 - 0.05, 0.15, 0);
+  add(B(3.2, 2.2, 0.1), white, -2, 2.5, D / 2 - 0.08); add(B(2.9, 1.9, 0.06), screen(0x8fc4ff), -2, 2.5, D / 2 - 0.14); add(B(0.08, 1.9, 0.1), white, -2, 2.5, D / 2 - 0.16); add(B(2.9, 0.08, 0.1), white, -2, 2.5, D / 2 - 0.16);
+  add(B(1.3, 2.7, 0.14), M(0x1f3a8a), -3, 1.35, -D / 2 + 0.1); add(new THREE.SphereGeometry(0.07, 10, 8), steel, -2.5, 1.3, -D / 2 + 0.22);
+  const rug = add(new THREE.CylinderGeometry(2.3, 2.3, 0.04, 28), red, 0.4, 0.02, -0.2); rug.receiveShadow = true;
+  // bed, nightstand with the tablet
+  add(B(2.3, 0.5, 3.3), wood, -4.2, 0.25, 2.5); add(B(2.1, 0.3, 3.1), white, -4.2, 0.65, 2.5); add(B(2.1, 0.14, 2.1), red, -4.2, 0.87, 2.9); add(B(1.5, 0.26, 0.6), white, -4.2, 0.93, 1.3); add(B(2.3, 1.2, 0.12), wood, -4.2, 0.9, 0.8);
+  add(B(0.8, 0.7, 0.8), wood, -2.5, 0.35, 4.2); add(B(0.56, 0.03, 0.76), dark, -2.5, 0.72, 4.2); add(B(0.48, 0.02, 0.66), screen(0xffd23f), -2.5, 0.745, 4.2);
+  add(new THREE.CylinderGeometry(0.12, 0.18, 0.5, 10), steel, -2.75, 0.95, 4.35); add(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: 0xffe9b0 }), -2.75, 1.3, 4.35);
+  // desk with the PC, the laptop, a chair
+  add(B(3.2, 0.1, 1.2), wood, 3.8, 1.3, 3.9); for (const dx of [-1.5, 1.5]) for (const dz of [-0.5, 0.5]) add(B(0.08, 1.3, 0.08), steel, 3.8 + dx, 0.65, 3.9 + dz);
+  add(B(1.4, 0.85, 0.08), dark, 4.3, 2.05, 4.3); add(B(1.28, 0.72, 0.03), screen(0x16c7ff), 4.3, 2.05, 4.25); add(B(0.3, 0.3, 0.2), dark, 4.3, 1.45, 4.35); add(B(0.95, 0.04, 0.3), dark, 4.3, 1.37, 3.7);
+  add(B(0.5, 1.1, 1.0), dark, 5.2, 0.55, 3.9); add(B(0.1, 0.06, 0.4), screen(0x00ff88), 4.94, 0.9, 3.9);
+  add(B(0.8, 0.04, 0.55), dark, 2.7, 1.37, 3.9); const lid = add(B(0.8, 0.5, 0.03), dark, 2.7, 1.6, 4.15); lid.rotation.x = -0.25; const lcd = add(B(0.72, 0.42, 0.01), screen(0xff7ab8), 2.7, 1.6, 4.13); lcd.rotation.x = -0.25;
+  add(B(0.9, 0.1, 0.9), red, 3.8, 0.9, 2.6); add(B(0.9, 0.9, 0.1), red, 3.8, 1.4, 3.05); add(new THREE.CylinderGeometry(0.06, 0.06, 0.85, 8), steel, 3.8, 0.45, 2.6); add(new THREE.CylinderGeometry(0.45, 0.45, 0.04, 12), steel, 3.8, 0.04, 2.6);
+  // TV, console, beanbag
+  add(B(2.9, 0.6, 0.6), wood, 1, 0.3, -D / 2 + 0.45); add(B(2.6, 1.5, 0.1), dark, 1, 2.2, -D / 2 + 0.2); add(B(2.44, 1.34, 0.03), screen(0x2a62d8), 1, 2.2, -D / 2 + 0.27);
+  add(B(0.55, 0.1, 0.4), white, 0.4, 0.65, -D / 2 + 0.45); add(B(0.08, 0.04, 0.3), screen(0x00e5ff), 0.4, 0.72, -D / 2 + 0.45); for (const dx of [1.3, 1.7]) add(B(0.3, 0.08, 0.2), dark, dx, 0.64, -D / 2 + 0.5);
+  const bean = add(new THREE.SphereGeometry(0.75, 16, 12), blue, 1, 0.4, -2.6); bean.scale.set(1.1, 0.6, 1.1);
+  // posters and the ceiling light
+  const p1 = textSprite('SPIDER-MAN', '#ff3a1c', 3); p1.position.set(c.x + 2.5, 3.3, c.z - D / 2 + 0.9); g.add(p1);
+  const p2 = textSprite('BROOKLYN', '#ffd23f', 2.6); p2.position.set(c.x - W / 2 + 0.9, 3.2, c.z - 1); g.add(p2);
+  const p3 = textSprite('GO SPIDEY', '#00e5ff', 2.4); p3.position.set(c.x + W / 2 - 0.9, 3.1, c.z + 1); g.add(p3);
+  add(new THREE.CylinderGeometry(0.5, 0.7, 0.3, 16), white, 0, H - 0.2, 0); const lamp = new THREE.PointLight(0xffe6c8, 1.6, 16, 1.6); lamp.position.set(c.x, H - 0.6, c.z); g.add(lamp);
+  // what you can use
+  const at = (x, z, r, name, act) => ROOM.props.push({ pos: V3(c.x + x, 0, c.z + z), r, name, act });
+  at(-3.4, 2.4, 1.9, 'Sleep in the bed', roomSleep);
+  at(-2.5, 3.6, 1.0, 'Read comics on the tablet', () => storyIntro(() => { }));
+  at(4.3, 3.0, 1.5, 'Play THWIP! on the PC', () => miniOpen('PC'));
+  at(2.6, 3.0, 0.9, 'Video call Gwen on the laptop', () => { openChat(); G.hint = 'Video call with Gwen'; G.hintT = 2; });
+  at(1.9, -3.6, 1.1, 'Watch TV (music on / off)', () => { toggleMusic(); });
+  at(0.3, -3.6, 1.1, 'Play on the console', () => miniOpen('console'));
+  at(-3, -3.6, 1.4, 'Go back up to the roof', leaveRoom);
+}
+function roomSleep() {
+  G.flash = 1.2; DAY.t = 0.1; P.hp = MAXHP(); P.venom = 100; P.poisonT = 0; AudioSys.heal();
+  floatText(P.pos.clone().add(V3(0, 3, 0)), 'Zzz…  good morning', '#ffd23f', 24); G.hint = 'Slept till morning. Full health, full venom'; G.hintT = 3.5;
+}
+function hatchNear() { return !!(HOME.hatch && P.alive && Math.hypot(P.pos.x - HOME.hatch.x, P.pos.z - HOME.hatch.z) < 2.6 && Math.abs(P.pos.y - HOME.hatch.y) < 2); }
+function roomUseActive() { return ROOM.built && (ROOM.inside || hatchNear()); }
+function enterRoom() {
+  ROOM.inside = true; P.pos.set(ROOM.c.x - 1, 0.02, ROOM.c.z - 2); P.vel.set(0, 0, 0); P.onGround = true; P.swinging = false; P.diving = false; P.zip = null; P.facing = 0; look.yaw = Math.PI; look.pitch = 0.3;
+  ROOM.skWas = SK.on; SK.on = false; if (SK.mesh) { SK.mesh.visible = false; SK.line.visible = false; }
+  ROOM.distWas = look.dist; look.dist = 4.6; G.flash = 0.9; camSmooth.set(0, 0, 0); updateCamera(0, true);
+  G.hint = "Miles' room · walk up to the bed, the PC, the laptop, the tablet or the TV and press E (USE)"; G.hintT = 5;
+}
+function leaveRoom() {
+  ROOM.inside = false; P.pos.copy(HOME.hatch).add(V3(0, 0.05, -2.6)); P.vel.set(0, 0, 0); P.onGround = true; P.facing = Math.PI; look.yaw = 0;
+  SK.on = ROOM.skWas; if (SK.on && SK.mesh) { SK.mesh.visible = true; sidekickDrop(); }
+  look.dist = ROOM.distWas; G.flash = 0.9; updateCamera(0, true); G.hint = 'Back on the roof'; G.hintT = 2;
+}
+function roomBtn(show) { if (TOUCH && ROOM.btnShown !== show) { ROOM.btnShown = show; $('bUse').style.display = show ? 'flex' : 'none'; } }
+function updateRoom(dt) {
+  if (!ROOM.built || !HOME.hatch) return;
+  const use = wasPressed('KeyE', 'Use');
+  if (!ROOM.inside) { const near = hatchNear(); roomBtn(near); if (near) { if (G.hintT <= 1.5) { G.hint = 'Press E (USE) to go inside'; G.hintT = 0.3; } if (use) enterRoom(); } return; }
+  let best = null, bd = 1e9; for (const p of ROOM.props) { const d = Math.hypot(P.pos.x - p.pos.x, P.pos.z - p.pos.z); if (d < p.r && d < bd) { bd = d; best = p; } }
+  ROOM.near = best; roomBtn(!!best);
+  if (best) { if (G.hintT <= 1.5) { G.hint = 'E / USE: ' + best.name; G.hintT = 0.3; } if (use) best.act(); }
+  if (Math.abs(P.pos.x - ROOM.c.x) > ROOM.w / 2 + 1.5 || Math.abs(P.pos.z - ROOM.c.z) > ROOM.d / 2 + 1.5 || P.pos.y > ROOM.h + 3) leaveRoom();
+}
+// ---------- THWIP!: the mini game on the PC and the console ----------
+const MINI = { open: false, raf: 0, t: 0, score: 0, x: 0.5, spiders: [], last: 0, src: 'PC', drag: null, best: 0 };
+try { MINI.best = +localStorage.getItem('mm3d_thwip') || 0; } catch (e) { }
+function miniOpen(src) {
+  MINI.open = true; MINI.src = src; MINI.t = 25; MINI.score = 0; MINI.x = 0.5; MINI.spiders = []; MINI.last = performance.now(); MINI.done = false;
+  $('mini').classList.add('open'); $('miniMsg').textContent = 'Catch the spiders with the web ball · drag, or A / D · 25 seconds'; $('miniClose').textContent = 'QUIT'; document.exitPointerLock?.();
+  cancelAnimationFrame(MINI.raf); MINI.raf = requestAnimationFrame(miniFrame);
+}
+function miniClose() { if (!MINI.open) return; MINI.open = false; $('mini').classList.remove('open'); cancelAnimationFrame(MINI.raf); if (G.state === 'play' && !TOUCH) renderer.domElement.requestPointerLock?.(); }
+function miniFrame(now) {
+  if (!MINI.open) return; MINI.raf = requestAnimationFrame(miniFrame);
+  const cv = $('miniC'), g = cv.getContext('2d'), W = cv.width, H = cv.height, dt = Math.min(0.05, (now - MINI.last) / 1000); MINI.last = now;
+  if (!MINI.done) {
+    MINI.t -= dt; if (keys.KeyA || keys.ArrowLeft) MINI.x -= dt * 1.1; if (keys.KeyD || keys.ArrowRight) MINI.x += dt * 1.1; MINI.x = clamp(MINI.x, 0.06, 0.94);
+    if (Math.random() < dt * (1.6 + (25 - MINI.t) * 0.08)) MINI.spiders.push({ x: 0.05 + Math.random() * 0.9, y: -0.05, v: 0.25 + Math.random() * 0.3 + (25 - MINI.t) * 0.01, gold: Math.random() < 0.12 });
+    for (const sp of MINI.spiders) { sp.y += sp.v * dt; if (sp.y > 0.86 && sp.y < 0.96 && Math.abs(sp.x - MINI.x) < 0.075) { MINI.score += sp.gold ? 3 : 1; sp.y = 9; AudioSys.pickup?.(); } }
+    MINI.spiders = MINI.spiders.filter(sp => sp.y < 1.1);
+    if (MINI.t <= 0) { MINI.done = true; const pts = MINI.score >= 30 ? 2 : MINI.score >= 14 ? 1 : 0; if (MINI.score > MINI.best) { MINI.best = MINI.score; try { localStorage.setItem('mm3d_thwip', MINI.best); } catch (e) { } } if (pts) upgAdd(pts, P.pos); $('miniMsg').textContent = `Time! ${MINI.score} spiders · best ${MINI.best}` + (pts ? ` · +${pts} TECH POINT${pts > 1 ? 'S' : ''} for the Skill Shop` : ' · 14 for a tech point, 30 for two'); $('miniClose').textContent = 'DONE'; }
+  }
+  // draw: night skyline, web ball, spiders
+  g.fillStyle = '#06081a'; g.fillRect(0, 0, W, H); g.fillStyle = '#121a3c'; for (let i = 0; i < 12; i++) { const bw = W / 12; g.fillRect(i * bw + 4, H * (0.45 + ((i * 37) % 23) / 60), bw - 8, H); }
+  g.fillStyle = '#ffe9a8'; for (let i = 0; i < 40; i++) g.fillRect(((i * 97) % W), H * 0.5 + ((i * 53) % (H * 0.45)), 4, 6);
+  for (const sp of MINI.spiders) { const x = sp.x * W, y = sp.y * H; g.strokeStyle = sp.gold ? '#ffd23f' : '#ff3a1c'; g.lineWidth = 3; for (let k = 0; k < 4; k++) { const a = -0.9 + k * 0.6; for (const sx of [-1, 1]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + sx * Math.cos(a) * 16, y + Math.sin(a) * 16 - 4); g.stroke(); } } g.fillStyle = sp.gold ? '#ffd23f' : '#ff3a1c'; g.beginPath(); g.ellipse(x, y, 7, 10, 0, 0, TAU); g.fill(); }
+  const px = MINI.x * W, py = H * 0.91; g.fillStyle = '#fff'; g.beginPath(); g.arc(px, py, 20, 0, TAU); g.fill(); g.strokeStyle = '#cfd6ff'; g.lineWidth = 2; for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(k * TAU / 8) * 20, py + Math.sin(k * TAU / 8) * 20); g.stroke(); }
+  g.fillStyle = '#ffe14a'; g.font = '800 18px system-ui'; g.textAlign = 'left'; g.fillText(Math.max(0, MINI.t).toFixed(1) + ' s', 12, 26); $('miniScore').textContent = MINI.score;
+}
+{ const cv = $('miniC'); const px = e => { const r = cv.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; MINI.x = clamp((t.clientX - r.left) / r.width, 0.06, 0.94); };
+  cv.addEventListener('pointerdown', e => { MINI.drag = true; px(e); }); addEventListener('pointermove', e => { if (MINI.drag && MINI.open) px(e); }); addEventListener('pointerup', () => { MINI.drag = false; });
+  cv.addEventListener('touchstart', e => { e.preventDefault(); px(e); }, { passive: false }); cv.addEventListener('touchmove', e => { e.preventDefault(); px(e); }, { passive: false });
+  $('miniClose').addEventListener('click', miniClose); }
 function updateHome(dt) {
   if (!HOME.b) return; HOME.t += dt; if (HOME.cd > 0) HOME.cd -= dt; if (HOME.arrowT > 0) HOME.arrowT -= dt;
   const h = HOME.hatch, onHatch = P.alive && Math.hypot(P.pos.x - h.x, P.pos.z - h.z) < 2.4 && Math.abs(P.pos.y - h.y) < 2;
@@ -4220,7 +4342,7 @@ function aimTarget() {
 }
 const _aimV = new THREE.Vector3();
 function updateCrosshair() {
-  const playing = G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open;
+  const playing = G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open;
   if (HUDC.play !== playing) { HUDC.play = playing; document.body.classList.toggle('play', playing); }
   if (!playing) { if (HUDC.lock) { HUDC.lock = false; $('xhair').classList.remove('lock'); $('lockon').classList.remove('on'); } return; }
   const t = aimTarget(), lock = !!t;
@@ -4443,7 +4565,7 @@ const WARM = new THREE.Group(); WARM.position.y = -600; scene.add(WARM);
 const BOOT = { q: [], done: false };
 const boot = fn => BOOT.q.push(fn);
 boot(() => { spawnSidekick(); SK.mesh.visible = false; SK.line.visible = false; });
-boot(buildSociety);
+boot(buildSociety); boot(buildRoom);
 for (const t of ['thug', 'gunner', 'symb']) boot(() => WARM.add(makeEnemyMesh(t)));
 for (const mk of [makeBossMesh, makeVenomMesh, makeProwlerMesh, makeSpotMesh, () => galBuild(GALLERY.mysterio), () => galBuild(GALLERY.electro), () => makeHealthMesh(true)]) boot(() => WARM.add(mk()));
 for (const name of SUIT_ORDER) boot(() => { if (!SUITS[name]) { SUITS[name] = SUIT_DEFS[name].build(); WARM.add(SUITS[name]); } });
@@ -4462,11 +4584,11 @@ function frame(now) {
   requestAnimationFrame(frame);
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (G.slowT > 0) { G.slowT -= dt; dt *= 0.35; } // leap-of-faith slow motion
-  if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open) {
+  if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open) {
     G.time += dt; DAY.t += dt * DAY.speed;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateSociety(dt); updateStreetLife(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateHealth(dt); updateHome(dt); updateRoom(dt); updateSociety(dt); updateStreetLife(dt);
     AudioSys.setHeight(P.pos.y); MUSIC.setMood(boss.alive ? 1 : G.crime ? 0.6 : 0.25, G.paused); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
@@ -4474,7 +4596,7 @@ function frame(now) {
     // idle: slow orbit on the title screen, and one more piece of the warm-up each frame
     look.yaw += dt * 0.08; P.animT += dt; if (!BOOT.done) bootStep();
   }
-  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open) GAL_FX.update(dt); animateHero(dt);
+  updateFx(dt); venomArc.update(dt); vfx.update(dt); if (G.state === 'play' && !G.paused && !CHAT.open && !UPG.open && !STORY.open && !MINI.open) GAL_FX.update(dt); animateHero(dt);
   dayApply(false); updateCamera(dt, false); updateHUD();
   for (const b of buildings) if (b.beacon) b.beacon.visible = Math.sin(now / 400 + b.x) > 0;
   for (const c of clouds) { c.position.x += c.userData.drift * dt; if (c.position.x > 1400) c.position.x = -1400; }
@@ -4489,7 +4611,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
