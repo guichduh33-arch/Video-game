@@ -962,10 +962,10 @@ const RIG = { ready: false };
 const fpHand = new THREE.Group();
 // first-person arm, Minecraft style: one blocky pixel arm in the hero's suit and glove colours, coming up from the lower right
 {
-  const geo = new THREE.BoxGeometry(0.085, 0.3, 0.085).rotateX(-Math.PI / 2).translate(0, 0, -0.13);   // the glove end points forward
+  const geo = new THREE.BoxGeometry(0.09, 0.17, 0.09).rotateX(-Math.PI / 2).translate(0, 0, -0.065);   // the glove end points forward
   const arm = new THREE.Mesh(geo, [armOther, armOther, armTop, fist, armFront, armOther].map(pixMat)); fpHand.add(arm);
   fpHand.userData = { tip: new THREE.Object3D() };
-  fpHand.userData.tip.position.set(0, 0, 0.03); fpHand.add(fpHand.userData.tip);
+  fpHand.userData.tip.position.set(0, 0, 0.02); fpHand.add(fpHand.userData.tip);
   fpHand.visible = false; camera.add(fpHand); scene.add(camera);
 }
 // the finger poses: [index, middle, ring, pinky] curl and the thumb curl
