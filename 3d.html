@@ -299,6 +299,14 @@
   <div id="chatLog"></div>
   <form id="chatForm" autocomplete="off"><button id="micBtn" type="button" title="Hold to talk (or press Y)">🎤</button><input id="chatIn" maxlength="300" placeholder="Talk to Gwen, or give an order…"><button id="chatSend" type="submit">SEND</button></form>
 </div>
+<script>
+// Safety net: show any error on screen, and never leave the player stuck on LOADING
+window.__errs = []; window.__bootReady = false;
+function __showErr(msg) { try { let b = document.getElementById('errBar'); if (!b) { b = document.createElement('div'); b.id = 'errBar'; b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99;background:#7a0f1a;color:#fff;font:600 12px/1.35 system-ui;padding:8px 12px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.5);word-break:break-word'; document.body.appendChild(b); } b.textContent = 'Problem: ' + msg + '  —  tap PLAY again, or reload the page'; } catch (e) { } }
+addEventListener('error', e => { const m = (e.message || '') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : ''); window.__errs.push(m); if (!window.__game) __showErr(m); });
+addEventListener('unhandledrejection', e => { const m = String(e.reason && (e.reason.message || e.reason)); window.__errs.push(m); if (!window.__game) __showErr(m); });
+setTimeout(() => { const b = document.getElementById('startBtn'); if (b && b.disabled) { b.disabled = false; b.textContent = window.__game ? 'PLAY' : 'RELOAD'; if (!window.__game) { __showErr(window.__errs[0] || 'the game did not finish loading (slow connection to the 3D engine?)'); b.onclick = () => location.reload(); } } }, 30000);
+</script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
 <script type="module">
 import * as THREE from 'three';
@@ -4493,7 +4501,7 @@ function animateHero(dt) {
 // ---------- Auto quality: watch the frame time and step the render load down (or back up) to stay smooth ----------
 const FORCED = new URLSearchParams(location.search).get('quality');
 // start conservative (level 3) and climb only when the frame time shows headroom; a forced ?quality=high starts at the top
-const PERF = { frame: 0, acc: 0, n: 0, lastCheck: 0, level: 3, post: true, auto: !FORCED, told: false, upT: 0 };
+const PERF = { frame: 0, acc: 0, n: 0, lastCheck: 0, level: TOUCH ? 4 : 3, post: true, auto: !FORCED, told: false, upT: 0 }; // tablets and phones start one notch lighter and climb if there is headroom
 const PERF_LEVELS = [
   { pr: Math.min(devicePixelRatio, 2), shadow: 2048, soft: true, samples: 4 },
   { pr: Math.min(devicePixelRatio, 1.5), shadow: 2048, soft: true, samples: 2 },
@@ -4810,8 +4818,8 @@ for (const name of SUIT_ORDER) boot(() => { if (!SUITS[name]) { SUITS[name] = SU
 // shaders: compile each warm-up object in its own frame instead of the whole scene in one long block
 boot(() => { WARM.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = true; } }); });
 boot(() => { for (const c of WARM.children) boot(() => renderer.compile(c, camera, scene)); });
-function bootStep() { const fn = BOOT.q.shift(); if (!fn) { BOOT.done = true; return; } try { fn(); } catch (e) { console.warn('boot step failed', e); } BOOT.doneN++; if (!BOOT.ready && BOOT.critN) $('startBtn').textContent = 'LOADING ' + Math.min(99, Math.round(100 * BOOT.doneN / BOOT.critN)) + '%'; }
-function bootAll() { let guard = 2000; while (!BOOT.done && guard-- > 0) bootStep(); }
+function bootStep() { if (BOOT.waiting) return; const fn = BOOT.q.shift(); if (!fn) { BOOT.done = true; return; } try { fn(); } catch (e) { console.warn('boot step failed', e); } BOOT.doneN++; if (!BOOT.ready && BOOT.critN) $('startBtn').textContent = 'LOADING ' + Math.min(99, Math.round(100 * BOOT.doneN / BOOT.critN)) + '%'; }
+function bootAll() { BOOT.waiting = false; BOOT.ready = true; let guard = 2000; while (!BOOT.done && guard-- > 0) bootStep(); }
 applyLevel(PERF.level);
 // Critical warm-up, a few items per frame with a LOADING n% readout: every texture uploaded and every shader compiled
 // before the first 3D frame is drawn, so the page never freezes on one giant first frame. PLAY unlocks the moment that is done.
@@ -4819,10 +4827,13 @@ BOOT.ready = false; BOOT.doneN = 0;
 { const crit = [], texs = new Set(), objs = [];
   scene.traverse(o => { if (o.isMesh || o.isSprite || o.isLine || o.isPoints) { objs.push(o); const ms = Array.isArray(o.material) ? o.material : [o.material]; for (const m of ms) for (const k of ['map', 'roughnessMap', 'bumpMap', 'emissiveMap', 'alphaMap', 'normalMap']) if (m && m[k]) texs.add(m[k]); } });
   const T = [...texs]; for (let i = 0; i < T.length; i += 8) { const part = T.slice(i, i + 8); crit.push(() => { for (const t of part) renderer.initTexture(t); }); }
-  const seen = new Set(), groups = [];
-  for (const o of objs) { const ms = Array.isArray(o.material) ? o.material : [o.material]; const key = ms.map(m => m && m.uuid).join() + (o.isInstancedMesh ? 'I' : '') + (o.isSprite ? 'S' : ''); if (seen.has(key)) continue; seen.add(key); groups.push(o); }
-  for (let i = 0; i < groups.length; i += 6) { const part = groups.slice(i, i + 6); crit.push(() => { for (const o of part) { try { renderer.compile(o, camera, scene); } catch (e) { } } }); }
-  crit.push(() => { renderer.compile(hero, camera, scene); BOOT.ready = true; $('startBtn').disabled = false; $('startBtn').textContent = 'PLAY'; });
+  // shaders: the GPU compiles them in parallel while the page stays responsive (KHR_parallel_shader_compile); a watchdog unlocks PLAY regardless after 12 s
+  crit.push(() => {
+    BOOT.waiting = true; let done = false;
+    const finish = () => { if (done) return; done = true; BOOT.waiting = false; BOOT.ready = true; window.__bootReady = true; $('startBtn').disabled = false; $('startBtn').textContent = 'PLAY'; };
+    try { const pr = renderer.compileAsync ? renderer.compileAsync(scene, camera) : Promise.resolve(renderer.compile(scene, camera)); pr.then(finish, e => { console.warn('compile', e); finish(); }); } catch (e) { console.warn('compile', e); finish(); }
+    setTimeout(finish, 12000);
+  });
   BOOT.critN = crit.length; BOOT.q.unshift(...crit); }
 if (new URLSearchParams(location.search).get('hero') === 'mocap') loadRig(); // the skinned body is opt-in: ?hero=mocap
 let last = performance.now();
@@ -4853,7 +4864,7 @@ function frame(now) {
   if (renderer.shadowMap.enabled) { PERF.frame++; renderer.shadowMap.needsUpdate = PERF.frame % 2 === 0; }
   G.rush = lerp(G.rush || 0, G.state === 'play' ? clamp((P.vel.length() - 20) / 22, 0, 1) : 0, Math.min(1, dt * 4));
   if (!BOOT.ready) { if (!BOOT.done) bootStep(); return; } // nothing is drawn until the warm-up has compiled the city
-  if (STORE.open || MINI.open || STORY.open) return; // an app or a comic page covers the screen: skip the 3D frame so the app runs smoothly
+  if ((STORE.open || MINI.open || STORY.open) && G.state === 'play') return; // an app or a comic page covers the screen: skip the 3D frame so the app runs smoothly
   if (PERF.post) post.render(now / 1000, Math.min(1, G.shake + G.flash), G.rush); else renderer.render(scene, camera);
   autoQuality(now);
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
