@@ -1271,11 +1271,24 @@ const SUIT_DEFS = {
       addSpiderArms(g, body);
     }); } },
   // ---- Miles Morales ----
-  upgraded: { hero: 'miles', name: 'MILES · UPGRADED SUIT', perk: 'Venom Strike (K) and camouflage (L)', build: () => {
-    const black = phys(0x111118, { map: fabricTex('#111118'), roughness: 0.6 }), red = phys(0xd3101f);
-    return buildSuit({ black, red, web: MAT.web, webShoulder: MAT.webShoulder, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: red, swoosh: black, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens, wing: MAT.wingDark }, (g, body) => {
-      body.add(logoPlane(spiderMat('#e0162c', true), 1.05, 1.86, 0.32)); body.add(logoPlane(spiderMat('#e0162c', true), 1.05, 1.82, -0.28, true)); // oversized red spider
-      for (const sx of [-1, 1]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.03, 6, 14), red); band.rotation.x = Math.PI / 2; band.position.y = -0.5; (sx < 0 ? g.parts.armL : g.parts.armR).joint.add(band); } // red cuffs
+  upgraded: { hero: 'miles', name: 'MILES · CLASSIC SUIT', perk: 'Venom Strike (K) and camouflage (L)', build: () => {
+    // sleek classic Miles: glossy near-black suit, red-webbed mask, a big glowing red spider, red fingertips, soles and bands
+    const black = phys(0x08080d, { map: fabricTex('#08080d'), roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.22, metalness: 0.05, envMapIntensity: 1.1 });
+    const webM = new THREE.MeshPhysicalMaterial({ map: webTex(0.25, 0.3, 32, 10, true, '#08080d', '#e01022'), color: 0xffffff, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.22, envMapIntensity: 1.0 });
+    const red = phys(0xe4111f, { roughness: 0.45, clearcoat: 0.5, clearcoatRoughness: 0.3, emissive: 0x4a0008, emissiveIntensity: 0.9 });
+    const lensM = new THREE.MeshPhysicalMaterial({ color: 0xfefefe, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.08, emissive: 0x6a0a12, emissiveIntensity: 0.35 });
+    return buildSuit({ black, red, web: webM, webShoulder: webM, hoodie: NONE_MAT, hoodieIn: NONE_MAT, string: NONE_MAT, sole: red, swoosh: black, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: lensM, wing: MAT.wingDark }, (g, body, head) => {
+      // a bold glowing red spider on the chest and the back
+      const chestSpider = new THREE.MeshStandardMaterial({ map: tintSpiderTex('#e4111f', false), transparent: true, roughness: 0.4, emissive: 0xe01022, emissiveMap: tintSpiderTex('#e4111f', false), emissiveIntensity: 0.5, depthWrite: false, side: THREE.DoubleSide });
+      const backSpider = new THREE.MeshStandardMaterial({ map: tintSpiderTex('#e4111f', true), transparent: true, roughness: 0.4, emissive: 0xe01022, emissiveMap: tintSpiderTex('#e4111f', true), emissiveIntensity: 0.4, depthWrite: false, side: THREE.DoubleSide });
+      body.add(logoPlane(chestSpider, 0.92, 1.9, 0.305)); body.add(logoPlane(backSpider, 1.15, 1.82, -0.275, true));
+      for (const sx of [-1, 1]) {
+        const arm = sx < 0 ? g.parts.armL : g.parts.armR, leg = sx < 0 ? g.parts.legL : g.parts.legR;
+        const wrist = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.03, 6, 16), red); wrist.rotation.x = Math.PI / 2; wrist.position.y = -0.5; arm.joint.add(wrist); // red wrist band
+        const ankle = new THREE.Mesh(new THREE.TorusGeometry(0.135, 0.032, 6, 16), red); ankle.rotation.x = Math.PI / 2; ankle.position.y = -0.52; leg.joint.add(ankle); // red ankle band
+      }
+      // red glow from the chest spider
+      const spiderGlow = new THREE.PointLight(0xff2033, 2.2, 3.5, 2); spiderGlow.position.set(0, 1.9, 0.55); body.add(spiderGlow);
     }); } },
   spiderverse: { hero: 'miles', name: 'MILES · SPIDER-VERSE', perk: 'Blocky ATSV game suit. Venom Strike and camouflage', build: () => {
     // the game-suit spider: no round body, a long pointed abdomen, a small angular head and thin bent legs
@@ -1346,10 +1359,10 @@ const SUIT_DEFS = {
 // HERO is the one you control; the other swings beside you as the partner (SK). Each keeps his own suit, health and power meter.
 const HEROES = {
   peter: { name: 'PETER PARKER', short: 'PETER', suits: ['advanced', 'black', 'classic', 'noir'], power: 'FOCUS', color: '#ff4d5e' },
-  miles: { name: 'MILES MORALES', short: 'MILES', suits: ['spiderverse', 'upgraded', 'm2099', 'punk'], power: 'VENOM', color: '#ffd23f' },
+  miles: { name: 'MILES MORALES', short: 'MILES', suits: ['upgraded', 'spiderverse', 'm2099', 'punk'], power: 'VENOM', color: '#ffd23f' },
 };
 let HERO = 'peter';
-const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'spiderverse', hp: 100, power: 50 } };
+const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'upgraded', hp: 100, power: 50 } };
 const otherHero = () => HERO === 'peter' ? 'miles' : 'peter';
 const SUITS = { spiderverse: hero };
 let SUIT = 'spiderverse';
@@ -1391,7 +1404,7 @@ function swapHero() {
   $('chatName').textContent = SK.name;
 }
 function setupHeroes() { // start of a run: Peter is in the suit, Miles is on comms
-  HERO = 'peter'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'spiderverse', hp: 100, power: 50 });
+  HERO = 'peter'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'upgraded', hp: 100, power: 50 });
   for (const who of ['peter', 'miles']) { try { const want = localStorage.getItem('sm2_suit_' + who); if (want && SUIT_DEFS[want] && SUIT_DEFS[want].hero === who && want !== 'black') HS[who].suit = want; } catch (e) { } }
   const next = suitMesh(HS.peter.suit); if (next !== hero) { scene.remove(hero); hero = next; scene.add(hero); } SUIT = HS.peter.suit; hero.visible = true;
 }
