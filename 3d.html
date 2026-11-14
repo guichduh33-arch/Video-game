@@ -1214,6 +1214,7 @@ function aimSoft() { // nearest car or passer-by in front of the camera, for the
   const fx = -Math.sin(look.yaw), fz = -Math.cos(look.yaw); let best = null, bd = 1e9;
   const test = (x, y, z, r, vx = 0, vz = 0) => { const dx = x - P.pos.x, dz = z - P.pos.z, flat = Math.hypot(dx, dz); if (flat > (P.onGround ? 46 : 110) || flat < 2 || Math.abs(y - P.pos.y) > 140) return; const dot = (dx * fx + dz * fz) / flat; if (dot < 0.9) return; const score = flat * (1.2 - dot) * 10 + flat * 0.2; if (score < bd) { bd = score; const tt = Math.hypot(dx, y - P.pos.y, dz) / (P.onGround ? 48 : 70); best = V3(x + vx * tt, y, z + vz * tt); } };
   for (const c of traffic) if (!c.grab && c.wx !== undefined) test(c.wx, 1.2, c.wz, 2.6, c.vx || 0, c.vz || 0);
+  if (SK.on && SK.mesh && !SK.grab) test(SK.pos.x, SK.pos.y + 1.2, SK.pos.z, 1.5, SK.vel.x, SK.vel.z);
   for (const p of peds) if (!p.grab && p.wx !== undefined) test(p.wx, 1.0, p.wz, 1.2);
   return best;
 }
@@ -2454,6 +2455,7 @@ function updateWebShots(dt) {
     else if (boss.alive && boss.kind === 'prowler' && boss.state !== 'stunned' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { webProwler(); hit = boss; }
     else if (boss.alive && boss.kind === 'spot' && boss.state !== 'stunned' && boss.state !== 'sink' && boss.state !== 'emerge' && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.4) { jamSpot(); hit = boss; }
     else if (boss.alive && boss.kind === 'gallery' && boss.webCd <= 0 && w.pos.distanceTo(boss.mesh.position.clone().add(V3(0, 2.8, 0))) < 2.8) { galWebbed(); hit = boss; }
+    if (!hit && SK.on && SK.mesh && !SK.grab && w.pos.distanceTo(SK.pos.clone().add(V3(0, 1.5, 0))) < 1.6 + pad) { SK.grab = grabStart('gwen', SK.pos.clone()); floatText(SK.pos.clone().add(V3(0, 3.6, 0)), 'HEY!', '#ff7ab8', 18); hit = true; }
     if (!hit && grabTry(w.pos, pad)) hit = true;
     const wall = groundHeight(w.pos.x, w.pos.z) > w.pos.y;
     if (hit || wall || w.life <= 0) { if (!hit && wall) burst(w.pos.clone(), 6, 0xffffff, 3, 0.4); scene.remove(w.mesh, w.line); webShots.splice(i, 1); }
@@ -3440,6 +3442,13 @@ function updateSidekick(dt) {
   if (!SK.mesh) return;
   SK.mesh.visible = SK.on; if (!SK.on) { SK.line.visible = false; return; }
   SK.animT += dt; for (const k of ['punchT', 'punchCd', 'quipCd', 'leapCd']) if (SK[k] > 0) SK[k] -= dt;
+  if (SK.grab) { // Miles webbed his own partner: she is hauled over, lands on her feet and lets him know what she thinks
+    const g = SK.grab, done = grabStep(g, dt, 0, 1.5); SK.pos.copy(g.pos); SK.vel.copy(g.vel); SK.webbing = false; SK.line.visible = false; SK.onGround = g.onGround;
+    const m = SK.mesh, p = m.parts; m.position.copy(SK.pos); m.rotation.x = g.rot.x * 0.35; m.rotation.z = g.rot.z * 0.35;
+    p.armL.rotation.x = -2.2; p.armR.rotation.x = -2.2; p.armL.rotation.z = -0.6; p.armR.rotation.z = 0.6; p.legL.rotation.x = 0.6; p.legR.rotation.x = -0.4;
+    if (done) { m.rotation.x = m.rotation.z = 0; SK.grab = null; SK.state = 'idle'; SK.onGround = true; SK.stuckT = 0; SK.prev.copy(SK.pos); const line = ['MILES. Seriously?', 'Rude! I was busy!', 'Okay, that was kind of fun.', 'Web ME again and see what happens.'][Math.floor(Math.random() * 4)]; floatText(SK.pos.clone().add(V3(0, 3.8, 0)), line, '#ff7ab8', 17); if (!CHAT.open && typeof gwenSay === 'function') gwenSay(line); }
+    return;
+  }
   if (SK.order) { SK.order.t -= dt; if (SK.order.t <= 0) SK.order = null; }
   const ord = SK.order ? SK.order.kind : '', range = ord === 'attack' ? 110 : 45;
   // --- pick a goal: an enemy on our level, the boss, or a spot behind Miles (orders: attack hunts far, hold and follow ignore targets) ---
