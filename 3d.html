@@ -3287,7 +3287,9 @@ function makeGwen() { // build the hero rig with Gwen's palette: white suit, bla
   g.traverse(o => { if (o.isMesh && o.material === GMAT.none) o.visible = false; });
   // black chest panel with a white spider, black upper arms (the suit's signature split)
   const chest = sph(0.3, GMAT.black, 0, 1.92, 0.06, 1.05, 0.9, 0.7); g.parts.body.add(chest);
-  const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.42), GMAT.logo); logo.position.set(0, 1.98, 0.236); g.parts.body.add(logo);
+  // chest: a block G in Gwen's magenta with a white inner stripe, the partner of Miles' N
+  const gMat = (() => { const t = canvasTex(256, 256, (g2, w, h) => { g2.clearRect(0, 0, w, h); const G = (col, lw) => { g2.strokeStyle = col; g2.lineWidth = lw; g2.lineCap = 'butt'; g2.lineJoin = 'miter'; g2.beginPath(); g2.arc(128, 128, 78, -0.55, Math.PI * 1.55, false); g2.stroke(); g2.beginPath(); g2.moveTo(206, 128); g2.lineTo(206, 200); g2.lineTo(138, 200); g2.lineTo(138, 128); g2.lineTo(206, 128); g2.stroke(); }; G('#111', 52); G('#ff3fa0', 40); G('#ffffff', 9); G('#ff3fa0', 3); }); t.repeat.set(1, 1); t.magFilter = THREE.LinearFilter; return new THREE.MeshStandardMaterial({ map: t, transparent: true, roughness: 0.5, depthWrite: false, side: THREE.DoubleSide }); })();
+  const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), gMat); logo.position.set(0, 1.99, 0.236); g.parts.body.add(logo);
   g.parts.head.scale.setScalar(0.92); g.parts.head.children.forEach(o => { if (o.isMesh && o.geometry && o.geometry.type === 'SphereGeometry') o.visible = false; }); // ball head
   chunkify(g, { suit: GMAT.white, arm: GMAT.black, glove: GMAT.white, boot: GMAT.teal, belt: GMAT.magenta, buckle: GMAT.white, panel: GMAT.black });
   stripLights(g);
