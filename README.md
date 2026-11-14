@@ -213,8 +213,20 @@ route, terrain and pickups are generated from the seed.
 ## Apex Drift 3D
 
 Open `car.html`. It is a third-person arcade racer in the Three.js-only, one-file,
-no-assets style of the other games. Pick a circuit and a car on the title screen,
-then race three laps against three AI drivers.
+no-assets style of the other games. Pick a circuit, a car and a difficulty on the
+title screen, then race three laps against three AI drivers.
+
+### Difficulty
+
+| Level | What changes |
+| --- | --- |
+| Easy (default) | steering help toward the racing line, automatic braking before corners, 40 % more grip, slower rivals, soft barriers, 10 % lower top speed |
+| Normal | light steering help, 15 % more grip, fair rivals |
+| Hard | no assists, full-speed rivals, hard walls |
+
+Whatever the level, an arrow at the top of the screen shows the direction of the
+next corner, turns orange when it is sharp or the auto-brake is working, and the
+minimap shows the whole lap. Best times are kept separately per difficulty.
 
 ### Circuits
 
