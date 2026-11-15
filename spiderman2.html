@@ -817,14 +817,31 @@ function buildOscorp(cx, cz, r) {
   for (let i = 0; i < 4; i++) { const a = i / 4 * TAU; const fin = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.2, 14, 6), new THREE.MeshStandardMaterial({ color: 0x1e2a2a, roughness: 0.4, metalness: 0.6, emissive: 0x0a3a20, emissiveIntensity: 0.5 }))); fin.position.set(cx + Math.cos(a) * (top.w / 2 - 2), top.h + 7, cz + Math.sin(a) * (top.d / 2 - 2)); fin.rotation.y = -a; scene.add(fin); }
 }
 // Miles' rooftop home with a gaming PC — swing to the red HOME beacon and land on the roof.
-function hideoutScreenTex() {
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144; const g = cv.getContext('2d');
-  g.fillStyle = '#0a0a12'; g.fillRect(0, 0, 256, 144);
-  g.fillStyle = '#161a2a'; for (let i = 0; i < 10; i++) { const w = 18 + ((i * 37) % 20), h = 40 + ((i * 53) % 70); g.fillRect(i * 26, 144 - h, w, h); }
-  g.fillStyle = '#ff2d47'; g.font = '900 30px Arial'; g.textAlign = 'center'; g.fillText('MILES', 128, 48);
-  g.fillStyle = '#fff'; g.font = '900 13px Arial'; g.fillText('BROOKLYN NIGHTS', 128, 70);
-  g.fillStyle = '#ffd23f'; g.font = '900 12px Arial'; g.fillText('▶ CONTINUE', 128, 128);
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+// the PC monitor shows a live little football game (your pitch score ticks up here too)
+let homeScreen = null;
+function homeScreenInit() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 144;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  homeScreen = { cv, g: cv.getContext('2d'), tex, bx: 128, by: 82, vx: 62, vy: 40 };
+  drawHomeScreen(0); return tex;
+}
+function drawHomeScreen(dt) {
+  const s = homeScreen; if (!s) return; const g = s.g;
+  g.fillStyle = '#0a1016'; g.fillRect(0, 0, 256, 144);
+  for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#2e7a33' : '#348237'; g.fillRect(14 + i * 28.5, 34, 28.6, 96); }
+  g.strokeStyle = '#eaf3ea'; g.lineWidth = 2; g.strokeRect(14, 34, 228, 96);
+  g.beginPath(); g.moveTo(128, 34); g.lineTo(128, 130); g.stroke(); g.beginPath(); g.arc(128, 82, 15, 0, TAU); g.stroke();
+  g.fillStyle = '#eaf3ea'; for (const gx of [14, 242]) g.fillRect(gx - 2, 70, 4, 24);
+  s.bx += s.vx * dt; s.by += s.vy * dt;
+  if (s.bx < 22) { s.bx = 22; s.vx = Math.abs(s.vx); } if (s.bx > 234) { s.bx = 234; s.vx = -Math.abs(s.vx); }
+  if (s.by < 42) { s.by = 42; s.vy = Math.abs(s.vy); } if (s.by > 122) { s.by = 122; s.vy = -Math.abs(s.vy); }
+  g.fillStyle = '#e31e2c'; for (let i = 0; i < 4; i++) g.fillRect(52 + i * 44, 60 + ((i * 53) % 56), 5, 8);
+  g.fillStyle = '#1e78e3'; for (let i = 0; i < 4; i++) g.fillRect(74 + i * 44, 52 + ((i * 37) % 66), 5, 8);
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(s.bx, s.by, 3.6, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(8,12,18,0.85)'; g.fillRect(80, 6, 96, 22);
+  g.fillStyle = '#fff'; g.font = '900 14px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('GOALS  ' + (G.footScore || 0), 128, 17);
+  g.fillStyle = '#9fe870'; g.font = '900 12px Arial'; g.fillText('PITCH LEGENDS', 128, 139);
+  s.tex.needsUpdate = true;
 }
 function buildHideout(cx, cz, r) {
   addBuilding(cx, cz, 42, 42, 56, r); // a mid-rise you can land on
@@ -835,32 +852,36 @@ function buildHideout(cx, cz, r) {
   const roofM = new THREE.MeshStandardMaterial({ color: 0xb0432e, roughness: 0.85 });
   const darkM = new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.4 });
   const warm = new THREE.MeshStandardMaterial({ color: 0xffd98a, emissive: 0xffb347, emissiveIntensity: 0.9, roughness: 0.4 });
-  // the house, on one side of the roof
-  const hx = -9;
-  const body = shadowed(new THREE.Mesh(new THREE.BoxGeometry(13, 7, 11), wallM)); body.position.set(hx, 3.5, 0); g.add(body);
-  const roof = shadowed(new THREE.Mesh(new THREE.ConeGeometry(10, 5, 4), roofM)); roof.rotation.y = Math.PI / 4; roof.position.set(hx, 9.5, 0); roof.scale.set(1, 1, 0.86); g.add(roof);
-  const door = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.6, 2.2), new THREE.MeshStandardMaterial({ color: 0x5a3a1e })); door.position.set(hx + 6.55, 1.8, 0); g.add(door);
-  for (const sz of [-3.2, 3.2]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.2, 2.2), warm); w.position.set(hx + 6.52, 3.8, sz); g.add(w); }
-  const chim = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.4, 3.4, 1.4), wallM)); chim.position.set(hx - 3, 10.4, -3); g.add(chim);
-  // the gaming PC on a desk, screen facing the house so it reads from the roof edge
-  const px = 8;
-  const desk = shadowed(new THREE.Mesh(new THREE.BoxGeometry(11, 0.5, 5), new THREE.MeshStandardMaterial({ color: 0x3b2a1b, roughness: 0.6 }))); desk.position.set(px, 4, 0); g.add(desk);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 0.4), darkM); leg.position.set(px + sx * 4.8, 2, sz * 2); g.add(leg); }
-  const stex = hideoutScreenTex();
-  const bezel = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.6, 6.2), darkM)); bezel.position.set(px + 1.6, 6.3, 0); g.add(bezel);
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 3.1), new THREE.MeshStandardMaterial({ map: stex, emissive: 0xffffff, emissiveMap: stex, emissiveIntensity: 1.0, roughness: 0.3 }));
-  screen.position.set(px + 1.37, 6.3, 0); screen.rotation.y = -Math.PI / 2; g.add(screen);
-  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, 0.5), darkM); neck.position.set(px + 1.6, 4.5, 0); g.add(neck);
-  const tower = shadowed(new THREE.Mesh(new THREE.BoxGeometry(2, 5, 4), new THREE.MeshStandardMaterial({ color: 0x24272e, roughness: 0.5, metalness: 0.3 }))); tower.position.set(px + 3.6, 2.8, 3.4); g.add(tower);
-  const rgb = new THREE.Mesh(new THREE.BoxGeometry(0.15, 4, 3.2), new THREE.MeshStandardMaterial({ color: 0x00e0ff, emissive: 0x00e0ff, emissiveIntensity: 1.4 })); rgb.position.set(px + 2.52, 2.8, 3.4); g.add(rgb);
-  const kb = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 4), darkM); kb.position.set(px - 2.6, 4.3, 0); g.add(kb);
-  const chairS = shadowed(new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 2), darkM)); chairS.position.set(px - 3.2, 2.6, 0); g.add(chairS);
-  const chairB = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.6, 2), new THREE.MeshStandardMaterial({ color: 0xff2d47, roughness: 0.5 }))); chairB.position.set(px - 4.1, 3.9, 0); g.add(chairB);
-  g.add(new THREE.PointLight(0x7fc8ff, 24, 26, 2).translateX(px - 1).translateY(7));
-  // locator so you can find home from anywhere
-  const sign = textSprite('HOME', '#ff4d6a', 26); sign.position.set(cx, y + 15, cz); scene.add(sign);
+  // a small room: back + side walls, roof, open front (-z) facing where you spawn, so you can walk in to the PC
+  const RW = 16, RD = 14, RH = 7;
+  const floor = shadowed(new THREE.Mesh(new THREE.BoxGeometry(RW, 0.3, RD), new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.85 }))); floor.position.set(0, 0.15, 0); g.add(floor);
+  const back = shadowed(new THREE.Mesh(new THREE.BoxGeometry(RW, RH, 0.4), wallM)); back.position.set(0, RH / 2, RD / 2); g.add(back);
+  for (const sx of [-1, 1]) { const sw = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.4, RH, RD), wallM)); sw.position.set(sx * RW / 2, RH / 2, 0); g.add(sw); }
+  const lintel = shadowed(new THREE.Mesh(new THREE.BoxGeometry(RW, 1.6, 0.4), wallM)); lintel.position.set(0, RH - 0.8, -RD / 2); g.add(lintel);
+  for (const sx of [-1, 1]) { const jamb = shadowed(new THREE.Mesh(new THREE.BoxGeometry(2.4, RH, 0.4), wallM)); jamb.position.set(sx * (RW / 2 - 1.2), RH / 2, -RD / 2); g.add(jamb); }
+  const roof = shadowed(new THREE.Mesh(new THREE.ConeGeometry(RW * 0.82, 4.6, 4), roofM)); roof.rotation.y = Math.PI / 4; roof.position.set(0, RH + 2, 0); roof.scale.set(1, 1, RD / RW); g.add(roof);
+  for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 2.6), warm); w.position.set(sx * (RW / 2 - 0.24), 3.7, 2.4); w.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; g.add(w); }
+  const chim = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 1.2), wallM)); chim.position.set(-RW / 2 + 2, RH + 3.2, RD / 2 - 2); g.add(chim);
+  g.add(new THREE.PointLight(0xffd9a0, 16, 22, 2).translateY(5));
+  // --- a small gaming PC on a desk against the back wall, screen facing the doorway ---
+  const pz = RD / 2 - 2.3;
+  const desk = shadowed(new THREE.Mesh(new THREE.BoxGeometry(5, 0.25, 2.2), new THREE.MeshStandardMaterial({ color: 0x3b2a1b, roughness: 0.6 }))); desk.position.set(0, 2.0, pz); g.add(desk);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.18, 2, 0.18), darkM); leg.position.set(sx * 2.2, 1, pz + sz * 0.9); g.add(leg); }
+  const stex = homeScreenInit();
+  const bezel = shadowed(new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.0, 0.18), darkM)); bezel.position.set(0, 3.35, pz - 0.15); g.add(bezel);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshStandardMaterial({ map: stex, emissive: 0xffffff, emissiveMap: stex, emissiveIntensity: 1.0, roughness: 0.3 }));
+  screen.position.set(0, 3.35, pz - 0.24); screen.rotation.y = Math.PI; g.add(screen); // faces the doorway (-z)
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 0.3), darkM); neck.position.set(0, 2.55, pz - 0.15); g.add(neck);
+  const tower = shadowed(new THREE.Mesh(new THREE.BoxGeometry(0.9, 2.2, 1.6), new THREE.MeshStandardMaterial({ color: 0x24272e, roughness: 0.5, metalness: 0.3 }))); tower.position.set(2.1, 1.6, pz); g.add(tower);
+  const rgb = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.8, 1.3), new THREE.MeshStandardMaterial({ color: 0x00e0ff, emissive: 0x00e0ff, emissiveIntensity: 1.5 })); rgb.position.set(1.64, 1.6, pz); g.add(rgb);
+  const kb = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.16, 0.9), darkM); kb.position.set(-0.3, 2.2, pz - 1.1); g.add(kb);
+  const chairS = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 1.2), darkM)); chairS.position.set(-0.3, 1.5, pz - 2.3); g.add(chairS);
+  const chairB = shadowed(new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 0.2), new THREE.MeshStandardMaterial({ color: 0xff2d47, roughness: 0.5 }))); chairB.position.set(-0.3, 2.3, pz - 2.9); g.add(chairB);
+  g.add(new THREE.PointLight(0x7fc8ff, 9, 11, 2).translateY(3.3).translateZ(pz - 1));
+  LANDMARK.home.pc = V3(cx, 0, cz + pz - 1.6); // the spot in front of the screen, for the PLAY prompt
+  // locator
+  const sign = textSprite('HOME', '#ff4d6a', 24); sign.position.set(cx, y + 15, cz); scene.add(sign);
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 300, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xff4d6a, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })); beam.position.set(cx, y + 150, cz); scene.add(beam);
-  const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6, 40), new THREE.MeshBasicMaterial({ color: 0xff4d6a, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(cx, y + 0.2, cz); scene.add(ring);
 }
 // A five-a-side football pitch down in the city — kick the ball (run into it, or punch) and score.
 function pitchFieldTex(L, W) {
@@ -940,6 +961,25 @@ function updateFootball(dt) {
   const sp = Math.hypot(b.vel.x, b.vel.z);
   if (sp > 0.05) { const axis = V3(0, 1, 0).cross(V3(b.vel.x, 0, b.vel.z)).normalize(); b.mesh.rotateOnWorldAxis(axis, sp * dt / b.r); }
 }
+// From the home PC: jump straight to the pitch to play football.
+function warpToPitch() {
+  const p = LANDMARK.pitch; if (!p || G.state !== 'play' || G.paused) return;
+  if (P.swinging) stopSwing(false);
+  P.pos.set(p.x - 8, 0, p.z); P.vel.set(0, 0, 0);
+  Object.assign(P, { onGround: true, onWall: null, swinging: false, gliding: false, jumpsLeft: 1, wallRun: 0 });
+  look.yaw = Math.atan2(P.pos.x - p.x, P.pos.z - p.z); look.pitch = 0.18;
+  if (soccer) { soccer.pos.copy(soccer.home); soccer.vel.set(0, 0, 0); }
+  burst(P.pos.clone().add(V3(0, 1.5, 0)), 26, 0x9fe870, 8, 0.6); AudioSys.thwip();
+  floatText(P.pos.clone().add(V3(0, 3.4, 0)), "LET'S PLAY! ⚽", '#9fe870', 24);
+  G.hint = 'Run into the ball or punch it (J) to shoot — score in the goals!'; G.hintT = 7;
+  if (playFB) playFB.style.display = 'none';
+}
+// an on-screen prompt that appears when you stand at the PC
+const playFB = document.createElement('div'); playFB.textContent = '⚽ PLAY FOOTBALL  (H)';
+Object.assign(playFB.style, { position: 'fixed', left: '50%', bottom: '120px', transform: 'translateX(-50%)', padding: '12px 24px', background: 'linear-gradient(180deg,#9fe870,#39d98a)', color: '#04210f', font: '900 16px system-ui', letterSpacing: '1px', borderRadius: '30px', boxShadow: '0 8px 24px rgba(57,217,138,.45)', cursor: 'pointer', zIndex: 6, display: 'none', pointerEvents: 'auto', userSelect: 'none' });
+document.body.appendChild(playFB);
+playFB.addEventListener('click', warpToPitch);
+addEventListener('keydown', e => { if (e.code === 'KeyH' && G.nearPC && G.state === 'play' && !G.paused) { e.preventDefault(); warpToPitch(); } });
 // Wind tunnels: streams of air above the river, the avenues and the bridges that web wings can ride.
 const TUNNELS = [];
 let streakMesh = null; const streaks = [];
@@ -3166,13 +3206,17 @@ function update(dt, now) {
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
     updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt); updateFootball(dt);
+    if (LANDMARK.home && LANDMARK.home.pc) { const d = Math.hypot(P.pos.x - LANDMARK.home.pc.x, P.pos.z - LANDMARK.home.pc.z); G.nearPC = d < 5 && Math.abs(P.pos.y - LANDMARK.home.h) < 4.5; playFB.style.display = G.nearPC ? 'block' : 'none'; }
     if (G.swapCd > 0) G.swapCd -= dt;
     AudioSys.setHeight(P.pos.y); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
   } else if (G.state !== 'play') {
     // idle: slow orbit on the title screen
     look.yaw += dt * 0.08; P.animT += dt;
+    playFB.style.display = 'none'; G.nearPC = false;
   }
+  if (G.paused || CHAT.open) { playFB.style.display = 'none'; G.nearPC = false; }
+  drawHomeScreen(dt);
   updateFx(dt); venomArc.update(dt); vfx.update(dt); animateHero(dt);
   updateCamera(dt, false); updateHUD();
   for (const b of buildings) if (b.beacon) b.beacon.visible = Math.sin(now / 400 + b.x) > 0;
