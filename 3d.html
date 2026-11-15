@@ -8890,16 +8890,24 @@ function genCity() {
   const halo = new THREE.InstancedMesh(haloGeo, new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false, color: 0x000000, opacity: 0.65 }), FOOT.length); let hi = 0;
   for (const f of FOOT) halo.setMatrixAt(hi++, M.compose(V3(f.x, 0.34, f.z), Q.identity(), V3(f.w + 9, 1, f.d + 9)));
   halo.renderOrder = 2; scene.add(halo);
-  // trees (instanced trunk + canopy)
-  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 2.6, 7), woodMat, trees.length);
-  const canopyGeo = new THREE.IcosahedronGeometry(1.9, 2); canopyGeo.scale(1, 1.15, 1);
-  const canopy = new THREE.InstancedMesh(canopyGeo, new THREE.MeshStandardMaterial({ color: 0x4f7a33, roughness: 0.95, flatShading: true }), trees.length);
+  // trees: a tall trunk and a big, full three-lobe canopy — as lush as it gets
+  const TS = 1.7; // every tree grown bigger
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.26, 0.42, 4.4, 9), woodMat, trees.length);
+  const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.95, flatShading: true });
+  const canopyGeo = new THREE.IcosahedronGeometry(2.6, 2); canopyGeo.scale(1.1, 1.25, 1.1);
+  const canopy = new THREE.InstancedMesh(canopyGeo, leafMat, trees.length);
+  const crown = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.7, 2), leafMat.clone(), trees.length);
+  const puff = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.5, 1), leafMat.clone(), trees.length);
   trees.forEach((t, i) => {
-    trunk.setMatrixAt(i, M.compose(V3(t.x, 1.3 * t.s + 0.3, t.z), Q.identity(), V3(t.s, t.s, t.s)));
-    canopy.setMatrixAt(i, M.compose(V3(t.x, 2.6 * t.s + 1.4 * t.s + 0.3, t.z), Q.setFromAxisAngle(V3(0, 1, 0), t.a), V3(t.s, t.s, t.s)));
-    canopy.setColorAt(i, new THREE.Color().setHSL(0.25 + r() * 0.08, 0.45, 0.3 + r() * 0.12));
+    const s = t.s * TS, qa = Q.setFromAxisAngle(V3(0, 1, 0), t.a), cy = 5.4 * s + 0.3;
+    trunk.setMatrixAt(i, M.compose(V3(t.x, 2.2 * s + 0.3, t.z), Q.identity(), V3(s, s, s)));
+    canopy.setMatrixAt(i, M.compose(V3(t.x, cy, t.z), qa, V3(s, s, s)));
+    crown.setMatrixAt(i, M.compose(V3(t.x + Math.sin(t.a) * 0.4 * s, cy + 2.0 * s, t.z + Math.cos(t.a) * 0.4 * s), qa, V3(s, s, s)));
+    puff.setMatrixAt(i, M.compose(V3(t.x + Math.cos(t.a) * 1.8 * s, cy + 0.4 * s, t.z - Math.sin(t.a) * 1.8 * s), qa, V3(s, s, s)));
+    const g = new THREE.Color().setHSL(0.25 + r() * 0.09, 0.5, 0.26 + r() * 0.14);
+    canopy.setColorAt(i, g); crown.setColorAt(i, g.clone().offsetHSL(0.01, 0, 0.06)); puff.setColorAt(i, g.clone().offsetHSL(-0.01, 0, -0.03));
   });
-  shadowed(trunk); shadowed(canopy); scene.add(trunk, canopy); SKY.canopy = canopy;
+  shadowed(trunk); shadowed(canopy); shadowed(crown); shadowed(puff); scene.add(trunk, canopy, crown, puff); SKY.canopy = canopy;
   // street lamps
   const pole = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.1, 0.14, 7, 6), darkMetalMat, lamps.length);
   const arm = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2, 0.14, 0.14), darkMetalMat, lamps.length);
