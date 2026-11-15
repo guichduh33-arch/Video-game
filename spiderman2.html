@@ -902,8 +902,33 @@ function ballTex() {
   pent(64, 64, 17); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU / 5; pent(64 + Math.cos(a) * 46, 64 + Math.sin(a) * 46, 10); }
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
+function buildPitchStands(cx, cz, L, W) {
+  const rows = 5, rise = 1.15, depth = 1.5;
+  const standMat = new THREE.MeshStandardMaterial({ color: 0x323a47, roughness: 0.95 });
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 1 });
+  const cols = [0xff5a6a, 0x9fe870, 0xffffff, 0x1e78e3, 0xffd23f, 0x8e6bff, 0xff9f40];
+  const sides = [{ h: 1, at: W / 2 + 3, len: L + 8 }, { h: 1, at: -(W / 2 + 3), len: L + 8 }, { h: 0, at: L / 2 + 3, len: W + 8 }, { h: 0, at: -(L / 2 + 3), len: W + 8 }];
+  const dots = [];
+  for (const s of sides) {
+    const horiz = s.h === 1, sgn = Math.sign(s.at), n = Math.floor(s.len / 1.2);
+    for (let r = 0; r < rows; r++) for (let i = 0; i < n; i++) {
+      if (Math.random() < 0.08) continue;
+      const along = -s.len / 2 + (i + 0.5) * (s.len / n) + (r % 2) * 0.4, back = Math.abs(s.at) + r * depth, y = 0.9 + r * rise;
+      dots.push({ x: horiz ? cx + along : cx + sgn * back, y, z: horiz ? cz + sgn * back : cz + along });
+    }
+    // raked base under the seats + a back wall so no gaps show
+    const backAt = Math.abs(s.at) + rows * depth, midAt = Math.abs(s.at) + (rows * depth) / 2;
+    const bw = horiz ? s.len : rows * depth + 1, bd = horiz ? rows * depth + 1 : s.len;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.5, bd), standMat); base.position.set(horiz ? cx : cx + sgn * midAt, 0.2, horiz ? cz + sgn * midAt : cz); scene.add(base);
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(horiz ? s.len : 0.5, rows * rise + 1.5, horiz ? 0.5 : s.len), wallMat); wall.position.set(horiz ? cx : cx + sgn * backAt, (rows * rise) / 2, horiz ? cz + sgn * backAt : cz); scene.add(wall);
+  }
+  const crowd = new THREE.InstancedMesh(new THREE.SphereGeometry(0.42, 6, 5), new THREE.MeshStandardMaterial({ roughness: 1 }), dots.length);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  dots.forEach((d, i) => { dummy.position.set(d.x, d.y, d.z); dummy.scale.setScalar(rand(0.85, 1.12)); dummy.updateMatrix(); crowd.setMatrixAt(i, dummy.matrix); col.setHex(cols[Math.floor(Math.random() * cols.length)]); crowd.setColorAt(i, col); });
+  crowd.instanceMatrix.needsUpdate = true; crowd.frustumCulled = false; scene.add(crowd);
+}
 function buildPitch(cx, cz) {
-  const L = 46, W = 30, surfY = 0.38, goalHW = 3.6, goalH = 2.6;
+  const L = 64, W = 42, surfY = 0.38, goalHW = 4.4, goalH = 3.2;
   LANDMARK.pitch = { x: cx, z: cz, L, W, goalHW, goalH, surfY };
   G.footScore = 0;
   // the grass field with markings
@@ -927,6 +952,7 @@ function buildPitch(cx, cz) {
   // a green locator so you can find the pitch from the air
   const sign = textSprite('FOOTBALL', '#9fe870', 24); sign.position.set(cx, 12, cz); scene.add(sign);
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 240, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fe870, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false })); beam.position.set(cx, 120, cz); scene.add(beam);
+  buildPitchStands(cx, cz, L, W); // a crowd around the ground
 }
 function updateFootball(dt) {
   const b = soccer; if (!b) return; const P_ = LANDMARK.pitch;
@@ -967,14 +993,18 @@ const SPIDER_SQUAD = [
   { name: 'GWEN', role: 'f', c: 0xf2f2f2, c2: 0xe4007c, spider: true, eye: 0xffffff },
   { name: 'PETER', role: 'f', c: 0xd11a2a, c2: 0x1a3fb0, spider: true, eye: 0xffffff },
   { name: 'SPIDER-2099', role: 'f', c: 0x0a1430, c2: 0x18d0ff, spider: true, eye: 0xff2d47 },
+  { name: 'PAVITR', role: 'f', c: 0x14306b, c2: 0xf0c020, spider: true, eye: 0xffffff },
+  { name: 'SCARLET', role: 'f', c: 0xc81828, c2: 0x111111, spider: true, eye: 0xffffff },
 ];
 const ENEMY_SQUAD = [
   { name: 'RHINO', role: 'gk', c: 0x8a8f98, c2: 0x55585e },
   { name: 'VENOM', role: 'f', c: 0x0b0b12, c2: 0xf4f4f4 },
   { name: 'LIZARD', role: 'f', c: 0x2f6a37, c2: 0x9fe870 },
   { name: 'KRAVEN', role: 'f', c: 0x6b3f1e, c2: 0xe08a2a },
+  { name: 'GOBLIN', role: 'f', c: 0x2f8a3a, c2: 0x8e3fd0 },
+  { name: 'ELECTRO', role: 'f', c: 0x2a6ad0, c2: 0xffe14d },
 ];
-const FORMATION = [{ x: -20, z: 0 }, { x: -8, z: -8 }, { x: -8, z: 8 }, { x: 4, z: 0 }];
+const FORMATION = [{ x: -28, z: 0 }, { x: -16, z: -13 }, { x: -16, z: 13 }, { x: -4, z: -8 }, { x: -4, z: 8 }, { x: 8, z: 0 }];
 const CUP = ['GROUP MATCH', 'QUARTER-FINAL', 'SEMI-FINAL', 'FINAL'];
 const MATCH = { active: false, state: 'idle', round: 0, score: { s: 0, e: 0 }, time: 0, dur: 55, nextT: 0, msgT: 0, spiders: [], enemies: [] };
 
@@ -1107,8 +1137,9 @@ function startMatch() {
 }
 function endCup() { clearFootballers(); MATCH.active = false; MATCH.state = 'idle'; MATCH.round = 0; matchHud.style.display = 'none'; matchBanner.style.display = 'none'; resetPlayer(); }
 function updateMatch(dt) {
-  if (!MATCH.active) { matchHud.style.display = 'none'; return; }
+  if (!MATCH.active) { matchHud.style.display = 'none'; shootBtn.style.display = 'none'; takeBtn.style.display = 'none'; return; }
   const P_ = LANDMARK.pitch; if (!P_) return;
+  const showBtns = MATCH.state === 'play'; shootBtn.style.display = showBtns ? 'flex' : 'none'; takeBtn.style.display = showBtns ? 'flex' : 'none';
   if (MATCH.state === 'play') { MATCH.time += dt; aiTeam('s', dt); aiTeam('e', dt); if (MATCH.time >= MATCH.dur || MATCH.score.s >= 7 || MATCH.score.e >= 7) endRound(); }
   else if (MATCH.state === 'between') { MATCH.nextT -= dt; if (MATCH.nextT <= 0) startMatch(); }
   else if (MATCH.state === 'champion') { MATCH.nextT -= dt; if (Math.random() < dt * 7) burst(soccer.pos.clone().add(V3(rand(-7, 7), rand(2, 9), rand(-7, 7))), 8, [0xff5a6a, 0x9fe870, 0xffd23f, 0x18d0ff][Math.floor(Math.random() * 4)], 8, 0.9); if (MATCH.nextT <= 0) endCup(); }
@@ -1150,6 +1181,34 @@ Object.assign(playFB.style, { position: 'fixed', left: '50%', bottom: '120px', t
 document.body.appendChild(playFB);
 playFB.addEventListener('click', () => { if (!MATCH.active) startMatch(); });
 addEventListener('keydown', e => { if (e.code === 'KeyH' && G.nearPC && G.state === 'play' && !G.paused && !MATCH.active) { e.preventDefault(); startMatch(); } });
+// in-match action buttons: SHOOT (power the ball at goal) and TAKE (web the ball to your feet)
+function userShoot() {
+  if (!soccer || !LANDMARK.pitch) return; const p = LANDMARK.pitch;
+  if (Math.hypot(P.pos.x - soccer.pos.x, P.pos.z - soccer.pos.z) > 7) { floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'Get to the ball!', '#9fe870', 16); return; }
+  const gx = p.x + p.L / 2, tz = clamp(p.z + rand(-2.5, 2.5), p.z - p.goalHW + 0.5, p.z + p.goalHW - 0.5);
+  const dx = gx - soccer.pos.x, dz = tz - soccer.pos.z, dd = Math.hypot(dx, dz) || 1;
+  soccer.vel.set(dx / dd * 36, 7, dz / dd * 36); soccer.scored = 0;
+  AudioSys.punch(); AudioSys.thwip(); burst(soccer.pos.clone().add(V3(0, 0.4, 0)), 10, 0xff5a6a, 6, 0.3);
+  floatText(soccer.pos.clone().add(V3(0, 2.2, 0)), 'SHOOT!', '#ff5a6a', 24);
+}
+function userTake() {
+  if (!soccer || !LANDMARK.pitch) return; const p = LANDMARK.pitch;
+  if (Math.hypot(P.pos.x - soccer.pos.x, P.pos.z - soccer.pos.z) > 16) { floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'Too far to take', '#9fe870', 14); return; }
+  const toGoal = Math.sign(p.x + p.L / 2 - P.pos.x) || 1;
+  soccer.pos.set(P.pos.x + toGoal * 1.3, p.surfY + soccer.r, P.pos.z); soccer.vel.set(P.vel.x * 0.3, 0, P.vel.z * 0.3); soccer.scored = 0;
+  AudioSys.thwip(); burst(soccer.pos.clone().add(V3(0, 0.5, 0)), 12, 0xffffff, 5, 0.3);
+  floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'TAKE!', '#3bd6ff', 20);
+}
+function mkMatchBtn(txt, grad, right, bottom, size) {
+  const el = document.createElement('div'); el.textContent = txt;
+  Object.assign(el.style, { position: 'fixed', right: right, bottom: bottom, width: size + 'px', height: size + 'px', borderRadius: '50%', display: 'none', alignItems: 'center', justifyContent: 'center', font: '900 15px system-ui', color: '#fff', letterSpacing: '.5px', background: grad, boxShadow: '0 6px 18px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.25) inset', textShadow: '0 2px 4px rgba(0,0,0,.4)', zIndex: 6, pointerEvents: 'auto', userSelect: 'none', cursor: 'pointer' });
+  document.body.appendChild(el); return el;
+}
+const shootBtn = mkMatchBtn('SHOOT', 'radial-gradient(120% 120% at 35% 30%,#ff6a7a,#e31e2c)', '22px', '122px', 88);
+const takeBtn = mkMatchBtn('TAKE', 'radial-gradient(120% 120% at 35% 30%,#67e8ff,#1aa7d0)', '122px', '150px', 74);
+shootBtn.addEventListener('pointerdown', e => { e.preventDefault(); userShoot(); });
+takeBtn.addEventListener('pointerdown', e => { e.preventDefault(); userTake(); });
+addEventListener('keydown', e => { if (!MATCH.active || MATCH.state !== 'play') return; if (e.code === 'KeyU') { e.preventDefault(); userShoot(); } else if (e.code === 'KeyO') { e.preventDefault(); userTake(); } });
 // Wind tunnels: streams of air above the river, the avenues and the bridges that web wings can ride.
 const TUNNELS = [];
 let streakMesh = null; const streaks = [];
