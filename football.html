@@ -48,7 +48,40 @@
   #boot { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #0a1016; color: #bcd; }
   #boot .sp { width: 48px; height: 48px; border-radius: 50%; border: 5px solid rgba(255,255,255,.14); border-top-color: #39d98a; animation: sp 0.9s linear infinite; }
   @keyframes sp { to { transform: rotate(360deg); } }
-  @media (max-width: 620px) { #hint { display: none; } #score .t { font-size: 13px; padding: 6px 9px; } #score .sc { font-size: 17px; } }
+  /* active player card */
+  #active { position: absolute; top: 56px; left: 14px; display: flex; flex-direction: column; gap: 4px; background: rgba(8,12,18,.78); border: 1px solid rgba(255,255,255,.14); border-radius: 9px; padding: 7px 11px 8px; min-width: 150px; box-shadow: 0 4px 16px rgba(0,0,0,.45); }
+  #active .nm { font-weight: 800; font-size: 13px; letter-spacing: .4px; display: flex; align-items: center; gap: 6px; }
+  #active .nm .st { color: #ffd23f; }
+  #active .nm .ro { margin-left: auto; font-size: 10px; font-weight: 800; color: #04210f; background: #9fe870; padding: 1px 6px; border-radius: 4px; letter-spacing: 1px; }
+  #active .bar { height: 7px; background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.22); border-radius: 5px; overflow: hidden; }
+  #active .bar > i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg,#39d98a,#9fe870); transition: width .12s; }
+  #clock { top: 58px; display: flex; flex-direction: column; align-items: center; line-height: 1.15; padding: 4px 16px; }
+  #clock .hl { font-size: 9px; letter-spacing: 1.5px; color: #8fd0ff; font-weight: 700; }
+  /* crest */
+  .crest { width: 22px; height: 22px; border-radius: 4px 4px 7px 7px; position: relative; box-shadow: 0 0 0 1px rgba(255,255,255,.4) inset, 0 2px 4px rgba(0,0,0,.4); display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  /* radar */
+  #radar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: 212px; height: 134px; pointer-events: none; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); opacity: .92; }
+  /* touch: move zone + joystick */
+  #joyZone { position: fixed; left: 0; top: 150px; bottom: 0; width: 46%; z-index: 3; pointer-events: auto; touch-action: none; }
+  #joyHint { position: absolute; left: 70px; bottom: 120px; width: 120px; height: 120px; border: 2px dashed rgba(255,255,255,.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 800; font-size: 12px; letter-spacing: 1px; color: rgba(255,255,255,.55); pointer-events: none; }
+  #joyBase { position: fixed; width: 130px; height: 130px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); background: rgba(255,255,255,.07); z-index: 3; display: none; pointer-events: none; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); }
+  #joyKnob { position: fixed; width: 58px; height: 58px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 2px 10px rgba(0,0,0,.4); z-index: 3; display: none; pointer-events: none; }
+  /* action buttons */
+  #btns { position: fixed; right: 20px; bottom: 26px; width: 240px; height: 240px; z-index: 4; pointer-events: none; }
+  .abtn { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; color: #fff; letter-spacing: .5px; pointer-events: auto; user-select: none; -webkit-user-select: none; cursor: pointer;
+          box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.25) inset; text-shadow: 0 2px 4px rgba(0,0,0,.4); transition: transform .06s, filter .06s; }
+  .abtn:active { transform: scale(.92); filter: brightness(1.15); }
+  .abtn .sub { font-size: 9px; font-weight: 700; opacity: .85; margin-top: 1px; }
+  .abtn.shoot { right: 0; bottom: 18px; width: 92px; height: 92px; font-size: 19px; background: radial-gradient(120% 120% at 35% 30%, #ff6a7a, #e31e2c); }
+  .abtn.pass { right: 96px; bottom: 2px; width: 78px; height: 78px; font-size: 16px; background: radial-gradient(120% 120% at 35% 30%, #58a6ff, #1e78e3); }
+  .abtn.thru { right: 20px; bottom: 112px; width: 74px; height: 74px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #ffe27a, #f0b400); color: #3a2a00; text-shadow: none; }
+  .abtn.sprint { right: 120px; bottom: 104px; width: 72px; height: 72px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #6ff0b0, #19b874); color: #04210f; text-shadow: none; }
+  #swipes { position: fixed; right: 270px; bottom: 34px; z-index: 3; font-size: 11px; font-weight: 700; line-height: 1.7; color: rgba(255,255,255,.6); letter-spacing: .5px; pointer-events: none; text-align: right; }
+  #swipes b { color: #ffd23f; }
+  #hint { display: none; }
+  @media (max-width: 760px) { #swipes { display: none; } }
+  @media (min-width: 1100px) and (pointer: fine) { #joyHint { opacity: .5; } }
+  @media (max-width: 620px) { #score .t .full { display: none; } #score .t { font-size: 13px; padding: 6px 9px; } #score .sc { font-size: 17px; } #active { min-width: 120px; } }
 </style>
 </head>
 <body>
@@ -56,17 +89,27 @@
 <canvas id="c"></canvas>
 <div id="hud">
   <div id="score">
-    <div class="t h"><span class="swatch" style="background:#e31e2c"></span><span id="hName">NORD FC</span></div>
+    <div class="t h"><span class="crest" id="hCrest" style="background:linear-gradient(180deg,#f2545f,#c01020)">N</span><span id="hName">NOR</span></div>
     <div class="sc" id="hSc">0</div><div class="sc" id="aSc">0</div>
-    <div class="t a"><span id="aName">SUR CF</span><span class="swatch" style="background:#1e78e3"></span></div>
+    <div class="t a"><span id="aName">SUR</span><span class="crest" id="aCrest" style="background:linear-gradient(180deg,#4a9bf0,#1456aa)">S</span></div>
   </div>
-  <div id="clock">00:00</div>
+  <div id="clock"><span id="clockT">00:00</span><span class="hl" id="clockHl">1ST HALF</span></div>
+  <div id="active"><div class="nm"><span class="st">★</span><span id="apNum">7</span><span id="apName">—</span><span class="ro" id="apRole">FWD</span></div><div class="bar"><i id="apSta"></i></div></div>
   <div id="pow"><i></i></div>
-  <div id="sta"><div class="lab">STAMINA</div><div class="bar"><i></i></div></div>
   <div id="toast"></div>
-  <div id="hint"><b>WASD</b> move · <b>Shift</b> sprint<br><b>J</b> pass · <b>K</b> through · <b>L</b> shoot (hold)<br><b>I</b> lob/cross · <b>Q</b> switch · <b>E</b> tackle</div>
+  <canvas id="radar" width="212" height="134"></canvas>
 </div>
 <button id="ctrlBtn">📷 Camera</button>
+<!-- touch controls -->
+<div id="joyZone"><div id="joyHint">TOUCH &amp;<br>DRAG<br>TO MOVE</div></div>
+<div id="joyBase"></div><div id="joyKnob"></div>
+<div id="swipes">SWIPE <b>↓</b> QUICK TURN<br>SWIPE <b>←/→</b> STEP-OVER<br>SWIPE <b>↑</b> KNOCK-ON</div>
+<div id="btns">
+  <div class="abtn sprint" data-b="sprint">SPRINT</div>
+  <div class="abtn thru" data-b="thru">THRU<span class="sub">BALL</span></div>
+  <div class="abtn pass" data-b="pass">PASS<span class="sub">hold=lob</span></div>
+  <div class="abtn shoot" data-b="shoot">SHOOT<span class="sub">hold</span></div>
+</div>
 <div id="ov">
   <h1>PITCH LEGENDS</h1><h2>3D Football · maximal realism</h2>
   <div class="card">
@@ -261,56 +304,46 @@ for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
   flag.position.set(sx * HL + sx * 0.25, 1.3, sz * HW); scene.add(flag);
 }
 
-/* stadium stands with instanced crowd */
-function buildStadium() {
-  const standMat = new THREE.MeshStandardMaterial({ color: 0x3a4455, roughness: 0.9 });
-  const roofMat = new THREE.MeshStandardMaterial({ color: 0x20262f, roughness: 0.8, metalness: 0.2, side: THREE.DoubleSide });
-  const tiers = LOW ? 5 : 8, rise = 1.4, depthStep = 1.7;
-  const crowdCols = [0xe31e2c, 0x1e78e3, 0xffffff, 0xf4c430, 0x23313f, 0xd94f8a, 0x2fae5a];
-  const group = new THREE.Group();
-  const seatGeo = new THREE.SphereGeometry(0.42, 6, 5);
-  // four sides: 2 along length (z = ±), 2 behind goals (x = ±)
-  const sides = [
-    { len: PITCH_L + 30, horiz: true, at: HW + 7, sign: 1 },
-    { len: PITCH_L + 30, horiz: true, at: HW + 7, sign: -1 },
-    { len: PITCH_W + 26, horiz: false, at: HL + 9, sign: 1 },
-    { len: PITCH_W + 26, horiz: false, at: HL + 9, sign: -1 },
-  ];
-  let total = 0; const dots = [];
-  for (const s of sides) {
-    const n = Math.floor(s.len / 1.25);
-    for (let t = 0; t < tiers; t++) {
-      for (let i = 0; i < n; i++) {
-        const along = -s.len / 2 + (i + 0.5) * (s.len / n);
-        const back = s.at + t * depthStep, y = 1.2 + t * rise;
-        const x = s.horiz ? along : s.sign * back;
-        const z = s.horiz ? s.sign * back : along;
-        if (Math.random() < 0.12) continue;
-        dots.push({ x, y, z });
-      }
-    }
-    // stand base ramp
-    const bw = s.horiz ? s.len : tiers * depthStep + 3, bd = s.horiz ? tiers * depthStep + 3 : s.len;
-    const base = new THREE.Mesh(new THREE.BoxGeometry(bw, tiers * rise + 2, bd), standMat);
-    base.position.set(s.horiz ? 0 : s.sign * (s.at + tiers * depthStep / 2), (tiers * rise) / 2, s.horiz ? s.sign * (s.at + tiers * depthStep / 2) : 0);
-    base.rotation.x = 0; base.receiveShadow = false; group.add(base);
-    // roof
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(bw + 2, 0.4, bd + 2), roofMat);
-    roof.position.set(base.position.x, tiers * rise + 4.5, base.position.z); group.add(roof);
+/* stadium stands: raked tiers of lit crowd, dark backing + wall + roof BEHIND them */
+const seatGeo = new THREE.SphereGeometry(0.42, 6, 5);
+const rakeMat = new THREE.MeshStandardMaterial({ color: 0x323a48, roughness: 0.95 });
+const wallMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 1 });
+const roofMat = new THREE.MeshStandardMaterial({ color: 0x252b34, roughness: 0.85, metalness: 0.2, side: THREE.DoubleSide });
+const CROWD_COLS = [0xe31e2c, 0xe31e2c, 0x1e78e3, 0x1e78e3, 0xffffff, 0xffffff, 0xf4c430, 0xf4c430, 0x2a3340, 0xd94f8a, 0x2fae5a, 0xffa030];
+const crowds = [];
+// build one stand in local space (runs along local X, depth +Z out from pitch), then rotate into place
+function buildStand(len, yaw, front) {
+  const g = new THREE.Group(); g.rotation.y = yaw;
+  const tiers = LOW ? 7 : 12, rise = 1.3, depthStep = 1.55;
+  const n = Math.floor(len / 1.0);
+  const y0 = 1.6, z0 = front, y1 = y0 + (tiers - 1) * rise, z1 = z0 + (tiers - 1) * depthStep;
+  const ang = Math.atan2(rise, depthStep);
+  // raked dark backing under/behind the seats (blocks sky, reads as the terrace)
+  const rakeL = Math.hypot(z1 - z0, y1 - y0) + 3;
+  const rake = new THREE.Mesh(new THREE.BoxGeometry(len + 2, 0.6, rakeL), rakeMat);
+  rake.position.set(0, (y0 + y1) / 2 - 0.5, (z0 + z1) / 2 + 0.4); rake.rotation.x = -ang; rake.receiveShadow = true; g.add(rake);
+  // tall back wall + roof
+  const wall = new THREE.Mesh(new THREE.BoxGeometry(len + 2, y1 + 3, 0.6), wallMat); wall.position.set(0, (y1 + 3) / 2, z1 + 1.2); g.add(wall);
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(len + 3, 0.4, (z1 - z0) + 4), roofMat); roof.position.set(0, y1 + 4.2, (z0 + z1) / 2); roof.rotation.x = -ang * 0.25; g.add(roof);
+  // low perimeter wall between pitch and the front row
+  const peri = new THREE.Mesh(new THREE.BoxGeometry(len, 1.1, 0.4), wallMat); peri.position.set(0, 0.55, z0 - 1.4); g.add(peri);
+  // seated crowd
+  const dots = [];
+  for (let t = 0; t < tiers; t++) for (let i = 0; i < n; i++) {
+    if (Math.random() < 0.04) continue;
+    dots.push({ x: -len / 2 + (i + 0.5) * (len / n) + (t % 2) * 0.5, y: y0 + t * rise + 0.25, z: z0 + t * depthStep });
   }
-  const crowd = new THREE.InstancedMesh(seatGeo, new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: false }), dots.length);
-  const dummy = new THREE.Object3D(); const col = new THREE.Color();
-  dots.forEach((d, i) => {
-    dummy.position.set(d.x, d.y, d.z); dummy.scale.setScalar(rand(0.8, 1.15)); dummy.updateMatrix();
-    crowd.setMatrixAt(i, dummy.matrix);
-    col.setHex(crowdCols[Math.floor(Math.random() * crowdCols.length)]); crowd.setColorAt(i, col);
-  });
-  crowd.instanceMatrix.needsUpdate = true; group.add(crowd);
-  crowd.userData.baseY = dots.map(d => d.y); crowd.userData.dots = dots; crowd.userData.dummy = dummy;
-  scene.add(group);
-  return crowd;
+  const crowd = new THREE.InstancedMesh(seatGeo, new THREE.MeshStandardMaterial({ roughness: 1 }), dots.length);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  dots.forEach((d, i) => { dummy.position.set(d.x, d.y, d.z); dummy.scale.setScalar(rand(0.8, 1.15)); dummy.updateMatrix(); crowd.setMatrixAt(i, dummy.matrix); col.setHex(CROWD_COLS[Math.floor(Math.random() * CROWD_COLS.length)]); crowd.setColorAt(i, col); });
+  crowd.instanceMatrix.needsUpdate = true; crowd.frustumCulled = false; g.add(crowd);
+  scene.add(g);
+  crowds.push({ crowd, dots, dummy });
 }
-const crowd = buildStadium();
+buildStand(PITCH_L + 36, 0, HW + 6);
+buildStand(PITCH_L + 36, Math.PI, HW + 6);
+buildStand(PITCH_W + 30, -Math.PI / 2, HL + 8);
+buildStand(PITCH_W + 30, Math.PI / 2, HL + 8);
 
 // floodlights
 for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -319,6 +352,39 @@ for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
   const panel = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.6), new THREE.MeshStandardMaterial({ color: 0x20262f, emissive: 0xfff6d8, emissiveIntensity: 0.9 }));
   panel.position.set(sx * (HL + 14), 33, sz * (HW + 12)); panel.lookAt(0, 0, 0); scene.add(panel);
 }
+
+/* LED advertising boards ringing the pitch */
+const adBoards = [];
+function adTexture() {
+  const cv = document.createElement('canvas'); cv.width = 2048; cv.height = 72; const g = cv.getContext('2d');
+  const ads = [['PLAY FAIR', '#1e78e3', '#fff'], ['KICKSTORM', '#e31e2c', '#fff'], ['VOLT ENERGY', '#111318', '#ffd23f'], ['GOAL TV', '#f4c430', '#1a1a1a'], ['AERO AIR', '#17a2b8', '#fff'], ['FAN ZONE', '#d94f8a', '#fff'], ['SUNVALE', '#2fae5a', '#06240f'], ['PRO BOOTS', '#6a3fd0', '#fff']];
+  const segW = cv.width / ads.length;
+  ads.forEach((a, i) => {
+    g.fillStyle = a[1]; g.fillRect(i * segW, 0, segW, 72);
+    g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(i * segW, 0, segW, 22);
+    g.fillStyle = a[2]; g.font = '900 40px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(a[0], i * segW + segW / 2, 40);
+  });
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t;
+}
+function buildAdBoards() {
+  const base = adTexture();
+  const mk = (len, x, z, ry) => {
+    const t = base.clone(); t.wrapS = THREE.RepeatWrapping; t.repeat.x = Math.max(2, Math.round(len / 9));
+    const m = new THREE.Mesh(new THREE.BoxGeometry(len, 1.15, 0.18),
+      new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.55, roughness: 0.5, metalness: 0.1 }));
+    m.position.set(x, 0.62, z); m.rotation.y = ry; m.receiveShadow = true; scene.add(m);
+    adBoards.push({ t, speed: rand(0.02, 0.04) * (Math.random() < 0.5 ? 1 : -1) });
+    // dark backing stand behind the board
+    const back = new THREE.Mesh(new THREE.BoxGeometry(len, 1.3, 0.1), new THREE.MeshStandardMaterial({ color: 0x14181f, roughness: 1 }));
+    back.position.set(x, 0.65, z + Math.cos(ry + Math.PI / 2) * -0.12 + (ry === 0 || ry === Math.PI ? 0.14 * Math.sign(z) : 0)); back.rotation.y = ry; scene.add(back);
+  };
+  mk(PITCH_L + 6, 0, HW + 1.6, 0);          // far touchline
+  mk(PITCH_L + 6, 0, -(HW + 1.6), Math.PI); // near touchline
+  mk(PITCH_W + 2, HL + 1.6, 0, Math.PI / 2);
+  mk(PITCH_W + 2, -(HL + 1.6), 0, -Math.PI / 2);
+}
+buildAdBoards();
 
 /* ============================== ball ============================== */
 const ball = {
@@ -333,6 +399,10 @@ ballShadow.rotation.x = -Math.PI / 2; scene.add(ballShadow);
 /* ============================== players ============================== */
 const SKIN = [0xf0c8a0, 0xe0a878, 0xc78b5c, 0x9c6b43, 0x6e4a2f];
 const HAIR = [0x1a1008, 0x2b1a0e, 0x4a2f18, 0x111111, 0x5a3b22, 0x0a0a0a];
+const FIRST = ['R','M','L','T','D','A','J','K','S','N','P','E','G','F','C','B','O','V','H','I'];
+const LAST = ['SOLENNE','MORAIS','KANTE','VIDAL','OKAFOR','SILVA','MULLER','ROSSI','DUPONT','NOVAK','HASSAN','BJORK','TANAKA','REYES','HALLAND','COSTA','LARSSON','ADEYEMI','FERRER','PETROV','YILMAZ','NGUYEN','OWUSU','MENDES','KOVAC','HARTMANN','DIALLO','ESPOSITO','MARQUEZ','WALSH'];
+const usedNames = new Set();
+function makeName() { let n; do { n = FIRST[Math.floor(Math.random() * FIRST.length)] + '. ' + LAST[Math.floor(Math.random() * LAST.length)]; } while (usedNames.has(n) && usedNames.size < FIRST.length * LAST.length); usedNames.add(n); return n; }
 const teamKit = {
   home: { shirt: 0xe31e2c, shirt2: 0xb01020, shorts: 0xffffff, socks: 0xe31e2c, num: 0xffffff },
   away: { shirt: 0x1e78e3, shirt2: 0x1456aa, shorts: 0x12264a, socks: 0x1e78e3, num: 0xffffff },
@@ -437,9 +507,9 @@ function buildTeams() {
       scene.add(mesh);
       const base = homeBaseFor(f, team);
       const p = {
-        team, role: f.role, isGK, mesh, parts: mesh.userData.parts, number: shirtNo,
+        team, role: f.role, isGK, mesh, parts: mesh.userData.parts, number: shirtNo, name: makeName(),
         base, form: f, pos: V3(base.x, 0, base.z), vel: V3(), facing: team === 'home' ? 0 : Math.PI,
-        speed: 0, gait: Math.random() * TAU, user: false, control: 0, lunge: 0, kickAnim: 0, dive: 0, cool: 0,
+        speed: 0, gait: Math.random() * TAU, user: false, control: 0, lunge: 0, kickAnim: 0, dive: 0, cool: 0, knock: 0,
         maxRun: isGK ? 5.6 : rand(6.6, 7.6), accel: isGK ? 22 : 26, stamina: 1,
       };
       players.push(p);
@@ -457,6 +527,44 @@ const KEYMAP = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp:
 addEventListener('keydown', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); if (!keys[k]) keys[k + '_p'] = true; keys[k] = true; } });
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { keys[k] = false; keys[k + '_p'] = false; } });
 function pressed(k) { if (keys[k + '_p']) { keys[k + '_p'] = false; return true; } return false; }
+
+/* ---------- touch controls: drag-to-move joystick, action buttons, swipe gestures ---------- */
+const joy = { active: false, dx: 0, dy: 0, id: null, ox: 0, oy: 0 };
+const joyZone = document.getElementById('joyZone'), joyBase = document.getElementById('joyBase'), joyKnob = document.getElementById('joyKnob'), joyHint = document.getElementById('joyHint');
+const JOY_R = 62;
+let swStart = null;
+function joyStart(x, y, id) { joy.active = true; joy.id = id; joy.ox = x; joy.oy = y; joy.dx = joy.dy = 0; joyBase.style.display = joyKnob.style.display = 'block'; joyBase.style.left = (x - 65) + 'px'; joyBase.style.top = (y - 65) + 'px'; joyKnob.style.left = (x - 29) + 'px'; joyKnob.style.top = (y - 29) + 'px'; joyHint.style.opacity = 0; }
+function joyMove(x, y) { let dx = x - joy.ox, dy = y - joy.oy; const m = Math.hypot(dx, dy); if (m > JOY_R) { dx = dx / m * JOY_R; dy = dy / m * JOY_R; } joy.dx = dx / JOY_R; joy.dy = -dy / JOY_R; joyKnob.style.left = (joy.ox + dx - 29) + 'px'; joyKnob.style.top = (joy.oy + dy - 29) + 'px'; }
+function joyEnd() { joy.active = false; joy.dx = joy.dy = 0; joyBase.style.display = joyKnob.style.display = 'none'; }
+joyZone.addEventListener('pointerdown', e => { e.preventDefault(); try { joyZone.setPointerCapture(e.pointerId); } catch (x) {} swStart = { x: e.clientX, y: e.clientY, t: performance.now() }; joyStart(e.clientX, e.clientY, e.pointerId); });
+joyZone.addEventListener('pointermove', e => { if (joy.active && e.pointerId === joy.id) joyMove(e.clientX, e.clientY); });
+joyZone.addEventListener('pointerup', e => { detectSwipe(e); joyEnd(); });
+joyZone.addEventListener('pointercancel', joyEnd);
+function detectSwipe(e) {
+  if (!swStart) return; const dx = e.clientX - swStart.x, dy = e.clientY - swStart.y, dt = performance.now() - swStart.t;
+  const d = Math.hypot(dx, dy); swStart = null;
+  if (dt > 300 || d < 48) return; // a real flick, not a drag
+  if (Math.abs(dy) > Math.abs(dx)) keys.gesture = dy < 0 ? 'knock' : 'turn';
+  else keys.gesture = dx < 0 ? 'stepL' : 'stepR';
+}
+/* action buttons */
+function userHasBall() { return ball.owner && ball.owner.user; }
+let passDownT = 0;
+document.querySelectorAll('#btns .abtn').forEach(btn => {
+  const b = btn.dataset.b;
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); AudioSys.resume();
+    if (b === 'sprint') keys.sprint = true;
+    else if (b === 'shoot') { if (userHasBall()) keys.shoot = true; else keys.tackle_p = true; }
+    else if (b === 'pass') passDownT = performance.now();
+    else if (b === 'thru') keys.through_p = true;
+  });
+  btn.addEventListener('pointerup', e => { e.preventDefault();
+    if (b === 'sprint') keys.sprint = false;
+    else if (b === 'shoot') keys.shoot = false;
+    else if (b === 'pass') { const held = performance.now() - passDownT; if (userHasBall()) { if (held > 280) keys.lob_p = true; else keys.pass_p = true; } else keys.pass_p = true; }
+  });
+  btn.addEventListener('pointercancel', () => { if (b === 'sprint') keys.sprint = false; if (b === 'shoot') keys.shoot = false; });
+});
 
 /* ============================== audio ============================== */
 const AudioSys = (() => {
@@ -726,11 +834,11 @@ function gainPossession(p) {
 }
 
 function carryBall(p, dt) {
-  // ball sits just ahead of the dribbler's feet, nudged with each step
-  const ahead = 0.55 + p.speed * 0.06;
+  // ball sits just ahead of the dribbler's feet, nudged with each step (further on a knock-on)
+  const ahead = 0.55 + p.speed * 0.06 + (p.knock > 0 ? 1.2 : 0);
   const tx = p.pos.x + Math.sin(p.facing) * ahead, tz = p.pos.z + Math.cos(p.facing) * ahead;
-  ball.pos.x = damp(ball.pos.x, tx, 14, dt);
-  ball.pos.z = damp(ball.pos.z, tz, 14, dt);
+  ball.pos.x = damp(ball.pos.x, tx, p.knock > 0 ? 9 : 14, dt);
+  ball.pos.z = damp(ball.pos.z, tz, p.knock > 0 ? 9 : 14, dt);
   ball.pos.y = BALL_R;
   ball.vel.set(p.vel.x, 0, p.vel.z);
 }
@@ -749,22 +857,32 @@ function userControl(p, dt) {
   if (keys.down) { mx -= f.x; mz -= f.z; }
   if (keys.right) { mx += r.x; mz += r.z; }
   if (keys.left) { mx -= r.x; mz -= r.z; }
-  const mag = Math.hypot(mx, mz);
+  if (joy.active) { mx += r.x * joy.dx + f.x * joy.dy; mz += r.z * joy.dx + f.z * joy.dy; }
+  const rawMag = Math.hypot(mx, mz), inMag = Math.min(1, rawMag);
+  if (p.knock > 0) p.knock -= dt;
   const sprint = keys.sprint && p.stamina > 0.05;
-  const maxS = sprint ? p.maxRun : p.maxRun * 0.74;
-  if (mag > 0.01) {
-    const nx = mx / mag, nz = mz / mag;
-    p.vel.x = damp(p.vel.x, nx * maxS, 9, dt);
-    p.vel.z = damp(p.vel.z, nz * maxS, 9, dt);
+  const maxS = (sprint ? p.maxRun : p.maxRun * 0.74) * (p.knock > 0 ? 1.16 : 1);
+  if (rawMag > 0.05) {
+    const nx = mx / rawMag, nz = mz / rawMag, target = maxS * Math.max(inMag, keys.sprint ? 0.7 : 0.55);
+    p.vel.x = damp(p.vel.x, nx * target, 9, dt);
+    p.vel.z = damp(p.vel.z, nz * target, 9, dt);
     p.facing = aimDamp(p.facing, Math.atan2(nx, nz), 13, dt);
   } else { p.vel.x = damp(p.vel.x, 0, 11, dt); p.vel.z = damp(p.vel.z, 0, 11, dt); }
-  // stamina
-  p.stamina = clamp(p.stamina - (sprint && mag > 0.01 ? 0.08 : -0.05) * dt, 0, 1);
+  p.stamina = clamp(p.stamina - (sprint && rawMag > 0.05 ? 0.08 : -0.05) * dt, 0, 1);
 
   const haveBall = ball.owner === p;
   if (haveBall) carryBall(p, dt);
 
-  // actions
+  // swipe gestures (only meaningful with the ball)
+  if (keys.gesture) {
+    const g = keys.gesture; keys.gesture = null;
+    if (haveBall) {
+      if (g === 'turn') { p.facing += Math.PI; AudioSys.pass(); }
+      else if (g === 'knock') { p.knock = 0.6; showToast('KNOCK-ON', 0.5, 'sm'); }
+      else if (g === 'stepL' || g === 'stepR') { const s = g === 'stepL' ? -1 : 1; p.facing += s * 0.5; ball.pos.x += Math.cos(p.facing) * s * 0.4; ball.pos.z -= Math.sin(p.facing) * s * 0.4; }
+    } else if (g === 'turn') p.facing += Math.PI;
+  }
+
   if (haveBall) {
     if (pressed('pass')) doPass(p, false, false);
     else if (pressed('through')) doPass(p, false, true);
@@ -774,8 +892,7 @@ function userControl(p, dt) {
   } else {
     powerCharge = 0; powEl.style.opacity = 0;
     if (pressed('tackle')) tryTackle(p);
-    if (pressed('pass')) tryTackle(p); // press also works as a tackle when you don't have it
-    // auto-trap a loose ball you run into
+    if (pressed('pass')) tryTackle(p); // doubles as a press/tackle when you don't have it
     if (!ball.owner && p.cool <= 0 && dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < 0.9 && ball.pos.y < 1.1) gainPossession(p);
   }
 }
@@ -891,17 +1008,41 @@ function updateKickoff(dt) {
 
 /* ============================== HUD ============================== */
 const hSc = document.getElementById('hSc'), aSc = document.getElementById('aSc');
-const clockEl = document.getElementById('clock'), toastEl = document.getElementById('toast');
+const clockT = document.getElementById('clockT'), clockHl = document.getElementById('clockHl'), toastEl = document.getElementById('toast');
 const powEl = document.getElementById('pow'), powBar = powEl.querySelector('i');
-const staBar = document.querySelector('#sta .bar > i');
-let toastTimer = 0;
+const apNum = document.getElementById('apNum'), apName = document.getElementById('apName'), apRole = document.getElementById('apRole'), apSta = document.getElementById('apSta');
+let toastTimer = 0, lastUserShown = null;
 function showToast(txt, t, cls) { toastEl.textContent = txt; toastEl.className = cls || 'big'; toastEl.style.opacity = txt ? 1 : 0; toastEl.style.transform = 'translate(-50%,-50%) scale(1)'; toastTimer = t; }
+const ROLE_LABEL = { GK: 'GK', DF: 'DEF', MF: 'MID', FW: 'FWD' };
 function updateHUD(dt) {
   if (toastTimer > 0) { toastTimer -= dt; if (toastTimer <= 0) toastEl.style.opacity = 0; }
   const mins = Math.floor(G.clock / G.halfLen * 45) + (G.half === 2 ? 45 : 0);
   const secs = Math.floor((G.clock / G.halfLen * 45 * 60) % 60);
-  clockEl.textContent = String(Math.min(mins, 90)).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
-  if (userPlayer) staBar.style.width = (userPlayer.stamina * 100) + '%';
+  clockT.textContent = String(Math.min(mins, 90)).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  clockHl.textContent = G.state === 'full' ? 'FULL TIME' : (G.half === 2 ? '2ND HALF' : '1ST HALF');
+  if (userPlayer) {
+    apSta.style.width = (userPlayer.stamina * 100) + '%';
+    if (userPlayer !== lastUserShown) { lastUserShown = userPlayer; apNum.textContent = userPlayer.number; apName.textContent = userPlayer.name; apRole.textContent = ROLE_LABEL[userPlayer.role] || ''; }
+  }
+  drawRadar();
+}
+/* radar / minimap */
+const radar = document.getElementById('radar'), rctx = radar.getContext('2d');
+let radarT = 0;
+function drawRadar() {
+  radarT++; if (radarT % 2) return;
+  const W = radar.width, H = radar.height, px = x => (x + HL) / PITCH_L * W, pz = z => (z + HW) / PITCH_W * H;
+  rctx.clearRect(0, 0, W, H);
+  rctx.fillStyle = 'rgba(10,40,16,0.82)'; rctx.strokeStyle = 'rgba(255,255,255,0.5)'; rctx.lineWidth = 1.5;
+  rctx.fillRect(1, 1, W - 2, H - 2); rctx.strokeRect(1, 1, W - 2, H - 2);
+  rctx.beginPath(); rctx.moveTo(W / 2, 1); rctx.lineTo(W / 2, H - 1); rctx.stroke();
+  rctx.beginPath(); rctx.arc(W / 2, H / 2, 13, 0, TAU); rctx.stroke();
+  for (const p of players) {
+    rctx.beginPath(); rctx.arc(px(p.pos.x), pz(p.pos.z), p === userPlayer ? 4 : 2.6, 0, TAU);
+    rctx.fillStyle = p === userPlayer ? '#fff' : (p.team === 'home' ? '#ff3b4a' : '#3b8bff'); rctx.fill();
+    if (p === userPlayer) { rctx.strokeStyle = '#ffd23f'; rctx.lineWidth = 1.5; rctx.beginPath(); rctx.arc(px(p.pos.x), pz(p.pos.z), 5.5, 0, TAU); rctx.stroke(); }
+  }
+  rctx.beginPath(); rctx.arc(px(ball.pos.x), pz(ball.pos.z), 2.2, 0, TAU); rctx.fillStyle = '#ffe14d'; rctx.fill();
 }
 
 /* ============================== animation ============================== */
@@ -959,23 +1100,24 @@ function animatePlayer(p, dt) {
 }
 
 /* highlight the user-controlled player with a small ground ring */
-const userRing = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.7, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
-userRing.rotation.x = -Math.PI / 2; userRing.position.y = 0.03; scene.add(userRing);
+const userRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.64, 26), new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+userRing.rotation.x = -Math.PI / 2; userRing.position.y = 0.04; scene.add(userRing);
+const chevron = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.46, 4), new THREE.MeshBasicMaterial({ color: 0xffe14d }));
+chevron.rotation.x = Math.PI; chevron.rotation.y = Math.PI / 4; scene.add(chevron);
 
 /* ============================== camera ============================== */
 function updateCamera(dt) {
   const bx = ball.pos.x, bz = ball.pos.z;
   let tp, tl;
-  if (camMode === 0) { // broadcast: side, elevated, pans with ball along length, tightens near goals
-    const zoom = lerp(1, 0.78, clamp(Math.abs(bx) / HL, 0, 1));
-    tp = V3(bx * 0.72, lerp(30, 24, zoom === 0 ? 0 : 1 - zoom), 46 + Math.abs(bx) * 0.12);
-    tp.set(bx * 0.72, 30 - (1 - zoom) * 8, 44);
-    tl = V3(bx * 0.82, 2, bz * 0.35);
-  } else if (camMode === 1) { // high tele
-    tp = V3(bx * 0.5, 62, 30); tl = V3(bx * 0.7, 0, bz * 0.4);
-  } else { // low follow behind the action
+  if (camMode === 0) { // chase / behind the play — the broadcast-behind default
     const dir = G.attackingDir.home;
-    tp = V3(bx - dir * 14, 9, bz + 10); tl = V3(bx + dir * 6, 1.4, bz);
+    tp = V3(bx - dir * 19, 12, clamp(bz, -18, 18) * 0.7);
+    tl = V3(bx + dir * 16, 1.8, clamp(bz, -20, 20) * 0.7);
+  } else if (camMode === 1) { // side broadcast, pans along the length and tightens near goal
+    tp = V3(bx * 0.72, 30 - clamp(Math.abs(bx) / HL, 0, 1) * 8, 44);
+    tl = V3(bx * 0.82, 2, bz * 0.35);
+  } else { // high tele
+    tp = V3(bx * 0.5, 62, 30); tl = V3(bx * 0.7, 0, bz * 0.4);
   }
   camera.position.x = damp(camera.position.x, tp.x, 3, dt);
   camera.position.y = damp(camera.position.y, tp.y, 3, dt);
@@ -1032,16 +1174,24 @@ function update(dt) {
 
   // animation + visuals
   for (const p of players) animatePlayer(p, dt);
-  if (userPlayer) { userRing.position.x = userPlayer.pos.x; userRing.position.z = userPlayer.pos.z; userRing.visible = G.state === 'play' || G.state === 'kickoff'; }
+  if (userPlayer) {
+    const vis = G.state === 'play' || G.state === 'kickoff' || G.state === 'deadball';
+    userRing.position.x = userPlayer.pos.x; userRing.position.z = userPlayer.pos.z; userRing.visible = vis;
+    chevron.visible = vis; chevron.position.set(userPlayer.pos.x, 2.5 + Math.sin(performance.now() * 0.004) * 0.12, userPlayer.pos.z);
+  }
   // net ripple
   for (const g of goals) { if (g.ripple > 0) { g.ripple -= dt; const r = g.ripple; g.back.position.x = g.back.position.x; g.back.scale.setScalar(1 + Math.sin(r * 30) * 0.03 * r); } }
   // crowd jiggle on celebrate
-  if (crowd && G.state === 'celebrate') {
-    const dummy = crowd.userData.dummy, ys = crowd.userData.baseY, dots = crowd.userData.dots;
-    for (let i = 0; i < dots.length; i += 1) { if ((i & 3) !== (Math.floor(G.clock * 20) & 3)) continue; dummy.position.set(dots[i].x, ys[i] + Math.abs(Math.sin(G.clock * 12 + i)) * 0.6, dots[i].z); dummy.scale.setScalar(1); dummy.updateMatrix(); crowd.setMatrixAt(i, dummy.matrix); }
-    crowd.instanceMatrix.needsUpdate = true;
+  if (G.state === 'celebrate') {
+    const ph = Math.floor(G.clock * 20) & 3;
+    for (const st of crowds) {
+      const dots = st.dots, dummy = st.dummy;
+      for (let i = 0; i < dots.length; i++) { if ((i & 3) !== ph) continue; dummy.position.set(dots[i].x, dots[i].y + Math.abs(Math.sin(G.clock * 12 + i)) * 0.6, dots[i].z); dummy.scale.setScalar(1); dummy.updateMatrix(); st.crowd.setMatrixAt(i, dummy.matrix); }
+      st.crowd.instanceMatrix.needsUpdate = true;
+    }
   }
 
+  for (const ab of adBoards) ab.t.offset.x += ab.speed * dt;
   updateCamera(dt);
   updateHUD(dt);
   if (G.flash > 0) { G.flash -= dt * 1.5; renderer.toneMappingExposure = 1.05 + G.flash; } else renderer.toneMappingExposure = 1.05;
