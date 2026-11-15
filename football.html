@@ -312,9 +312,9 @@ const roofMat = new THREE.MeshStandardMaterial({ color: 0x252b34, roughness: 0.8
 const CROWD_COLS = [0xe31e2c, 0xe31e2c, 0x1e78e3, 0x1e78e3, 0xffffff, 0xffffff, 0xf4c430, 0xf4c430, 0x2a3340, 0xd94f8a, 0x2fae5a, 0xffa030];
 const crowds = [];
 // build one stand in local space (runs along local X, depth +Z out from pitch), then rotate into place
-function buildStand(len, yaw, front) {
+function buildStand(len, yaw, front, tiers) {
   const g = new THREE.Group(); g.rotation.y = yaw;
-  const tiers = LOW ? 7 : 12, rise = 1.3, depthStep = 1.55;
+  const rise = 1.3, depthStep = 1.55;
   const n = Math.floor(len / 1.0);
   const y0 = 1.6, z0 = front, y1 = y0 + (tiers - 1) * rise, z1 = z0 + (tiers - 1) * depthStep;
   const ang = Math.atan2(rise, depthStep);
@@ -340,10 +340,10 @@ function buildStand(len, yaw, front) {
   scene.add(g);
   crowds.push({ crowd, dots, dummy });
 }
-buildStand(PITCH_L + 36, 0, HW + 6);
-buildStand(PITCH_L + 36, Math.PI, HW + 6);
-buildStand(PITCH_W + 30, -Math.PI / 2, HL + 8);
-buildStand(PITCH_W + 30, Math.PI / 2, HL + 8);
+buildStand(PITCH_L + 36, 0, HW + 6, LOW ? 7 : 12);            // tall side stands
+buildStand(PITCH_L + 36, Math.PI, HW + 6, LOW ? 7 : 12);
+buildStand(PITCH_W + 30, -Math.PI / 2, HL + 8, LOW ? 4 : 6);  // low ends, so the town shows over them
+buildStand(PITCH_W + 30, Math.PI / 2, HL + 8, LOW ? 4 : 6);
 
 // floodlights
 for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -352,6 +352,44 @@ for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
   const panel = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.6), new THREE.MeshStandardMaterial({ color: 0x20262f, emissive: 0xfff6d8, emissiveIntensity: 0.9 }));
   panel.position.set(sx * (HL + 14), 33, sz * (HW + 12)); panel.lookAt(0, 0, 0); scene.add(panel);
 }
+
+/* ground that stretches out to the houses, and a little neighbourhood beyond the stands */
+const bigGround = new THREE.Mesh(new THREE.PlaneGeometry(520, 420), new THREE.MeshStandardMaterial({ color: 0x2b5a2e, roughness: 1 }));
+bigGround.rotation.x = -Math.PI / 2; bigGround.position.y = -0.08; bigGround.receiveShadow = true; scene.add(bigGround);
+function buildHouse(x, z, s, wall, roof, flag, baseY = 0) {
+  const g = new THREE.Group(); g.position.set(x, baseY, z); g.rotation.y = Math.atan2(-x, -z); g.scale.setScalar(s); // front door faces the pitch
+  const wm = new THREE.MeshStandardMaterial({ color: wall, roughness: 0.9 });
+  const rm = new THREE.MeshStandardMaterial({ color: roof, roughness: 0.85 });
+  const dm = new THREE.MeshStandardMaterial({ color: 0x5a3a1e, roughness: 0.7 });
+  const win = new THREE.MeshStandardMaterial({ color: 0xbfe4ff, emissive: 0xffe9a8, emissiveIntensity: 0.6, roughness: 0.25 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 6), wm); body.position.y = 2; body.castShadow = true; body.receiveShadow = true; g.add(body);
+  const roofMesh = new THREE.Mesh(new THREE.ConeGeometry(6.4, 3.4, 4), rm); roofMesh.rotation.y = Math.PI / 4; roofMesh.position.y = 5.6; roofMesh.scale.set(1, 1, 0.78); roofMesh.castShadow = true; g.add(roofMesh);
+  const door = new THREE.Mesh(new THREE.BoxGeometry(1.3, 2.3, 0.2), dm); door.position.set(0, 1.15, 3.02); g.add(door);
+  for (const sx of [-2.5, 2.5]) { const w = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 0.12), win); w.position.set(sx, 2.4, 3.03); g.add(w); }
+  for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.5, 1.5), win); w.position.set(sx * 4.03, 2.4, 0); g.add(w); }
+  const chim = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2, 0.8), wm); chim.position.set(2.2, 6.4, -1); chim.castShadow = true; g.add(chim);
+  const garden = new THREE.Mesh(new THREE.CircleGeometry(10, 22), new THREE.MeshStandardMaterial({ color: 0x3f7a34, roughness: 1 })); garden.rotation.x = -Math.PI / 2; garden.position.y = 0.02; garden.receiveShadow = true; g.add(garden);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 1.8, 6), new THREE.MeshStandardMaterial({ color: 0x6b4a2a })); trunk.position.set(-5.5, 0.9, 2.5); g.add(trunk);
+  const leaf = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6, 1), new THREE.MeshStandardMaterial({ color: 0x3f8f3f, flatShading: true, roughness: 0.9 })); leaf.position.set(-5.5, 2.8, 2.5); leaf.castShadow = true; g.add(leaf);
+  if (flag) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 5, 6), new THREE.MeshStandardMaterial({ color: 0xcccccc })); pole.position.set(4.6, 2.5, 2.5); g.add(pole); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshStandardMaterial({ color: 0xe31e2c, side: THREE.DoubleSide })); fl.position.set(5.4, 4.3, 2.5); g.add(fl); }
+  scene.add(g); return g;
+}
+// a hillside town behind each goal, raised so its roofs peek over the stands (like houses overlooking a real ground)
+const hillMat = new THREE.MeshStandardMaterial({ color: 0x356b36, roughness: 1 });
+function buildHill(cx) { const h = new THREE.Mesh(new THREE.SphereGeometry(46, 26, 16), hillMat); h.position.set(cx, 0, 0); h.scale.set(1.0, 0.35, 1.0); h.receiveShadow = true; scene.add(h); }
+function buildTown(dir) {
+  const gx = dir * 140;                 // well beyond the stadium footprint
+  buildHill(gx);
+  // "our" house with a flag, biggest, front-and-centre on the hill behind the goal
+  buildHouse(gx - dir * 4, 0, 2.7, 0xf2e8d2, 0xb0432e, dir > 0, 14.6);
+  buildHouse(gx + dir * 11, -24, 2.2, 0xd8e8f0, 0x3a6ea5, false, 13.6);
+  buildHouse(gx + dir * 11, 24, 2.2, 0xeadfcf, 0x4a7a3a, false, 13.6);
+  buildHouse(gx + dir * 25, -9, 2.0, 0xf0ddc8, 0x8a5a2a, false, 12.0);
+  buildHouse(gx + dir * 25, 12, 2.0, 0xdfe6ea, 0x6a5f4a, false, 12.0);
+  buildHouse(gx - dir * 16, -20, 2.0, 0xe8e0d0, 0x4a6a8a, false, 13.2);
+  buildHouse(gx - dir * 16, 20, 2.0, 0xf4ead6, 0x9a5236, false, 13.2);
+}
+buildTown(1); buildTown(-1);
 
 /* LED advertising boards ringing the pitch */
 const adBoards = [];
@@ -483,6 +521,21 @@ const FORMATION = [
 ];
 const players = [];
 let userPlayer = null;
+/* floating name tag above a player (billboard sprite, drawn over the world) */
+function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+function makeLabel(p) {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
+  const sur = (p.name.split('. ')[1] || p.name);
+  g.font = '800 23px Arial'; const tw = g.measureText(sur).width, W = 50 + tw + 14, x0 = (256 - W) / 2;
+  g.fillStyle = 'rgba(8,12,18,0.74)'; rr(g, x0, 18, W, 30, 8); g.fill();
+  g.fillStyle = p.team === 'home' ? '#e31e2c' : '#1e78e3'; rr(g, x0 + 4, 21, 34, 24, 5); g.fill();
+  g.fillStyle = '#fff'; g.textBaseline = 'middle';
+  g.font = '900 20px Arial'; g.textAlign = 'center'; g.fillText(p.number, x0 + 21, 34);
+  g.font = '800 23px Arial'; g.textAlign = 'left'; g.fillText(sur, x0 + 44, 34);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  sp.scale.set(3.4, 0.85, 1); sp.renderOrder = 20; scene.add(sp); return sp;
+}
 // home attacks +x (dir=+1), away attacks -x (dir=-1)
 function formationWorld(f, team) {
   const dir = team === 'home' ? 1 : -1;
@@ -512,6 +565,7 @@ function buildTeams() {
         speed: 0, gait: Math.random() * TAU, user: false, control: 0, lunge: 0, kickAnim: 0, dive: 0, cool: 0, knock: 0,
         maxRun: isGK ? 5.6 : rand(6.6, 7.6), accel: isGK ? 22 : 26, stamina: 1,
       };
+      p.label = makeLabel(p);
       players.push(p);
     });
   }
@@ -1097,6 +1151,14 @@ function animatePlayer(p, dt) {
   // GK dive
   if (p.dive > 0) { p.dive -= dt; const side = Math.sign(ball.pos.z - p.pos.z) || 1; g.rotation.z = -side * Math.sin(clamp(p.dive / 0.5, 0, 1) * Math.PI) * 1.1; } else g.rotation.z = damp(g.rotation.z, 0, 8, dt);
   if (p.cool > 0) p.cool -= dt;
+  // floating name tag
+  if (p.label) {
+    p.label.visible = G.state !== 'menu';
+    p.label.position.set(p.pos.x, 2.5, p.pos.z);
+    const big = p === userPlayer ? 1.25 : 1;
+    p.label.scale.set(3.4 * big, 0.85 * big, 1);
+    p.label.material.opacity = p === userPlayer ? 1 : 0.86;
+  }
 }
 
 /* highlight the user-controlled player with a small ground ring */
