@@ -963,15 +963,29 @@ function updateFootball(dt) {
   // ground / pitch surface
   if (b.pos.y < floorY) { b.pos.y = floorY; if (b.vel.y < -1.2) b.vel.y = -b.vel.y * 0.5; else b.vel.y = 0; const f = Math.exp(-0.62 * dt); b.vel.x *= f; b.vel.z *= f; if (Math.hypot(b.vel.x, b.vel.z) < 0.06) { b.vel.x = 0; b.vel.z = 0; } }
   else { const a = Math.exp(-0.12 * dt); b.vel.x *= a; b.vel.z *= a; }
-  // player kick: run into it or punch near it
+  // sprint: while held, ramp up your ground speed
+  if (G.sprintFB && P.onGround) { const h = Math.hypot(P.vel.x, P.vel.z); if (h > 0.3) { const tgt = Math.max(h, Math.min(22, h + 90 * dt)); P.vel.x = P.vel.x / h * tgt; P.vel.z = P.vel.z / h * tgt; } }
+  // ball control: if an opponent is NOT pressing you, take the ball and run with it; if they press, it's a loose scrap
   const dx = P.pos.x - b.pos.x, dz = P.pos.z - b.pos.z, d = Math.hypot(dx, dz);
-  if (d < 2.1 && Math.abs(P.pos.y - b.pos.y) < 3 && b.scored <= 0) {
-    const pv = Math.hypot(P.vel.x, P.vel.z), kx = -dx / (d || 1), kz = -dz / (d || 1);
-    const power = (P.punchT > 0 ? 30 : 0) + pv * 0.95 + 5;
-    b.vel.x = kx * power + P.vel.x * 0.4; b.vel.z = kz * power + P.vel.z * 0.4;
-    b.vel.y = Math.max(b.vel.y, P.punchT > 0 ? 9 : 3.5);
-    AudioSys.punch(); if (power > 20) floatText(b.pos.clone().add(V3(0, 2, 0)), 'KICK!', '#9fe870', 18);
+  let pressed = false;
+  if (MATCH.active) for (const e of MATCH.enemies) { if (Math.hypot(e.pos.x - P.pos.x, e.pos.z - P.pos.z) < 2.8) { pressed = true; break; } }
+  if (d < 2.0 && Math.abs(P.pos.y - b.pos.y) < 3 && b.scored <= 0) {
+    if (!pressed && b.pos.y <= floorY + 0.2) {
+      // dribble: keep the ball just ahead of your feet and carry it
+      const sp = Math.hypot(P.vel.x, P.vel.z);
+      const nx = sp > 0.4 ? P.vel.x / sp : Math.sin(P.facing), nz = sp > 0.4 ? P.vel.z / sp : Math.cos(P.facing);
+      const ahead = 1.1 + (G.sprintFB ? 1.3 : 0.5) + sp * 0.05, k = 1 - Math.exp(-15 * dt);
+      b.pos.x = lerp(b.pos.x, P.pos.x + nx * ahead, k); b.pos.z = lerp(b.pos.z, P.pos.z + nz * ahead, k); b.pos.y = floorY;
+      b.vel.set(P.vel.x, 0, P.vel.z); b.dribble = 0.2;
+    } else {
+      // pressed, or a bouncing ball: a scrappy touch that can be taken off you
+      const pv = Math.hypot(P.vel.x, P.vel.z), kx = -dx / (d || 1), kz = -dz / (d || 1);
+      const power = (P.punchT > 0 ? 28 : 0) + pv * 0.8 + 4;
+      b.vel.x = kx * power + P.vel.x * 0.35; b.vel.z = kz * power + P.vel.z * 0.35; b.vel.y = Math.max(b.vel.y, P.punchT > 0 ? 8 : 2.5);
+      AudioSys.punch();
+    }
   }
+  if (b.dribble > 0) b.dribble -= dt;
   // keep the ball on the pitch: bounce off the touchlines and the back of the goals, score through the mouth
   const lx = b.pos.x - P_.x, lz = b.pos.z - P_.z, halfL = P_.L / 2, halfW = P_.W / 2;
   if (Math.abs(lz) > halfW && b.vel.z * lz > 0) { b.vel.z *= -0.6; b.pos.z = P_.z + Math.sign(lz) * halfW; }
@@ -1138,9 +1152,9 @@ function startMatch() {
 }
 function endCup() { clearFootballers(); MATCH.active = false; MATCH.state = 'idle'; MATCH.round = 0; matchHud.style.display = 'none'; matchBanner.style.display = 'none'; resetPlayer(); }
 function updateMatch(dt) {
-  if (!MATCH.active) { matchHud.style.display = 'none'; shootBtn.style.display = 'none'; takeBtn.style.display = 'none'; return; }
+  if (!MATCH.active) { matchHud.style.display = 'none'; shootBtn.style.display = 'none'; takeBtn.style.display = 'none'; sprintBtn.style.display = 'none'; G.sprintFB = false; return; }
   const P_ = LANDMARK.pitch; if (!P_) return;
-  const showBtns = MATCH.state === 'play'; shootBtn.style.display = showBtns ? 'flex' : 'none'; takeBtn.style.display = showBtns ? 'flex' : 'none';
+  const showBtns = MATCH.state === 'play'; shootBtn.style.display = showBtns ? 'flex' : 'none'; takeBtn.style.display = showBtns ? 'flex' : 'none'; sprintBtn.style.display = showBtns ? 'flex' : 'none'; if (!showBtns) G.sprintFB = false;
   if (MATCH.state === 'play') { MATCH.time += dt; aiTeam('s', dt); aiTeam('e', dt); if (MATCH.time >= MATCH.dur || MATCH.score.s >= 7 || MATCH.score.e >= 7) endRound(); }
   else if (MATCH.state === 'between') { MATCH.nextT -= dt; if (MATCH.nextT <= 0) startMatch(); }
   else if (MATCH.state === 'champion') { MATCH.nextT -= dt; if (Math.random() < dt * 7) burst(soccer.pos.clone().add(V3(rand(-7, 7), rand(2, 9), rand(-7, 7))), 8, [0xff5a6a, 0x9fe870, 0xffd23f, 0x18d0ff][Math.floor(Math.random() * 4)], 8, 0.9); if (MATCH.nextT <= 0) endCup(); }
@@ -1207,9 +1221,13 @@ function mkMatchBtn(txt, grad, right, bottom, size) {
 }
 const shootBtn = mkMatchBtn('SHOOT', 'radial-gradient(120% 120% at 35% 30%,#ff6a7a,#e31e2c)', '22px', '122px', 88);
 const takeBtn = mkMatchBtn('TAKE', 'radial-gradient(120% 120% at 35% 30%,#67e8ff,#1aa7d0)', '122px', '150px', 74);
+const sprintBtn = mkMatchBtn('SPRINT', 'radial-gradient(120% 120% at 35% 30%,#8fe87a,#28a84a)', '190px', '116px', 68); sprintBtn.style.color = '#06250f'; sprintBtn.style.textShadow = 'none';
 shootBtn.addEventListener('pointerdown', e => { e.preventDefault(); userShoot(); });
 takeBtn.addEventListener('pointerdown', e => { e.preventDefault(); userTake(); });
-addEventListener('keydown', e => { if (!MATCH.active || MATCH.state !== 'play') return; if (e.code === 'KeyU') { e.preventDefault(); userShoot(); } else if (e.code === 'KeyO') { e.preventDefault(); userTake(); } });
+const spOn = e => { e.preventDefault(); G.sprintFB = true; }, spOff = () => { G.sprintFB = false; };
+sprintBtn.addEventListener('pointerdown', spOn); sprintBtn.addEventListener('pointerup', spOff); sprintBtn.addEventListener('pointercancel', spOff); sprintBtn.addEventListener('pointerleave', spOff);
+addEventListener('keydown', e => { if (!MATCH.active || MATCH.state !== 'play') return; if (e.code === 'KeyU') { e.preventDefault(); userShoot(); } else if (e.code === 'KeyO') { e.preventDefault(); userTake(); } else if (e.code === 'KeyR') { e.preventDefault(); G.sprintFB = true; } });
+addEventListener('keyup', e => { if (e.code === 'KeyR') G.sprintFB = false; });
 // Wind tunnels: streams of air above the river, the avenues and the bridges that web wings can ride.
 const TUNNELS = [];
 let streakMesh = null; const streaks = [];
