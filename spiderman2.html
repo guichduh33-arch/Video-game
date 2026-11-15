@@ -474,7 +474,8 @@ const NX = 15, NZ = 11, RIVER_BX = 7, RGAP = 20, RIVER_HW = 62, BRIDGE_ROWS = [2
 const WORLD_X = NX * PITCH, WORLD_Z = NZ * PITCH, WORLD = WORLD_X;
 const streetX = [], streetZ = [], BRIDGE_Z = [];
 const inRiver = (x, z) => Math.abs(x) < RIVER_HW && !BRIDGE_Z.some(bz => Math.abs(z - bz) < 8);
-const LANDMARK = { oscorp: null, home: null };
+const LANDMARK = { oscorp: null, home: null, pitch: null };
+let soccer = null; // the kickable football
 const SIGNS = ['BODEGA', 'PIZZA', '24 HR', 'BK', 'LAUNDRY', 'RECORDS', 'DELI', 'HOTEL', 'ARCADE', 'DINER'];
 const SIGN_COLORS = ['#ff3b6b', '#3bffd0', '#ffd23f', '#8e6bff', '#ff7a3b'];
 const spriteCache = {};
@@ -567,6 +568,7 @@ function genCity() {
     }
     if (west && bx === 2 && bz === 5) { buildOscorp(cx, cz, r); continue; }
     if (!west && bx === 10 && bz === 5) { buildHideout(cx, cz, r); continue; } // Miles' home + gaming PC
+    if (!west && bx === 9 && bz === 7) { buildPitch(cx, cz); continue; } // a football pitch in the city
     if (r() < (west ? 0.03 : 0.1) && dist > 0.3) { // a park
       const grass = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), grassMat));
       grass.position.set(cx, 0.32, cz); scene.add(grass);
@@ -859,6 +861,84 @@ function buildHideout(cx, cz, r) {
   const sign = textSprite('HOME', '#ff4d6a', 26); sign.position.set(cx, y + 15, cz); scene.add(sign);
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 300, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0xff4d6a, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false })); beam.position.set(cx, y + 150, cz); scene.add(beam);
   const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6, 40), new THREE.MeshBasicMaterial({ color: 0xff4d6a, transparent: true, opacity: 0.3, side: THREE.DoubleSide, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.set(cx, y + 0.2, cz); scene.add(ring);
+}
+// A five-a-side football pitch down in the city — kick the ball (run into it, or punch) and score.
+function pitchFieldTex(L, W) {
+  const ppm = 14, cw = Math.round(L * ppm), ch = Math.round(W * ppm); const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d');
+  const n = 10, sw = cw / n; for (let i = 0; i < n; i++) { g.fillStyle = i % 2 ? '#2e7a33' : '#348237'; g.fillRect(i * sw, 0, sw + 1, ch); }
+  g.strokeStyle = '#eef3ee'; g.lineWidth = Math.max(2, 0.12 * ppm); const pad = 6;
+  g.strokeRect(pad, pad, cw - 2 * pad, ch - 2 * pad);
+  g.beginPath(); g.moveTo(cw / 2, pad); g.lineTo(cw / 2, ch - pad); g.stroke();
+  g.beginPath(); g.arc(cw / 2, ch / 2, ppm * 4, 0, TAU); g.stroke();
+  g.fillStyle = '#eef3ee'; g.beginPath(); g.arc(cw / 2, ch / 2, 3, 0, TAU); g.fill();
+  const bw = ppm * 6, bh = ppm * 13; for (const s of [0, 1]) { const x = s ? cw - pad - bw : pad; g.strokeRect(x, ch / 2 - bh / 2, bw, bh); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+function ballTex() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d');
+  g.fillStyle = '#f6f6f6'; g.fillRect(0, 0, 128, 128); g.fillStyle = '#1c1c1c';
+  const pent = (cx, cy, rr) => { g.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU / 5; const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); g.fill(); };
+  pent(64, 64, 17); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU / 5; pent(64 + Math.cos(a) * 46, 64 + Math.sin(a) * 46, 10); }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function buildPitch(cx, cz) {
+  const L = 46, W = 30, surfY = 0.38, goalHW = 3.6, goalH = 2.6;
+  LANDMARK.pitch = { x: cx, z: cz, L, W, goalHW, goalH, surfY };
+  G.footScore = 0;
+  // the grass field with markings
+  const field = shadowed(new THREE.Mesh(new THREE.PlaneGeometry(L, W), new THREE.MeshStandardMaterial({ map: pitchFieldTex(L, W), roughness: 0.92 })));
+  field.rotation.x = -Math.PI / 2; field.position.set(cx, surfY, cz); field.receiveShadow = true; scene.add(field);
+  // goals at each end (x = cx ± L/2)
+  const postMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, emissive: 0x222222, emissiveIntensity: 0.2 });
+  const netMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.22, side: THREE.DoubleSide, roughness: 1, depthWrite: false });
+  for (const sx of [-1, 1]) {
+    const gx = cx + sx * L / 2;
+    for (const sz of [-1, 1]) { const post = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, goalH, 10), postMat)); post.position.set(gx, surfY + goalH / 2, cz + sz * goalHW); scene.add(post); }
+    const bar = shadowed(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, goalHW * 2 + 0.24, 10), postMat)); bar.rotation.x = Math.PI / 2; bar.position.set(gx, surfY + goalH, cz); scene.add(bar);
+    const back = new THREE.Mesh(new THREE.PlaneGeometry(goalHW * 2, goalH), netMat); back.rotation.y = Math.PI / 2; back.position.set(gx + sx * 1.6, surfY + goalH / 2, cz); scene.add(back);
+    const top = new THREE.Mesh(new THREE.PlaneGeometry(1.6, goalHW * 2), netMat); top.rotation.x = Math.PI / 2; top.position.set(gx + sx * 0.8, surfY + goalH, cz); scene.add(top);
+  }
+  // the ball
+  const ball = shadowed(new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), new THREE.MeshStandardMaterial({ map: ballTex(), roughness: 0.5 })));
+  scene.add(ball);
+  soccer = { mesh: ball, pos: V3(cx, surfY + 0.55, cz), vel: V3(), r: 0.55, home: V3(cx, surfY + 0.55, cz), scored: 0 };
+  ball.position.copy(soccer.pos);
+  // a green locator so you can find the pitch from the air
+  const sign = textSprite('FOOTBALL', '#9fe870', 24); sign.position.set(cx, 12, cz); scene.add(sign);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 240, 8, 1, true), new THREE.MeshBasicMaterial({ color: 0x9fe870, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false })); beam.position.set(cx, 120, cz); scene.add(beam);
+}
+function updateFootball(dt) {
+  const b = soccer; if (!b) return; const P_ = LANDMARK.pitch;
+  const floorY = P_.surfY + b.r;
+  b.vel.y -= GRAV * dt;
+  b.pos.addScaledVector(b.vel, dt);
+  // ground / pitch surface
+  if (b.pos.y < floorY) { b.pos.y = floorY; if (b.vel.y < -1.2) b.vel.y = -b.vel.y * 0.5; else b.vel.y = 0; const f = Math.exp(-0.95 * dt); b.vel.x *= f; b.vel.z *= f; if (Math.hypot(b.vel.x, b.vel.z) < 0.06) { b.vel.x = 0; b.vel.z = 0; } }
+  else { const a = Math.exp(-0.12 * dt); b.vel.x *= a; b.vel.z *= a; }
+  // player kick: run into it or punch near it
+  const dx = P.pos.x - b.pos.x, dz = P.pos.z - b.pos.z, d = Math.hypot(dx, dz);
+  if (d < 2.1 && Math.abs(P.pos.y - b.pos.y) < 3 && b.scored <= 0) {
+    const pv = Math.hypot(P.vel.x, P.vel.z), kx = -dx / (d || 1), kz = -dz / (d || 1);
+    const power = (P.punchT > 0 ? 30 : 0) + pv * 0.95 + 5;
+    b.vel.x = kx * power + P.vel.x * 0.4; b.vel.z = kz * power + P.vel.z * 0.4;
+    b.vel.y = Math.max(b.vel.y, P.punchT > 0 ? 9 : 3.5);
+    AudioSys.punch(); if (power > 20) floatText(b.pos.clone().add(V3(0, 2, 0)), 'KICK!', '#9fe870', 18);
+  }
+  // keep the ball on the pitch: bounce off the touchlines and the back of the goals, score through the mouth
+  const lx = b.pos.x - P_.x, lz = b.pos.z - P_.z, halfL = P_.L / 2, halfW = P_.W / 2;
+  if (Math.abs(lz) > halfW && b.vel.z * lz > 0) { b.vel.z *= -0.6; b.pos.z = P_.z + Math.sign(lz) * halfW; }
+  if (Math.abs(lx) > halfL) {
+    if (Math.abs(lz) < P_.goalHW && b.pos.y < P_.surfY + P_.goalH && b.scored <= 0) { // GOAL!
+      b.scored = 1.2; G.footScore++;
+      floatText(b.pos.clone().add(V3(0, 3, 0)), 'GOAL!  ' + G.footScore, '#ffd23f', 30); AudioSys.win(); AudioSys.thwip();
+      burst(b.pos.clone().add(V3(0, 1, 0)), 26, 0xffd23f, 8, 0.7);
+    } else if (Math.abs(lx) > halfL + 1.4 && b.vel.x * lx > 0) { b.vel.x *= -0.6; b.pos.x = P_.x + Math.sign(lx) * (halfL + 1.4); }
+  }
+  if (b.scored > 0) { b.scored -= dt; if (b.scored <= 0) { b.pos.copy(b.home); b.vel.set(0, 0, 0); } }
+  // visuals: roll the ball along its travel
+  b.mesh.position.copy(b.pos);
+  const sp = Math.hypot(b.vel.x, b.vel.z);
+  if (sp > 0.05) { const axis = V3(0, 1, 0).cross(V3(b.vel.x, 0, b.vel.z)).normalize(); b.mesh.rotateOnWorldAxis(axis, sp * dt / b.r); }
 }
 // Wind tunnels: streams of air above the river, the avenues and the bridges that web wings can ride.
 const TUNNELS = [];
@@ -3084,7 +3164,7 @@ function update(dt, now) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt); updateFootball(dt);
     if (G.swapCd > 0) G.swapCd -= dt;
     AudioSys.setHeight(P.pos.y); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
     if (!P.alive && P.deadT > 0.1 && G.state === 'play') { AudioSys.lose(); endGame(false); }
@@ -3111,7 +3191,7 @@ function frame(now) {
   if (!G.booted) { G.booted = true; const el = document.getElementById('boot'); if (el) el.remove(); }
 }
 requestAnimationFrame(frame);
-window.__game = { tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt, performance.now()); }, keys, pressed, spawnEnemy, usePower, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, hitBoss, boss, SK, story, showAct, CHAT, sendChat, setSuit, suit: () => SUIT, hero: () => HERO, HS, swapHero, peds, pigeons, PADS, TUNNELS, LANDMARK, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt, performance.now()); }, keys, pressed, spawnEnemy, usePower, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, hitBoss, boss, SK, story, showAct, CHAT, sendChat, setSuit, suit: () => SUIT, hero: () => HERO, HS, swapHero, peds, pigeons, PADS, TUNNELS, LANDMARK, soccer: () => soccer, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
