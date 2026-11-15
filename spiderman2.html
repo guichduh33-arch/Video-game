@@ -950,9 +950,9 @@ function updateFootball(dt) {
   if (Math.abs(lz) > halfW && b.vel.z * lz > 0) { b.vel.z *= -0.6; b.pos.z = P_.z + Math.sign(lz) * halfW; }
   if (Math.abs(lx) > halfL) {
     if (Math.abs(lz) < P_.goalHW && b.pos.y < P_.surfY + P_.goalH && b.scored <= 0) { // GOAL!
-      b.scored = 1.2; G.footScore++;
-      floatText(b.pos.clone().add(V3(0, 3, 0)), 'GOAL!  ' + G.footScore, '#ffd23f', 30); AudioSys.win(); AudioSys.thwip();
-      burst(b.pos.clone().add(V3(0, 1, 0)), 26, 0xffd23f, 8, 0.7);
+      b.scored = 1.2;
+      if (MATCH.active && MATCH.state === 'play') { const t = lx > 0 ? 's' : 'e'; MATCH.score[t]++; matchGoal(t, b.pos.clone()); } // spiders attack +x
+      else { G.footScore++; floatText(b.pos.clone().add(V3(0, 3, 0)), 'GOAL!  ' + G.footScore, '#ffd23f', 30); AudioSys.win(); AudioSys.thwip(); burst(b.pos.clone().add(V3(0, 1, 0)), 26, 0xffd23f, 8, 0.7); }
     } else if (Math.abs(lx) > halfL + 1.4 && b.vel.x * lx > 0) { b.vel.x *= -0.6; b.pos.x = P_.x + Math.sign(lx) * (halfL + 1.4); }
   }
   if (b.scored > 0) { b.scored -= dt; if (b.scored <= 0) { b.pos.copy(b.home); b.vel.set(0, 0, 0); } }
@@ -961,6 +961,144 @@ function updateFootball(dt) {
   const sp = Math.hypot(b.vel.x, b.vel.z);
   if (sp > 0.05) { const axis = V3(0, 1, 0).cross(V3(b.vel.x, 0, b.vel.z)).normalize(); b.mesh.rotateOnWorldAxis(axis, sp * dt / b.r); }
 }
+// ======== Spider-Verse World Cup: your team of Spider-People vs an enemy XI ========
+const SPIDER_SQUAD = [
+  { name: 'NOIR', role: 'gk', c: 0x1a1a1a, c2: 0x3a3a3a },
+  { name: 'GWEN', role: 'f', c: 0xf2f2f2, c2: 0xe4007c },
+  { name: 'PETER', role: 'f', c: 0xd11a2a, c2: 0x1a3fb0 },
+  { name: 'SPIDER-2099', role: 'f', c: 0x0a1430, c2: 0x18d0ff },
+];
+const ENEMY_SQUAD = [
+  { name: 'RHINO', role: 'gk', c: 0x8a8f98, c2: 0x55585e },
+  { name: 'VENOM', role: 'f', c: 0x0b0b12, c2: 0xf4f4f4 },
+  { name: 'LIZARD', role: 'f', c: 0x2f6a37, c2: 0x9fe870 },
+  { name: 'KRAVEN', role: 'f', c: 0x6b3f1e, c2: 0xe08a2a },
+];
+const FORMATION = [{ x: -20, z: 0 }, { x: -8, z: -8 }, { x: -8, z: 8 }, { x: 4, z: 0 }];
+const CUP = ['GROUP MATCH', 'QUARTER-FINAL', 'SEMI-FINAL', 'FINAL'];
+const MATCH = { active: false, state: 'idle', round: 0, score: { s: 0, e: 0 }, time: 0, dur: 55, nextT: 0, msgT: 0, spiders: [], enemies: [] };
+
+function makeFootballer(kit) {
+  const g = new THREE.Group(), p = {};
+  const jersey = new THREE.MeshStandardMaterial({ color: kit.c, roughness: 0.7 });
+  const short = new THREE.MeshStandardMaterial({ color: kit.c2, roughness: 0.7 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xcf9f6f, roughness: 0.6 });
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.26, 0.5, 4, 8), jersey); torso.position.y = 1.08; torso.scale.set(1.1, 1, 0.68); g.add(torso);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.42), short); stripe.position.set(0, 1.08, 0.18); g.add(stripe);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), jersey); head.position.y = 1.58; g.add(head);
+  for (const sx of [-1, 1]) { const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0x8ea6bf, emissiveIntensity: 0.5 })); eye.scale.set(1.3, 0.75, 0.4); eye.position.set(sx * 0.09, 1.6, 0.16); g.add(eye); }
+  const legL = new THREE.Group(), legR = new THREE.Group(); legL.position.set(-0.13, 0.78, 0); legR.position.set(0.13, 0.78, 0); g.add(legL, legR);
+  for (const grp of [legL, legR]) { const th = new THREE.Mesh(new THREE.CapsuleGeometry(0.11, 0.4, 4, 6), short); th.position.y = -0.24; grp.add(th); const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.07, 0.42, 6), skin); sh.position.y = -0.58; grp.add(sh); const boot = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.34), new THREE.MeshStandardMaterial({ color: 0x15151a })); boot.position.set(0, -0.82, 0.08); grp.add(boot); }
+  const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.42, 4, 6), jersey); armL.position.set(-0.4, 1.15, 0); armL.rotation.z = 0.12; g.add(armL);
+  const armR = armL.clone(); armR.position.x = 0.4; armR.rotation.z = -0.12; g.add(armR);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  p.legL = legL; p.legR = legR; g.userData.parts = p; return g;
+}
+function matchBannerShow(txt, t) { matchBanner.textContent = txt; matchBanner.style.display = 'block'; matchBanner.style.opacity = '1'; MATCH.msgT = t; }
+function clearFootballers() {
+  for (const p of [...MATCH.spiders, ...MATCH.enemies]) { scene.remove(p.mesh); if (p.label) scene.remove(p.label); }
+  MATCH.spiders = []; MATCH.enemies = [];
+}
+function spawnTeam(team) {
+  const P_ = LANDMARK.pitch, dir = team === 's' ? 1 : -1;
+  const squad = team === 's' ? SPIDER_SQUAD : ENEMY_SQUAD, list = team === 's' ? MATCH.spiders : MATCH.enemies;
+  squad.forEach((k, i) => {
+    const f = FORMATION[i], base = { x: P_.x + dir * f.x, z: P_.z + dir * f.z };
+    const mesh = makeFootballer(k); scene.add(mesh);
+    const label = textSprite(k.name, team === 's' ? '#ff8a96' : '#b6f0a0', 14); label.position.set(base.x, 2.15, base.z); scene.add(label);
+    list.push({ team, dir, role: k.role, name: k.name, mesh, parts: mesh.userData.parts, pos: V3(base.x, 0, base.z), vel: V3(), base, facing: dir > 0 ? 0 : Math.PI, speed: 0, gait: Math.random() * TAU, kickCd: rand(0, 0.5), label });
+  });
+}
+function seekFootballer(p, tx, tz, dt, maxS) {
+  const P_ = LANDMARK.pitch, dx = tx - p.pos.x, dz = tz - p.pos.z, d = Math.hypot(dx, dz), want = d > 0.3 ? maxS : 0;
+  const k = 1 - Math.exp(-8 * dt);
+  p.vel.x = lerp(p.vel.x, d > 0.001 ? dx / d * want : 0, k); p.vel.z = lerp(p.vel.z, d > 0.001 ? dz / d * want : 0, k);
+  p.pos.x = clamp(p.pos.x + p.vel.x * dt, P_.x - P_.L / 2 - 3, P_.x + P_.L / 2 + 3);
+  p.pos.z = clamp(p.pos.z + p.vel.z * dt, P_.z - P_.W / 2 - 2, P_.z + P_.W / 2 + 2);
+  if (d > 0.4) { let a = (Math.atan2(dx, dz) - p.facing) % TAU; if (a > Math.PI) a -= TAU; if (a < -Math.PI) a += TAU; p.facing += a * (1 - Math.exp(-11 * dt)); }
+  p.speed = Math.hypot(p.vel.x, p.vel.z);
+}
+function kickFootball(p) {
+  const P_ = LANDMARK.pitch, gx = P_.x + p.dir * (P_.L / 2);
+  const tz = clamp(P_.z + rand(-P_.goalHW * 0.7, P_.goalHW * 0.7), P_.z - P_.goalHW, P_.z + P_.goalHW);
+  const dx = gx - soccer.pos.x, dz = tz - soccer.pos.z, d = Math.hypot(dx, dz) || 1;
+  const pw = rand(11, 16) + MATCH.round * 1.1; let nx = dx / d, nz = dz / d + rand(-0.12, 0.12); const nn = Math.hypot(nx, nz) || 1;
+  soccer.vel.set(nx / nn * pw, rand(1.6, 3.4), nz / nn * pw); p.kickCd = 0.55; p.facing = Math.atan2(dx, dz);
+  if (Math.random() < 0.5) AudioSys.punch();
+}
+function aiTeam(team, dt) {
+  const P_ = LANDMARK.pitch, dir = team === 's' ? 1 : -1, list = team === 's' ? MATCH.spiders : MATCH.enemies;
+  const field = list.filter(p => p.role === 'f'); let chaser = null, cd = 1e9;
+  for (const p of field) { const d = Math.hypot(p.pos.x - soccer.pos.x, p.pos.z - soccer.pos.z); if (d < cd) { cd = d; chaser = p; } }
+  const maxS = 6 + MATCH.round * 0.5;
+  for (const p of list) {
+    if (p.kickCd > 0) p.kickCd -= dt;
+    const dg = Math.hypot(p.pos.x - soccer.pos.x, p.pos.z - soccer.pos.z);
+    if (p.role === 'gk') {
+      const ownGx = P_.x - dir * (P_.L / 2);
+      seekFootballer(p, ownGx + dir * 1.6, clamp(soccer.pos.z, P_.z - P_.goalHW - 1.5, P_.z + P_.goalHW + 1.5), dt, maxS * 0.85);
+      if (Math.abs(soccer.pos.x - ownGx) < 16 && dg < 2.5 && p.kickCd <= 0) kickFootball(p);
+    } else if (p === chaser) {
+      seekFootballer(p, soccer.pos.x + soccer.vel.x * 0.1, soccer.pos.z + soccer.vel.z * 0.1, dt, maxS);
+      if (dg < 1.9 && p.kickCd <= 0 && soccer.pos.y < 3) kickFootball(p);
+    } else {
+      seekFootballer(p, clamp(p.base.x + (soccer.pos.x - P_.x) * 0.4, P_.x - P_.L / 2 + 2, P_.x + P_.L / 2 - 2), clamp(p.base.z + (soccer.pos.z - P_.z) * 0.3, P_.z - P_.W / 2 + 1.5, P_.z + P_.W / 2 - 1.5), dt, maxS * 0.8);
+    }
+  }
+}
+function animateFootballer(p, dt) {
+  const m = p.mesh; m.position.set(p.pos.x, 0, p.pos.z); m.rotation.y = p.facing;
+  p.gait += (p.speed || 0) * dt * 1.7; const a = clamp((p.speed || 0) / 6, 0, 1) * 0.95;
+  p.parts.legL.rotation.x = Math.sin(p.gait) * a; p.parts.legR.rotation.x = -Math.sin(p.gait) * a;
+  if (p.label) p.label.position.set(p.pos.x, 2.15, p.pos.z);
+}
+function matchGoal(team, pos) {
+  AudioSys.win(); AudioSys.thwip(); burst(pos.clone().add(V3(0, 1, 0)), 26, team === 's' ? 0xff5a6a : 0x9fe870, 8, 0.7);
+  matchBannerShow((team === 's' ? '🕷️ SPIDERS SCORE!' : '🦹 VILLAINS SCORE!') + '   ' + MATCH.score.s + ' – ' + MATCH.score.e, 1.6);
+}
+function endRound() {
+  MATCH.state = 'result';
+  if (MATCH.score.s > MATCH.score.e) {
+    if (MATCH.round >= CUP.length - 1) { MATCH.state = 'champion'; MATCH.nextT = 6.5; matchBannerShow('🏆  SPIDER-VERSE WORLD CUP CHAMPIONS!  🏆', 6.5); AudioSys.win(); }
+    else { MATCH.round++; MATCH.state = 'between'; MATCH.nextT = 3.4; matchBannerShow('ROUND WON!   Next: ' + CUP[MATCH.round], 3.2); }
+  } else { MATCH.state = 'between'; MATCH.nextT = 3.4; matchBannerShow(MATCH.score.s === MATCH.score.e ? 'FULL TIME — DRAW. Replay!' : 'FULL TIME — Beaten. Try again!', 3.2); }
+}
+function startMatch() {
+  const P_ = LANDMARK.pitch; if (!P_) return;
+  clearFootballers();
+  MATCH.active = true; MATCH.state = 'play'; MATCH.time = 0; MATCH.score = { s: 0, e: 0 };
+  spawnTeam('s'); spawnTeam('e');
+  warpToPitch();
+  soccer.pos.copy(soccer.home); soccer.vel.set(0, 0, 0);
+  matchHud.style.display = 'block';
+  matchBannerShow(CUP[MATCH.round] + ' — KICK OFF!  🕷️ vs 🦹', 1.9);
+}
+function endCup() { clearFootballers(); MATCH.active = false; MATCH.state = 'idle'; MATCH.round = 0; matchHud.style.display = 'none'; matchBanner.style.display = 'none'; resetPlayer(); }
+function updateMatch(dt) {
+  if (!MATCH.active) { matchHud.style.display = 'none'; return; }
+  const P_ = LANDMARK.pitch; if (!P_) return;
+  if (MATCH.state === 'play') { MATCH.time += dt; aiTeam('s', dt); aiTeam('e', dt); if (MATCH.time >= MATCH.dur || MATCH.score.s >= 7 || MATCH.score.e >= 7) endRound(); }
+  else if (MATCH.state === 'between') { MATCH.nextT -= dt; if (MATCH.nextT <= 0) startMatch(); }
+  else if (MATCH.state === 'champion') { MATCH.nextT -= dt; if (Math.random() < dt * 7) burst(soccer.pos.clone().add(V3(rand(-7, 7), rand(2, 9), rand(-7, 7))), 8, [0xff5a6a, 0x9fe870, 0xffd23f, 0x18d0ff][Math.floor(Math.random() * 4)], 8, 0.9); if (MATCH.nextT <= 0) endCup(); }
+  for (const p of MATCH.spiders) animateFootballer(p, dt);
+  for (const p of MATCH.enemies) animateFootballer(p, dt);
+  updateMatchHud();
+  if (MATCH.msgT > 0) { MATCH.msgT -= dt; if (MATCH.msgT <= 0) matchBanner.style.display = 'none'; }
+}
+function updateMatchHud() {
+  if (!MATCH.active) { matchHud.style.display = 'none'; return; }
+  matchHud.style.display = 'block';
+  const t = Math.max(0, MATCH.dur - MATCH.time), mm = String(Math.floor(t / 60)).padStart(2, '0'), ss = String(Math.floor(t % 60)).padStart(2, '0');
+  matchHud.innerHTML = '<span style="color:#ff6a78">🕷️ SPIDERS</span> &nbsp;<b style="font-size:22px">' + MATCH.score.s + ' – ' + MATCH.score.e + '</b>&nbsp; <span style="color:#9fe870">VILLAINS 🦹</span><div style="font-size:11px;opacity:.85;letter-spacing:1px;margin-top:2px">' + CUP[MATCH.round] + ' &nbsp;·&nbsp; ' + mm + ':' + ss + '</div>';
+}
+// match HUD + banner elements
+const matchHud = document.createElement('div');
+Object.assign(matchHud.style, { position: 'fixed', top: '12px', left: '50%', transform: 'translateX(-50%)', padding: '8px 18px', background: 'rgba(8,10,16,.82)', border: '1px solid rgba(255,255,255,.14)', borderRadius: '10px', color: '#fff', font: '800 16px system-ui', textAlign: 'center', zIndex: 6, display: 'none', pointerEvents: 'none', boxShadow: '0 6px 22px rgba(0,0,0,.5)' });
+document.body.appendChild(matchHud);
+const matchBanner = document.createElement('div');
+Object.assign(matchBanner.style, { position: 'fixed', top: '34%', left: '50%', transform: 'translate(-50%,-50%)', color: '#fff', font: '900 40px system-ui', textAlign: 'center', textShadow: '0 4px 18px rgba(0,0,0,.7)', zIndex: 6, display: 'none', pointerEvents: 'none', maxWidth: '92vw' });
+document.body.appendChild(matchBanner);
+
 // From the home PC: jump straight to the pitch to play football.
 function warpToPitch() {
   const p = LANDMARK.pitch; if (!p || G.state !== 'play' || G.paused) return;
@@ -975,11 +1113,11 @@ function warpToPitch() {
   if (playFB) playFB.style.display = 'none';
 }
 // an on-screen prompt that appears when you stand at the PC
-const playFB = document.createElement('div'); playFB.textContent = '⚽ PLAY FOOTBALL  (H)';
+const playFB = document.createElement('div'); playFB.textContent = '⚽ PLAY WORLD CUP  (H)';
 Object.assign(playFB.style, { position: 'fixed', left: '50%', bottom: '120px', transform: 'translateX(-50%)', padding: '12px 24px', background: 'linear-gradient(180deg,#9fe870,#39d98a)', color: '#04210f', font: '900 16px system-ui', letterSpacing: '1px', borderRadius: '30px', boxShadow: '0 8px 24px rgba(57,217,138,.45)', cursor: 'pointer', zIndex: 6, display: 'none', pointerEvents: 'auto', userSelect: 'none' });
 document.body.appendChild(playFB);
-playFB.addEventListener('click', warpToPitch);
-addEventListener('keydown', e => { if (e.code === 'KeyH' && G.nearPC && G.state === 'play' && !G.paused) { e.preventDefault(); warpToPitch(); } });
+playFB.addEventListener('click', () => { if (!MATCH.active) startMatch(); });
+addEventListener('keydown', e => { if (e.code === 'KeyH' && G.nearPC && G.state === 'play' && !G.paused && !MATCH.active) { e.preventDefault(); startMatch(); } });
 // Wind tunnels: streams of air above the river, the avenues and the bridges that web wings can ride.
 const TUNNELS = [];
 let streakMesh = null; const streaks = [];
@@ -3205,7 +3343,7 @@ function update(dt, now) {
     G.time += dt;
     if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
     if (G.hintT > 0) G.hintT -= dt;
-    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt); updateFootball(dt);
+    updatePlayer(dt); updateSidekick(dt); updateEnemies(dt); updateBoss(dt); updateWebShots(dt); updateBullets(dt); updateCrimes(dt); updateCrimeScene(dt); updateStreetLife(dt); updateFootball(dt); updateMatch(dt);
     if (LANDMARK.home && LANDMARK.home.pc) { const d = Math.hypot(P.pos.x - LANDMARK.home.pc.x, P.pos.z - LANDMARK.home.pc.z); G.nearPC = d < 5 && Math.abs(P.pos.y - LANDMARK.home.h) < 4.5; playFB.style.display = G.nearPC ? 'block' : 'none'; }
     if (G.swapCd > 0) G.swapCd -= dt;
     AudioSys.setHeight(P.pos.y); G.sirenT -= dt; if (G.sirenT <= 0) { AudioSys.siren(); G.sirenT = 25 + Math.random() * 40; }
@@ -3236,7 +3374,7 @@ function frame(now) {
   if (!G.booted) { G.booted = true; const el = document.getElementById('boot'); if (el) el.remove(); }
 }
 requestAnimationFrame(frame);
-window.__game = { tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt, performance.now()); }, keys, pressed, spawnEnemy, usePower, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, hitBoss, boss, SK, story, showAct, CHAT, sendChat, setSuit, suit: () => SUIT, hero: () => HERO, HS, swapHero, peds, pigeons, PADS, TUNNELS, LANDMARK, soccer: () => soccer, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt, performance.now()); }, keys, pressed, spawnEnemy, usePower, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, hitBoss, boss, SK, story, showAct, CHAT, sendChat, setSuit, suit: () => SUIT, hero: () => HERO, HS, swapHero, peds, pigeons, PADS, TUNNELS, LANDMARK, soccer: () => soccer, MATCH, startMatch, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>
