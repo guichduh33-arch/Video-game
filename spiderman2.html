@@ -470,7 +470,7 @@ const buildings = []; // { x, z, w, d, h, mesh, roofOk }  (x,z = centre)
 const clouds = [], traffic = [];
 const STREET = 16, BLOCK = 54, PITCH = BLOCK + STREET;
 // Two boroughs: Manhattan (west, towers) and Brooklyn / Queens (east, low-rise), split by the East River (block column RIVER_BX) and joined by two bridges.
-const NX = 15, NZ = 11, RIVER_BX = 7, RIVER_HW = 42, BRIDGE_ROWS = [2, 5, 8];
+const NX = 15, NZ = 11, RIVER_BX = 7, RGAP = 20, RIVER_HW = 62, BRIDGE_ROWS = [2, 5, 8];
 const WORLD_X = NX * PITCH, WORLD_Z = NZ * PITCH, WORLD = WORLD_X;
 const streetX = [], streetZ = [], BRIDGE_Z = [];
 const inRiver = (x, z) => Math.abs(x) < RIVER_HW && !BRIDGE_Z.some(bz => Math.abs(z - bz) < 8);
@@ -540,13 +540,13 @@ function genCity() {
   const off = -RIVER_BX * PITCH, offZ = -((NZ - 1) / 2) * PITCH;
   sidewalkTex.repeat.set((BLOCK + 6) / 8, (BLOCK + 6) / 8); const sidewalkMat = new THREE.MeshStandardMaterial({ map: sidewalkTex, roughness: 0.95 });
   grassTex.repeat.set(6, 6); const grassMat = new THREE.MeshStandardMaterial({ map: grassTex, roughness: 1 });
-  for (let i = 0; i <= NX; i++) streetX.push(off - BLOCK / 2 - STREET / 2 + i * PITCH);
+  for (let i = 0; i <= NX; i++) streetX.push(off - BLOCK / 2 - STREET / 2 + i * PITCH + (i <= RIVER_BX ? -RGAP : RGAP));
   for (let i = 0; i <= NZ; i++) streetZ.push(offZ - BLOCK / 2 - STREET / 2 + i * PITCH);
   for (const i of BRIDGE_ROWS) BRIDGE_Z.push(streetZ[i]);
   const trees = [], lamps = [], cars = [], parks = [];
   for (let bx = 0; bx < NX; bx++) for (let bz = 0; bz < NZ; bz++) {
     if (bx === RIVER_BX) continue; // the East River runs through this column
-    const cx = off + bx * PITCH, cz = offZ + bz * PITCH;
+    const cx = off + bx * PITCH + (bx < RIVER_BX ? -RGAP : RGAP), cz = offZ + bz * PITCH;
     const west = bx < RIVER_BX; // Manhattan side
     const dist = Math.hypot(cx * 0.7, cz) / (WORLD_Z / 2);
     // sidewalk slab around every block
@@ -781,7 +781,7 @@ function buildRiver() {
   }
 }
 function buildBridge(z) {
-  const deckW = 100, deckD = 14, deckH = 8, towerX = 27;
+  const deckW = 140, deckD = 14, deckH = 8, towerX = 38;
   const deck = shadowed(new THREE.Mesh(new THREE.BoxGeometry(deckW, deckH, deckD), concreteMat)); deck.position.set(0, deckH / 2, z); scene.add(deck);
   const road = new THREE.Mesh(new THREE.PlaneGeometry(deckW, deckD - 3), new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.95 })); road.rotation.x = -Math.PI / 2; road.position.set(0, deckH + 0.02, z); road.receiveShadow = true; scene.add(road);
   for (const sz of [-1, 1]) { const curb = shadowed(new THREE.Mesh(new THREE.BoxGeometry(deckW, 0.5, 1.4), new THREE.MeshStandardMaterial({ map: sidewalkTex, roughness: 0.95 }))); curb.position.set(0, deckH + 0.25, z + sz * (deckD / 2 - 0.7)); scene.add(curb); }
