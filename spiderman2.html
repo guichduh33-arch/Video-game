@@ -1580,6 +1580,7 @@ const P = {
   gliding: false, wingT: 0, wingCd: 0, inTunnel: 0, parryT: 0, parryCd: 0, parryOk: 0, armsT: 0, surgeT: 0, launchT: 0, senseRed: false,
 };
 function respawnPoint() {
+  if (LANDMARK.home) return V3(LANDMARK.home.x, LANDMARK.home.h, LANDMARK.home.z - 16); // start on your roof, facing the house + PC
   const b = buildings.filter(b => b.roofOk && !b.bridge && b.h > 45 && b.h < 95 && b.w > 20 && b.x < -70).sort((a, c) => Math.hypot(a.x + 120, a.z) - Math.hypot(c.x + 120, c.z))[0] || buildings[0];
   return V3(b.x, b.h, b.z);
 }
@@ -1587,7 +1588,7 @@ function resetPlayer() {
   const s = respawnPoint();
   P.pos.copy(s); P.vel.set(0, 0, 0);
   Object.assign(P, { onGround: true, onWall: null, wallRun: 0, wallHit: 0, jumpsLeft: 1, swinging: false, hp: 100, venom: 50, camo: false, camoT: 0, camoCd: 0, punchT: 0, punchCd: 0, invulnT: 0, alive: true, deadT: 0, senseT: 0, gliding: false, parryT: 0, armsT: 0, surgeT: 0, launchT: 0, inTunnel: 0 });
-  look.yaw = Math.atan2(s.x, s.z); look.pitch = 0.25; look.fp = false;
+  look.yaw = LANDMARK.home ? Math.atan2(s.x - LANDMARK.home.x, s.z - LANDMARK.home.z) : Math.atan2(s.x, s.z); look.pitch = 0.22; look.fp = false;
 }
 
 // ---------- Physics ----------
