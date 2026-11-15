@@ -1022,6 +1022,7 @@ function makeFootballer(kit) {
   const armL = new THREE.Mesh(new THREE.CapsuleGeometry(0.08, 0.42, 4, 6), suit); armL.position.set(-0.4, 1.15, 0); armL.rotation.z = 0.12; g.add(armL);
   const armR = armL.clone(); armR.position.x = 0.4; armR.rotation.z = -0.12; g.add(armR);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  if (kit.spider) g.scale.setScalar(1.5); // the Spider-Men are bigger
   p.legL = legL; p.legR = legR; g.userData.parts = p; return g;
 }
 function matchBannerShow(txt, t) { matchBanner.textContent = txt; matchBanner.style.display = 'block'; matchBanner.style.opacity = '1'; MATCH.msgT = t; }
@@ -1035,8 +1036,9 @@ function spawnTeam(team) {
   squad.forEach((k, i) => {
     const f = FORMATION[i], base = { x: P_.x + dir * f.x, z: P_.z + dir * f.z };
     const mesh = makeFootballer(k); scene.add(mesh);
-    const label = textSprite(k.name, team === 's' ? '#ff8a96' : '#b6f0a0', 5); label.position.set(base.x, 2.3, base.z); scene.add(label);
-    list.push({ team, dir, role: k.role, name: k.name, mesh, parts: mesh.userData.parts, pos: V3(base.x, 0, base.z), vel: V3(), base, facing: dir > 0 ? 0 : Math.PI, speed: 0, gait: Math.random() * TAU, kickCd: rand(0, 0.5), label });
+    const labelY = k.spider ? 3.2 : 2.3;
+    const label = textSprite(k.name, team === 's' ? '#ff8a96' : '#b6f0a0', k.spider ? 6 : 5); label.position.set(base.x, labelY, base.z); scene.add(label);
+    list.push({ team, dir, role: k.role, name: k.name, mesh, parts: mesh.userData.parts, pos: V3(base.x, 0, base.z), vel: V3(), base, facing: dir > 0 ? 0 : Math.PI, speed: 0, gait: Math.random() * TAU, kickCd: rand(0, 0.5), label, labelY });
   });
 }
 function seekFootballer(p, tx, tz, dt, maxS) {
@@ -1080,7 +1082,7 @@ function animateFootballer(p, dt) {
   const m = p.mesh; m.position.set(p.pos.x, 0, p.pos.z); m.rotation.y = p.facing;
   p.gait += (p.speed || 0) * dt * 1.7; const a = clamp((p.speed || 0) / 6, 0, 1) * 0.95;
   p.parts.legL.rotation.x = Math.sin(p.gait) * a; p.parts.legR.rotation.x = -Math.sin(p.gait) * a;
-  if (p.label) p.label.position.set(p.pos.x, 2.3, p.pos.z);
+  if (p.label) p.label.position.set(p.pos.x, p.labelY || 2.3, p.pos.z);
 }
 function matchGoal(team, pos) {
   AudioSys.win(); AudioSys.thwip(); burst(pos.clone().add(V3(0, 1, 0)), 26, team === 's' ? 0xff5a6a : 0x9fe870, 8, 0.7);
