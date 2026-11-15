@@ -470,7 +470,7 @@ const buildings = []; // { x, z, w, d, h, mesh, roofOk }  (x,z = centre)
 const clouds = [], traffic = [];
 const STREET = 16, BLOCK = 54, PITCH = BLOCK + STREET;
 // Two boroughs: Manhattan (west, towers) and Brooklyn / Queens (east, low-rise), split by the East River (block column RIVER_BX) and joined by two bridges.
-const NX = 11, NZ = 8, RIVER_BX = 5, RIVER_HW = 40, BRIDGE_ROWS = [2, 6];
+const NX = 15, NZ = 11, RIVER_BX = 7, RIVER_HW = 42, BRIDGE_ROWS = [2, 5, 8];
 const WORLD_X = NX * PITCH, WORLD_Z = NZ * PITCH, WORLD = WORLD_X;
 const streetX = [], streetZ = [], BRIDGE_Z = [];
 const inRiver = (x, z) => Math.abs(x) < RIVER_HW && !BRIDGE_Z.some(bz => Math.abs(z - bz) < 8);
@@ -565,7 +565,7 @@ function genCity() {
       const o = BLOCK / 2 + 2.6, c1 = side === 0 ? [cx - BLOCK / 2 + 4, cz + o] : side === 1 ? [cx + BLOCK / 2 - 4, cz - o] : side === 2 ? [cx + o, cz - BLOCK / 2 + 4] : [cx - o, cz + BLOCK / 2 - 4];
       lamps.push({ x: c1[0], z: c1[1], a: side < 2 ? 0 : Math.PI / 2 });
     }
-    if (west && bx === 2 && bz === 4) { buildOscorp(cx, cz, r); continue; }
+    if (west && bx === 2 && bz === 5) { buildOscorp(cx, cz, r); continue; }
     if (r() < (west ? 0.03 : 0.1) && dist > 0.3) { // a park
       const grass = shadowed(new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), grassMat));
       grass.position.set(cx, 0.32, cz); scene.add(grass);
@@ -625,7 +625,7 @@ function genCity() {
   makeCars(cars, M, Q);
   // moving traffic
   const drivableX = streetX.filter(s => Math.abs(s) > RIVER_HW); // no traffic on the shore roads under the bridges
-  for (let i = 0; i < 34; i++) {
+  for (let i = 0; i < 48; i++) {
     const along = r() < 0.5, s = along ? streetZ[Math.floor(r() * streetZ.length)] : drivableX[Math.floor(r() * drivableX.length)], dir = r() < 0.5 ? 1 : -1;
     const car = carMesh(new THREE.Color().setHSL(r(), r() < 0.4 ? 0.05 : 0.6, 0.25 + r() * 0.5));
     traffic.push({ mesh: car, s, along, dir, t: (r() - 0.5) * (along ? WORLD_X : WORLD_Z), speed: 9 + r() * 7 });
@@ -823,8 +823,8 @@ function addTunnel(ax, ay, az, bx, by, bz, r = 10) {
 function buildWindTunnels() {
   const zMax = WORLD_Z / 2 + 60;
   addTunnel(-13, 44, -zMax, -13, 44, zMax); addTunnel(13, 44, zMax, 13, 44, -zMax); // the river, both ways
-  addTunnel(streetX[2], 52, -zMax, streetX[2], 52, zMax); addTunnel(streetX[9], 40, zMax, streetX[9], 40, -zMax); // an avenue on each shore
-  addTunnel(-WORLD_X / 2 - 40, 36, BRIDGE_Z[0], WORLD_X / 2 + 40, 36, BRIDGE_Z[0]); addTunnel(WORLD_X / 2 + 40, 36, BRIDGE_Z[1], -WORLD_X / 2 - 40, 36, BRIDGE_Z[1]); // over the bridges
+  addTunnel(streetX[2], 52, -zMax, streetX[2], 52, zMax); addTunnel(streetX[NX - 2], 40, zMax, streetX[NX - 2], 40, -zMax); // an avenue on each shore
+  BRIDGE_Z.forEach((bz, i) => { const d = i % 2 ? 1 : -1; addTunnel(-d * (WORLD_X / 2 + 40), 36, bz, d * (WORLD_X / 2 + 40), 36, bz); }); // one over every bridge
   const per = 26;
   streakMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.14, 0.14, 6), new THREE.MeshBasicMaterial({ color: 0xcdf3ff, transparent: true, opacity: 0.42, depthWrite: false }), TUNNELS.length * per);
   streakMesh.frustumCulled = false; scene.add(streakMesh);
@@ -854,7 +854,7 @@ const PADS = [];
 const padMat = new THREE.MeshStandardMaterial({ color: 0xffd23f, emissive: 0xffb000, emissiveIntensity: 1.2, roughness: 0.4 });
 function buildSlingshots(r) {
   const cands = buildings.filter(b => b.roofOk && !b.bridge && !b.oscorp && b.h >= 24 && b.h <= 100 && b.w >= 14 && b.d >= 14);
-  for (let tries = 0; tries < 400 && PADS.length < 10; tries++) {
+  for (let tries = 0; tries < 600 && PADS.length < 16; tries++) {
     const b = cands[Math.floor(r() * cands.length)];
     if (PADS.some(p => Math.hypot(p.x - b.x, p.z - b.z) < 110)) continue;
     const g = new THREE.Group(); g.position.set(b.x + (r() - 0.5) * (b.w - 8), b.h, b.z + (r() - 0.5) * (b.d - 8));
@@ -2111,7 +2111,7 @@ function spawnCrime() {
   const far = Math.random() < 0.6, side = far ? P.pos.x < 0 : P.pos.x >= 0;
   const ok = b => b.roofOk && !b.bridge && !b.oscorp && b.h >= 22 && b.w >= 16 && b.d >= 16;
   const dist = b => Math.hypot(b.x - P.pos.x, b.z - P.pos.z);
-  let cands = buildings.filter(b => ok(b) && (b.x > 0) === side && dist(b) > 60 && dist(b) < 480);
+  let cands = buildings.filter(b => ok(b) && (b.x > 0) === side && dist(b) > 60 && dist(b) < 650);
   if (!cands.length) cands = buildings.filter(b => ok(b) && dist(b) > 60);
   const b = cands[Math.floor(Math.random() * cands.length)] || buildings.find(ok);
   const n = act === 1 ? 2 + G.crimes : act === 2 ? G.crimes : 4;
