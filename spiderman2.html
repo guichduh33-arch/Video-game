@@ -2223,7 +2223,7 @@ function spawnBoss(kind = 'lizard') {
   if (boss.mesh) scene.remove(boss.mesh);
   boss.mesh = kind === 'venom' ? makeVenomMesh() : kind === 'kraven' ? makeKravenMesh() : makeLizardMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
   const name = kind === 'venom' ? 'VENOM' : kind === 'kraven' ? 'KRAVEN THE HUNTER' : 'THE LIZARD';
-  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 60 : kind === 'kraven' ? 52 : 26, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0 });
+  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 42 : kind === 'kraven' ? 34 : 26, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0 });
   boss.hp = boss.maxHp; boss.mesh.rotation.set(0, 0, 0); boss.mesh.scale.set(1, 1, 1); for (const k in KMAT) KMAT[k].opacity = 1;
   G.crime = { b, name: kind === 'venom' ? 'VENOM AT OSCORP' : kind === 'kraven' ? 'THE GREAT HUNT' : 'LIZARD ON THE LOOSE', t: 0, boss: true };
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
@@ -2247,10 +2247,10 @@ function hitBoss(dmg, label) {
   else { floatText(top, k === 'kraven' ? 'MISSED' : 'TOO FAST', '#999', 16); if (boss.state === 'charge' || boss.state === 'dash') { const d = P.pos.clone().sub(boss.mesh.position); d.y = 0; d.normalize(); P.vel.x += d.x * 10; P.vel.z += d.z * 10; P.vel.y = 6; } }
   if (k === 'venom') {
     const stage = boss.hp <= boss.maxHp * 0.3 ? 2 : boss.hp <= boss.maxHp * 0.6 ? 1 : 0;
-    if (stage > boss.helpStage) { boss.helpStage = stage; for (let i = 0; i < 3; i++) spawnEnemy('symb', boss.roof.x + rand(-0.35, 0.35) * boss.roof.w, boss.roof.z + rand(-0.35, 0.35) * boss.roof.d, boss.roof); if (boss.state !== 'stunned') { boss.state = 'roar'; boss.t = 1.1; } shake(0.6); AudioSys.lose(); floatText(top, 'SYMBIOTE SPAWN', '#8e6bff', 22); }
+    if (stage > boss.helpStage) { boss.helpStage = stage; for (let i = 0; i < 2; i++) spawnEnemy('symb', boss.roof.x + rand(-0.35, 0.35) * boss.roof.w, boss.roof.z + rand(-0.35, 0.35) * boss.roof.d, boss.roof); if (boss.state !== 'stunned') { boss.state = 'roar'; boss.t = 1.1; } shake(0.6); AudioSys.lose(); floatText(top, 'SYMBIOTE SPAWN', '#8e6bff', 22); }
   } else if (k === 'kraven') {
     const stage = boss.hp <= boss.maxHp * 0.3 ? 2 : boss.hp <= boss.maxHp * 0.6 ? 1 : 0;
-    if (stage > boss.helpStage) { boss.helpStage = stage; for (let i = 0; i < 2; i++) spawnEnemy('hunter', boss.roof.x + rand(-0.35, 0.35) * boss.roof.w, boss.roof.z + rand(-0.35, 0.35) * boss.roof.d, boss.roof); if (boss.state !== 'stunned') { boss.state = 'roar'; boss.t = 1.0; } AudioSys.crime(); floatText(top, 'HUNTERS, TO ME', '#ff7a1a', 22); }
+    if (stage > boss.helpStage) { boss.helpStage = stage; for (let i = 0; i < 1; i++) spawnEnemy('hunter', boss.roof.x + rand(-0.35, 0.35) * boss.roof.w, boss.roof.z + rand(-0.35, 0.35) * boss.roof.d, boss.roof); if (boss.state !== 'stunned') { boss.state = 'roar'; boss.t = 1.0; } AudioSys.crime(); floatText(top, 'HUNTERS, TO ME', '#ff7a1a', 22); }
   } else if (k === 'lizard' && !boss.fled && boss.hp <= boss.maxHp * 0.5 && boss.state !== 'stunned') { lizardFlee(); }
   if (boss.hp <= 0) {
     boss.hp = 0; boss.alive = false; boss.state = 'dead'; boss.deadT = 0; G.score += k === 'venom' ? 10000 : k === 'kraven' ? 7000 : 5000; AudioSys.ko(); AudioSys.venom(); shake(1); G.flash = 0.6; vfx.ring.visible = false;
@@ -2271,7 +2271,7 @@ function kravenThrow() {
   const dir = to.sub(from).normalize();
   const m = new THREE.Group(); const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 4, 7), KMAT.vest); shaft.rotation.x = Math.PI / 2; m.add(shaft); const blade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.9, 6), KMAT.metal); blade.rotation.x = Math.PI / 2; blade.position.z = 2.3; m.add(blade);
   m.position.copy(from); m.lookAt(from.clone().add(dir)); scene.add(m);
-  bullets.push({ mesh: m, pos: from, vel: dir.multiplyScalar(44), life: 2.5, dmg: 16 });
+  bullets.push({ mesh: m, pos: from, vel: dir.multiplyScalar(44), life: 2.5, dmg: 9 });
   AudioSys.thwip(); AudioSys.punch();
 }
 function bossTaunt() { if (boss.taunt > 0 || boss.kind !== 'kraven') return; boss.taunt = 6; floatText(boss.mesh.position.clone().add(V3(0, 7.2, 0)), KRAVEN_TAUNTS[Math.floor(Math.random() * KRAVEN_TAUNTS.length)], '#ff7a1a', 17); }
@@ -2363,17 +2363,17 @@ function updateKraven(dt) {
       if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 4) { m.position.x += toP.x / flat * 4.5 * dt; m.position.z += toP.z / flat * 4.5 * dt; moving = true; } }
       if (seeP && boss.cd <= 0) {
         const r = Math.random();
-        if (flat < 4.5 && Math.abs(toP.y) < 3.5) { boss.state = 'thrust'; boss.t = 0.5; }
-        else if (r < 0.3 && flat < 40) { boss.state = 'cloak'; boss.t = 3.2; AudioSys.camo(); floatText(m.position.clone().add(V3(0, 7, 0)), 'KRAVEN VANISHES', '#ff7a1a', 20); }
+        if (flat < 4.5 && Math.abs(toP.y) < 3.5) { boss.state = 'thrust'; boss.t = 0.75; }
+        else if (r < 0.3 && flat < 40) { boss.state = 'cloak'; boss.t = 2.0; AudioSys.camo(); floatText(m.position.clone().add(V3(0, 7, 0)), 'KRAVEN VANISHES', '#ff7a1a', 20); }
         else if (r < 0.6 && flat > 8 && Math.abs(toP.y) < 20) { boss.state = 'spear'; boss.t = 0.6; }
-        else if (Math.abs(toP.y) < 5) { boss.state = 'prowl'; boss.t = 0.7; AudioSys.hurt(); bossTaunt(); }
-        boss.cd = 1.2;
+        else if (Math.abs(toP.y) < 5) { boss.state = 'prowl'; boss.t = 1.0; AudioSys.hurt(); bossTaunt(); }
+        boss.cd = 1.9;
       }
       break;
     case 'thrust': // parryable spear stab
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) {
-        if (flat < 4.8 && Math.abs(toP.y) < 3.5) { if (P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.4; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); break; } takeDamage(18, m.position); }
+        if (flat < 4.8 && Math.abs(toP.y) < 3.5) { if (P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.4; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); break; } takeDamage(10, m.position); }
         boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch();
       }
       break;
@@ -2387,7 +2387,7 @@ function updateKraven(dt) {
       break;
     case 'charge': {
       m.position.x += boss.dir.x * 28 * dt; m.position.z += boss.dir.z * 28 * dt; moving = true;
-      if (flat < 3 && Math.abs(toP.y) < 3.5) { takeDamage(22, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; boss.state = 'idle'; boss.cd = 1.0; }
+      if (flat < 3 && Math.abs(toP.y) < 3.5) { takeDamage(12, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; boss.state = 'idle'; boss.cd = 1.0; }
       const r = boss.roof, ex = r.x + (r.w / 2 - 1.5) * Math.sign(boss.dir.x || 1), ez = r.z + (r.d / 2 - 1.5) * Math.sign(boss.dir.z || 1);
       const hitEdge = (boss.dir.x > 0 && m.position.x >= ex) || (boss.dir.x < 0 && m.position.x <= ex) || (boss.dir.z > 0 && m.position.z >= ez) || (boss.dir.z < 0 && m.position.z <= ez);
       if (boss.state === 'charge' && (hitEdge || boss.t <= 0)) { boss.state = hitEdge ? 'stunned' : 'idle'; boss.t = hitEdge ? 2.4 : 0; boss.cd = 0.6; if (hitEdge) { shake(0.8); AudioSys.land(); floatText(m.position.clone().add(V3(0, 7, 0)), 'OFF BALANCE! HIT HIM', '#ffd23f', 24); } }
@@ -2400,7 +2400,7 @@ function updateKraven(dt) {
       break; }
     case 'ambush': // unblockable strike from behind: move
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { if (flat < 4.8 && Math.abs(toP.y) < 3.5) { takeDamage(24, m.position); floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'AMBUSHED', '#ff2d47', 22); } else floatText(m.position.clone().add(V3(0, 7, 0)), 'TOO SLOW, HUNTER', '#3bd6ff', 18); boss.state = 'idle'; boss.cd = 1.0; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 4.8 && Math.abs(toP.y) < 3.5) { takeDamage(12, m.position); floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'AMBUSHED', '#ff2d47', 22); } else floatText(m.position.clone().add(V3(0, 7, 0)), 'TOO SLOW, HUNTER', '#3bd6ff', 18); boss.state = 'idle'; boss.cd = 1.0; AudioSys.punch(); }
       break;
     case 'roar': if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.6; } break;
     case 'stunned': if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; } break;
@@ -2477,7 +2477,7 @@ function updateVenom(dt) {
   const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
   const seeP = P.alive; // the symbiote senses you through camouflage
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
-  if (boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + 0.5 * dt); // regenerates unless shocked
+  if (boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + 0.18 * dt); // regenerates slowly unless shocked
   let moving = false;
   switch (boss.state) {
     case 'idle':
@@ -2490,7 +2490,7 @@ function updateVenom(dt) {
       }
       break;
     case 'swipe':
-      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) takeDamage(18, m.position); boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) takeDamage(10, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
       break;
     case 'tendril':
       boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
@@ -2498,7 +2498,7 @@ function updateVenom(dt) {
       if (boss.t <= 0) {
         vfx.ring.visible = false; vfx.slam(boss.target, boss.roof.h); shake(0.5); AudioSys.ko();
         const d = Math.hypot(P.pos.x - boss.target.x, P.pos.z - boss.target.z);
-        if (d < 3.6 && Math.abs(P.pos.y - boss.roof.h) < 3) takeDamage(20, boss.target);
+        if (d < 3.6 && Math.abs(P.pos.y - boss.roof.h) < 3) takeDamage(11, boss.target);
         boss.state = 'idle'; boss.cd = 0.7;
       }
       break;
@@ -2515,7 +2515,7 @@ function updateVenom(dt) {
         m.position.y = boss.roof.h; vfx.shock(m.position, boss.roof.h); shake(0.9); AudioSys.land(); AudioSys.venom();
         burst(m.position.clone().add(V3(0, 0.5, 0)), 24, 0x2a1040, 9, 0.6);
         const d = Math.hypot(P.pos.x - m.position.x, P.pos.z - m.position.z);
-        if (d < 6.5 && Math.abs(P.pos.y - boss.roof.h) < 2.5) { takeDamage(22, m.position); P.vel.y = Math.max(P.vel.y, 8); }
+        if (d < 6.5 && Math.abs(P.pos.y - boss.roof.h) < 2.5) { takeDamage(12, m.position); P.vel.y = Math.max(P.vel.y, 8); }
         boss.state = 'idle'; boss.cd = 1.0;
       }
       break;
