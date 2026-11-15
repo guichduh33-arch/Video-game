@@ -2238,7 +2238,7 @@ function spawnBoss(kind = 'lizard') {
   if (boss.mesh) scene.remove(boss.mesh);
   boss.mesh = kind === 'venom' ? makeVenomMesh() : kind === 'kraven' ? makeKravenMesh() : makeLizardMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
   const name = kind === 'venom' ? 'VENOM' : kind === 'kraven' ? 'KRAVEN THE HUNTER' : 'THE LIZARD';
-  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 42 : kind === 'kraven' ? 34 : 26, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0 });
+  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 42 : kind === 'kraven' ? 34 : 26, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0, foe: 'p1', foeT: 0 });
   boss.hp = boss.maxHp; boss.mesh.rotation.set(0, 0, 0); boss.mesh.scale.set(1, 1, 1); for (const k in KMAT) KMAT[k].opacity = 1;
   G.crime = { b, name: kind === 'venom' ? 'VENOM AT OSCORP' : kind === 'kraven' ? 'THE GREAT HUNT' : 'LIZARD ON THE LOOSE', t: 0, boss: true };
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
@@ -2305,9 +2305,20 @@ function updateBoss(dt) {
   if (boss.kind === 'venom') updateVenom(dt); else if (boss.kind === 'lizard') updateLizard(dt); else updateKraven(dt);
 }
 function bossClamp(m) { const r = boss.roof; m.position.x = clamp(m.position.x, r.x - r.w / 2 + 1.5, r.x + r.w / 2 - 1.5); m.position.z = clamp(m.position.z, r.z - r.d / 2 + 1.5, r.z + r.d / 2 - 1.5); }
+// pick a foe for the boss: the player, or the partner on the roof, so he does not always come after you
+function pickBossFoe(m, dt) {
+  const partnerUp = SK.on && SK.mesh && HS[SK.hero] && HS[SK.hero].hp > 10 && Math.abs(SK.pos.y - boss.roof.h) < 8 && Math.hypot(SK.pos.x - m.position.x, SK.pos.z - m.position.z) < 44;
+  if (boss.foe === 'p2' && !partnerUp) boss.foe = 'p1';
+  boss.foeT -= dt;
+  if (boss.foeT <= 0) { boss.foeT = rand(2.5, 5); boss.foe = (partnerUp && Math.random() < 0.45) ? 'p2' : 'p1'; }
+  const onP2 = boss.foe === 'p2';
+  return { onP2, tgt: onP2 ? SK.pos : P.pos, partnerUp };
+}
 function updateLizard(dt) {
   const m = boss.mesh, p = m.parts;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  const { onP2, tgt } = pickBossFoe(m, dt);
+  const toP = tgt.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = onP2 ? true : (P.alive && !P.camo);
+  const hitFoe = (n, from) => onP2 ? hurtPartner(n, from) : takeDamage(n, from);
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   let moving = false;
   switch (boss.state) {
@@ -2327,16 +2338,16 @@ function updateLizard(dt) {
     case 'dash': {
       m.position.x += boss.dir.x * 25 * dt; m.position.z += boss.dir.z * 25 * dt; moving = true;
       if (flat < 3.2 && Math.abs(toP.y) < 3) {
-        if (P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.8; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); }
-        else { takeDamage(10, m.position); P.vel.x += boss.dir.x * 8; P.vel.z += boss.dir.z * 8; P.vel.y = 6; boss.state = 'idle'; boss.cd = 1.4; }
+        if (!onP2 && P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.8; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); }
+        else { hitFoe(10, m.position); if (!onP2) { P.vel.x += boss.dir.x * 8; P.vel.z += boss.dir.z * 8; P.vel.y = 6; } boss.state = 'idle'; boss.cd = 1.4; }
       } else if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; }
       break; }
     case 'tail': // unblockable sweep of the whole area around him: jump
-      if (boss.t <= 0) { vfx.shock(m.position, boss.roof.h); shake(0.7); AudioSys.ko(); AudioSys.land(); if (flat < 5.2 && Math.abs(toP.y) < 2.6) { takeDamage(11, m.position); P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.2; }
+      if (boss.t <= 0) { vfx.shock(m.position, boss.roof.h); shake(0.7); AudioSys.ko(); AudioSys.land(); if (flat < 5.2 && Math.abs(toP.y) < 2.6) { hitFoe(11, m.position); if (!onP2) P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.2; }
       break;
     case 'bite':
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { if (flat < 3.6 && Math.abs(toP.y) < 3) takeDamage(8, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 3.6 && Math.abs(toP.y) < 3) hitFoe(8, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
       break;
     case 'flee':
       boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
@@ -2370,7 +2381,9 @@ function updateLizard(dt) {
 }
 function updateKraven(dt) {
   const m = boss.mesh, p = m.parts;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && (!P.camo || boss.state === 'cloak');
+  const { onP2, tgt } = pickBossFoe(m, dt);
+  const toP = tgt.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = onP2 ? true : (P.alive && (!P.camo || boss.state === 'cloak'));
+  const hitFoe = (n, from) => onP2 ? hurtPartner(n, from) : takeDamage(n, from);
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   let moving = false;
   switch (boss.state) {
@@ -2388,7 +2401,7 @@ function updateKraven(dt) {
     case 'thrust': // parryable spear stab
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) {
-        if (flat < 4.8 && Math.abs(toP.y) < 3.5) { if (P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.4; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); break; } takeDamage(10, m.position); }
+        if (flat < 4.8 && Math.abs(toP.y) < 3.5) { if (!onP2 && P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.4; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); break; } hitFoe(10, m.position); }
         boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch();
       }
       break;
@@ -2402,20 +2415,20 @@ function updateKraven(dt) {
       break;
     case 'charge': {
       m.position.x += boss.dir.x * 28 * dt; m.position.z += boss.dir.z * 28 * dt; moving = true;
-      if (flat < 3 && Math.abs(toP.y) < 3.5) { takeDamage(12, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; boss.state = 'idle'; boss.cd = 1.0; }
+      if (flat < 3 && Math.abs(toP.y) < 3.5) { hitFoe(12, m.position); if (!onP2) { P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; } boss.state = 'idle'; boss.cd = 1.0; }
       const r = boss.roof, ex = r.x + (r.w / 2 - 1.5) * Math.sign(boss.dir.x || 1), ez = r.z + (r.d / 2 - 1.5) * Math.sign(boss.dir.z || 1);
       const hitEdge = (boss.dir.x > 0 && m.position.x >= ex) || (boss.dir.x < 0 && m.position.x <= ex) || (boss.dir.z > 0 && m.position.z >= ez) || (boss.dir.z < 0 && m.position.z <= ez);
       if (boss.state === 'charge' && (hitEdge || boss.t <= 0)) { boss.state = hitEdge ? 'stunned' : 'idle'; boss.t = hitEdge ? 2.4 : 0; boss.cd = 0.6; if (hitEdge) { shake(0.8); AudioSys.land(); floatText(m.position.clone().add(V3(0, 7, 0)), 'OFF BALANCE! HIT HIM', '#ffd23f', 24); } }
       break; }
-    case 'cloak': { // invisible, circles behind you, then strikes
-      const bx = P.pos.x - Math.sin(P.facing) * 4.5, bz = P.pos.z - Math.cos(P.facing) * 4.5, dx = bx - m.position.x, dz = bz - m.position.z, d = Math.hypot(dx, dz);
+    case 'cloak': { // invisible, circles behind the foe, then strikes
+      const bx = onP2 ? tgt.x : P.pos.x - Math.sin(P.facing) * 4.5, bz = onP2 ? tgt.z : P.pos.z - Math.cos(P.facing) * 4.5, dx = bx - m.position.x, dz = bz - m.position.z, d = Math.hypot(dx, dz);
       if (d > 0.5) { m.position.x += dx / d * Math.min(d, 10 * dt); m.position.z += dz / d * Math.min(d, 10 * dt); moving = true; }
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0 || (d < 1 && boss.t < 2)) { boss.state = 'ambush'; boss.t = 0.5; AudioSys.sense(); }
       break; }
     case 'ambush': // unblockable strike from behind: move
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { if (flat < 4.8 && Math.abs(toP.y) < 3.5) { takeDamage(12, m.position); floatText(P.pos.clone().add(V3(0, 3.2, 0)), 'AMBUSHED', '#ff2d47', 22); } else floatText(m.position.clone().add(V3(0, 7, 0)), 'TOO SLOW, HUNTER', '#3bd6ff', 18); boss.state = 'idle'; boss.cd = 1.0; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 4.8 && Math.abs(toP.y) < 3.5) { hitFoe(12, m.position); floatText(tgt.clone().add(V3(0, 3.2, 0)), 'AMBUSHED', '#ff2d47', 22); } else floatText(m.position.clone().add(V3(0, 7, 0)), 'TOO SLOW, HUNTER', '#3bd6ff', 18); boss.state = 'idle'; boss.cd = 1.0; AudioSys.punch(); }
       break;
     case 'roar': if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.6; } break;
     case 'stunned': if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; } break;
@@ -2489,8 +2502,10 @@ const vfx = (() => {
 })();
 function updateVenom(dt) {
   const m = boss.mesh, p = m.parts;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
-  const seeP = P.alive; // the symbiote senses you through camouflage
+  const { onP2, tgt } = pickBossFoe(m, dt);
+  const toP = tgt.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
+  const seeP = onP2 ? true : P.alive; // the symbiote senses you through camouflage
+  const hitFoe = (n, from) => onP2 ? hurtPartner(n, from) : takeDamage(n, from);
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   if (boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + 0.18 * dt); // regenerates slowly unless shocked
   let moving = false;
@@ -2499,28 +2514,28 @@ function updateVenom(dt) {
       if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 3.2) { m.position.x += toP.x / flat * 4.5 * dt; m.position.z += toP.z / flat * 4.5 * dt; moving = true; } }
       if (seeP && boss.cd <= 0) {
         if (flat < 4.5 && Math.abs(toP.y) < 3.5) { boss.state = 'swipe'; boss.t = 0.4; }
-        else if (flat < 32 && Math.random() < 0.55) { boss.state = 'tendril'; boss.t = 1.0; boss.target = P.pos.clone(); vfx.ring.position.set(boss.target.x, boss.roof.h + 0.08, boss.target.z); vfx.ring.visible = true; AudioSys.camo(); }
+        else if (flat < 32 && Math.random() < 0.55) { boss.state = 'tendril'; boss.t = 1.0; boss.target = tgt.clone(); vfx.ring.position.set(boss.target.x, boss.roof.h + 0.08, boss.target.z); vfx.ring.visible = true; AudioSys.camo(); }
         else if (Math.abs(toP.y) < 40) { boss.state = 'crouch'; boss.t = 0.55; AudioSys.hurt(); }
         boss.cd = 1.1;
       }
       break;
     case 'swipe':
-      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) takeDamage(10, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) hitFoe(10, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
       break;
     case 'tendril':
       boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
       vfx.ring.scale.setScalar(1 + Math.sin(boss.t * 25) * 0.08);
       if (boss.t <= 0) {
         vfx.ring.visible = false; vfx.slam(boss.target, boss.roof.h); shake(0.5); AudioSys.ko();
-        const d = Math.hypot(P.pos.x - boss.target.x, P.pos.z - boss.target.z);
-        if (d < 3.6 && Math.abs(P.pos.y - boss.roof.h) < 3) takeDamage(11, boss.target);
+        const d = Math.hypot(tgt.x - boss.target.x, tgt.z - boss.target.z);
+        if (d < 3.6 && Math.abs(tgt.y - boss.roof.h) < 3) hitFoe(11, boss.target);
         boss.state = 'idle'; boss.cd = 0.7;
       }
       break;
     case 'crouch':
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { // leap at where you are now
-        const tx = clamp(P.pos.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(P.pos.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
+      if (boss.t <= 0) { // leap at where the foe is now
+        const tx = clamp(tgt.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(tgt.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
         const T = 0.9; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump();
       }
       break;
@@ -2529,8 +2544,8 @@ function updateVenom(dt) {
       if (m.position.y <= boss.roof.h && boss.vel.y < 0) {
         m.position.y = boss.roof.h; vfx.shock(m.position, boss.roof.h); shake(0.9); AudioSys.land(); AudioSys.venom();
         burst(m.position.clone().add(V3(0, 0.5, 0)), 24, 0x2a1040, 9, 0.6);
-        const d = Math.hypot(P.pos.x - m.position.x, P.pos.z - m.position.z);
-        if (d < 6.5 && Math.abs(P.pos.y - boss.roof.h) < 2.5) { takeDamage(12, m.position); P.vel.y = Math.max(P.vel.y, 8); }
+        const d = Math.hypot(tgt.x - m.position.x, tgt.z - m.position.z);
+        if (d < 6.5 && Math.abs(tgt.y - boss.roof.h) < 2.5) { hitFoe(12, m.position); if (!onP2) P.vel.y = Math.max(P.vel.y, 8); }
         boss.state = 'idle'; boss.cd = 1.0;
       }
       break;
