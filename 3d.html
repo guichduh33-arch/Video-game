@@ -3441,6 +3441,15 @@ function chunkify(g, C) {
 }
 
 const SUIT_DEFS = {
+  // ---- Gwen Stacy ----
+  gwenstacy: { hero: 'gwen', name: 'GWEN STACY', perk: 'Spider-Gwen: quick swings and camouflage (L)', build: () => {
+    const white = phys(0xf4f4f6, { roughness: 0.5 }), magenta = phys(0xe4007c, { roughness: 0.5, emissive: 0x3a0020, emissiveIntensity: 0.5 }), black = phys(0x0b0b12, { roughness: 0.5 }), teal = phys(0x18c7c7, { roughness: 0.6 });
+    return buildSuit({ black: white, red: magenta, web: white, webShoulder: black, hoodie: white, hoodieIn: teal, string: teal, sole: white, swoosh: teal, laces: NONE_MAT, logo: NONE_MAT, logoBack: NONE_MAT, spray: NONE_MAT, lens: MAT.lens }, (g, body) => {
+      body.add(sph(0.3, black, 0, 1.92, 0.06, 1.05, 0.9, 0.7)); // black chest panel
+      body.add(logoPlane(spiderMat('#f4f4f6', false), 0.55, 1.93, 0.33)); body.add(logoPlane(spiderMat('#f4f4f6', true), 0.85, 1.84, -0.29, true)); // white spider front and back
+      g.parts.head.traverse(o => { if (o.isMesh && o.material === MAT.red) o.material = magenta; }); // magenta lens rims
+      chunkify(g, { suit: white, arm: black, glove: magenta, boot: magenta, belt: magenta, buckle: teal });
+    }); } },
   // ---- Peter Parker ----
   advanced: { hero: 'peter', name: 'PETER · ADVANCED SUIT 2.0', perk: 'Spider-Arms (K) hit everything in front of you', build: () => {
     const blue = phys(0x1b3f9e, { map: fabricTex('#1b3f9e', true) }), red = phys(0xc8141e, { map: webTex(0.25, 0.3, 28, 9, true, '#c8141e', '#1a1016') }), redPlain = phys(0xc8141e), white = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.5 });
@@ -3570,10 +3579,12 @@ const SUIT_DEFS = {
 const HEROES = {
   peter: { name: 'PETER PARKER', short: 'PETER', suits: ['advanced', 'black', 'classic', 'noir'], power: 'FOCUS', color: '#ff4d5e' },
   miles: { name: 'MILES MORALES', short: 'MILES', suits: ['spiderverse', 'upgraded', 'm2099', 'punk'], power: 'VENOM', color: '#ffd23f' },
+  gwen: { name: 'GWEN STACY', short: 'GWEN', suits: ['gwenstacy'], power: 'VENOM', color: '#ff7ab8' },
 };
 let HERO = 'peter';
-const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'spiderverse', hp: 100, power: 50 } };
-const otherHero = () => HERO === 'peter' ? 'miles' : 'peter';
+const HS = { peter: { suit: 'advanced', hp: 100, power: 50 }, miles: { suit: 'spiderverse', hp: 100, power: 50 }, gwen: { suit: 'gwenstacy', hp: 100, power: 50 } };
+const ORDER = ['miles', 'peter', 'gwen'];
+const otherHero = (h = HERO) => ORDER[(ORDER.indexOf(h) + 1) % ORDER.length];
 const SUITS = {};
 let SUIT = 'spiderverse';
 function suitMesh(name) { if (!SUITS[name]) SUITS[name] = SUIT_DEFS[name].build(); return SUITS[name]; }
@@ -3603,10 +3614,14 @@ function swapHero() {
   if (G.state !== 'play' || !P.alive || G.swapCd > 0) return;
   if (!SK.mesh) spawnSidekick();
   G.swapCd = 1.0; HS[HERO].hp = P.hp; HS[HERO].power = P.venom;
-  const was = HERO; HERO = otherHero();
-  const mine = hero, theirs = SK.mesh; // trade bodies: the partner's mesh becomes the one you drive
-  hero = theirs; SK.mesh = mine; SK.hero = was; SK.name = HEROES[was].short; SK.on = true; SK.mesh.visible = true; hero.visible = true;
-  restoreOpacity(SK.mesh); hero.position.copy(P.pos); hero.rotation.y = P.facing; SK.mesh.position.copy(SK.pos);
+  HERO = SK.hero;                              // you take over the hero who was swinging beside you
+  const incoming = otherHero(HERO);            // the third Spider-Person swings in as the new partner
+  const theirs = SK.mesh;                      // their body becomes the one you drive
+  scene.remove(hero);                          // bench the body you just left
+  hero = theirs; hero.visible = true;
+  SK.mesh = suitMesh(HS[incoming].suit); if (!SK.mesh.parent) scene.add(SK.mesh);
+  SK.hero = incoming; SK.name = HEROES[incoming].short; SK.on = true; SK.mesh.visible = true;
+  restoreOpacity(hero); restoreOpacity(SK.mesh); hero.position.copy(P.pos); hero.rotation.y = P.facing; SK.mesh.position.copy(SK.pos);
   SUIT = HS[HERO].suit; P.hp = HS[HERO].hp; P.venom = HS[HERO].power; P.camo = false; P.camoT = 0; P.gliding = false; P.armsT = 0; P.surgeT = 0;
   if (P.swinging) stopSwing(false);
   burst(P.pos.clone().add(V3(0, 1.6, 0)), 24, 0xffffff, 8, 0.5); burst(SK.pos.clone().add(V3(0, 1.6, 0)), 24, 0xffffff, 8, 0.5);
@@ -3615,8 +3630,8 @@ function swapHero() {
   $('chatName').textContent = SK.name;
 }
 function setupHeroes() { // start of a run: you play Miles; Peter swings with you as the partner
-  HERO = 'miles'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'spiderverse', hp: 100, power: 50 });
-  for (const who of ['peter', 'miles']) { try { const want = localStorage.getItem('sm2_suit_' + who); if (want && SUIT_DEFS[want] && SUIT_DEFS[want].hero === who && want !== 'black') HS[who].suit = want; } catch (e) { } }
+  HERO = 'miles'; Object.assign(HS.peter, { suit: 'advanced', hp: 100, power: 50 }); Object.assign(HS.miles, { suit: 'spiderverse', hp: 100, power: 50 }); Object.assign(HS.gwen, { suit: 'gwenstacy', hp: 100, power: 50 });
+  for (const who of ['peter', 'miles', 'gwen']) { try { const want = localStorage.getItem('sm2_suit_' + who); if (want && SUIT_DEFS[want] && SUIT_DEFS[want].hero === who && want !== 'black') HS[who].suit = want; } catch (e) { } }
   const next = suitMesh(HS.miles.suit); if (next !== hero) { scene.remove(hero); hero = next; scene.add(hero); } SUIT = HS.miles.suit; hero.visible = true;
 }
 const webLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web); webLine.frustumCulled = false; scene.add(webLine);
@@ -3957,7 +3972,7 @@ function punch() {
 const VENOM_COST = () => SUIT === 'punk' ? 35 : 50;
 // K: the hero power. Miles shocks everything around him (chain lightning once his venom evolves); Peter's mechanical spider-arms
 // hammer everything in front of him, and in the black suit the symbiote surges out in every direction and feeds him health.
-function usePower() { if (HERO === 'miles') venomStrike(); else if (SUIT === 'black') symbioteSurge(); else spiderArms(); }
+function usePower() { if (HERO === 'miles' || HERO === 'gwen') venomStrike(); else if (SUIT === 'black') symbioteSurge(); else spiderArms(); }
 const chainLines = [];
 function chain(a, b) { const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), new THREE.LineBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 1 })); l.frustumCulled = false; scene.add(l); chainLines.push({ l, t: 0.35 }); }
 function venomStrike() {
@@ -4762,9 +4777,10 @@ function tintSpiderTex(color, back) { const t = spiderTex(128, back); const c = 
 const SK = { on: (new URLSearchParams(location.search).get('partner') || 'on') !== 'off', mesh: null, pos: V3(), vel: V3(), radius: 0.5, onGround: false, onWall: null, state: 'idle', facing: 0, animT: 0, punchT: 0, punchCd: 0, anchor: V3(), webbing: false, stuckT: 0, prev: V3(), quipCd: 4, leapCd: 0, kos: 0, line: null, name: 'MILES', hero: 'miles' };
 const QUIPS = {
   peter: { leap: ['Right behind you, Miles!', 'Keep up, kid!', 'Race you to the roof!'], ko: ['That one\'s mine!', 'Teamwork!', 'Nice assist!', 'And stay down.'], boss: ['Hit him now!', 'Watch the tail!', 'I\'ve got your back!'], idle: ['Quiet night.', 'Nice view from up here.', 'MJ\'s going to ask why I\'m late. Again.'] },
+  gwen: { leap: ['Right behind you!', 'Try to keep up!', 'Race you there!'], ko: ['Got one!', 'Nice teamwork!', 'That one\'s mine!', 'Boom!'], boss: ['Hit him now!', 'Watch out!', 'I\'ve got your back!'], idle: ['Nice night for it.', 'Brooklyn\'s quiet.', 'So, what now?'] },
   miles: { leap: ['Right behind you!', 'Keep up, old man!', 'Race you there!'], ko: ['Got one!', 'Nice teamwork!', 'That one\'s mine!', 'Boom!'], boss: ['Hit him now!', 'Watch out!', 'I\'ve got your back!'], idle: ['So… what now?', 'Brooklyn\'s quiet. Too quiet.', 'Ganke says hi.'] },
 };
-function quip(kind) { if (SK.quipCd > 0 || !SK.mesh) return; SK.quipCd = 6; const q = QUIPS[SK.hero][kind], line = q[Math.floor(Math.random() * q.length)]; floatText(SK.pos.clone().add(V3(0, 3.8, 0)), line, HEROES[SK.hero].color, 17); if (!CHAT.open && typeof partnerSay === 'function') partnerSay(line); }
+function quip(kind) { if (SK.quipCd > 0 || !SK.mesh) return; SK.quipCd = 6; const q = (QUIPS[SK.hero] || QUIPS.miles)[kind] || QUIPS.miles[kind], line = q[Math.floor(Math.random() * q.length)]; floatText(SK.pos.clone().add(V3(0, 3.8, 0)), line, HEROES[SK.hero].color, 17); if (!CHAT.open && typeof partnerSay === 'function') partnerSay(line); }
 function spawnSidekick() {
   if (!SK.mesh) { SK.hero = otherHero(); SK.name = HEROES[SK.hero].short; SK.mesh = suitMesh(HS[SK.hero].suit); if (!SK.mesh.parent) scene.add(SK.mesh); SK.line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V3(), V3()]), MAT.web2 || (MAT.web2 = new THREE.LineBasicMaterial({ color: 0xffffff }))); SK.line.frustumCulled = false; scene.add(SK.line); }
   SK.pos.copy(P.pos).add(V3(-Math.sin(P.facing) * 3 + 1.5, 0, -Math.cos(P.facing) * 3)); SK.vel.set(0, 0, 0); SK.onGround = true; SK.webbing = false; SK.state = 'idle'; SK.facing = P.facing; SK.kos = 0; SK.stuckT = 0; SK.prev.copy(SK.pos);
@@ -5100,7 +5116,7 @@ function updateHUD() {
   $('venom').style.borderColor = P.venom >= VENOM_COST() ? '#ffd23f' : 'rgba(255,255,255,.35)';
   $('camo').firstElementChild.style.width = (P.camo ? P.camoT / (SUIT === 'noir' ? 10 : 6) * 100 : P.camoCd > 0 ? (1 - P.camoCd / (SUIT === 'noir' ? 4 : 8)) * 100 : 100) + '%';
   $('suitName').textContent = SUIT_DEFS[SUIT].name; $('heroTag').textContent = (TOUCH ? 'SWAP' : 'TAB') + ': PLAY AS ' + HEROES[otherHero()].short + ' · ' + Math.round(HS[otherHero()].hp) + '% HP';
-  $('powerLabel').textContent = HEROES[HERO].power; $('camo').style.display = HERO === 'miles' ? '' : 'none';
+  $('powerLabel').textContent = HEROES[HERO].power; $('camo').style.display = HERO === 'peter' ? 'none' : '';
   if (TOUCH) { const bv = $('bVenom'); if (bv) { const lbl = HERO === 'miles' ? 'VENOM' : (SUIT === 'black' ? 'SURGE' : 'ARMS'); if (bv.textContent !== lbl) bv.textContent = lbl; } const bc = $('bCamo'); if (bc) { const disp = HERO === 'miles' ? 'flex' : 'none'; if (bc.style.display !== disp) bc.style.display = disp; } }
   $('score').firstChild.textContent = G.score;
   $('score').querySelector('small').innerHTML = `CRIMES ${G.crimes} / 8 &nbsp;·&nbsp; ${fmtTime(G.time)}`;
