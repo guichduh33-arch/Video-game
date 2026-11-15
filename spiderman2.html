@@ -2223,7 +2223,7 @@ function spawnBoss(kind = 'lizard') {
   if (boss.mesh) scene.remove(boss.mesh);
   boss.mesh = kind === 'venom' ? makeVenomMesh() : kind === 'kraven' ? makeKravenMesh() : makeLizardMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
   const name = kind === 'venom' ? 'VENOM' : kind === 'kraven' ? 'KRAVEN THE HUNTER' : 'THE LIZARD';
-  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 60 : kind === 'kraven' ? 52 : 40, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0 });
+  Object.assign(boss, { kind, name, maxHp: kind === 'venom' ? 60 : kind === 'kraven' ? 52 : 26, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, deadT: 0, facing: 0, helpStage: 0, fled: false, taunt: 0 });
   boss.hp = boss.maxHp; boss.mesh.rotation.set(0, 0, 0); boss.mesh.scale.set(1, 1, 1); for (const k in KMAT) KMAT[k].opacity = 1;
   G.crime = { b, name: kind === 'venom' ? 'VENOM AT OSCORP' : kind === 'kraven' ? 'THE GREAT HUNT' : 'LIZARD ON THE LOOSE', t: 0, boss: true };
   beacon.visible = true; beacon.position.set(b.x, b.h, b.z);
@@ -2299,10 +2299,10 @@ function updateLizard(dt) {
     case 'idle':
       if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 3) { m.position.x += toP.x / flat * 5 * dt; m.position.z += toP.z / flat * 5 * dt; moving = true; } }
       if (seeP && boss.cd <= 0) {
-        if (flat < 6.5 && Math.abs(toP.y) < 3 && Math.random() < 0.45) { boss.state = 'tail'; boss.t = 0.7; AudioSys.hurt(); }
-        else if (flat < 3.6 && Math.abs(toP.y) < 3) { boss.state = 'bite'; boss.t = 0.45; }
-        else if (flat < 30 && Math.abs(toP.y) < 6) { boss.state = 'lunge'; boss.t = 0.55; AudioSys.hurt(); }
-        boss.cd = 1.1;
+        if (flat < 6.5 && Math.abs(toP.y) < 3 && Math.random() < 0.4) { boss.state = 'tail'; boss.t = 1.0; AudioSys.hurt(); }
+        else if (flat < 3.6 && Math.abs(toP.y) < 3) { boss.state = 'bite'; boss.t = 0.5; }
+        else if (flat < 30 && Math.abs(toP.y) < 6) { boss.state = 'lunge'; boss.t = 0.9; AudioSys.hurt(); }
+        boss.cd = 1.9;
       }
       break;
     case 'lunge': // crouch, then a dash you can parry
@@ -2310,18 +2310,18 @@ function updateLizard(dt) {
       if (boss.t <= 0) { boss.state = 'dash'; boss.t = 0.5; boss.dir.set(Math.sin(boss.facing), 0, Math.cos(boss.facing)); AudioSys.venom(); }
       break;
     case 'dash': {
-      m.position.x += boss.dir.x * 34 * dt; m.position.z += boss.dir.z * 34 * dt; moving = true;
+      m.position.x += boss.dir.x * 25 * dt; m.position.z += boss.dir.z * 25 * dt; moving = true;
       if (flat < 3.2 && Math.abs(toP.y) < 3) {
         if (P.parryT > 0) { parried(null, m.position); boss.state = 'stunned'; boss.t = 2.8; boss.cd = 0.5; floatText(m.position.clone().add(V3(0, 7, 0)), 'COUNTERED! HIT HIM', '#3bd6ff', 24); AudioSys.ko(); }
-        else { takeDamage(20, m.position); P.vel.x += boss.dir.x * 8; P.vel.z += boss.dir.z * 8; P.vel.y = 6; boss.state = 'idle'; boss.cd = 1.0; }
+        else { takeDamage(10, m.position); P.vel.x += boss.dir.x * 8; P.vel.z += boss.dir.z * 8; P.vel.y = 6; boss.state = 'idle'; boss.cd = 1.4; }
       } else if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.8; }
       break; }
     case 'tail': // unblockable sweep of the whole area around him: jump
-      if (boss.t <= 0) { vfx.shock(m.position, boss.roof.h); shake(0.7); AudioSys.ko(); AudioSys.land(); if (flat < 6.8 && Math.abs(toP.y) < 2.6) { takeDamage(22, m.position); P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.2; }
+      if (boss.t <= 0) { vfx.shock(m.position, boss.roof.h); shake(0.7); AudioSys.ko(); AudioSys.land(); if (flat < 5.2 && Math.abs(toP.y) < 2.6) { takeDamage(11, m.position); P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.2; }
       break;
     case 'bite':
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { if (flat < 3.6 && Math.abs(toP.y) < 3) takeDamage(14, m.position); boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 3.6 && Math.abs(toP.y) < 3) takeDamage(8, m.position); boss.state = 'idle'; boss.cd = 1.1; AudioSys.punch(); }
       break;
     case 'flee':
       boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
@@ -2331,7 +2331,7 @@ function updateLizard(dt) {
       m.position.addScaledVector(boss.vel, dt); boss.vel.y -= GRAV * 0.7 * dt; moving = true;
       if (boss.t <= 0 || (m.position.y <= boss.target.y && boss.vel.y < 0 && Math.hypot(m.position.x - boss.target.x, m.position.z - boss.target.z) < 6)) {
         boss.roof = boss.nextRoof; m.position.set(clamp(m.position.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), boss.roof.h, clamp(m.position.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2));
-        boss.state = 'roar'; boss.t = 1.2; boss.cd = 1; boss.hp = Math.min(boss.maxHp, boss.hp + 5); shake(0.5); AudioSys.land(); burst(m.position.clone().add(V3(0, 0.5, 0)), 20, 0x3f8f3f, 8, 0.6); floatText(m.position.clone().add(V3(0, 7, 0)), 'REGENERATING', '#3bffd0', 18);
+        boss.state = 'roar'; boss.t = 1.2; boss.cd = 1.2; shake(0.5); AudioSys.land(); burst(m.position.clone().add(V3(0, 0.5, 0)), 20, 0x3f8f3f, 8, 0.6); floatText(m.position.clone().add(V3(0, 7, 0)), 'REGENERATING', '#3bffd0', 18);
       }
       break;
     case 'roar': if (boss.t <= 0) { boss.state = 'idle'; boss.cd = 0.6; } break;
