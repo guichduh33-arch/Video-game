@@ -342,8 +342,8 @@ function buildStand(len, yaw, front, tiers) {
 }
 buildStand(PITCH_L + 36, 0, HW + 6, LOW ? 7 : 12);            // tall side stands
 buildStand(PITCH_L + 36, Math.PI, HW + 6, LOW ? 7 : 12);
-buildStand(PITCH_W + 30, -Math.PI / 2, HL + 8, LOW ? 4 : 6);  // low ends, so the town shows over them
-buildStand(PITCH_W + 30, Math.PI / 2, HL + 8, LOW ? 4 : 6);
+buildStand(PITCH_W + 30, -Math.PI / 2, HL + 8, LOW ? 3 : 4);  // low ends, so the house + PC behind them show
+buildStand(PITCH_W + 30, Math.PI / 2, HL + 8, LOW ? 3 : 4);
 
 // floodlights
 for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
@@ -374,22 +374,51 @@ function buildHouse(x, z, s, wall, roof, flag, baseY = 0) {
   if (flag) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 5, 6), new THREE.MeshStandardMaterial({ color: 0xcccccc })); pole.position.set(4.6, 2.5, 2.5); g.add(pole); const fl = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshStandardMaterial({ color: 0xe31e2c, side: THREE.DoubleSide })); fl.position.set(5.4, 4.3, 2.5); g.add(fl); }
   scene.add(g); return g;
 }
-// a hillside town behind each goal, raised so its roofs peek over the stands (like houses overlooking a real ground)
-const hillMat = new THREE.MeshStandardMaterial({ color: 0x356b36, roughness: 1 });
-function buildHill(cx) { const h = new THREE.Mesh(new THREE.SphereGeometry(46, 26, 16), hillMat); h.position.set(cx, 0, 0); h.scale.set(1.0, 0.35, 1.0); h.receiveShadow = true; scene.add(h); }
-function buildTown(dir) {
-  const gx = dir * 140;                 // well beyond the stadium footprint
-  buildHill(gx);
-  // "our" house with a flag, biggest, front-and-centre on the hill behind the goal
-  buildHouse(gx - dir * 4, 0, 2.7, 0xf2e8d2, 0xb0432e, dir > 0, 14.6);
-  buildHouse(gx + dir * 11, -24, 2.2, 0xd8e8f0, 0x3a6ea5, false, 13.6);
-  buildHouse(gx + dir * 11, 24, 2.2, 0xeadfcf, 0x4a7a3a, false, 13.6);
-  buildHouse(gx + dir * 25, -9, 2.0, 0xf0ddc8, 0x8a5a2a, false, 12.0);
-  buildHouse(gx + dir * 25, 12, 2.0, 0xdfe6ea, 0x6a5f4a, false, 12.0);
-  buildHouse(gx - dir * 16, -20, 2.0, 0xe8e0d0, 0x4a6a8a, false, 13.2);
-  buildHouse(gx - dir * 16, 20, 2.0, 0xf4ead6, 0x9a5236, false, 13.2);
+// a giant gaming PC: monitor (screen faces the pitch), tower, keyboard, mouse — on a desk
+function pcScreenTex() {
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 150; const g = cv.getContext('2d');
+  g.fillStyle = '#0a1016'; g.fillRect(0, 0, 256, 150);
+  g.fillStyle = '#2e7a33'; g.fillRect(18, 34, 220, 100);
+  g.strokeStyle = '#eaf3ea'; g.lineWidth = 2; g.strokeRect(18, 34, 220, 100);
+  g.beginPath(); g.moveTo(128, 34); g.lineTo(128, 134); g.stroke();
+  g.beginPath(); g.arc(128, 84, 15, 0, TAU); g.stroke();
+  g.fillStyle = '#39d98a'; g.fillRect(18, 34, 110, 100); g.globalAlpha = 0.18; g.fillStyle = '#39d98a'; g.fillRect(18, 34, 110, 100); g.globalAlpha = 1;
+  g.fillStyle = '#2e7a33'; g.fillRect(130, 34, 108, 100); g.strokeStyle = '#eaf3ea'; g.strokeRect(18, 34, 220, 100); g.beginPath(); g.moveTo(128, 34); g.lineTo(128, 134); g.stroke(); g.beginPath(); g.arc(128, 84, 15, 0, TAU); g.stroke();
+  g.fillStyle = '#fff'; g.font = '900 19px Arial'; g.textAlign = 'center'; g.fillText('PITCH LEGENDS', 128, 22);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-buildTown(1); buildTown(-1);
+function buildPC(x, z, s) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = Math.atan2(-x, -z); g.scale.setScalar(s); // screen faces the pitch
+  const metal = new THREE.MeshStandardMaterial({ color: 0x2b303a, roughness: 0.5, metalness: 0.45 });
+  const black = new THREE.MeshStandardMaterial({ color: 0x14161c, roughness: 0.4 });
+  const stex = pcScreenTex();
+  const desk = new THREE.Mesh(new THREE.BoxGeometry(11, 0.4, 5), new THREE.MeshStandardMaterial({ color: 0x6b4a2a, roughness: 0.8 })); desk.position.y = 3; g.add(desk);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3, 0.4), black); leg.position.set(sx * 5, 1.5, sz * 2); g.add(leg); }
+  // monitor at the back of the desk, screen toward the pitch (+z)
+  const bezel = new THREE.Mesh(new THREE.BoxGeometry(6.8, 4, 0.4), black); bezel.position.set(0, 6.4, -1.8); g.add(bezel);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(6.2, 3.5), new THREE.MeshStandardMaterial({ map: stex, emissive: 0xffffff, emissiveMap: stex, emissiveIntensity: 0.9, roughness: 0.3 })); screen.position.set(0, 6.4, -1.58); g.add(screen);
+  const neck = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.4, 0.5), metal); neck.position.set(0, 4.1, -1.8); g.add(neck);
+  const stand = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.2, 18), metal); stand.position.set(0, 3.3, -1.8); g.add(stand);
+  // tower with an RGB strip + power light facing the pitch
+  const tower = new THREE.Mesh(new THREE.BoxGeometry(2, 5.4, 4.2), metal); tower.position.set(6.3, 2.9, -0.2); g.add(tower);
+  const rgb = new THREE.Mesh(new THREE.BoxGeometry(0.15, 4.4, 3.4), new THREE.MeshStandardMaterial({ color: 0x00e0ff, emissive: 0x00e0ff, emissiveIntensity: 1.3 })); rgb.position.set(5.28, 2.9, -0.2); g.add(rgb);
+  const pwr = new THREE.Mesh(new THREE.CircleGeometry(0.22, 14), new THREE.MeshStandardMaterial({ color: 0x39ff88, emissive: 0x39ff88, emissiveIntensity: 2 })); pwr.position.set(6.3, 5.0, 1.91); g.add(pwr);
+  const kb = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.3, 1.7), black); kb.position.set(-0.5, 3.25, 1.3); g.add(kb);
+  const mouse = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 1.2), black); mouse.position.set(3.4, 3.25, 1.3); g.add(mouse);
+  // gaming chair, off to the side so it doesn't hide the screen
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.4, 2.4), black); seat.position.set(-6.5, 2.4, 2); g.add(seat);
+  const backr = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.4, 0.4), new THREE.MeshStandardMaterial({ color: 0xe31e2c, roughness: 0.5 })); backr.position.set(-6.5, 4, 3); g.add(backr);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  scene.add(g); return g;
+}
+// our house right behind each goal with the gaming PC next to it, plus a couple of neighbours
+function buildHomeArea(dir) {
+  buildHouse(dir * (HL + 26), dir * -9, 2.7, 0xf2e8d2, 0xb0432e, true, 0);  // the house, with a flag
+  buildPC(dir * (HL + 30), dir * 12, 2.3);                                   // the PC, next to it
+  buildHouse(dir * (HL + 46), -24, 2.2, 0xd8e8f0, 0x3a6ea5, false, 0);
+  buildHouse(dir * (HL + 46), 24, 2.2, 0xeadfcf, 0x4a7a3a, false, 0);
+}
+buildHomeArea(1); buildHomeArea(-1);
 
 /* LED advertising boards ringing the pitch */
 const adBoards = [];
