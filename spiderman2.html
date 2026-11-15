@@ -1829,6 +1829,12 @@ const venomArc = (() => {
   return { show(c, color = 0xffd23f, r = 8) { m.position.copy(c); t = 0.45; R = r; mat.color.set(color); }, update(dt) { if (t > 0) { t -= dt; const s = (0.45 - t) / 0.45 * R; m.scale.set(s, s, s); mat.opacity = t / 0.45; } else mat.opacity = 0;
     for (let i = chainLines.length - 1; i >= 0; i--) { const c = chainLines[i]; c.t -= dt; c.l.material.opacity = Math.max(0, c.t / 0.35); if (c.t <= 0) { scene.remove(c.l); chainLines.splice(i, 1); } } } };
 })();
+function hurtPartner(n, from) {
+  const who = SK.hero; if (!SK.mesh || !HS[who]) return;
+  HS[who].hp = Math.max(10, HS[who].hp - n); // the partner takes the hit but is never knocked out
+  burst(SK.pos.clone().add(V3(0, 1.5, 0)), 8, 0xff6a6a, 6, 0.4); AudioSys.hurt();
+  if (from) { const d = SK.pos.clone().sub(from); d.y = 0; if (d.lengthSq() > 0) { d.normalize(); SK.vel.x += d.x * 5; SK.vel.z += d.z * 5; SK.onGround = false; } }
+}
 function takeDamage(n, from) {
   if (!P.alive || P.invulnT > 0) return;
   P.hp -= n; P.invulnT = 0.7; G.combo = 0; G.comboT = 0; AudioSys.hurt(); shake(0.5);
@@ -1872,7 +1878,7 @@ function makeEnemyMesh(type) {
 }
 function spawnEnemy(type, x, z, roof) {
   const mesh = makeEnemyMesh(type); mesh.position.set(x, roof.h, z); scene.add(mesh);
-  enemies.push({ type, mesh, roof, webbed: 0, cocoon: null, hp: type === 'gunner' ? 2 : type === 'hunter' ? 4 : 3, vel: V3(), alive: true, deadT: 0, stun: 0, alert: false, attackT: 0, attackCd: rand(0.5, 1.5), flash: 0, animT: rand(0, 6), facing: rand(0, TAU), wander: V3(x, 0, z), wanderT: 0 });
+  enemies.push({ type, mesh, roof, webbed: 0, cocoon: null, hp: type === 'gunner' ? 2 : type === 'hunter' ? 3 : 2, vel: V3(), alive: true, deadT: 0, stun: 0, alert: false, attackT: 0, attackCd: rand(0.5, 1.5), flash: 0, animT: rand(0, 6), facing: rand(0, TAU), wander: V3(x, 0, z), wanderT: 0 });
 }
 function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -1884,27 +1890,34 @@ function updateEnemies(dt) {
     }
     e.animT += dt;
     for (const k of ['stun', 'attackCd', 'flash']) if (e[k] > 0) e[k] -= dt;
-    const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
-    const canSee = P.alive && (!P.camo || e.type === 'symb') && flat < 38 && Math.abs(toP.y) < 25;
-    if (canSee) e.alert = true; else if (P.camo && flat > 6) e.alert = false;
+    // pick a foe: the player, or the partner at your side, so the pressure is shared instead of all on you
+    const partnerUp = SK.on && SK.mesh && HS[SK.hero] && HS[SK.hero].hp > 10 && Math.abs(SK.pos.y - m.position.y) < 6 && Math.hypot(SK.pos.x - m.position.x, SK.pos.z - m.position.z) < 34;
+    if (e.foe === 'p2' && !partnerUp) e.foe = 'p1';
+    e.foeT = (e.foeT || 0) - dt;
+    if (e.foeT <= 0) { e.foeT = rand(3, 6); e.foe = (partnerUp && Math.random() < 0.5) ? 'p2' : 'p1'; }
+    const onP2 = e.foe === 'p2', tgt = onP2 ? SK.pos : P.pos;
+    const toP = tgt.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
+    const tgtAlive = onP2 ? partnerUp : P.alive;
+    const canSee = tgtAlive && (onP2 || !P.camo || e.type === 'symb') && flat < 32 && Math.abs(toP.y) < 25;
+    if (canSee) e.alert = true; else if (!onP2 && P.camo && flat > 6) e.alert = false;
     // knockback velocity
     m.position.x += e.vel.x * dt; m.position.z += e.vel.z * dt; m.position.y += e.vel.y * dt;
     e.vel.x *= 1 - 6 * dt; e.vel.z *= 1 - 6 * dt; e.vel.y -= GRAV * dt;
     if (m.position.y <= e.roof.h) { m.position.y = e.roof.h; e.vel.y = 0; }
     let moving = false;
     if (e.stun <= 0) {
-      if (e.alert && P.alive) {
+      if (e.alert && tgtAlive) {
         e.facing = Math.atan2(toP.x, toP.z);
         const melee = e.type !== 'gunner', want = melee ? 1.7 : 12, run = e.type === 'symb' ? 7.5 : e.type === 'hunter' ? 6.5 : 5.5;
         if (melee) {
           if (e.type === 'hunter' && flat > 4.5 && flat < 11 && e.attackCd <= 0 && Math.abs(toP.y) < 3) { // spear leap: closes the gap in one jump and stabs
-            e.attackT = 0.55; e.attackCd = 2.4; e.vel.x = toP.x / 0.55 * 0.85; e.vel.z = toP.z / 0.55 * 0.85; e.vel.y = 5; floatText(m.position.clone().add(V3(0, 3.2, 0)), 'HUNTER LEAP', '#ff7a1a', 15);
+            e.attackT = 0.55; e.attackCd = 3.2; e.vel.x = toP.x / 0.55 * 0.85; e.vel.z = toP.z / 0.55 * 0.85; e.vel.y = 5; floatText(m.position.clone().add(V3(0, 3.2, 0)), 'HUNTER LEAP', '#ff7a1a', 15);
           } else if (flat > want) { m.position.x += toP.x / flat * run * dt; m.position.z += toP.z / flat * run * dt; moving = true; }
-          else if (e.attackCd <= 0 && Math.abs(toP.y) < 2.5) { e.attackT = 0.5; e.attackCd = 1.4; }
+          else if (e.attackCd <= 0 && Math.abs(toP.y) < 2.5) { e.attackT = 0.5; e.attackCd = 1.9; }
         } else {
           if (flat < want - 3) { m.position.x -= toP.x / flat * 3.5 * dt; m.position.z -= toP.z / flat * 3.5 * dt; moving = true; }
           else if (flat > 26) { m.position.x += toP.x / flat * 4 * dt; m.position.z += toP.z / flat * 4 * dt; moving = true; }
-          if (e.attackCd <= 0 && flat < 30) { e.attackT = 0.35; e.attackCd = 2.0; }
+          if (e.attackCd <= 0 && flat < 30) { e.attackT = 0.35; e.attackCd = 2.8; }
         }
       } else {
         // a crime in progress: gather around the victim and menace them, instead of wandering at random
@@ -1919,8 +1932,8 @@ function updateEnemies(dt) {
     if (e.attackT > 0) {
       e.attackT -= dt;
       if (e.attackT <= 0) {
-        if (e.type !== 'gunner') { if (flat < (e.type === 'hunter' ? 3.2 : 2.6) && Math.abs(toP.y) < 2.5) { if (P.parryT > 0) parried(e, m.position); else takeDamage(e.type === 'hunter' ? 16 : 12, m.position); } }
-        else fireBullet(e, toP);
+        if (e.type !== 'gunner') { if (flat < (e.type === 'hunter' ? 3.2 : 2.6) && Math.abs(toP.y) < 2.5) { const dmg = e.type === 'hunter' ? 10 : 7; if (onP2) hurtPartner(dmg, m.position); else if (P.parryT > 0) parried(e, m.position); else takeDamage(dmg, m.position); } }
+        else fireBullet(e, tgt, onP2);
       }
     }
     // keep on the roof
@@ -1983,23 +1996,25 @@ function updateWebShots(dt) {
   for (const e of enemies) if (e.alive && e.webbed > 0) { e.webbed -= dt; if (e.cocoon) { const sc = Math.min(1, e.cocoon.scale.x + dt * 6); e.cocoon.scale.set(sc, sc, sc); } if (e.webbed <= 0) { if (e.cocoon) e.cocoon.visible = false; e.stun = 0.3; burst(e.mesh.position.clone().add(V3(0, 1.6, 0)), 10, 0xdddddd, 4, 0.4); } }
 }
 const bulletGeo = new THREE.SphereGeometry(0.18, 6, 6), bulletMat = new THREE.MeshBasicMaterial({ color: 0xffb060 });
-function fireBullet(e, toP) {
+function fireBullet(e, tgtPos, p2) {
   AudioSys.shot();
-  const from = e.mesh.position.clone().add(V3(0, 2, 0)), to = P.pos.clone().add(V3(0, 1.4, 0));
+  const from = e.mesh.position.clone().add(V3(0, 2, 0)), to = (tgtPos || P.pos).clone().add(V3(0, 1.4, 0));
   const dir = to.sub(from).normalize();
   const m = new THREE.Mesh(bulletGeo, bulletMat); m.position.copy(from); scene.add(m);
-  bullets.push({ mesh: m, pos: from, vel: dir.multiplyScalar(34), life: 2.5 });
+  bullets.push({ mesh: m, pos: from, vel: dir.multiplyScalar(30), life: 2.5, dmg: 5, p2: !!p2 });
   burst(from.clone(), 3, 0xffb060, 3, 0.15);
 }
 function updateBullets(dt) {
   for (let i = bullets.length - 1; i >= 0; i--) {
     const b = bullets[i]; b.life -= dt; if (b.grav) b.vel.y -= b.grav * dt; b.pos.addScaledVector(b.vel, dt); b.mesh.position.copy(b.pos); if (b.spin) { b.mesh.rotation.x += dt * 5; b.mesh.rotation.y += dt * 3; }
-    const hit = P.alive && b.pos.distanceTo(P.pos.clone().add(V3(0, 1.4, 0))) < (b.dmg ? 1.8 : 1.2);
+    const hit = !b.p2 && P.alive && b.pos.distanceTo(P.pos.clone().add(V3(0, 1.4, 0))) < (b.grav ? 1.8 : 1.2);
+    const hitSK = b.p2 && SK.on && SK.mesh && b.pos.distanceTo(SK.pos.clone().add(V3(0, 1.4, 0))) < 1.6;
     const wall = buildingAt(b.pos.x, b.pos.z) && groundHeight(b.pos.x, b.pos.z) > b.pos.y;
     if (hit) { if (P.invulnT <= 0) takeDamage(b.dmg || 8, b.dmg ? b.pos : null); else floatText(P.pos.clone().add(V3(0, 3, 0)), 'DODGE', '#8e6bff', 16); }
+    if (hitSK) hurtPartner(b.dmg || 5, b.pos);
     const floor = b.grav && b.pos.y <= groundHeight(b.pos.x, b.pos.z);
     if (floor) burst(b.pos.clone(), 8, 0x777777, 5, 0.5);
-    if (hit || wall || floor || b.life <= 0 || b.pos.y < 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
+    if (hit || hitSK || wall || floor || b.life <= 0 || b.pos.y < 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
   }
 }
 
