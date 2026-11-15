@@ -9940,7 +9940,7 @@ function spawnBoss(kind = 'rhino') {
   if (boss.mesh) scene.remove(boss.mesh);
   const venom = kind === 'venom', prowler = kind === 'prowler', spot = kind === 'spot', gal = GALLERY[kind] || null;
   boss.mesh = venom ? makeVenomMesh() : prowler ? makeProwlerMesh() : spot ? makeSpotMesh() : gal ? galBuild(gal) : makeBossMesh(); boss.mesh.position.set(b.x, b.h, b.z); scene.add(boss.mesh);
-  Object.assign(boss, { kind: gal ? 'gallery' : kind, gal, galKey: gal ? kind : null, forced: false, webCd: 0, orbit: Math.random() * TAU, cloudCd: 3, decoyT: 0, waveN: 0, phase: '', hitDone: false, name: gal ? gal.name : venom ? 'VENOM' : prowler ? 'THE PROWLER' : spot ? 'THE SPOT' : 'THE RHINO', maxHp: gal ? gal.hp : venom ? 44 : prowler ? 40 : spot ? 42 : 36, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, facing: 0, helpStage: 0, cloak: 0, cloakTo: 0, combo: 0, ambush: false, enraged: false, jam: 0, blinkT: 3, targets: [] });
+  Object.assign(boss, { kind: gal ? 'gallery' : kind, gal, galKey: gal ? kind : null, forced: false, webCd: 0, orbit: Math.random() * TAU, cloudCd: 3, decoyT: 0, waveN: 0, phase: '', hitDone: false, name: gal ? gal.name : venom ? 'VENOM' : prowler ? 'THE PROWLER' : spot ? 'THE SPOT' : 'THE RHINO', maxHp: gal ? gal.hp : venom ? 44 : prowler ? 40 : spot ? 42 : 36, alive: true, state: 'idle', t: 0, roof: b, cd: 2.5, animT: 0, flash: 0, spawnedHelp: false, deadT: 0, facing: 0, helpStage: 0, cloak: 0, cloakTo: 0, combo: 0, ambush: false, enraged: false, jam: 0, blinkT: 3, targets: [], focus: null, focusT: 0 });
   if (prowler) { boss.mesh.scale.setScalar(1); setProwlerCloak(0); }
   SPOTFX.hideAll(); GAL_FX.clear();
   if (gal) { GAL_FX.markMat.color.setHex(gal.pal.accent); GAL_FX.waveMat.color.setHex(gal.pal.accent); if (gal.flier) boss.mesh.position.y = b.h + gal.flier; }
@@ -9997,10 +9997,44 @@ function bossThrow() {
   bullets.push({ mesh: m, pos: from, vel, life: 3, dmg: 18, grav: 14, spin: true });
   AudioSys.punch();
 }
+// ---------- Boss focus: the boss doesn't always come for Miles; sometimes it goes after a teammate (Gwen or a Spider-Ally) ----------
+function bossFocusValid(f) { if (!f) return false; if (f === SK) return SK.on && !!SK.mesh; return SOC.allies && SOC.allies.indexOf(f) >= 0; }
+function bossAimPos() { const f = boss.focus; if (f && bossFocusValid(f)) return f.pos; boss.focus = null; return P.pos; }
+function bossAimAtPlayer() { return !(boss.focus && bossFocusValid(boss.focus)); }
+function tickBossFocus(dt) {
+  if (!boss.alive) { boss.focus = null; return; }
+  if (boss.focus && !bossFocusValid(boss.focus)) boss.focus = null;
+  boss.focusT = (boss.focusT || 0) - dt;
+  if (boss.focusT <= 0) {
+    boss.focusT = 4 + Math.random() * 4;
+    const near = boss.mesh ? boss.mesh.position : P.pos, allies = [];
+    if (SK.on && SK.mesh && SK.pos.distanceTo(near) < 50) allies.push(SK);
+    if (SOC.allies) for (const a of SOC.allies) if (a.pos.distanceTo(near) < 50) allies.push(a);
+    if (allies.length && Math.random() < 0.35) {
+      boss.focus = allies[Math.floor(Math.random() * allies.length)];
+      const nm = boss.focus === SK ? (SK.name || 'GWEN') : 'A SPIDER-ALLY';
+      floatText((boss.mesh ? boss.mesh.position.clone() : P.pos.clone()).add(V3(0, 8, 0)), 'TARGET: ' + nm, '#ff9a3a', 18);
+    } else boss.focus = null;
+  }
+}
+// land a melee hit on whoever the boss is aiming at: Miles takes it (return true), or a teammate gets shoved and Miles is spared (return false)
+function bossMeleeHit(n, from) {
+  if (bossAimAtPlayer()) { takeDamage(n, from); return true; }
+  const f = boss.focus;
+  if (f && f.pos) {
+    const d = f.pos.clone().sub(from || (boss.mesh ? boss.mesh.position : P.pos)); d.y = 0;
+    if (d.length() < 0.1) d.set(Math.random() - 0.5, 0, Math.random() - 0.5); d.normalize();
+    if (f.vel) { f.vel.x += d.x * 10; f.vel.z += d.z * 10; f.vel.y = Math.max(f.vel.y || 0, 6); }
+    f.pos.y += 0.3; if (f === SK) SK.onGround = false;
+    burst(f.pos.clone().add(V3(0, 1.5, 0)), 12, 0xff7ab8, 6, 0.4); floatText(f.pos.clone().add(V3(0, 3.4, 0)), 'OOF!', '#ff7ab8', 20); shake(0.3); AudioSys.hit?.();
+  }
+  return false;
+}
 function updateBoss(dt) {
   if (!boss.mesh) return;
   const m = boss.mesh, p = m.parts;
   boss.animT += dt; if (boss.flash > 0) boss.flash -= dt;
+  tickBossFocus(dt);
   if (!boss.alive) {
     boss.deadT += dt;
     if (boss.kind === 'venom') { const k = clamp(boss.deadT / 2, 0, 1); m.scale.set(1 + k * 0.6, Math.max(0.03, 1 - k), 1 + k * 0.6); m.position.y = boss.roof.h; if (boss.deadT < 1.5 && Math.random() < 0.4) burst(m.position.clone().add(V3(rand(-2, 2), 0.5, rand(-2, 2))), 2, 0x1a0a2a, 3, 0.6); }
@@ -10023,7 +10057,7 @@ function updateBoss(dt) {
   if (boss.kind === 'prowler') { updateProwler(dt); return; }
   if (boss.kind === 'spot') { updateSpot(dt); return; }
   if (boss.kind === 'gallery') { updateGallery(dt); return; }
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  const toP = bossAimPos().clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   let moving = false;
   switch (boss.state) {
@@ -10037,7 +10071,7 @@ function updateBoss(dt) {
       }
       break;
     case 'swipe':
-      if (boss.t <= 0) { if (flat < 4 && Math.abs(toP.y) < 3) takeDamage(15, m.position); boss.state = 'idle'; boss.cd = 1.0; }
+      if (boss.t <= 0) { if (flat < 4 && Math.abs(toP.y) < 3) bossMeleeHit(15, m.position); boss.state = 'idle'; boss.cd = 1.0; }
       break;
     case 'throw':
       boss.facing = Math.atan2(toP.x, toP.z);
@@ -10050,7 +10084,7 @@ function updateBoss(dt) {
     case 'charge': {
       m.position.x += boss.dir.x * 30 * dt; m.position.z += boss.dir.z * 30 * dt; moving = true;
       if (boss.animT % 0.1 < dt) burst(m.position.clone().add(V3(0, 0.3, 0)), 2, 0x777777, 4, 0.4);
-      if (flat < 2.8 && Math.abs(toP.y) < 3.5) { takeDamage(25, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; }
+      if (flat < 2.8 && Math.abs(toP.y) < 3.5) { if (bossMeleeHit(25, m.position)) { P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; } }
       const r = boss.roof, ex = r.x + (r.w / 2 - 1.5) * Math.sign(boss.dir.x || 1), ez = r.z + (r.d / 2 - 1.5) * Math.sign(boss.dir.z || 1);
       const hitEdge = (boss.dir.x > 0 && m.position.x >= ex) || (boss.dir.x < 0 && m.position.x <= ex) || (boss.dir.z > 0 && m.position.z >= ez) || (boss.dir.z < 0 && m.position.z <= ez);
       if (hitEdge || boss.t <= 0) {
@@ -10134,7 +10168,7 @@ const vfx = (() => {
 })();
 function updateVenom(dt) {
   const m = boss.mesh, p = m.parts;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
+  const toP = bossAimPos().clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z);
   const seeP = P.alive; // the symbiote senses you through camouflage
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   if (boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + 0.5 * dt); // regenerates unless shocked
@@ -10144,13 +10178,13 @@ function updateVenom(dt) {
       if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 3.2) { m.position.x += toP.x / flat * 4.5 * dt; m.position.z += toP.z / flat * 4.5 * dt; moving = true; } }
       if (seeP && boss.cd <= 0) {
         if (flat < 4.5 && Math.abs(toP.y) < 3.5) { boss.state = 'swipe'; boss.t = 0.4; }
-        else if (flat < 32 && Math.random() < 0.55) { boss.state = 'tendril'; boss.t = 1.0; boss.target = P.pos.clone(); vfx.ring.position.set(boss.target.x, boss.roof.h + 0.08, boss.target.z); vfx.ring.visible = true; AudioSys.camo(); }
+        else if (flat < 32 && Math.random() < 0.55) { boss.state = 'tendril'; boss.t = 1.0; boss.target = bossAimPos().clone(); vfx.ring.position.set(boss.target.x, boss.roof.h + 0.08, boss.target.z); vfx.ring.visible = true; AudioSys.camo(); }
         else if (Math.abs(toP.y) < 40) { boss.state = 'crouch'; boss.t = 0.55; AudioSys.hurt(); }
         boss.cd = 1.1;
       }
       break;
     case 'swipe':
-      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) takeDamage(18, m.position); boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch(); }
+      if (boss.t <= 0) { if (flat < 5 && Math.abs(toP.y) < 3.5) bossMeleeHit(18, m.position); boss.state = 'idle'; boss.cd = 0.9; AudioSys.punch(); }
       break;
     case 'tendril':
       boss.facing = Math.atan2(boss.target.x - m.position.x, boss.target.z - m.position.z);
@@ -10165,7 +10199,7 @@ function updateVenom(dt) {
     case 'crouch':
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) { // leap at where you are now
-        const tx = clamp(P.pos.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(P.pos.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
+        const AP = bossAimPos(), tx = clamp(AP.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(AP.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
         const T = 0.9; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump();
       }
       break;
@@ -10251,8 +10285,8 @@ function jamSpot() { // a web across his portals: no blinking for a while
 }
 function spotSink() { boss.state = 'sink'; boss.t = 0.45; AudioSys.camo(); }
 function spotAim() {
-  boss.targets = [P.pos.clone()];
-  if (boss.enraged) for (const a of [Math.random() * TAU, Math.random() * TAU + Math.PI]) boss.targets.push(P.pos.clone().add(V3(Math.sin(a) * 3.8, 0, Math.cos(a) * 3.8)));
+  const SA = bossAimPos(); boss.targets = [SA.clone()];
+  if (boss.enraged) for (const a of [Math.random() * TAU, Math.random() * TAU + Math.PI]) boss.targets.push(SA.clone().add(V3(Math.sin(a) * 3.8, 0, Math.cos(a) * 3.8)));
   boss.state = 'aim'; boss.t = 0.85; AudioSys.camo();
 }
 function throwSpotDisc(spread) {
@@ -10264,7 +10298,7 @@ function throwSpotDisc(spread) {
 }
 function updateSpot(dt) {
   const m = boss.mesh, p = m.parts, r = boss.roof, own = SPOTFX.own;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  const toP = bossAimPos().clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt; if (boss.jam > 0) boss.jam -= dt; boss.blinkT -= dt;
   const speed = boss.enraged ? 5.5 : 4.2;
   let moving = false;
@@ -10281,7 +10315,7 @@ function updateSpot(dt) {
       }
       break;
     case 'swipe':
-      if (boss.t <= 0) { if (flat < 4.2 && Math.abs(toP.y) < 3) takeDamage(12, m.position); AudioSys.punch(); boss.state = 'idle'; boss.cd = 0.9; }
+      if (boss.t <= 0) { if (flat < 4.2 && Math.abs(toP.y) < 3) bossMeleeHit(12, m.position); AudioSys.punch(); boss.state = 'idle'; boss.cd = 0.9; }
       break;
     case 'sink': { // drops through a hole under his feet
       const k = clamp(boss.t / 0.45, 0, 1); m.scale.y = Math.max(0.02, k); m.position.y = r.h - (1 - k) * 0.6;
@@ -10397,7 +10431,7 @@ function fireProwlerBlast(spread = 0) {
 }
 function updateProwler(dt) {
   const m = boss.mesh, p = m.parts;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  const toP = bossAimPos().clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt;
   const speed = boss.enraged ? 8.5 : 6.5;
   let moving = false;
@@ -10426,7 +10460,7 @@ function updateProwler(dt) {
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) {
         boss.cloakTo = 0;
-        if (flat < 4.4 && Math.abs(toP.y) < 3) { takeDamage(boss.ambush ? 22 : 12, m.position); if (boss.ambush) floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'AMBUSHED', '#c08cff', 22); }
+        if (flat < 4.4 && Math.abs(toP.y) < 3) { if (bossMeleeHit(boss.ambush ? 22 : 12, m.position) && boss.ambush) floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'AMBUSHED', '#c08cff', 22); }
         else if (boss.ambush) floatText(m.position.clone().add(V3(0, 6.5, 0)), 'MISSED', '#8e6bff', 16);
         AudioSys.punch(); burst(m.position.clone().add(V3(Math.sin(boss.facing) * 1.6, 3.2, Math.cos(boss.facing) * 1.6)), 6, 0x35ff8a, 5, 0.25);
         boss.combo++; boss.ambush = false;
@@ -10441,7 +10475,7 @@ function updateProwler(dt) {
     case 'crouch':
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) { // pounce at where you are now
-        const tx = clamp(P.pos.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(P.pos.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
+        const AP = bossAimPos(), tx = clamp(AP.x, boss.roof.x - boss.roof.w / 2 + 2, boss.roof.x + boss.roof.w / 2 - 2), tz = clamp(AP.z, boss.roof.z - boss.roof.d / 2 + 2, boss.roof.z + boss.roof.d / 2 - 2);
         const T = 0.8; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump();
       }
       break;
@@ -10584,7 +10618,7 @@ function galShot(s, spread) {
 function galPick(d, flat, dy) {
   const m = boss.mesh, can = k => d.moves.includes(k), rr = Math.random(), low = Math.abs(dy) < 3;
   if (d.flier) {
-    if (can('dive') && (rr < 0.5 || !can('shot'))) { boss.target = P.pos.clone(); boss.from = m.position.clone(); boss.state = 'dive'; boss.phase = 'aim'; boss.t = 0.6; AudioSys.hurt(); }
+    if (can('dive') && (rr < 0.5 || !can('shot'))) { boss.target = bossAimPos().clone(); boss.from = m.position.clone(); boss.state = 'dive'; boss.phase = 'aim'; boss.t = 0.6; AudioSys.hurt(); }
     else { boss.state = 'shot'; boss.t = 0.5; }
     return;
   }
@@ -10605,7 +10639,7 @@ function galPick(d, flat, dy) {
   else if (pick === 'cloud') { boss.state = 'cloud'; boss.t = 2.5; boss.cloudCd = 7; burst(m.position.clone().add(V3(0, 2, 0)), 20, 0xd8b57a, 6, 0.6); AudioSys.camo(); }
   else if (pick === 'chargeup') { boss.state = 'chargeup'; boss.t = 1.6; AudioSys.camo(); floatText(m.position.clone().add(V3(0, 6.5, 0)), 'CHARGING', '#ffe14a', 18); }
   else if (pick === 'wave') { boss.state = 'wave'; boss.t = 0.5; boss.waveN = d.waveN || 1; }
-  else if (pick === 'slam') { boss.targets = [P.pos.clone()]; for (let i = 1; i < (d.slamN || 1); i++) { const a = i / ((d.slamN || 1) - 1) * TAU; boss.targets.push(P.pos.clone().add(V3(Math.sin(a) * 3.6, 0, Math.cos(a) * 3.6))); } boss.state = 'slam'; boss.t = 0.85; AudioSys.hurt(); }
+  else if (pick === 'slam') { const GA = bossAimPos(); boss.targets = [GA.clone()]; for (let i = 1; i < (d.slamN || 1); i++) { const a = i / ((d.slamN || 1) - 1) * TAU; boss.targets.push(GA.clone().add(V3(Math.sin(a) * 3.6, 0, Math.cos(a) * 3.6))); } boss.state = 'slam'; boss.t = 0.85; AudioSys.hurt(); }
   else if (pick === 'shot') { boss.state = 'shot'; boss.t = 0.5; }
   else if (pick === 'charge') { boss.state = 'windup'; boss.t = 0.8; AudioSys.hurt(); }
   else if (pick === 'leap') { boss.state = 'crouch'; boss.t = 0.5; AudioSys.hurt(); }
@@ -10633,7 +10667,7 @@ function galPopDecoy(i) {
 }
 function updateGallery(dt) {
   const m = boss.mesh, p = m.parts, d = boss.gal, r = boss.roof;
-  const toP = P.pos.clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
+  const toP = bossAimPos().clone().sub(m.position); const flat = Math.hypot(toP.x, toP.z), seeP = P.alive && !P.camo;
   boss.t -= dt; if (boss.cd > 0) boss.cd -= dt; if (boss.webCd > 0) boss.webCd -= dt; if (boss.cloudCd > 0) boss.cloudCd -= dt;
   if (d.regen && boss.state !== 'stunned' && boss.hp < boss.maxHp) boss.hp = Math.min(boss.maxHp, boss.hp + d.regen * dt);
   if (d.decoys) galDecoys(dt);
@@ -10652,9 +10686,9 @@ function updateGallery(dt) {
       boss.facing = Math.atan2(toP.x, toP.z);
       if (boss.t <= 0) {
         if (flat < 4.4 && Math.abs(toP.y) < 3) {
-          takeDamage(d.swipeDmg, m.position);
-          if (d.poison && P.alive) { P.poisonT = d.poison; floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'POISONED', '#9ad45a', 20); }
-          if (d.swipeKnock) { const k = V3(Math.sin(boss.facing), 0, Math.cos(boss.facing)); P.vel.x += k.x * d.swipeKnock; P.vel.z += k.z * d.swipeKnock; P.vel.y = Math.max(P.vel.y, 7); }
+          const hitP = bossMeleeHit(d.swipeDmg, m.position);
+          if (hitP && d.poison && P.alive) { P.poisonT = d.poison; floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'POISONED', '#9ad45a', 20); }
+          if (hitP && d.swipeKnock) { const k = V3(Math.sin(boss.facing), 0, Math.cos(boss.facing)); P.vel.x += k.x * d.swipeKnock; P.vel.z += k.z * d.swipeKnock; P.vel.y = Math.max(P.vel.y, 7); }
         }
         AudioSys.punch(); boss.combo++;
         if (boss.combo < (d.combo || 1) && flat < 5.5 && P.alive) { boss.t = 0.36; if (flat > 2.5) { m.position.x += toP.x / flat * 1.2; m.position.z += toP.z / flat * 1.2; } }
@@ -10663,7 +10697,7 @@ function updateGallery(dt) {
       break;
     case 'grab':
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { if (flat < 4 && Math.abs(toP.y) < 3) { takeDamage(d.grabDmg, m.position); const k = V3(Math.sin(boss.facing), 0, Math.cos(boss.facing)); P.vel.set(k.x * 12, 14, k.z * 12); if (P.swinging) stopSwing(false); floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'THROWN', '#ff2d47', 20); } boss.state = 'idle'; boss.cd = 1.2; }
+      if (boss.t <= 0) { if (flat < 4 && Math.abs(toP.y) < 3 && bossMeleeHit(d.grabDmg, m.position)) { const k = V3(Math.sin(boss.facing), 0, Math.cos(boss.facing)); P.vel.set(k.x * 12, 14, k.z * 12); if (P.swinging) stopSwing(false); floatText(P.pos.clone().add(V3(0, 3.4, 0)), 'THROWN', '#ff2d47', 20); } boss.state = 'idle'; boss.cd = 1.2; }
       break;
     case 'windup':
       boss.facing = Math.atan2(toP.x, toP.z);
@@ -10672,7 +10706,7 @@ function updateGallery(dt) {
     case 'charge': {
       m.position.x += boss.dir.x * 26 * dt; m.position.z += boss.dir.z * 26 * dt; moving = true;
       if (boss.animT % 0.1 < dt) burst(m.position.clone().add(V3(0, 0.3, 0)), 2, 0x777777, 4, 0.4);
-      if (flat < 3 && Math.abs(toP.y) < 3.5) { takeDamage(20, m.position); P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; }
+      if (flat < 3 && Math.abs(toP.y) < 3.5) { if (bossMeleeHit(20, m.position)) { P.vel.x += boss.dir.x * 9; P.vel.z += boss.dir.z * 9; P.vel.y = 7; } }
       const ex = r.x + (r.w / 2 - 1.5) * Math.sign(boss.dir.x || 1), ez = r.z + (r.d / 2 - 1.5) * Math.sign(boss.dir.z || 1);
       const hitEdge = (boss.dir.x > 0 && m.position.x >= ex) || (boss.dir.x < 0 && m.position.x <= ex) || (boss.dir.z > 0 && m.position.z >= ez) || (boss.dir.z < 0 && m.position.z <= ez);
       if (hitEdge || boss.t <= 0) { if (hitEdge) { shake(1); AudioSys.land(); burst(m.position.clone().add(V3(0, 3, 0)), 26, 0xaaaaaa, 10, 0.8); galStun(2.8, 'DAZED! HIT HIM'); } else { boss.state = 'idle'; boss.cd = 1.0; } }
@@ -10708,11 +10742,11 @@ function updateGallery(dt) {
       break;
     case 'crouch':
       boss.facing = Math.atan2(toP.x, toP.z);
-      if (boss.t <= 0) { const tx = clamp(P.pos.x, r.x - r.w / 2 + 2, r.x + r.w / 2 - 2), tz = clamp(P.pos.z, r.z - r.d / 2 + 2, r.z + r.d / 2 - 2); const T = 0.85; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump(); }
+      if (boss.t <= 0) { const AP = bossAimPos(), tx = clamp(AP.x, r.x - r.w / 2 + 2, r.x + r.w / 2 - 2), tz = clamp(AP.z, r.z - r.d / 2 + 2, r.z + r.d / 2 - 2); const T = 0.85; boss.vel.set((tx - m.position.x) / T, 0.5 * GRAV * T * 0.75, (tz - m.position.z) / T); boss.state = 'leap'; boss.t = 3; AudioSys.jump(); }
       break;
     case 'leap':
       m.position.x += boss.vel.x * dt; m.position.z += boss.vel.z * dt; m.position.y += boss.vel.y * dt; boss.vel.y -= GRAV * 0.75 * dt; moving = true;
-      if (m.position.y <= r.h && boss.vel.y < 0) { m.position.y = r.h; vfx.shock(m.position, r.h); shake(0.8); AudioSys.land(); burst(m.position.clone().add(V3(0, 0.5, 0)), 16, d.pal.suit, 7, 0.5); if (flat < 5 && Math.abs(P.pos.y - r.h) < 2.5) { takeDamage(d.leapDmg, m.position); P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.0; }
+      if (m.position.y <= r.h && boss.vel.y < 0) { m.position.y = r.h; vfx.shock(m.position, r.h); shake(0.8); AudioSys.land(); burst(m.position.clone().add(V3(0, 0.5, 0)), 16, d.pal.suit, 7, 0.5); if (flat < 5 && Math.abs(P.pos.y - r.h) < 2.5) { if (bossMeleeHit(d.leapDmg, m.position)) P.vel.y = Math.max(P.vel.y, 8); } boss.state = 'idle'; boss.cd = 1.0; }
       break;
     case 'cloud': // sand: untouchable, fast, drifting after Miles
       if (seeP) { boss.facing = Math.atan2(toP.x, toP.z); if (flat > 2.5) { m.position.x += toP.x / flat * 9 * dt; m.position.z += toP.z / flat * 9 * dt; moving = true; } }
@@ -12518,7 +12552,7 @@ function frame(now) {
   if (HUDC.comic !== LOOK.comic) { HUDC.comic = LOOK.comic; document.body.classList.toggle('comic', LOOK.comic); }
 }
 requestAnimationFrame(frame);
-window.__game = { SEA, HELPER, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, summonSociety, gameCommand, isFlyer, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
+window.__game = { SEA, HELPER, spawnSea, GRAB, traffic, grabTry, aimSoft, webShots, ROOM, enterRoom, leaveRoom, miniOpen, miniClose, DAY, dayJump, dayApply, renderer, scene, PERF, LOOK, applyLook, post, HOME, MUSIC, AudioSys, GAL_FX, GALLERY, HEALTH, spawnHealth, gwenOrder, ORD, webEnemy, RIG, touch, applyLevel, autoQuality, WARM, beacon, burst, spawnEnemy, P, G, look, enemies, buildings, camera, spawnCrime, spawnBoss, boss, SK, CHAT, sendChat, setSuit, suit: () => SUIT, SOC, summonSociety, gameCommand, isFlyer, bossAimPos, bossAimAtPlayer, bossMeleeHit, tickBossFocus, peds, pigeons, dbg: () => ({ pos: P.pos.toArray().map(v => +v.toFixed(1)), vel: P.vel.toArray().map(v => +v.toFixed(1)), swinging: P.swinging, onGround: P.onGround, wall: !!P.onWall, hp: P.hp, enemies: enemies.filter(e => e.alive).length, crime: !!G.crime, crimes: G.crimes, score: G.score, state: G.state, cam: camera.position.toArray().map(v => +v.toFixed(1)), look: [+look.yaw.toFixed(2), +look.pitch.toFixed(2)] }) };
 </script>
 </body>
 </html>

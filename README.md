@@ -588,6 +588,7 @@ the auto-tuning.
 | First person | `C` or the VIEW button: the camera sits in the mask; the torso is hidden, your own hands, web shooters and feet stay visible |
 | Leap of faith | Hold `Space` (or JUMP) while falling: Miles dives head-first, the camera looks down past him at the street, and a few metres up the web fires by itself, time slows and he swings out of it |
 | Play as Gwen / Spider-Man / Miles | The SUIT button (or say "be Gwen", "be Spider-Man", "be Miles") switches who you control. When you play as Gwen, Miles becomes your partner |
+| Bosses pick a target | Bosses no longer only chase Miles. When Gwen or a Spider-Ally is near the fight they sometimes go after them instead ("TARGET: GWEN"), knocking the teammate back and giving Miles a breather |
 | Everyone beside you | Say "spider society" for a squad, or "every Spider-Man" to line up all of them right next to you. They follow and fight with you |
 | Street Football | In the App Store, a quick top-down football game: drag to run, SHOOT at the goal, beat the CPU in 90 seconds. Runs right on the iPad |
 | Switch Spider-Man | `N` / `B` or the SUIT button cycle the suits. One of them is **SPIDER-MAN** (red and blue, not Miles) — a whole other hero you switch to |
