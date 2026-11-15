@@ -576,8 +576,8 @@ function genCity() {
     const lot = BLOCK / split;
     for (let i = 0; i < split; i++) for (let j = 0; j < split; j++) {
       const w = lot - 4 - r() * 6, d = lot - 4 - r() * 6;
-      let h = west ? 30 + r() * 50 + r() * r() * 90 : 14 + r() * 30 + r() * r() * 30;
-      if (r() < (west ? 0.3 : 0.05)) h += 50 + r() * 70; // skyscraper
+      let h = west ? 46 + r() * 72 + r() * r() * 150 : 22 + r() * 46 + r() * r() * 54;
+      if (r() < (west ? 0.34 : 0.09)) h += 80 + r() * 120; // skyscraper
       const x = cx - BLOCK / 2 + lot * i + lot / 2 + (r() - 0.5) * 2, z = cz - BLOCK / 2 + lot * j + lot / 2 + (r() - 0.5) * 2;
       addBuilding(x, z, w, d, h, r);
     }
