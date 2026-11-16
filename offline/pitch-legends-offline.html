@@ -180,6 +180,7 @@
     <button class="cta alt" data-ts="club">CHANGE CLUB</button>
     <button class="cta alt" data-ts="create">CREATE A CLUB</button>
     <button class="cta alt" data-ts="auto">BEST LINE-UP</button>
+    <button class="cta alt" data-ts="edit" id="tsEdit" style="display:none">EDIT PLAYER</button>
     <button class="cta" data-ts="play">PLAY</button>
     <div class="mut" id="tsTip">Tap one player, then another, to swap them.</div>
    </div>
@@ -550,7 +551,14 @@ function squadFor(ci) {
       pas: A(role === 'MF' ? 5 : role === 'DF' ? -6 : 0), def: A(role === 'DF' ? 6 : role === 'MF' ? -4 : -22), gk: role === 'GK' ? b : 30,
       skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], style: STYLES[Math.floor(r() * STYLES.length)] });
   });
+  for (const i in c.edits || {}) if (c.squad[i]) applyEdit(c.squad[i], c.edits[i]);
   return c.squad;
+}
+function applyEdit(sp, e) {
+  if (typeof e.n === 'string' && e.n.trim()) sp.name = e.n.trim().slice(0, 14).toUpperCase();
+  if (['GK', 'DF', 'MF', 'FW'].includes(e.p)) { sp.pos = e.p; sp.gk = e.p === 'GK' ? sp.ovr : 30; }
+  const o = clamp(Math.round(+e.o) || sp.ovr, 40, 99), d = o - sp.ovr;
+  if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
 }
 // line-up = 18 squad indices: the first 11 fill the formation's slots in order, the rest sit on the bench
 function autoLineup(ci) {
@@ -569,7 +577,7 @@ function teamOvr(ci) { const sq = squadFor(ci), l = lineupFor(ci); let t = 0; fo
 const SAVE_KEY = 'pitch-legends-v1';
 function saveAll() {
   try {
-    const teams = {}; CLUBS.forEach(c => { if (c.lineup) teams[c.n] = { f: c.f, l: c.lineup }; });
+    const teams = {}; CLUBS.forEach(c => { if (c.lineup) teams[c.n] = { f: c.f, l: c.lineup, e: c.edits }; });
     localStorage.setItem(SAVE_KEY, JSON.stringify({ custom: CLUBS.filter(c => c.custom).map(c => ({ n: c.n, a: c.a, shirt: c.shirt, trim: c.trim, shorts: c.shorts, socks: c.socks, alt: c.alt, ovr: c.ovr, seed: c.seed, f: c.f, custom: true })), teams, home: CLUBS[sel.home].n }));
   } catch (e) {}
 }
@@ -577,7 +585,7 @@ function loadAll() {
   try {
     const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d) return null;
     for (const c of d.custom || []) if (c && typeof c.n === 'string' && !CLUBS.some(x => x.n === c.n)) CLUBS.push(c);
-    CLUBS.forEach(c => { const t = d.teams && d.teams[c.n]; if (t && FORMATIONS[t.f] && Array.isArray(t.l) && t.l.length === 18 && new Set(t.l).size === 18 && t.l.every(i => i >= 0 && i < 18)) { c.f = t.f; c.lineup = t.l; } });
+    CLUBS.forEach(c => { const t = d.teams && d.teams[c.n]; if (t && t.e && typeof t.e === 'object') c.edits = t.e; if (t && FORMATIONS[t.f] && Array.isArray(t.l) && t.l.length === 18 && new Set(t.l).size === 18 && t.l.every(i => i >= 0 && i < 18)) { c.f = t.f; c.lineup = t.l; } });
     return d;
   } catch (e) { return null; }
 }
@@ -1880,7 +1888,7 @@ function faceSVG(s, c) {
 }
 function cardHTML(s, i, c, slot, style) {
   const tier = s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1';
-  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span>' + esc(s.name.split('. ')[1]) + '</span>' +
+  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span>' + esc(s.name.split('. ')[1] || s.name) + '</span>' +
     (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + '</div>';
 }
 function drawTeam() {
@@ -1892,6 +1900,7 @@ function drawTeam() {
   for (let i = 0; i < 11; i++) h += cardHTML(sq[l[i]], i, c, F[i], 'left:' + (50 + F[i].z * 41).toFixed(1) + '%;top:' + (12 + (0.2 - F[i].x) / 1.14 * 76).toFixed(1) + '%');
   $('tsPitch').innerHTML = h;
   let b = ''; for (let i = 11; i < 18; i++) b += cardHTML(sq[l[i]], i, c); $('tsBench').innerHTML = b;
+  $('tsEdit').style.display = tsSel >= 0 ? '' : 'none'; $('tsTip').textContent = tsSel >= 0 ? 'Tap another player to swap, or edit this one.' : 'Tap one player, then another, to swap them.';
 }
 for (const id of ['tsPitch', 'tsBench']) $(id).addEventListener('click', e => {
   const el = e.target.closest('.pc'); if (!el) return; const i = +el.dataset.i, l = lineupFor(sel.home);
@@ -1902,7 +1911,7 @@ $('fRow').addEventListener('click', e => { const b = e.target.closest('.opt'); i
 function showScr(setup) { $('teamScr').style.display = setup ? 'none' : 'flex'; $('setupScr').style.display = setup ? 'flex' : 'none'; ov.scrollTop = 0; }
 $('teamScr').addEventListener('click', e => {
   const b = e.target.closest('[data-ts]'); if (!b) return; AudioSys.resume(); const a = b.dataset.ts;
-  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else openCreate();
+  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else if (a === 'edit') openEdit(); else openCreate();
 });
 $('backTeam').addEventListener('click', () => showScr(false));
 function openClubs() {
@@ -1916,6 +1925,18 @@ function openCreate() {
     '<div class="row" style="justify-content:flex-start;gap:18px"><label class="fld">Shirt<input type="color" id="ccShirt" value="#12a36b"></label><label class="fld">Trim<input type="color" id="ccTrim" value="#ffffff"></label><label class="fld">Shorts<input type="color" id="ccShorts" value="#0d2b22"></label></div>' +
     '<div class="mut" id="ccErr">You get an 18-player squad of new signings to arrange however you like.</div></div><button class="cta" data-act="doCreate">CREATE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
 }
+function openEdit() {
+  if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
+  openPanel('<h1>EDIT PLAYER</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><label class="fld">Name<input type="text" id="edName" maxlength="14" autocomplete="off" value="' + esc(sp.name) + '"></label>' +
+    '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px">' + sp.ovr + '</b><input type="range" id="edOvr" min="40" max="99" value="' + sp.ovr + '"></label>' +
+    '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label></div>' +
+    '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
+  $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
+}
+ACT.doEdit = () => {
+  const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], e = { n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value };
+  (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
+};
 ACT.closeP = () => closePanel();
 ACT.createClub = () => openCreate();
 ACT.doCreate = () => {
