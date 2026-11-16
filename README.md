@@ -785,8 +785,9 @@ Games, and it must not be sold or distributed commercially.
 
 An original 11-a-side 3D football sim (Three.js, no build step — open `football.html` from a local server).
 
+- **My Team:** the game opens on your squad shown as cards on a pitch — pick a formation (4-4-2, 4-3-3, 4-2-3-1, 3-5-2), tap two players to swap them, change club, or create your own club (name and colours). Saved on the device. French-language devices start as France.
 - **Modes:** Quick Match, or the 8-club **Legends Cup** knockout (draws go to golden-goal extra time, then a penalty shootout).
-- **Clubs:** eight fictional clubs with their own kits, change strips on a colour clash, and seeded squads with ratings (pace, shooting, passing, defending).
+- **Clubs:** eight fictional clubs and four national sides (invented players) with their own kits, change strips on a colour clash, and seeded squads with ratings (pace, shooting, passing, defending).
 - **Rules:** offside, fouls, yellow/red cards and send-offs, free kicks, corners, throw-ins, goal kicks, penalties, woodwork.
 - **Play:** aimed passes, through balls, lobs/crosses, power shots aimed at a corner, standing and slide tackles, headers, blocks, diving goalkeepers.
 - **Presentation:** slow-motion goal replays, celebrations, commentary line, match stats at half/full time, player of the match, day/night, a referee, sky-lit rendering.

@@ -56,9 +56,10 @@
   #ctrlBtn { right: 14px; } #pauseBtn { right: 106px; }
   #radar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: 212px; height: 134px; pointer-events: none; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); opacity: .92; }
   /* overlays */
-  #ov, #panel { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 16px; overflow-y: auto; }
+  #ov, #panel { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; padding: 16px; overflow-y: auto; }
   #ov { background: radial-gradient(120% 120% at 50% 0%, rgba(22,48,74,.82) 0%, rgba(10,16,22,.9) 62%); }
-  #panel { display: none; background: rgba(6,10,15,.78); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+  #panel > :first-child { margin-top: auto; } #panel > :last-child { margin-bottom: auto; }
+  #panel { display: none; background: rgba(6,10,15,.86); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
   #ov h1, #panel h1 { margin: 0; font-size: clamp(30px, 6.4vw, 62px); font-weight: 900; letter-spacing: 2px; background: linear-gradient(180deg,#fff,#8fd0ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
   #panel h1 { font-size: clamp(24px, 5vw, 44px); }
   #ov h2, #panel h2 { margin: -8px 0 0; font-size: clamp(12px,2.2vw,16px); font-weight: 600; letter-spacing: 3px; color: #8fb8d6; text-transform: uppercase; }
@@ -80,6 +81,30 @@
   .club .shirt { width: 54px; height: 50px; clip-path: polygon(22% 0, 38% 0, 50% 10%, 62% 0, 78% 0, 100% 20%, 86% 38%, 78% 30%, 78% 100%, 22% 100%, 22% 30%, 14% 38%, 0 20%); }
   .club .cn { font-weight: 800; font-size: 14px; } .club .cr { font-size: 12px; color: #ffd23f; letter-spacing: 1px; } .club .tag { font-size: 10px; letter-spacing: 2px; color: #8fb8d6; font-weight: 800; }
   .vs { font-weight: 900; color: #6f8aa0; }
+  /* my team */
+  #teamScr { width: 100%; max-width: 1180px; display: flex; flex-direction: column; gap: 10px; align-self: center; margin: auto 0; }
+  #setupScr { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; margin: auto 0; }
+  .tsHead { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; text-align: left; } .tsHead h1 { font-size: clamp(26px, 4.6vw, 44px) !important; } .tsHead .brand { font-size: 11px; letter-spacing: 3px; color: #8fb8d6; font-weight: 700; }
+  .tsBody { display: flex; gap: 12px; align-items: stretch; } .tsSide { width: 250px; flex: none; display: flex; flex-direction: column; gap: 9px; max-width: none; } .tsSide .cta { width: 100%; padding: 11px 10px; font-size: 14px; } .tsSide .cta:not(.alt) { font-size: 18px; padding: 13px; }
+  .tsClub { display: flex; align-items: center; gap: 10px; text-align: left; } .tsNm { flex: 1; min-width: 0; } #tsName { font-weight: 900; font-size: 16px; overflow-wrap: anywhere; }
+  .shield { width: 44px; height: 50px; flex: none; clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 20px; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .ovr { background: linear-gradient(180deg,#e9414f,#a3111f); border-radius: 8px 8px 14px 14px; padding: 4px 9px 7px; line-height: 1; text-align: center; } .ovr small { display: block; font-size: 8px; letter-spacing: 1px; font-weight: 800; opacity: .85; } .ovr b { font-size: 24px; font-weight: 900; }
+  .tsMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  #tsPitch { position: relative; height: min(66vh, 600px); min-height: 400px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,.14);
+    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.12)), repeating-linear-gradient(180deg, #2c7a33 0 12.5%, #338a3a 12.5% 25%); }
+  #tsPitch .ln { position: absolute; border: 2px solid rgba(255,255,255,.45); pointer-events: none; }
+  #tsBench { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; }
+  .pc { --w: clamp(50px, 6.6vw, 78px); width: var(--w); flex: none; cursor: pointer; border-radius: 9px 9px 12px 12px; padding: 3px 3px 4px; box-sizing: border-box; position: relative; text-align: center; color: #fff; border: 2px solid var(--e); background: linear-gradient(160deg, var(--a), var(--b)); box-shadow: 0 4px 10px rgba(0,0,0,.45); transition: transform .1s; }
+  #tsPitch .pc { position: absolute; transform: translate(-50%, -50%); } .pc:hover { filter: brightness(1.12); } .pc.sel { outline: 3px solid #ffe14d; outline-offset: 2px; z-index: 3; }
+  .pc b { position: absolute; left: 4px; top: 2px; font-size: calc(var(--w) * .24); font-weight: 900; line-height: 1; text-shadow: 0 1px 2px rgba(0,0,0,.6); } .pc i { position: absolute; left: 4px; top: calc(var(--w) * .27 + 2px); font-size: calc(var(--w) * .13); font-style: normal; font-weight: 800; opacity: .9; }
+  .pc svg { display: block; width: 78%; margin: 0 0 0 22%; } .pc span { display: block; font-size: calc(var(--w) * .135); font-weight: 800; letter-spacing: .3px; background: rgba(0,0,0,.45); border-radius: 4px; padding: 2px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc em { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); font-style: normal; font-size: 10px; font-weight: 800; color: #9fe870; background: rgba(8,12,18,.8); border-radius: 8px; padding: 0 6px; } .pc em.bad { color: #ffb14d; }
+  .pc.t1 { --a: #8a5a3a; --b: #4a2d1c; --e: #c08a5e; } .pc.t2 { --a: #9aa3ad; --b: #4d545c; --e: #d5dbe2; } .pc.t3 { --a: #d9b14a; --b: #7a5a12; --e: #f6dc8a; } .pc.t4 { --a: #7b3fe0; --b: #2a1266; --e: #f0c95a; }
+  .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin: 6px 0 12px; }
+  .cb { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: #fff; font: 800 13px system-ui; cursor: pointer; } .cb.on { border-color: #9fe870; background: rgba(159,232,112,.12); } .cb small { color: #ffd23f; font-weight: 700; } .cb .shirt { width: 40px; height: 37px; clip-path: polygon(22% 0, 38% 0, 50% 10%, 62% 0, 78% 0, 100% 20%, 86% 38%, 78% 30%, 78% 100%, 22% 100%, 22% 30%, 14% 38%, 0 20%); }
+  .card h4 { margin: 4px 0 0; font-size: 10px; letter-spacing: 2px; color: #8fb8d6; text-align: left; } .card.wide { max-width: 760px; }
+  .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #cfe; text-align: left; } .fld input[type=text] { font: 700 16px system-ui; padding: 9px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); color: #fff; } .fld input[type=color] { width: 64px; height: 38px; border: none; background: none; padding: 0; }
+  @media (max-width: 760px) { .tsBody { flex-direction: column; } .tsSide { width: auto; } #tsPitch { height: 470px; } .pc { --w: clamp(46px, 13vw, 62px); } }
   /* stats + bracket */
   table.st { width: 100%; border-collapse: collapse; font-size: 14px; font-weight: 700; } table.st td { padding: 5px 6px; } table.st td:nth-child(2) { color: #8fb8d6; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 800; }
   table.st td:first-child, table.st td:last-child { width: 26%; font-size: 16px; font-variant-numeric: tabular-nums; }
@@ -145,7 +170,24 @@
   <div class="abtn shoot" data-b="shoot"><span id="bShoot">SHOOT</span><span class="sub" id="bShootS">hold</span></div>
 </div>
 <div id="ov">
-  <h1>PITCH LEGENDS</h1><h2>3D Football · Season 27</h2>
+ <div id="teamScr">
+  <div class="tsHead"><h1>MY TEAM</h1><span class="brand">PITCH LEGENDS · SEASON 27</span></div>
+  <div class="tsBody">
+   <div class="tsSide card">
+    <div class="tsClub"><div class="shield" id="tsShield"></div><div class="tsNm"><div id="tsName"></div><div class="mut" id="tsSub"></div></div><div class="ovr"><small>OVR</small><b id="tsOvr"></b></div></div>
+    <div class="mut">Formation</div>
+    <div class="row" id="fRow" style="margin-top:0"><button class="opt" data-f="4-4-2">4-4-2</button><button class="opt" data-f="4-3-3">4-3-3</button><button class="opt" data-f="4-2-3-1">4-2-3-1</button><button class="opt" data-f="3-5-2">3-5-2</button></div>
+    <button class="cta alt" data-ts="club">CHANGE CLUB</button>
+    <button class="cta alt" data-ts="create">CREATE A CLUB</button>
+    <button class="cta alt" data-ts="auto">BEST LINE-UP</button>
+    <button class="cta" data-ts="play">PLAY</button>
+    <div class="mut" id="tsTip">Tap one player, then another, to swap them.</div>
+   </div>
+   <div class="tsMain"><div id="tsPitch"></div><div class="mut" style="text-align:left;letter-spacing:2px;font-weight:800">SUBSTITUTES</div><div id="tsBench"></div></div>
+  </div>
+ </div>
+ <div id="setupScr" style="display:none">
+  <h1>MATCH SETUP</h1><h2>3D Football · Season 27</h2>
   <div class="card">
     <div class="row" id="modeRow" style="margin-top:0">
       <button class="opt on" data-m="quick">Quick Match</button>
@@ -174,7 +216,9 @@
     </div>
   </div>
   <button id="play" class="cta">KICK OFF</button>
+  <button class="cta alt" id="backTeam">‹ MY TEAM</button>
   <div class="mut">Aim passes and shots with the move keys. Full rules: offside, fouls, cards, free kicks, corners and penalties.</div>
+ </div>
 </div>
 <div id="panel"></div>
 
@@ -459,15 +503,30 @@ const CLUBS = [
   { n: 'Cobalt Wanderers', a: 'COB', shirt: 0x18245c, trim: 0x39d0ff, shorts: 0x18245c, socks: 0x39d0ff, alt: 0x39d0ff, ovr: 78 },
   { n: 'Solara CF', a: 'SOL', shirt: 0xff7a1a, trim: 0x111111, shorts: 0x111318, socks: 0xff7a1a, alt: 0xf2f2f2, ovr: 88 },
   { n: 'Violet Town', a: 'VIO', shirt: 0x7a3fd0, trim: 0xffffff, shorts: 0x2a1650, socks: 0x7a3fd0, alt: 0xf2f2f2, ovr: 76 },
+  // national sides, with invented players
+  { n: 'France', a: 'FRA', shirt: 0x1f3fa8, trim: 0xffffff, shorts: 0xffffff, socks: 0xd8232a, alt: 0xf2f2f2, ovr: 87, nat: 'FR', f: '4-3-3' },
+  { n: 'Brazil', a: 'BRA', shirt: 0xf7d417, trim: 0x1c8a3c, shorts: 0x1d4fb8, socks: 0xffffff, alt: 0x1d4fb8, ovr: 87, nat: 'BR', f: '4-2-3-1' },
+  { n: 'Spain', a: 'ESP', shirt: 0xc8102e, trim: 0xf5c400, shorts: 0x14234b, socks: 0x14234b, alt: 0xf2f2f2, ovr: 86, nat: 'ES', f: '4-3-3' },
+  { n: 'Germany', a: 'GER', shirt: 0xf4f4f4, trim: 0x111111, shorts: 0x111318, socks: 0xf4f4f4, alt: 0x1a1d24, ovr: 85, nat: 'DE', f: '4-2-3-1' },
 ];
-// 4-4-2 in normalised coords; x in [-1,1] with -1 = own goal, z in [-1,1]
-const FORMATION = [
-  { role: 'GK', x: -0.94, z: 0 },
-  { role: 'DF', x: -0.62, z: -0.52 }, { role: 'DF', x: -0.66, z: -0.18 }, { role: 'DF', x: -0.66, z: 0.18 }, { role: 'DF', x: -0.62, z: 0.52 },
-  { role: 'MF', x: -0.22, z: -0.56 }, { role: 'MF', x: -0.28, z: -0.18 }, { role: 'MF', x: -0.28, z: 0.18 }, { role: 'MF', x: -0.22, z: 0.56 },
-  { role: 'FW', x: 0.18, z: -0.24 }, { role: 'FW', x: 0.18, z: 0.24 },
-];
-const NUMS = [1, 2, 5, 4, 3, 7, 8, 6, 11, 9, 10];
+const NAT_NAMES = {
+  FR: ['MARTIN', 'BERNARD', 'DUBOIS', 'MOREAU', 'GIRARD', 'ROUX', 'LAMBERT', 'MERCIER', 'BLANCHARD', 'GAUTHIER', 'PERRIN', 'MARCHAND', 'CHEVALIER', 'LEROUX', 'RENARD', 'BARBIER', 'COLIN', 'VASSEUR', 'LEMOINE', 'DELORME', 'TESSIER', 'ROUSSEL'],
+  BR: ['ALMEIDA', 'BARROS', 'CARDOSO', 'TEIXEIRA', 'NOGUEIRA', 'PACHECO', 'FARIAS', 'MOURA', 'REZENDE', 'QUEIROZ', 'VIANA', 'BRAGA', 'LACERDA', 'SALES', 'FRAGA', 'PIMENTEL', 'AZEVEDO', 'CORREIA', 'DUARTE', 'MACEDO', 'TAVARES', 'BORGES'],
+  ES: ['ROMERO', 'CASTILLO', 'VEGA', 'CAMPOS', 'IBARRA', 'SERRANO', 'MOLINA', 'ORTIZ', 'DELGADO', 'CABRERA', 'PRIETO', 'GALLEGO', 'LORENZO', 'MONTERO', 'HIDALGO', 'BENITEZ', 'SANTANA', 'ARROYO', 'ESTEBAN', 'PASCUAL', 'ROLDAN', 'CUESTA'],
+  DE: ['VOGEL', 'KESSLER', 'LINDNER', 'HARTWIG', 'ZIEGLER', 'BAUMANN', 'DIETRICH', 'EBERT', 'FALK', 'GEIGER', 'HOLLER', 'JANSEN', 'KRAUS', 'LORENZ', 'MEINERT', 'OTTEN', 'PAULSEN', 'RICHTER', 'SEIDEL', 'THALER', 'ULRICH', 'WENDT'],
+};
+// formations in normalised coords; x in [-1,1] with -1 = own goal, z in [-1,1] (negative = left). Slot 0 is always the keeper.
+const Fs = (role, pos, x, z) => ({ role, pos, x, z });
+const BACK4 = [Fs('DF', 'LB', -0.62, -0.52), Fs('DF', 'CB', -0.66, -0.18), Fs('DF', 'CB', -0.66, 0.18), Fs('DF', 'RB', -0.62, 0.52)], GKS = Fs('GK', 'GK', -0.94, 0);
+const FORMATIONS = {
+  '4-4-2': [GKS, ...BACK4, Fs('MF', 'LM', -0.22, -0.56), Fs('MF', 'CM', -0.28, -0.18), Fs('MF', 'CM', -0.28, 0.18), Fs('MF', 'RM', -0.22, 0.56), Fs('FW', 'ST', 0.18, -0.24), Fs('FW', 'ST', 0.18, 0.24)],
+  '4-3-3': [GKS, ...BACK4, Fs('MF', 'CM', -0.26, -0.36), Fs('MF', 'CDM', -0.34, 0), Fs('MF', 'CM', -0.26, 0.36), Fs('FW', 'LW', 0.14, -0.58), Fs('FW', 'RW', 0.14, 0.58), Fs('FW', 'ST', 0.2, 0)],
+  '4-2-3-1': [GKS, ...BACK4, Fs('MF', 'CDM', -0.38, -0.2), Fs('MF', 'CDM', -0.38, 0.2), Fs('MF', 'LM', -0.08, -0.56), Fs('MF', 'CAM', -0.06, 0), Fs('MF', 'RM', -0.08, 0.56), Fs('FW', 'ST', 0.2, 0)],
+  '3-5-2': [GKS, Fs('DF', 'CB', -0.66, -0.34), Fs('DF', 'CB', -0.7, 0), Fs('DF', 'CB', -0.66, 0.34), Fs('MF', 'LWB', -0.32, -0.62), Fs('MF', 'CM', -0.28, -0.24), Fs('MF', 'CDM', -0.38, 0), Fs('MF', 'CM', -0.28, 0.24), Fs('MF', 'RWB', -0.32, 0.62), Fs('FW', 'ST', 0.18, -0.24), Fs('FW', 'ST', 0.18, 0.24)],
+};
+const SQUAD_POS = ['GK', 'DF', 'DF', 'DF', 'DF', 'MF', 'MF', 'MF', 'MF', 'FW', 'FW', 'GK', 'DF', 'DF', 'MF', 'MF', 'FW', 'FW'];
+const SQUAD_NUM = [1, 2, 5, 4, 3, 7, 8, 6, 11, 9, 10, 13, 15, 12, 14, 16, 17, 19];
+const STYLES = ['short', 'short', 'short', 'crop', 'crop', 'afro', 'bald', 'bun'];
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const hexCss = h => '#' + new THREE.Color(h).getHexString();
 const colDist = (a, b) => { const A = new THREE.Color(a), B = new THREE.Color(b); return Math.hypot(A.r - B.r, A.g - B.g, A.b - B.b); };
@@ -476,20 +535,51 @@ function rng32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.
 
 const FIRST = ['R', 'M', 'L', 'T', 'D', 'A', 'J', 'K', 'S', 'N', 'P', 'E', 'G', 'F', 'C', 'B', 'O', 'V', 'H', 'I'];
 const LAST = ['SOLENNE', 'MORAIS', 'KONE', 'VIDAL', 'OKAFOR', 'SILVA', 'BRANDT', 'ROSSI', 'DUPONT', 'NOVAK', 'HASSAN', 'BJORK', 'TANAKA', 'REYES', 'HOLMBERG', 'COSTA', 'LARSSON', 'ADEYEMI', 'FERRER', 'PETROV', 'YILMAZ', 'NGUYEN', 'OWUSU', 'MENDES', 'KOVAC', 'HARTMANN', 'DIALLO', 'ESPOSITO', 'MARQUEZ', 'WALSH', 'LINDQVIST', 'ABARA', 'CASTELL', 'DROST', 'IBE', 'MAKELA', 'ORTEGA', 'PRYCE', 'SAUVAGE', 'ZUBAIR'];
-// each club has a fixed, seeded squad so line-ups and ratings are the same every match
+// each club has a fixed, seeded 18-man squad so line-ups, faces and ratings are the same every match
 function squadFor(ci) {
   const c = CLUBS[ci]; if (c.squad) return c.squad;
-  const r = rng32(4321 + ci * 7919), used = new Set(); c.squad = [];
-  FORMATION.forEach((f, i) => {
-    let nm; do { nm = FIRST[Math.floor(r() * FIRST.length)] + '. ' + LAST[Math.floor(r() * LAST.length)]; } while (used.has(nm)); used.add(nm);
+  const r = rng32(4321 + (c.seed != null ? c.seed : ci * 7919)), used = new Set(), pool = NAT_NAMES[c.nat] || LAST; c.squad = [];
+  SQUAD_POS.forEach((role, i) => {
+    let sn; do { sn = pool[Math.floor(r() * pool.length)]; } while (used.has(sn)); used.add(sn);                    // no two players share a surname
+    const nm = FIRST[Math.floor(r() * FIRST.length)] + '. ' + sn;
     const star = i === 9 || i === 6;                         // a talisman striker and a playmaker
-    const b = clamp(c.ovr + (star ? 4 : 0) + Math.round((r() - 0.5) * 7), 55, 96), role = f.role;
+    const b = clamp(c.ovr + (star ? 4 : 0) - (i > 10 ? 4 : 0) + Math.round((r() - 0.5) * 7), 55, 96);
     const A = bias => clamp(Math.round(b + bias + (r() - 0.5) * 9), 40, 99);
-    c.squad.push({ name: nm, ovr: b,
+    c.squad.push({ name: nm, pos: role, ovr: b, num: SQUAD_NUM[i],
       pace: A(role === 'FW' ? 5 : role === 'DF' ? -3 : role === 'GK' ? -24 : 1), sho: A(role === 'FW' ? 6 : role === 'MF' ? -2 : -18),
-      pas: A(role === 'MF' ? 5 : role === 'DF' ? -6 : 0), def: A(role === 'DF' ? 6 : role === 'MF' ? -4 : -22), gk: role === 'GK' ? b : 30 });
+      pas: A(role === 'MF' ? 5 : role === 'DF' ? -6 : 0), def: A(role === 'DF' ? 6 : role === 'MF' ? -4 : -22), gk: role === 'GK' ? b : 30,
+      skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], style: STYLES[Math.floor(r() * STYLES.length)] });
   });
   return c.squad;
+}
+// line-up = 18 squad indices: the first 11 fill the formation's slots in order, the rest sit on the bench
+function autoLineup(ci) {
+  const c = CLUBS[ci], sq = squadFor(ci), used = new Set(), out = [];
+  for (const slot of FORMATIONS[c.f]) {
+    let best = -1; sq.forEach((s, i) => { if (!used.has(i) && s.pos === slot.role && (best < 0 || s.ovr > sq[best].ovr)) best = i; });
+    if (best < 0) sq.forEach((s, i) => { if (!used.has(i) && s.pos !== 'GK' && (best < 0 || s.ovr > sq[best].ovr)) best = i; });
+    used.add(best); out.push(best);
+  }
+  sq.forEach((s, i) => { if (!used.has(i)) out.push(i); });
+  c.lineup = out;
+}
+function lineupFor(ci) { const c = CLUBS[ci]; if (!c.f || !FORMATIONS[c.f]) c.f = '4-4-2'; if (!c.lineup || c.lineup.length !== 18) autoLineup(ci); return c.lineup; }
+function teamOvr(ci) { const sq = squadFor(ci), l = lineupFor(ci); let t = 0; for (let i = 0; i < 11; i++) t += sq[l[i]].ovr; return Math.round(t / 11); }
+// your clubs, formations and line-ups are remembered on this device
+const SAVE_KEY = 'pitch-legends-v1';
+function saveAll() {
+  try {
+    const teams = {}; CLUBS.forEach(c => { if (c.lineup) teams[c.n] = { f: c.f, l: c.lineup }; });
+    localStorage.setItem(SAVE_KEY, JSON.stringify({ custom: CLUBS.filter(c => c.custom).map(c => ({ n: c.n, a: c.a, shirt: c.shirt, trim: c.trim, shorts: c.shorts, socks: c.socks, alt: c.alt, ovr: c.ovr, seed: c.seed, f: c.f, custom: true })), teams, home: CLUBS[sel.home].n }));
+  } catch (e) {}
+}
+function loadAll() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!d) return null;
+    for (const c of d.custom || []) if (c && typeof c.n === 'string' && !CLUBS.some(x => x.n === c.n)) CLUBS.push(c);
+    CLUBS.forEach(c => { const t = d.teams && d.teams[c.n]; if (t && FORMATIONS[t.f] && Array.isArray(t.l) && t.l.length === 18 && new Set(t.l).size === 18 && t.l.every(i => i >= 0 && i < 18)) { c.f = t.f; c.lineup = t.l; } });
+    return d;
+  } catch (e) { return null; }
 }
 
 // one material set per side so a club's colours can be swapped in without rebuilding meshes
@@ -513,10 +603,15 @@ const BOOTS = [0x15151a, 0x15151a, 0xf2f2f2, 0xff5a1f, 0x35e0c0, 0xe8d13a];
 const SHARED = {}, GEO = {};
 function mat(hex, rough = 0.7) { const k = hex + '_' + rough; return SHARED[k] || (SHARED[k] = new THREE.MeshStandardMaterial({ color: hex, roughness: rough })); }
 function geo(key, make) { return GEO[key] || (GEO[key] = make()); }
-function numTex(n) {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d');
+function setNumber(parts, n) {
+  const g = parts.num.cv.getContext('2d'); g.clearRect(0, 0, 64, 64);
   g.font = '900 46px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.strokeStyle = 'rgba(10,12,16,.9)'; g.strokeText(String(n), 32, 36); g.fillStyle = '#fff'; g.fillText(String(n), 32, 36);
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+  parts.num.tex.needsUpdate = true; parts.num.mesh.visible = n !== '';
+}
+function setLook(parts, skinHex, hairHex, style) {
+  const L = parts.look; L.skin.color.setHex(skinHex); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
+  for (const k in L.hs) for (const m of L.hs[k]) m.visible = false;
+  for (const m of L.hs[style] || L.hs.short) m.visible = true;
 }
 function limb(len, rTop, rBot, m) {
   const g = new THREE.Group();
@@ -525,9 +620,9 @@ function limb(len, rTop, rBot, m) {
 }
 // joint hierarchy: root -> hips -> torso -> head ; shoulder -> elbow ; hip -> knee -> ankle. The figure faces +Z.
 // rotation.x sign convention on every limb pivot: positive swings the limb BACK (-Z), negative swings it FORWARD (+Z).
-function makePlayer(km, number, skinHex, hairHex, hairStyle) {
+function makePlayer(km) {
   const g = new THREE.Group(); const p = {}; g.rotation.order = 'YXZ';      // yaw first, so lean (x) and roll (z) stay in the player's own frame
-  const skin = mat(skinHex, 0.62), boot = mat(pick(BOOTS), 0.38), sole = mat(0x0c0c0e, 0.6), dark = mat(0x141210, 0.4);
+  const skin = new THREE.MeshStandardMaterial({ roughness: 0.62 }), hm = new THREE.MeshStandardMaterial({ roughness: 0.9 }), stub = new THREE.MeshStandardMaterial({ roughness: 0.7 }), boot = mat(pick(BOOTS), 0.38), sole = mat(0x0c0c0e, 0.6), dark = mat(0x141210, 0.4);
   const add = (parent, geom, m, x, y, z, shadow) => { const o = new THREE.Mesh(geom, m); o.position.set(x, y, z); o.castShadow = !!shadow; parent.add(o); return o; };
   const lathe = (key, pts, seg = 14) => geo(key, () => new THREE.LatheGeometry(pts.map(q => new THREE.Vector2(q[0], q[1])), seg));
   // ----- hips and shorts
@@ -538,8 +633,9 @@ function makePlayer(km, number, skinHex, hairHex, hairStyle) {
   add(torso, lathe('torso', [[0.001, -0.03], [0.148, -0.03], [0.152, 0.06], [0.162, 0.16], [0.182, 0.28], [0.2, 0.37], [0.196, 0.42], [0.15, 0.47], [0.075, 0.495], [0.001, 0.5]], 16), km.shirt, 0, 0, 0, true).scale.set(1.08, 1, 0.66);
   add(torso, geo('pec', () => new THREE.SphereGeometry(0.15, 12, 8)), km.shirt, 0, 0.32, 0.035).scale.set(1.25, 0.7, 0.62);
   const collar = add(torso, geo('collar', () => new THREE.TorusGeometry(0.068, 0.018, 6, 14)), km.trim, 0, 0.492, 0.004); collar.rotation.x = Math.PI / 2;
-  const num = new THREE.Mesh(geo('num', () => new THREE.PlaneGeometry(0.24, 0.24)), new THREE.MeshStandardMaterial({ map: numTex(number), transparent: true, roughness: 0.8 }));
-  num.position.set(0, 0.27, -0.137); num.rotation.y = Math.PI; if (number !== '') torso.add(num);
+  const ncv = document.createElement('canvas'); ncv.width = ncv.height = 64; const ntex = new THREE.CanvasTexture(ncv); ntex.colorSpace = THREE.SRGBColorSpace;
+  const num = new THREE.Mesh(geo('num', () => new THREE.PlaneGeometry(0.24, 0.24)), new THREE.MeshStandardMaterial({ map: ntex, transparent: true, roughness: 0.8 }));
+  num.position.set(0, 0.27, -0.137); num.rotation.y = Math.PI; torso.add(num); p.num = { cv: ncv, tex: ntex, mesh: num };
   add(torso, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.062, 0.1, 10)), skin, 0, 0.53, 0);
   // ----- head: skull, jaw, nose, ears, eyes, brows, hair
   const head = new THREE.Group(); head.position.y = 0.655; torso.add(head); p.head = head;
@@ -550,17 +646,19 @@ function makePlayer(km, number, skinHex, hairHex, hairStyle) {
     for (const sx of [-1, 1]) {
       add(head, geo('ear', () => new THREE.SphereGeometry(0.024, 6, 6)), skin, sx * 0.098, -0.005, 0).scale.set(0.5, 1, 0.8);
       add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 8, 6)), mat(0xf2f2ee, 0.35), sx * 0.04, 0.012, 0.094).scale.set(1.2, 0.75, 0.6);
-      add(head, geo('brow', () => new THREE.BoxGeometry(0.042, 0.009, 0.012)), mat(hairHex, 0.85), sx * 0.04, 0.036, 0.098);
+      add(head, geo('brow', () => new THREE.BoxGeometry(0.042, 0.009, 0.012)), hm, sx * 0.04, 0.036, 0.098);
     }
   }
   for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
-  if (hairStyle !== 'bald') {
-    const hm = mat(hairHex, 0.9), cut = hairStyle === 'short' ? 0.5 : 0.6;
-    const cap = add(head, geo('cap' + cut, () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * cut)), hm, 0, 0.018, -0.006); cap.scale.set(0.93, 1.12, 1.04); cap.rotation.x = -0.32;
-    if (hairStyle === 'afro') add(head, geo('afro', () => new THREE.SphereGeometry(0.135, 12, 10)), hm, 0, 0.055, -0.02).scale.set(1, 0.9, 1);
-    if (hairStyle === 'bun') add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085);
-    if (hairStyle === 'crop') add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045).scale.set(1.2, 0.5, 1);
-  } else add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), mat(new THREE.Color(skinHex).multiplyScalar(0.8).getHex(), 0.7), 0, 0.016, -0.004).scale.set(0.91, 1.1, 1.02);
+  const hs = { short: [], crop: [], afro: [], bun: [], bald: [] };                     // every hairstyle is built once; setLook shows one
+  const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
+  for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.32; }
+  hs.short.push(capS); hs.crop.push(capL); hs.afro.push(capL); hs.bun.push(capL);
+  hs.afro.push(add(head, geo('afro', () => new THREE.SphereGeometry(0.135, 12, 10)), hm, 0, 0.055, -0.02));
+  hs.bun.push(add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085));
+  const qf = add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045); qf.scale.set(1.2, 0.5, 1); hs.crop.push(qf);
+  const sb = add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), stub, 0, 0.016, -0.004); sb.scale.set(0.91, 1.1, 1.02); hs.bald.push(sb);
+  p.look = { skin, hair: hm, stub, hs };
   // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
   for (const sx of [-1, 1]) {
@@ -618,11 +716,11 @@ function drawLabel(p) {
   p.label.material.map.needsUpdate = true;
 }
 function buildTeams() {
-  for (const team of ['home', 'away']) FORMATION.forEach((f, idx) => {
-    const isGK = f.role === 'GK', km = isGK ? (team === 'home' ? KM.hGK : KM.aGK) : KM[team];
-    const mesh = makePlayer(km, NUMS[idx], pick(SKIN), pick(HAIR), pick(['short', 'short', 'short', 'crop', 'crop', 'afro', 'bald', 'bun']));
+  for (const team of ['home', 'away']) FORMATIONS['4-4-2'].forEach((f, idx) => {
+    const isGK = idx === 0, km = isGK ? (team === 'home' ? KM.hGK : KM.aGK) : KM[team];
+    const mesh = makePlayer(km);
     mesh.scale.setScalar(rand(0.97, 1.05)); scene.add(mesh);
-    const p = { team, role: f.role, isGK, idx, mesh, parts: mesh.userData.parts, number: NUMS[idx], name: '', form: f, base: { x: 0, z: 0 },
+    const p = { team, role: f.role, isGK, idx, mesh, parts: mesh.userData.parts, number: 0, name: '', form: f, base: { x: 0, z: 0 },
       pos: V3(), vel: V3(), facing: 0, lastFacing: 0, bank: 0, speed: 0, gait: Math.random() * TAU, user: false, accel: isGK ? 22 : 26, maxRun: 7, stamina: 1, at: null };
     p.label = makeLabel(p); allPlayers.push(p);
   });
@@ -634,7 +732,8 @@ function resetPlayerState(p) { for (const k of TIMERS) p[k] = 0; p.celebrate = 0
 function loadSquads(hi, ai) {
   players.length = homeTeam.length = awayTeam.length = 0;
   for (const p of allPlayers) {
-    const s = squadFor(p.team === 'home' ? hi : ai)[p.idx];
+    const ci = p.team === 'home' ? hi : ai, c = CLUBS[ci], s = squadFor(ci)[lineupFor(ci)[p.idx]], slot = FORMATIONS[c.f][p.idx];
+    p.form = slot; p.role = slot.role; p.number = s.num; setNumber(p.parts, s.num); setLook(p.parts, s.skin, s.hair, s.style);
     p.name = s.name; p.at = s; p.maxRun = p.isGK ? 5.7 : 5.9 + (s.pace - 55) / 44 * 1.85; p.yellow = 0; p.st = { goals: 0, tackles: 0, passes: 0, saves: 0 };
     resetPlayerState(p); p.mesh.visible = true; drawLabel(p);
     players.push(p); teamList(p.team).push(p);
@@ -649,7 +748,8 @@ const KEYMAP = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp:
   ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyJ: 'pass', Space: 'pass', KeyK: 'through', KeyL: 'shoot', KeyI: 'lob', KeyQ: 'switch', KeyE: 'tackle', KeyF: 'slide', Escape: 'pause', KeyP: 'pause' };
 function press(k) { if (!keys[k]) keys[k + '_p'] = true; keys[k] = true; }
 function unpress(k) { keys[k] = false; }
-addEventListener('keydown', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); if (!e.repeat) press(k); } });
+const typing = e => e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+addEventListener('keydown', e => { if (typing(e)) return; const k = KEYMAP[e.code]; if (k) { e.preventDefault(); if (!e.repeat) press(k); } });
 addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) unpress(k); });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 function pressed(k) { if (keys[k + '_p']) { keys[k + '_p'] = false; return true; } return false; }
@@ -1000,10 +1100,10 @@ function cornerSpot(p, sp) {
   if (p.isGK || p === ball.owner || (G.restart && G.restart.taker === p)) return null;
   const inward = -Math.sign(sp.gx), i = p.idx;
   if (p.team === sp.team) {
-    if (i === 1 || i === 4) return { x: sp.gx + inward * 46, z: (i === 1 ? -1 : 1) * 10 };       // full-backs stay home
+    if (p.role === 'DF' && (i === 1 || i === 3)) return { x: sp.gx + inward * 46, z: (i === 1 ? -1 : 1) * 10 };       // full-backs stay home
     return { x: sp.gx + inward * (5 + (i % 3) * 3.6), z: ((i * 37) % 7 - 3) * 2.3 };
   }
-  if (i === 9) return { x: sp.gx + inward * 38, z: 0 };                                        // one stays up for the counter
+  if (i === 10) return { x: sp.gx + inward * 38, z: 0 };                                        // one stays up for the counter
   return { x: sp.gx + inward * (3 + (i % 3) * 3.2), z: ((i * 53) % 7 - 3) * 2.2 };
 }
 function aiPlayer(p, dt) {
@@ -1411,7 +1511,7 @@ function updateHUD(dt) {
   clockHl.textContent = G.state === 'full' ? 'FULL TIME' : ['', '1ST HALF', '2ND HALF', 'EXTRA TIME', 'PENALTIES'][G.half];
   if (userPlayer) {
     apSta.style.width = (userPlayer.stamina * 100) + '%';
-    if (userPlayer !== lastUserShown) { lastUserShown = userPlayer; apNum.textContent = userPlayer.number; apName.textContent = userPlayer.name; apRole.textContent = ROLE_LABEL[userPlayer.role]; apOvr.textContent = userPlayer.at.ovr; }
+    if (userPlayer !== lastUserShown) { lastUserShown = userPlayer; apNum.textContent = userPlayer.number; apName.textContent = userPlayer.name; apRole.textContent = userPlayer.form.pos; apOvr.textContent = userPlayer.at.ovr; }
     const have = ball.owner === userPlayer;
     if (have !== lastHave) {
       lastHave = have;
@@ -1509,8 +1609,8 @@ passMark.rotation.x = -Math.PI / 2; passMark.position.y = 0.05; passMark.visible
 
 /* ============================== referee ============================== */
 const refKit = { shirt: new THREE.MeshStandardMaterial({ color: 0x16181d, roughness: 0.75 }), trim: new THREE.MeshStandardMaterial({ color: 0xd8ff3a, roughness: 0.7 }), shorts: new THREE.MeshStandardMaterial({ color: 0x16181d, roughness: 0.7 }), socks: new THREE.MeshStandardMaterial({ color: 0x16181d, roughness: 0.7 }) };
-const ref = { mesh: makePlayer(refKit, '', 0xe0a878, 0x2b1a0e, 'short'), pos: V3(6, 0, 8), vel: V3(), facing: 0, lastFacing: 0, bank: 0, speed: 0, gait: 0, maxRun: 6.4, accel: 24, idx: 3 };
-ref.parts = ref.mesh.userData.parts; for (const k of TIMERS) ref[k] = 0; ref.celebrate = 0; scene.add(ref.mesh);
+const ref = { mesh: makePlayer(refKit), pos: V3(6, 0, 8), vel: V3(), facing: 0, lastFacing: 0, bank: 0, speed: 0, gait: 0, maxRun: 6.4, accel: 24, idx: 3 };
+ref.parts = ref.mesh.userData.parts; setNumber(ref.parts, ''); setLook(ref.parts, 0xe0a878, 0x2b1a0e, 'short'); for (const k of TIMERS) ref[k] = 0; ref.celebrate = 0; scene.add(ref.mesh);
 function updateRef(dt) {
   ref.mesh.visible = G.state !== 'replay' && !G.so;
   if (!ref.mesh.visible) return;
@@ -1668,7 +1768,7 @@ function frame(now) {
 }
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 $('ctrlBtn').addEventListener('click', () => setCam(camMode + 1));
-addEventListener('keydown', e => { if (e.repeat) return; if (e.code === 'KeyC') setCam(camMode + 1); else if (/^Digit[1-6]$/.test(e.code)) setCam(+e.code[5] - 1); });
+addEventListener('keydown', e => { if (e.repeat || typing(e)) return; if (e.code === 'KeyC') setCam(camMode + 1); else if (/^Digit[1-6]$/.test(e.code)) setCam(+e.code[5] - 1); });
 $('camRow').addEventListener('click', e => { const b = e.target.closest('.opt'); if (b) setCam(+b.dataset.c); });
 $('pauseBtn').addEventListener('click', () => togglePause());
 
@@ -1704,7 +1804,7 @@ function endMatch(winner) {
   if (winner === 'home') AudioSys.cheer(0.2, 5);
   openPanel('<h1>' + title + '</h1><h2>Full time</h2>' + scoreLine() + '<div class="card">' + statsTable() + motm + '</div>' + btn);
 }
-function toMenu() { G.state = 'menu'; G.paused = false; G.cup = null; G.so = null; closePanel(); soRow.style.display = 'none'; document.body.classList.remove('replay'); document.body.classList.add('inmenu'); ov.style.display = 'flex'; }
+function toMenu() { showScr(false); G.state = 'menu'; G.paused = false; G.cup = null; G.so = null; closePanel(); soRow.style.display = 'none'; document.body.classList.remove('replay'); document.body.classList.add('inmenu'); ov.style.display = 'flex'; }
 function startMatch(hi, ai) {
   G.clubs.home = hi; G.clubs.away = ai; applyKits(hi, ai); loadSquads(hi, ai); setNight(G.night);
   G.stats = { home: newStats(), away: newStats() }; G.goals = []; G.score.home = G.score.away = 0; G.half = 1; G.clock = 0; G.so = null; G.golden = false; G.paused = false; G.rp = null; G.bannerT = G.cardT = 0;
@@ -1719,7 +1819,7 @@ function startMatch(hi, ai) {
 const ROUND = ['QUARTER-FINAL', 'SEMI-FINAL', 'FINAL'];
 function poisson(l) { let L = Math.exp(-l), k = 0, p = 1; do { k++; p *= Math.random(); } while (p > L); return k - 1; }
 function simTie(a, b) {
-  const d = CLUBS[a].ovr - CLUBS[b].ovr; let ga = poisson(clamp(1.3 + d * 0.07, 0.3, 3.2)), gb = poisson(clamp(1.3 - d * 0.07, 0.3, 3.2)), pens = false;
+  const d = teamOvr(a) - teamOvr(b); let ga = poisson(clamp(1.3 + d * 0.07, 0.3, 3.2)), gb = poisson(clamp(1.3 - d * 0.07, 0.3, 3.2)), pens = false;
   if (ga === gb) { pens = true; if (Math.random() < 0.5 + d * 0.01) ga++; else gb++; }
   return { a, b, ga, gb, pens, w: ga > gb ? a : b };
 }
@@ -1730,7 +1830,7 @@ function bracketHTML() {
   return h + '</div>';
 }
 function cupStart(me) {
-  const others = CLUBS.map((_, i) => i).filter(i => i !== me).sort(() => Math.random() - 0.5), alive = [me, ...others];
+  const others = CLUBS.map((_, i) => i).filter(i => i !== me).sort(() => Math.random() - 0.5).slice(0, 7), alive = [me, ...others];
   G.cup = { me, alive, rounds: [] }; cupRound();
 }
 function cupRound() {
@@ -1738,7 +1838,7 @@ function cupRound() {
   c.rounds.push(ties);
   const opp = CLUBS[c.alive[1]], name = ROUND[c.rounds.length - 1];
   G.state = 'menu'; document.body.classList.add('inmenu'); ov.style.display = 'none';
-  openPanel('<h1>LEGENDS CUP</h1><h2>' + name + '</h2><div class="card">' + bracketHTML() + '<div class="mut" style="margin-top:10px">Next: <b style="color:#fff">' + CLUBS[c.me].n + '</b> v <b style="color:#fff">' + opp.n + '</b> · ' + opp.ovr + ' OVR</div></div><button class="cta" data-act="cupPlay">PLAY ' + name + '</button><button class="cta alt" data-act="quit">QUIT CUP</button>');
+  openPanel('<h1>LEGENDS CUP</h1><h2>' + name + '</h2><div class="card">' + bracketHTML() + '<div class="mut" style="margin-top:10px">Next: <b style="color:#fff">' + CLUBS[c.me].n + '</b> v <b style="color:#fff">' + opp.n + '</b> · ' + teamOvr(c.alive[1]) + ' OVR</div></div><button class="cta" data-act="cupPlay">PLAY ' + name + '</button><button class="cta alt" data-act="quit">QUIT CUP</button>');
 }
 const ACT = {
   resume: () => togglePause(),
@@ -1757,17 +1857,79 @@ const ACT = {
     cupRound();
   },
 };
-panel.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && ACT[b.dataset.act]) { AudioSys.resume(); ACT[b.dataset.act](); } });
+panel.addEventListener('click', e => { const cb = e.target.closest('[data-club]'); if (cb) { pickClub(+cb.dataset.club); return; } const b = e.target.closest('[data-act]'); if (b && ACT[b.dataset.act]) { AudioSys.resume(); ACT[b.dataset.act](); } });
 
 /* ============================== main menu ============================== */
 const sel = { home: 0, away: 1 };
 function drawPick(id, ci) {
   const c = CLUBS[ci], el = $(id), sh = el.querySelector('.shirt');
   sh.style.background = 'linear-gradient(90deg,' + hexCss(c.shirt) + ' 0 42%,' + hexCss(c.trim) + ' 42% 58%,' + hexCss(c.shirt) + ' 58%)';
-  el.querySelector('.cn').textContent = c.n; el.querySelector('.cr').textContent = '★'.repeat(Math.round((c.ovr - 70) / 4)) + ' ' + c.ovr;
+  const o = teamOvr(ci); el.querySelector('.cn').textContent = c.n; el.querySelector('.cr').textContent = '★'.repeat(clamp(Math.round((o - 70) / 4), 1, 5)) + ' ' + o;
 }
+/* ---------- My Team: the squad as cards on a pitch ---------- */
+const esc = t => String(t).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const shirtBg = c => 'linear-gradient(90deg,' + hexCss(c.shirt) + ' 0 42%,' + hexCss(c.trim) + ' 42% 58%,' + hexCss(c.shirt) + ' 58%)';
+let tsSel = -1;
+function faceSVG(s, c) {
+  const sk = hexCss(s.skin), h = hexCss(s.hair), cap = '<path d="M11.4 16 Q11 5.5 20 5.5 Q29 5.5 28.6 16 Q25 10.5 20 10.5 Q15 10.5 11.4 16Z" fill="' + h + '"/>';
+  const hair = { bald: '', short: cap, crop: cap + '<path d="M14 9 Q20 3 27 8 Q21 6.5 14 9Z" fill="' + h + '"/>', bun: cap + '<circle cx="20" cy="4.6" r="3.2" fill="' + h + '"/>', afro: '' }[s.style] || cap;
+  return '<svg viewBox="0 0 40 40" aria-hidden="true">' + (s.style === 'afro' ? '<circle cx="20" cy="12" r="11.5" fill="' + h + '"/>' : '') +
+    '<path d="M3 40 Q5 28.5 20 28.5 Q35 28.5 37 40Z" fill="' + hexCss(c.shirt) + '"/><path d="M15 29 Q20 33 25 29 L24 27.5 L16 27.5Z" fill="' + hexCss(c.trim) + '"/>' +
+    '<rect x="16.6" y="22" width="6.8" height="8" rx="2.5" fill="' + sk + '"/><ellipse cx="20" cy="16.5" rx="8.2" ry="9.8" fill="' + sk + '"/>' + hair +
+    '<circle cx="16.8" cy="17" r="1" fill="#1a1512"/><circle cx="23.2" cy="17" r="1" fill="#1a1512"/><path d="M17 22 Q20 23.8 23 22" stroke="#1a1512" stroke-width=".8" fill="none" opacity=".55"/></svg>';
+}
+function cardHTML(s, i, c, slot, style) {
+  const tier = s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1';
+  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span>' + esc(s.name.split('. ')[1]) + '</span>' +
+    (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + '</div>';
+}
+function drawTeam() {
+  const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), F = FORMATIONS[c.f];
+  const sh = $('tsShield'); sh.style.background = shirtBg(c); sh.style.color = lum(c.trim) > 0.6 ? '#111' : '#fff'; sh.textContent = c.a[0];
+  $('tsName').textContent = c.n; $('tsSub').textContent = (c.nat ? 'National team' : c.custom ? 'Your club' : 'Club') + ' · ' + c.f; $('tsOvr').textContent = teamOvr(ci);
+  $('fRow').querySelectorAll('.opt').forEach(o => o.classList.toggle('on', o.dataset.f === c.f));
+  let h = '<div class="ln" style="left:4%;right:4%;top:3%;bottom:3%"></div><div class="ln" style="left:4%;right:4%;top:3%;height:0;border-width:1px 0 0"></div><div class="ln" style="left:26%;right:26%;bottom:3%;height:17%"></div><div class="ln" style="left:40%;right:40%;bottom:3%;height:7%"></div><div class="ln" style="left:38%;right:38%;top:-9%;height:18%;border-radius:50%"></div>';
+  for (let i = 0; i < 11; i++) h += cardHTML(sq[l[i]], i, c, F[i], 'left:' + (50 + F[i].z * 41).toFixed(1) + '%;top:' + (12 + (0.2 - F[i].x) / 1.14 * 76).toFixed(1) + '%');
+  $('tsPitch').innerHTML = h;
+  let b = ''; for (let i = 11; i < 18; i++) b += cardHTML(sq[l[i]], i, c); $('tsBench').innerHTML = b;
+}
+for (const id of ['tsPitch', 'tsBench']) $(id).addEventListener('click', e => {
+  const el = e.target.closest('.pc'); if (!el) return; const i = +el.dataset.i, l = lineupFor(sel.home);
+  if (tsSel < 0) tsSel = i; else if (tsSel === i) tsSel = -1; else { [l[tsSel], l[i]] = [l[i], l[tsSel]]; tsSel = -1; saveAll(); refreshMenu(); return; }
+  drawTeam();
+});
+$('fRow').addEventListener('click', e => { const b = e.target.closest('.opt'); if (!b) return; CLUBS[sel.home].f = b.dataset.f; autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); });
+function showScr(setup) { $('teamScr').style.display = setup ? 'none' : 'flex'; $('setupScr').style.display = setup ? 'flex' : 'none'; ov.scrollTop = 0; }
+$('teamScr').addEventListener('click', e => {
+  const b = e.target.closest('[data-ts]'); if (!b) return; AudioSys.resume(); const a = b.dataset.ts;
+  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else openCreate();
+});
+$('backTeam').addEventListener('click', () => showScr(false));
+function openClubs() {
+  const btn = i => '<button class="cb' + (i === sel.home ? ' on' : '') + '" data-club="' + i + '"><span class="shirt" style="background:' + shirtBg(CLUBS[i]) + '"></span><span>' + esc(CLUBS[i].n) + '</span><small>' + teamOvr(i) + ' OVR</small></button>';
+  const grp = (t, fn) => { const ids = CLUBS.map((c, i) => i).filter(i => fn(CLUBS[i])); return ids.length ? '<h4>' + t + '</h4><div class="cgrid">' + ids.map(btn).join('') + '</div>' : ''; };
+  openPanel('<h1>CHOOSE YOUR CLUB</h1><div class="card wide">' + grp('YOUR CLUBS', c => c.custom) + grp('CLUBS', c => !c.nat && !c.custom) + grp('NATIONAL TEAMS', c => c.nat) + '</div><button class="cta alt" data-act="createClub">CREATE A CLUB</button><button class="cta alt" data-act="closeP">BACK</button>');
+}
+function pickClub(i) { sel.home = i; if (sel.away === i) sel.away = (i + 1) % CLUBS.length; tsSel = -1; closePanel(); refreshMenu(); saveAll(); }
+function openCreate() {
+  openPanel('<h1>CREATE A CLUB</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><label class="fld">Club name<input type="text" id="ccName" maxlength="22" placeholder="e.g. Harbour Lions" autocomplete="off"></label>' +
+    '<div class="row" style="justify-content:flex-start;gap:18px"><label class="fld">Shirt<input type="color" id="ccShirt" value="#12a36b"></label><label class="fld">Trim<input type="color" id="ccTrim" value="#ffffff"></label><label class="fld">Shorts<input type="color" id="ccShorts" value="#0d2b22"></label></div>' +
+    '<div class="mut" id="ccErr">You get an 18-player squad of new signings to arrange however you like.</div></div><button class="cta" data-act="doCreate">CREATE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
+}
+ACT.closeP = () => closePanel();
+ACT.createClub = () => openCreate();
+ACT.doCreate = () => {
+  const name = $('ccName').value.replace(/\s+/g, ' ').trim(), err = $('ccErr'), hx = id => parseInt($(id).value.slice(1), 16);
+  if (name.length < 2) { err.textContent = 'Give your club a name first.'; err.style.color = '#ffb14d'; return; }
+  if (CLUBS.some(c => c.n.toLowerCase() === name.toLowerCase())) { err.textContent = 'There is already a club with that name.'; err.style.color = '#ffb14d'; return; }
+  if (CLUBS.filter(c => c.custom).length >= 12) { err.textContent = 'You already have 12 clubs — that is the limit.'; err.style.color = '#ffb14d'; return; }
+  const shirt = hx('ccShirt'); let seed = 7; for (const ch of name) seed = (seed * 31 + ch.codePointAt(0)) | 0;
+  const letters = name.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  CLUBS.push({ n: name, a: (letters + 'FC').slice(0, 3), shirt, trim: hx('ccTrim'), shorts: hx('ccShorts'), socks: shirt, alt: lum(shirt) > 0.5 ? 0x23262e : 0xf2f2f2, ovr: 82, seed, custom: true, f: '4-3-3' });
+  pickClub(CLUBS.length - 1);
+};
 function refreshMenu() {
-  drawPick('pickH', sel.home); drawPick('pickA', sel.away);
+  drawPick('pickH', sel.home); drawPick('pickA', sel.away); drawTeam();
   const cup = G.mode === 'cup'; $('pickA').style.display = $('vsTxt').style.display = cup ? 'none' : ''; $('cupNote').style.display = cup ? '' : 'none';
   $('play').textContent = cup ? 'START CUP' : 'KICK OFF';
   applyKits(sel.home, sel.away); loadSquads(sel.home, sel.away); resetFormation('home');       // the pitch behind the menu wears the chosen kits
@@ -1775,7 +1937,7 @@ function refreshMenu() {
 for (const [id, k] of [['pickH', 'home'], ['pickA', 'away']]) $(id).addEventListener('click', e => {
   const b = e.target.closest('.arr'); if (!b) return; const o = k === 'home' ? 'away' : 'home';
   do { sel[k] = (sel[k] + +b.dataset.s + CLUBS.length) % CLUBS.length; } while (sel[k] === sel[o]);
-  refreshMenu();
+  saveAll(); refreshMenu();
 });
 function optRow(id, attr, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('.opt'); if (!b) return; $(id).querySelectorAll('.opt').forEach(o => o.classList.remove('on')); b.classList.add('on'); fn(b.dataset[attr]); }); }
 optRow('modeRow', 'm', v => { G.mode = v; refreshMenu(); });
@@ -1784,8 +1946,14 @@ optRow('lenRow', 'l', v => { G.halfLen = +v; });
 optRow('todRow', 't', v => setNight(v === 'night'));
 $('play').addEventListener('click', () => { AudioSys.resume(); if (G.mode === 'cup') cupStart(sel.home); else startMatch(sel.home, sel.away); });
 G.stats = { home: newStats(), away: newStats() };
+{ // start on the saved club; French-language devices start as France
+  const d = loadAll(), want = d && d.home ? d.home : (/^fr/i.test(navigator.language || '') ? 'France' : CLUBS[0].n), i = CLUBS.findIndex(c => c.n === want);
+  sel.home = i < 0 ? 0 : i; sel.away = sel.home === 1 ? 0 : 1;
+}
 refreshMenu(); setNight(false);
-requestAnimationFrame(frame);
+// the menu is usable straight away; shaders compile in the background before the first 3D frame
+{ const b = $('boot'); if (b) b.remove(); booted = true; }
+(renderer.compileAsync ? renderer.compileAsync(scene, camera).catch(() => {}) : Promise.resolve()).then(() => requestAnimationFrame(frame));
 
 /* ============================== test hook ============================== */
 window.__game = {
