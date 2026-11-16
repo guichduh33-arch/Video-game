@@ -187,7 +187,7 @@
     <button class="cta alt" data-ts="club">CHANGE CLUB</button>
     <button class="cta alt" data-ts="create">CREATE A CLUB</button>
     <button class="cta alt" data-ts="auto">BEST LINE-UP</button>
-    <button class="cta alt" data-ts="star">★ SIGN STAR STRIKER</button>
+    <button class="cta alt" data-ts="star">★ SIGN A STAR</button>
     <button class="cta alt" data-ts="edit" id="tsEdit" style="display:none">EDIT PLAYER</button>
     <button class="cta" data-ts="play">PLAY</button>
     <div class="mut" id="tsTip">Tap one player, then another, to swap them.</div>
@@ -565,7 +565,7 @@ function squadFor(ci) {
 function applyEdit(sp, e) {
   if (typeof e.n === 'string' && e.n.trim()) sp.name = e.n.trim().slice(0, 14).toUpperCase();
   if (['GK', 'DF', 'MF', 'FW'].includes(e.p)) { sp.pos = e.p; sp.gk = e.p === 'GK' ? sp.ovr : 30; }
-  if (e.star) { sp.star = true; if (e.h != null) sp.hair = e.h; if (e.s) sp.style = e.s; }
+  if (e.star) { sp.star = e.star === true ? 'FW' : e.star; if (e.h != null) sp.hair = e.h; if (e.s) sp.style = e.s; }
   const o = clamp(Math.round(+e.o) || sp.ovr, 40, 130), d = o - sp.ovr;
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
 }
@@ -723,7 +723,7 @@ function makeLabel(p) {
 }
 function drawLabel(p) {
   const cv = p.label.userData.cv, g = cv.getContext('2d'); g.clearRect(0, 0, 256, 64);
-  const sur = (p.name.split('. ')[1] || p.name), hex = p.team === 'home' ? kitCol.homeHex : kitCol.awayHex;
+  const sur = (p.at && p.at.star ? '★ ' : '') + (p.name.split('. ')[1] || p.name), hex = p.team === 'home' ? kitCol.homeHex : kitCol.awayHex;
   g.font = '800 23px Arial'; const tw = g.measureText(sur).width, W = 50 + tw + 14, x0 = (256 - W) / 2;
   g.fillStyle = 'rgba(8,12,18,0.74)'; rr(g, x0, 18, W, 30, 8); g.fill();
   g.fillStyle = hexCss(hex); rr(g, x0 + 4, 21, 34, 24, 5); g.fill();
@@ -1874,7 +1874,7 @@ const ACT = {
     cupRound();
   },
 };
-panel.addEventListener('click', e => { const cb = e.target.closest('[data-club]'); if (cb) { pickClub(+cb.dataset.club); return; } const b = e.target.closest('[data-act]'); if (b && ACT[b.dataset.act]) { AudioSys.resume(); ACT[b.dataset.act](); } });
+panel.addEventListener('click', e => { const cb = e.target.closest('[data-club]'); if (cb) { pickClub(+cb.dataset.club); return; } const sb = e.target.closest('[data-star]'); if (sb) { signStar(sb.dataset.star); openStars(); return; } const b = e.target.closest('[data-act]'); if (b && ACT[b.dataset.act]) { AudioSys.resume(); ACT[b.dataset.act](); } });
 
 /* ============================== main menu ============================== */
 const sel = { home: 0, away: 1 };
@@ -1920,7 +1920,7 @@ $('fRow').addEventListener('click', e => { const b = e.target.closest('.opt'); i
 function showScr(setup) { $('teamScr').style.display = setup ? 'none' : 'flex'; $('setupScr').style.display = setup ? 'flex' : 'none'; ov.scrollTop = 0; }
 $('teamScr').addEventListener('click', e => {
   const b = e.target.closest('[data-ts]'); if (!b) return; AudioSys.resume(); const a = b.dataset.ts;
-  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else if (a === 'edit') openEdit(); else if (a === 'star') signStar(); else openCreate();
+  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else if (a === 'edit') openEdit(); else if (a === 'star') openStars(); else openCreate();
 });
 $('backTeam').addEventListener('click', () => showScr(false));
 function openClubs() {
@@ -1934,17 +1934,34 @@ function openCreate() {
     '<div class="row" style="justify-content:flex-start;gap:18px"><label class="fld">Shirt<input type="color" id="ccShirt" value="#12a36b"></label><label class="fld">Trim<input type="color" id="ccTrim" value="#ffffff"></label><label class="fld">Shorts<input type="color" id="ccShorts" value="#0d2b22"></label></div>' +
     '<div class="mut" id="ccErr">You get an 18-player squad of new signings to arrange however you like.</div></div><button class="cta" data-act="doCreate">CREATE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
 }
-// an invented superstar for the centre-forward slot: his own name, look and a 110 rating
-const STAR_NAMES = ['ZEPHYR VALE', 'NICO STARLING', 'RIO BLAZE', 'KAI THUNDER', 'LEO COMET', 'JETT NOVA', 'MILO STORM', 'DASH ORION'];
-function signStar() {
-  const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), F = FORMATIONS[c.f];
-  let slot = 10; for (let i = 10; i > 0; i--) if (F[i].pos === 'ST') { slot = i; break; }
-  let si = sq.findIndex(p => p.star); if (si < 0) si = l[slot];                      // one star per club: re-signing just moves him up front
-  let h = 0; for (const ch of c.n) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-  const e = { n: STAR_NAMES[h % STAR_NAMES.length], o: 110, p: 'FW', star: true, h: 0xe9e1c4, s: 'crop' };
+// invented superstars, one per line of the team: each has his own name, look, rating and card
+const STARS = {
+  FW: { t: 'Star striker', o: 110, h: 0xe9e1c4, s: 'crop', n: ['ZEPHYR VALE', 'NICO STARLING', 'RIO BLAZE', 'KAI THUNDER', 'LEO COMET', 'JETT NOVA', 'MILO STORM', 'DASH ORION'] },
+  MF: { t: 'Star midfielder', o: 108, h: 0xd9552b, s: 'bun', n: ['ARLO QUILL', 'FINN MAESTRO', 'TEO PRISM', 'LUCA EMBER', 'REMY ATLAS', 'ZANE LYRIC', 'OTIS COMPASS', 'IAN METRONOME'] },
+  DF: { t: 'Star defender', o: 107, h: 0x2b1a0e, s: 'afro', n: ['BRUNO GRANITE', 'MAGNUS WALL', 'IVO BASTION', 'TOR IRONSIDE', 'GUS BOULDER', 'ODIN KEEP', 'ROCCO ANVIL', 'HANK RAMPART'] },
+  GK: { t: 'Star goalkeeper', o: 106, h: 0x3a6fd8, s: 'short', n: ['PAX GUARDIAN', 'NED SAFEHANDS', 'OLLIE FORTRESS', 'HUGO TITAN', 'SAM SENTINEL', 'WES LOCKDOWN', 'ABE GATEKEEPER', 'CY VAULT'] },
+};
+function starSlot(F, role) {            // the most central slot of that line (the last striker, the middle of midfield and defence, the keeper)
+  if (role === 'GK') return 0; let best = -1;
+  for (let i = 1; i < 11; i++) if (F[i].role === role && (best < 0 || Math.abs(F[i].z) <= Math.abs(F[best].z))) best = i;
+  return best < 0 ? 10 : best;
+}
+function signStar(role) {
+  const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), slot = starSlot(FORMATIONS[c.f], role), d = STARS[role];
+  let si = sq.findIndex(p => p.star === role);                                      // one star per line: signing again just puts him back in the team
+  if (si < 0 && role === 'FW') si = sq.findIndex(p => p.star === true);
+  if (si < 0) { si = l[slot]; if (sq[si].star) si = l.find(k => !sq[k].star && sq[k].pos === role); if (si == null) si = l.find(k => !sq[k].star); }
+  let h = 0; for (const ch of c.n + role) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  const had = sq[si].star === role, e = { n: had ? sq[si].name : d.n[h % d.n.length], o: had ? Math.max(sq[si].ovr, d.o) : d.o, p: role, star: role, h: d.h, s: d.s };      // re-signing keeps the name and rating you gave him
   (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e);
   const at = l.indexOf(si); if (at !== slot) [l[at], l[slot]] = [l[slot], l[at]];
   tsSel = -1; refreshMenu(); saveAll(); AudioSys.goal();
+}
+function openStars() {
+  const sq = squadFor(sel.home);
+  openPanel('<h1>SIGN A STAR</h1><h2>Invented superstars for ' + esc(CLUBS[sel.home].n) + '</h2><div class="card"><div class="cgrid">' + Object.keys(STARS).map(r => { const has = sq.find(p => p.star === r);
+    return '<button class="cb' + (has ? ' on' : '') + '" data-star="' + r + '"><span style="font-size:26px">★</span><span>' + STARS[r].t + '</span><small>' + (has ? esc(has.name) + ' · signed' : STARS[r].o + ' OVR') + '</small></button>'; }).join('') +
+    '</div><div class="mut">Each star takes the middle spot in his line. Rename any of them with Edit Player.</div></div><button class="cta" data-act="allStars">SIGN ALL FOUR</button><button class="cta alt" data-act="closeP">BACK</button>');
 }
 function openEdit() {
   if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
@@ -1958,6 +1975,7 @@ ACT.doEdit = () => {
   const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value };
   (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
 };
+ACT.allStars = () => { for (const r of ['GK', 'DF', 'MF', 'FW']) signStar(r); closePanel(); };
 ACT.closeP = () => closePanel();
 ACT.createClub = () => openCreate();
 ACT.doCreate = () => {
