@@ -100,6 +100,13 @@
   .pc svg { display: block; width: 78%; margin: 0 0 0 22%; } .pc span { display: block; font-size: calc(var(--w) * .135); font-weight: 800; letter-spacing: .3px; background: rgba(0,0,0,.45); border-radius: 4px; padding: 2px 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pc em { position: absolute; left: 50%; bottom: -15px; transform: translateX(-50%); font-style: normal; font-size: 10px; font-weight: 800; color: #9fe870; background: rgba(8,12,18,.8); border-radius: 8px; padding: 0 6px; } .pc em.bad { color: #ffb14d; }
   .pc.t1 { --a: #8a5a3a; --b: #4a2d1c; --e: #c08a5e; } .pc.t2 { --a: #9aa3ad; --b: #4d545c; --e: #d5dbe2; } .pc.t3 { --a: #d9b14a; --b: #7a5a12; --e: #f6dc8a; } .pc.t4 { --a: #7b3fe0; --b: #2a1266; --e: #f0c95a; }
+  .pc.t5 { --a: #0f1a4a; --b: #a3127a; --e: #5ff0ff; box-shadow: 0 0 14px rgba(95,240,255,.55), 0 4px 10px rgba(0,0,0,.45); }
+  .pc.t6 { --a: #fff3b0; --b: #c9780a; --e: #ffffff; box-shadow: 0 0 18px rgba(255,214,90,.8), 0 4px 10px rgba(0,0,0,.45); background: conic-gradient(from 210deg at 50% 60%, #ffe98a, #ff9a3d, #ff5fa2, #8a6bff, #4fd8ff, #ffe98a); }
+  .pc.t4 { box-shadow: 0 0 10px rgba(240,201,90,.4), 0 4px 10px rgba(0,0,0,.45); }
+  .pc.d3 b { font-size: calc(var(--w) * .2); } .pc u { position: absolute; right: 3px; top: 1px; text-decoration: none; font-size: calc(var(--w) * .2); color: #fff; text-shadow: 0 0 6px #ff9a3d, 0 1px 2px rgba(0,0,0,.6); }
+  .pc.t4::after, .pc.t5::after, .pc.t6::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%); background-size: 260% 100%; animation: sheen 3.6s ease-in-out infinite; mix-blend-mode: screen; }
+  @keyframes sheen { 0%, 55% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
+  @media (prefers-reduced-motion: reduce) { .pc::after { animation: none !important; opacity: 0; } }
   .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin: 6px 0 12px; }
   .cb { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: #fff; font: 800 13px system-ui; cursor: pointer; } .cb.on { border-color: #9fe870; background: rgba(159,232,112,.12); } .cb small { color: #ffd23f; font-weight: 700; } .cb .shirt { width: 40px; height: 37px; clip-path: polygon(22% 0, 38% 0, 50% 10%, 62% 0, 78% 0, 100% 20%, 86% 38%, 78% 30%, 78% 100%, 22% 100%, 22% 30%, 14% 38%, 0 20%); }
   .card h4 { margin: 4px 0 0; font-size: 10px; letter-spacing: 2px; color: #8fb8d6; text-align: left; } .card.wide { max-width: 760px; }
@@ -180,6 +187,7 @@
     <button class="cta alt" data-ts="club">CHANGE CLUB</button>
     <button class="cta alt" data-ts="create">CREATE A CLUB</button>
     <button class="cta alt" data-ts="auto">BEST LINE-UP</button>
+    <button class="cta alt" data-ts="star">★ SIGN STAR STRIKER</button>
     <button class="cta alt" data-ts="edit" id="tsEdit" style="display:none">EDIT PLAYER</button>
     <button class="cta" data-ts="play">PLAY</button>
     <div class="mut" id="tsTip">Tap one player, then another, to swap them.</div>
@@ -557,7 +565,8 @@ function squadFor(ci) {
 function applyEdit(sp, e) {
   if (typeof e.n === 'string' && e.n.trim()) sp.name = e.n.trim().slice(0, 14).toUpperCase();
   if (['GK', 'DF', 'MF', 'FW'].includes(e.p)) { sp.pos = e.p; sp.gk = e.p === 'GK' ? sp.ovr : 30; }
-  const o = clamp(Math.round(+e.o) || sp.ovr, 40, 99), d = o - sp.ovr;
+  if (e.star) { sp.star = true; if (e.h != null) sp.hair = e.h; if (e.s) sp.style = e.s; }
+  const o = clamp(Math.round(+e.o) || sp.ovr, 40, 130), d = o - sp.ovr;
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
 }
 // line-up = 18 squad indices: the first 11 fill the formation's slots in order, the rest sit on the bench
@@ -1887,9 +1896,9 @@ function faceSVG(s, c) {
     '<circle cx="16.8" cy="17" r="1" fill="#1a1512"/><circle cx="23.2" cy="17" r="1" fill="#1a1512"/><path d="M17 22 Q20 23.8 23 22" stroke="#1a1512" stroke-width=".8" fill="none" opacity=".55"/></svg>';
 }
 function cardHTML(s, i, c, slot, style) {
-  const tier = s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1';
+  const tier = (s.star ? 't6' : s.ovr >= 100 ? 't5' : s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1') + (s.ovr >= 100 ? ' d3' : '');
   return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span>' + esc(s.name.split('. ')[1] || s.name) + '</span>' +
-    (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + '</div>';
+    (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + (s.star ? '<u>★</u>' : '') + '</div>';
 }
 function drawTeam() {
   const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), F = FORMATIONS[c.f];
@@ -1911,7 +1920,7 @@ $('fRow').addEventListener('click', e => { const b = e.target.closest('.opt'); i
 function showScr(setup) { $('teamScr').style.display = setup ? 'none' : 'flex'; $('setupScr').style.display = setup ? 'flex' : 'none'; ov.scrollTop = 0; }
 $('teamScr').addEventListener('click', e => {
   const b = e.target.closest('[data-ts]'); if (!b) return; AudioSys.resume(); const a = b.dataset.ts;
-  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else if (a === 'edit') openEdit(); else openCreate();
+  if (a === 'play') showScr(true); else if (a === 'auto') { autoLineup(sel.home); tsSel = -1; saveAll(); refreshMenu(); } else if (a === 'club') openClubs(); else if (a === 'edit') openEdit(); else if (a === 'star') signStar(); else openCreate();
 });
 $('backTeam').addEventListener('click', () => showScr(false));
 function openClubs() {
@@ -1925,16 +1934,28 @@ function openCreate() {
     '<div class="row" style="justify-content:flex-start;gap:18px"><label class="fld">Shirt<input type="color" id="ccShirt" value="#12a36b"></label><label class="fld">Trim<input type="color" id="ccTrim" value="#ffffff"></label><label class="fld">Shorts<input type="color" id="ccShorts" value="#0d2b22"></label></div>' +
     '<div class="mut" id="ccErr">You get an 18-player squad of new signings to arrange however you like.</div></div><button class="cta" data-act="doCreate">CREATE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
 }
+// an invented superstar for the centre-forward slot: his own name, look and a 110 rating
+const STAR_NAMES = ['ZEPHYR VALE', 'NICO STARLING', 'RIO BLAZE', 'KAI THUNDER', 'LEO COMET', 'JETT NOVA', 'MILO STORM', 'DASH ORION'];
+function signStar() {
+  const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), F = FORMATIONS[c.f];
+  let slot = 10; for (let i = 10; i > 0; i--) if (F[i].pos === 'ST') { slot = i; break; }
+  let si = sq.findIndex(p => p.star); if (si < 0) si = l[slot];                      // one star per club: re-signing just moves him up front
+  let h = 0; for (const ch of c.n) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  const e = { n: STAR_NAMES[h % STAR_NAMES.length], o: 110, p: 'FW', star: true, h: 0xe9e1c4, s: 'crop' };
+  (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e);
+  const at = l.indexOf(si); if (at !== slot) [l[at], l[slot]] = [l[slot], l[at]];
+  tsSel = -1; refreshMenu(); saveAll(); AudioSys.goal();
+}
 function openEdit() {
   if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
   openPanel('<h1>EDIT PLAYER</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><label class="fld">Name<input type="text" id="edName" maxlength="14" autocomplete="off" value="' + esc(sp.name) + '"></label>' +
-    '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px">' + sp.ovr + '</b><input type="range" id="edOvr" min="40" max="99" value="' + sp.ovr + '"></label>' +
+    '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px">' + sp.ovr + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
     '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label></div>' +
     '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
   $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
 }
 ACT.doEdit = () => {
-  const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], e = { n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value };
+  const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value };
   (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
 };
 ACT.closeP = () => closePanel();
