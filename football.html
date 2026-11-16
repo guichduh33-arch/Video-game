@@ -1897,7 +1897,7 @@ function faceSVG(s, c) {
 }
 function cardHTML(s, i, c, slot, style) {
   const tier = (s.star ? 't6' : s.ovr >= 100 ? 't5' : s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1') + (s.ovr >= 100 ? ' d3' : '');
-  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span>' + esc(s.name.split('. ')[1] || s.name) + '</span>' +
+  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b>' + s.ovr + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span title="' + esc(s.name) + '">' + esc(s.name.split('. ')[1] || (s.name.length > 9 ? s.name.split(' ').pop() : s.name)) + '</span>' +
     (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + (s.star ? '<u>★</u>' : '') + '</div>';
 }
 function drawTeam() {
