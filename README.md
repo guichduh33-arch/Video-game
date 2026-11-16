@@ -780,3 +780,24 @@ are saved in the browser.
 This is a non-commercial fan tribute. Spider-Man, Peter Parker, Miles Morales, the
 Lizard, Kraven, Venom and related characters are trademarks of Marvel. This project is not affiliated with or endorsed by Marvel, Sony or Insomniac
 Games, and it must not be sold or distributed commercially.
+
+## Pitch Legends 3D (`football.html`)
+
+An original 11-a-side 3D football sim (Three.js, no build step — open `football.html` from a local server).
+
+- **Modes:** Quick Match, or the 8-club **Legends Cup** knockout (draws go to golden-goal extra time, then a penalty shootout).
+- **Clubs:** eight fictional clubs with their own kits, change strips on a colour clash, and seeded squads with ratings (pace, shooting, passing, defending).
+- **Rules:** offside, fouls, yellow/red cards and send-offs, free kicks, corners, throw-ins, goal kicks, penalties, woodwork.
+- **Play:** aimed passes, through balls, lobs/crosses, power shots aimed at a corner, standing and slide tackles, headers, blocks, diving goalkeepers.
+- **Presentation:** slow-motion goal replays, celebrations, commentary line, match stats at half/full time, player of the match, day/night, three cameras.
+
+| Action | Keyboard | Gamepad |
+| --- | --- | --- |
+| Move / sprint | WASD or arrows / Shift | Left stick / RB or RT |
+| Pass · switch player | J or Space | A |
+| Through ball · slide tackle | K | X |
+| Shoot (hold) · tackle | L | B |
+| Lob / cross | I | Y |
+| Camera / pause | C / Esc | – / Start |
+
+Touch devices get a drag joystick and on-screen buttons. `window.__game` exposes a test hook (`tick`, `start`, `info`).
