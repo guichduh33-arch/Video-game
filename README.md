@@ -789,7 +789,8 @@ An original 11-a-side 3D football sim (Three.js, no build step — open `footbal
 - **Clubs:** eight fictional clubs with their own kits, change strips on a colour clash, and seeded squads with ratings (pace, shooting, passing, defending).
 - **Rules:** offside, fouls, yellow/red cards and send-offs, free kicks, corners, throw-ins, goal kicks, penalties, woodwork.
 - **Play:** aimed passes, through balls, lobs/crosses, power shots aimed at a corner, standing and slide tackles, headers, blocks, diving goalkeepers.
-- **Presentation:** slow-motion goal replays, celebrations, commentary line, match stats at half/full time, player of the match, day/night, three cameras.
+- **Presentation:** slow-motion goal replays, celebrations, commentary line, match stats at half/full time, player of the match, day/night, a referee, sky-lit rendering.
+- **Cameras (C or 1–6):** behind the play, broadcast, top-down, ground level, first person, front drone.
 
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |

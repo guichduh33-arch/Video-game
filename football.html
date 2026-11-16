@@ -46,6 +46,7 @@
   @keyframes bl { 50% { opacity: .2; } }
   body.replay #score, body.replay #active, body.replay #radar, body.replay #say, body.replay #hint { opacity: 0; }
   body.replay #replayTag { display: flex; }
+  #vig { position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(0,0,0,.34) 100%); }
   .bars { position: fixed; left: 0; right: 0; height: 0; background: #000; z-index: 1; transition: height .35s; pointer-events: none; } .bars.t { top: 0; } .bars.b { bottom: 0; }
   body.replay .bars { height: 8vh; }
   #hint { position: absolute; right: 14px; bottom: 14px; background: rgba(8,12,18,.72); border: 1px solid rgba(255,255,255,.12); border-radius: 9px; padding: 8px 12px; font-size: 12px; line-height: 1.55; color: #d6e6f2; }
@@ -112,7 +113,7 @@
 <body class="inmenu">
 <div id="boot"><div class="sp"></div><div>Preparing the pitch…</div></div>
 <canvas id="c"></canvas>
-<div class="bars t"></div><div class="bars b"></div>
+<div id="vig"></div><div class="bars t"></div><div class="bars b"></div>
 <div id="hud">
   <div id="score">
     <div class="t"><span class="crest" id="hCrest"></span><span id="hName">HOM</span></div>
@@ -163,11 +164,13 @@
       <span id="lenRow" class="row" style="margin:0"><button class="opt on" data-l="120">2 min halves</button><button class="opt" data-l="240">4 min</button><button class="opt" data-l="360">6 min</button></span>
       <span id="todRow" class="row" style="margin:0"><button class="opt on" data-t="day">☀ Day</button><button class="opt" data-t="night">☾ Night</button></span>
     </div>
+    <div class="mut" style="margin-top:8px">Camera (C or 1–6 in a match)</div>
+    <div class="row" id="camRow"><button class="opt on" data-c="0">Behind</button><button class="opt" data-c="1">Broadcast</button><button class="opt" data-c="2">Top-down</button><button class="opt" data-c="3">Ground</button><button class="opt" data-c="4">First person</button><button class="opt" data-c="5">Front drone</button></div>
     <div class="keys">
       <b>WASD</b><span>Move</span><b>Shift</b><span>Sprint</span>
       <b>J</b><span>Pass · switch player</span><b>K</b><span>Through ball · slide tackle</span>
       <b>L</b><span>Shoot (hold) · tackle</span><b>I</b><span>Lob / cross</span>
-      <b>C</b><span>Camera</span><b>Esc</b><span>Pause · gamepad works too</span>
+      <b>C · 1–6</b><span>Camera view</span><b>Esc</b><span>Pause · gamepad works too</span>
     </div>
   </div>
   <button id="play" class="cta">KICK OFF</button>
@@ -229,11 +232,11 @@ sun.castShadow = true;
 const SS = LOW ? 1024 : 2048;
 sun.shadow.mapSize.set(SS, SS);
 sun.shadow.camera.near = 20; sun.shadow.camera.far = 320;
-const sh = 60; sun.shadow.camera.left = -sh; sun.shadow.camera.right = sh; sun.shadow.camera.top = sh; sun.shadow.camera.bottom = -sh;
-sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6;
+const sh = 42; sun.shadow.camera.left = -sh; sun.shadow.camera.right = sh; sun.shadow.camera.top = sh; sun.shadow.camera.bottom = -sh;
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.35; sun.shadow.radius = 2.5;
 scene.add(sun); scene.add(sun.target);
 const hemi = new THREE.HemisphereLight(0xbfe0ff, 0x35502f, 0.75); scene.add(hemi);
-scene.add(new THREE.AmbientLight(0xffffff, 0.12));
+
 
 /* ============================== canvas textures ============================== */
 function pitchTexture() {
@@ -249,9 +252,10 @@ function pitchTexture() {
     g.fillStyle = i % 2 ? '#378c3c' : '#2e7a33';
     g.fillRect(ox + i * sw, oy, sw + 1, PITCH_W * PPM);
   }
-  // faint mow texture noise
-  g.globalAlpha = 0.05;
-  for (let i = 0; i < 4000; i++) { g.fillStyle = Math.random() < 0.5 ? '#1f5a26' : '#4fa050'; g.fillRect(rand(ox, ox + PITCH_L * PPM), rand(oy, oy + PITCH_W * PPM), 2, 2); }
+  // cross-cut bands, then fine blade noise
+  g.globalAlpha = 0.07; g.fillStyle = '#0d3a12'; for (let i = 0; i < 12; i += 2) g.fillRect(ox, oy + i * (PITCH_W * PPM / 12), PITCH_L * PPM, PITCH_W * PPM / 12);
+  g.globalAlpha = 0.06;
+  for (let i = 0; i < 26000; i++) { g.fillStyle = Math.random() < 0.5 ? '#1f5a26' : '#4fa050'; g.fillRect(rand(ox, ox + PITCH_L * PPM), rand(oy, oy + PITCH_W * PPM), 2, 2); }
   g.globalAlpha = 1;
   // white markings
   g.strokeStyle = '#f4f8f4'; g.lineWidth = Math.max(2, 0.12 * PPM); g.fillStyle = '#f4f8f4';
@@ -302,7 +306,13 @@ function numberTexture(n, fg, bg) {
 }
 
 /* ============================== field, goals, stadium ============================== */
-const grassMat = new THREE.MeshStandardMaterial({ map: pitchTexture(), roughness: 0.92, metalness: 0 });
+function grassDetail() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+  g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 9000; i++) { const v = Math.floor(rand(70, 190)); g.strokeStyle = 'rgb(' + v + ',' + v + ',' + v + ')'; g.lineWidth = 1; const x = rand(0, 256), y = rand(0, 256); g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-1.5, 1.5), y - rand(2, 5)); g.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(70, 46); t.anisotropy = LOW ? 2 : 8; return t;
+}
+const grassMat = new THREE.MeshStandardMaterial({ map: pitchTexture(), bumpMap: grassDetail(), bumpScale: 0.9, roughness: 0.88, metalness: 0, envMapIntensity: 0.45 });
 const field = new THREE.Mesh(new THREE.PlaneGeometry(PITCH_L + 4.5, PITCH_W + 4.5), grassMat);
 field.rotation.x = -Math.PI / 2; field.receiveShadow = true; scene.add(field);
 // surrounding darker grass apron + running track
@@ -517,51 +527,70 @@ function limb(len, rTop, rBot, m) {
 // rotation.x sign convention on every limb pivot: positive swings the limb BACK (-Z), negative swings it FORWARD (+Z).
 function makePlayer(km, number, skinHex, hairHex, hairStyle) {
   const g = new THREE.Group(); const p = {}; g.rotation.order = 'YXZ';      // yaw first, so lean (x) and roll (z) stay in the player's own frame
-  const skin = mat(skinHex, 0.6), boot = mat(pick(BOOTS), 0.4);
-  const hips = new THREE.Group(); hips.position.y = 0.92; g.add(hips); p.hips = hips;
-  const pelvis = new THREE.Mesh(geo('pelvis', () => new THREE.CapsuleGeometry(0.15, 0.16, 4, 8)), km.shorts); pelvis.scale.set(1.25, 1, 0.8); hips.add(pelvis);
-  const torso = new THREE.Group(); hips.add(torso); p.torso = torso;
-  const chest = new THREE.Mesh(geo('chest', () => new THREE.CapsuleGeometry(0.19, 0.32, 5, 10)), km.shirt); chest.position.y = 0.3; chest.scale.set(1.15, 1, 0.72); torso.add(chest);
-  const belly = new THREE.Mesh(geo('belly', () => new THREE.CapsuleGeometry(0.16, 0.12, 4, 8)), km.shirt); belly.position.y = 0.08; belly.scale.set(1.1, 1, 0.72); torso.add(belly);
-  const collar = new THREE.Mesh(geo('collar', () => new THREE.TorusGeometry(0.075, 0.022, 6, 12)), km.trim); collar.rotation.x = Math.PI / 2; collar.position.y = 0.5; torso.add(collar);
+  const skin = mat(skinHex, 0.62), boot = mat(pick(BOOTS), 0.38), sole = mat(0x0c0c0e, 0.6), dark = mat(0x141210, 0.4);
+  const add = (parent, geom, m, x, y, z, shadow) => { const o = new THREE.Mesh(geom, m); o.position.set(x, y, z); o.castShadow = !!shadow; parent.add(o); return o; };
+  const lathe = (key, pts, seg = 14) => geo(key, () => new THREE.LatheGeometry(pts.map(q => new THREE.Vector2(q[0], q[1])), seg));
+  // ----- hips and shorts
+  const hips = new THREE.Group(); hips.position.y = 0.98; g.add(hips); p.hips = hips;
+  add(hips, lathe('shorts', [[0.001, 0.1], [0.15, 0.1], [0.172, 0.02], [0.182, -0.08], [0.176, -0.13], [0.001, -0.13]]), km.shorts, 0, 0, 0, true).scale.set(1.08, 1, 0.74);
+  // ----- torso: tapered from broad shoulders to the waist, flattened front to back
+  const torso = new THREE.Group(); torso.position.y = 0.06; hips.add(torso); p.torso = torso;
+  add(torso, lathe('torso', [[0.001, -0.03], [0.148, -0.03], [0.152, 0.06], [0.162, 0.16], [0.182, 0.28], [0.2, 0.37], [0.196, 0.42], [0.15, 0.47], [0.075, 0.495], [0.001, 0.5]], 16), km.shirt, 0, 0, 0, true).scale.set(1.08, 1, 0.66);
+  add(torso, geo('pec', () => new THREE.SphereGeometry(0.15, 12, 8)), km.shirt, 0, 0.32, 0.035).scale.set(1.25, 0.7, 0.62);
+  const collar = add(torso, geo('collar', () => new THREE.TorusGeometry(0.068, 0.018, 6, 14)), km.trim, 0, 0.492, 0.004); collar.rotation.x = Math.PI / 2;
   const num = new THREE.Mesh(geo('num', () => new THREE.PlaneGeometry(0.24, 0.24)), new THREE.MeshStandardMaterial({ map: numTex(number), transparent: true, roughness: 0.8 }));
-  num.position.set(0, 0.32, -0.158); num.rotation.y = Math.PI; torso.add(num);
-  const neck = new THREE.Mesh(geo('neck', () => new THREE.CylinderGeometry(0.055, 0.07, 0.08, 7)), skin); neck.position.y = 0.5; torso.add(neck);
-  const head = new THREE.Group(); head.position.y = 0.58; torso.add(head); p.head = head;
-  const skull = new THREE.Mesh(geo('skull', () => new THREE.SphereGeometry(0.12, 14, 12)), skin); skull.scale.set(0.92, 1.05, 0.98); head.add(skull);
-  if (hairStyle !== 'bald') {
-    const hm = mat(hairHex, 0.85), cut = hairStyle === 'short' ? 0.55 : 0.68;
-    const cap = new THREE.Mesh(geo('cap' + cut, () => new THREE.SphereGeometry(0.125, 12, 10, 0, TAU, 0, Math.PI * cut)), hm); cap.position.y = 0.012; cap.rotation.x = -0.25; head.add(cap);
-    if (hairStyle === 'afro') { const af = new THREE.Mesh(geo('afro', () => new THREE.SphereGeometry(0.15, 12, 10)), hm); af.position.set(0, 0.04, -0.02); head.add(af); }
-    if (hairStyle === 'bun') { const bn = new THREE.Mesh(geo('bun', () => new THREE.SphereGeometry(0.05, 8, 6)), hm); bn.position.set(0, 0.11, -0.09); head.add(bn); }
+  num.position.set(0, 0.27, -0.137); num.rotation.y = Math.PI; if (number !== '') torso.add(num);
+  add(torso, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.062, 0.1, 10)), skin, 0, 0.53, 0);
+  // ----- head: skull, jaw, nose, ears, eyes, brows, hair
+  const head = new THREE.Group(); head.position.y = 0.655; torso.add(head); p.head = head;
+  add(head, geo('skull', () => new THREE.SphereGeometry(0.108, 18, 14)), skin, 0, 0.01, 0, true).scale.set(0.9, 1.1, 1.02);
+  add(head, geo('jaw', () => new THREE.SphereGeometry(0.085, 12, 10)), skin, 0, -0.058, 0.022).scale.set(0.88, 0.8, 0.95);
+  if (!LOW) {
+    add(head, geo('nose', () => new THREE.ConeGeometry(0.016, 0.045, 6)), skin, 0, -0.012, 0.112).rotation.x = -0.35;
+    for (const sx of [-1, 1]) {
+      add(head, geo('ear', () => new THREE.SphereGeometry(0.024, 6, 6)), skin, sx * 0.098, -0.005, 0).scale.set(0.5, 1, 0.8);
+      add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 8, 6)), mat(0xf2f2ee, 0.35), sx * 0.04, 0.012, 0.094).scale.set(1.2, 0.75, 0.6);
+      add(head, geo('brow', () => new THREE.BoxGeometry(0.042, 0.009, 0.012)), mat(hairHex, 0.85), sx * 0.04, 0.036, 0.098);
+    }
   }
-  for (const sx of [-1, 1]) { const eye = new THREE.Mesh(geo('eye', () => new THREE.SphereGeometry(0.018, 6, 6)), mat(0x1a1a1a, 0.3)); eye.position.set(sx * 0.045, 0.01, 0.105); head.add(eye); }
+  for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
+  if (hairStyle !== 'bald') {
+    const hm = mat(hairHex, 0.9), cut = hairStyle === 'short' ? 0.5 : 0.6;
+    const cap = add(head, geo('cap' + cut, () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * cut)), hm, 0, 0.018, -0.006); cap.scale.set(0.93, 1.12, 1.04); cap.rotation.x = -0.32;
+    if (hairStyle === 'afro') add(head, geo('afro', () => new THREE.SphereGeometry(0.135, 12, 10)), hm, 0, 0.055, -0.02).scale.set(1, 0.9, 1);
+    if (hairStyle === 'bun') add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085);
+    if (hairStyle === 'crop') add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045).scale.set(1.2, 0.5, 1);
+  } else add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), mat(new THREE.Color(skinHex).multiplyScalar(0.8).getHex(), 0.7), 0, 0.016, -0.004).scale.set(0.91, 1.1, 1.02);
+  // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
   for (const sx of [-1, 1]) {
-    const sh = new THREE.Group(); sh.position.set(sx * 0.22, 0.42, 0); torso.add(sh);
-    const upper = limb(0.3, 0.06, 0.05, skin); sh.add(upper);
-    const sleeve = new THREE.Mesh(geo('sleeve', () => new THREE.CylinderGeometry(0.068, 0.074, 0.17, 8)), km.shirt); sleeve.position.y = -0.07; upper.add(sleeve);
-    const cuff = new THREE.Mesh(geo('cuff', () => new THREE.CylinderGeometry(0.07, 0.07, 0.025, 8)), km.trim); cuff.position.y = -0.16; upper.add(cuff);
-    const elbow = new THREE.Group(); elbow.position.y = -0.3; upper.add(elbow);
-    elbow.add(limb(0.28, 0.05, 0.045, skin));
-    const hand = new THREE.Mesh(geo('hand', () => new THREE.SphereGeometry(0.05, 7, 6)), skin); hand.position.y = -0.28; hand.scale.set(1, 1.2, 0.7); elbow.add(hand);
+    const sh = new THREE.Group(); sh.position.set(sx * 0.218, 0.41, 0); torso.add(sh);
+    const upper = new THREE.Group(); sh.add(upper);
+    add(upper, geo('shoulder', () => new THREE.SphereGeometry(0.074, 10, 8)), km.shirt, 0, 0, 0);
+    add(upper, geo('sleeve', () => new THREE.CylinderGeometry(0.07, 0.062, 0.17, 10)), km.shirt, 0, -0.085, 0, true);
+    if (!LOW) add(upper, geo('cuff', () => new THREE.CylinderGeometry(0.064, 0.064, 0.022, 10)), km.trim, 0, -0.17, 0);
+    add(upper, geo('uarm', () => new THREE.CylinderGeometry(0.052, 0.044, 0.16, 8)), skin, 0, -0.23, 0, true);
+    const elbow = new THREE.Group(); elbow.position.y = -0.31; upper.add(elbow);
+    add(elbow, geo('elbowJ', () => new THREE.SphereGeometry(0.045, 8, 6)), skin, 0, 0, 0);
+    add(elbow, lathe('fore', [[0.001, 0], [0.044, 0], [0.048, -0.07], [0.04, -0.18], [0.031, -0.26], [0.001, -0.26]], 8), skin, 0, 0, 0, true);
+    add(elbow, geo('hand', () => new THREE.SphereGeometry(0.042, 8, 6)), skin, 0, -0.3, 0.005).scale.set(0.55, 1.25, 0.95);
     p.arms.push({ sh, upper, elbow, side: sx });
   }
+  // ----- legs: shorts leg, thigh, knee, sock-covered calf, boot
   p.legs = [];
   for (const sx of [-1, 1]) {
-    const hip = new THREE.Group(); hip.position.set(sx * 0.1, -0.02, 0); hips.add(hip);
-    const thigh = limb(0.45, 0.085, 0.07, skin);
-    const so = new THREE.Mesh(geo('shortleg', () => new THREE.CylinderGeometry(0.095, 0.09, 0.24, 8)), km.shorts); so.position.y = -0.12; thigh.add(so);
-    hip.add(thigh);
-    const knee = new THREE.Group(); knee.position.y = -0.45; thigh.add(knee);
-    const shin = limb(0.45, 0.065, 0.045, skin); knee.add(shin);
-    const sock = new THREE.Mesh(geo('sock', () => new THREE.CylinderGeometry(0.07, 0.05, 0.32, 8)), km.socks); sock.position.y = -0.29; shin.add(sock);
-    const ankle = new THREE.Group(); ankle.position.y = -0.45; shin.add(ankle);
-    const foot = new THREE.Mesh(geo('foot', () => new THREE.BoxGeometry(0.1, 0.07, 0.26)), boot); foot.position.set(0, -0.035, 0.07); ankle.add(foot);
+    const hip = new THREE.Group(); hip.position.set(sx * 0.095, -0.08, 0); hips.add(hip);
+    add(hip, geo('shortleg', () => new THREE.CylinderGeometry(0.098, 0.104, 0.2, 10)), km.shorts, 0, -0.1, 0, true);
+    add(hip, lathe('thigh', [[0.001, 0], [0.09, 0], [0.092, -0.12], [0.08, -0.3], [0.064, -0.45], [0.001, -0.45]], 10), skin, 0, 0, 0, true);
+    const knee = new THREE.Group(); knee.position.y = -0.45; hip.add(knee);
+    add(knee, geo('kneeJ', () => new THREE.SphereGeometry(0.064, 8, 6)), skin, 0, 0, 0.004);
+    const calf = add(knee, lathe('calf', [[0.001, -0.04], [0.06, -0.04], [0.068, -0.12], [0.07, -0.19], [0.058, -0.3], [0.044, -0.4], [0.042, -0.45], [0.001, -0.45]], 10), km.socks, 0, 0, -0.006, true); calf.scale.z = 1.08;
+    if (!LOW) add(knee, geo('sockband', () => new THREE.CylinderGeometry(0.063, 0.063, 0.03, 10)), km.trim, 0, -0.055, -0.004);
+    const ankle = new THREE.Group(); ankle.position.y = -0.45; knee.add(ankle);
+    const bt = add(ankle, geo('boot', () => new THREE.CapsuleGeometry(0.047, 0.15, 4, 8)), boot, 0, -0.045, 0.062, true); bt.rotation.x = Math.PI / 2; bt.scale.set(1, 1, 0.78);
+    add(ankle, geo('sole', () => new THREE.BoxGeometry(0.086, 0.016, 0.235)), sole, 0, -0.084, 0.062);
     p.legs.push({ hip, knee, ankle, side: sx });
   }
-  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-  num.castShadow = false;
   g.userData.parts = p;
   return g;
 }
@@ -591,7 +620,7 @@ function drawLabel(p) {
 function buildTeams() {
   for (const team of ['home', 'away']) FORMATION.forEach((f, idx) => {
     const isGK = f.role === 'GK', km = isGK ? (team === 'home' ? KM.hGK : KM.aGK) : KM[team];
-    const mesh = makePlayer(km, NUMS[idx], pick(SKIN), pick(HAIR), pick(['short', 'short', 'crop', 'afro', 'bald', 'bun']));
+    const mesh = makePlayer(km, NUMS[idx], pick(SKIN), pick(HAIR), pick(['short', 'short', 'short', 'crop', 'crop', 'afro', 'bald', 'bun']));
     mesh.scale.setScalar(rand(0.97, 1.05)); scene.add(mesh);
     const p = { team, role: f.role, isGK, idx, mesh, parts: mesh.userData.parts, number: NUMS[idx], name: '', form: f, base: { x: 0, z: 0 },
       pos: V3(), vel: V3(), facing: 0, lastFacing: 0, bank: 0, speed: 0, gait: Math.random() * TAU, user: false, accel: isGK ? 22 : 26, maxRun: 7, stamina: 1, at: null };
@@ -1425,7 +1454,7 @@ function animatePlayer(p, dt) {
   p.gait += sp * dt / lerp(0.9, 1.75, run) * Math.PI;                                  // phase advances with distance, so feet do not skate
   const ph = p.gait, amp = lerp(0.1, 1.05, run);
   let rootX = 0, rootZ = p.bank, rootY = 0, rate = 18;
-  let hipsY = 0.92 - run * 0.04 + Math.cos(ph * 2) * amp * 0.025;                       // pelvis bobs twice per stride
+  let hipsY = 0.98 - run * 0.04 + Math.cos(ph * 2) * amp * 0.025;                       // pelvis bobs twice per stride
   let torsoX = run * 0.26 + (sp < 0.6 ? Math.sin(T * 1.7 + p.idx) * 0.018 : 0), torsoY = -Math.sin(ph) * 0.2 * amp;
   const hipsYaw = Math.sin(ph) * 0.09 * amp;
   for (let i = 0; i < 2; i++) {
@@ -1468,7 +1497,7 @@ function animatePlayer(p, dt) {
   const toBall = Math.atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z);                 // eyes on the ball
   pr.head.rotation.y = damp(pr.head.rotation.y, clamp(angDiff(toBall, p.facing), -0.9, 0.9) - pr.torso.rotation.y, 8, dt);
   const lb = p.label; if (!lb) return; const live = G.state === 'play' || G.state === 'kickoff' || G.state === 'deadball';
-  lb.visible = live && !G.penHold; if (lb.visible) { const main = p === userPlayer || p === ball.owner, s = (main ? 1.15 : 0.8) * clamp(camera.position.distanceTo(g.position) / 34, 0.3, 1.5); lb.position.set(p.pos.x, 2.45, p.pos.z); lb.scale.set(3.4 * s, 0.85 * s, 1); lb.material.opacity = main ? 1 : 0.6; }
+  lb.visible = live && !G.penHold && !(fpOn && p === userPlayer); if (lb.visible) { const main = p === userPlayer || p === ball.owner, s = (main ? 1.15 : 0.8) * clamp(camera.position.distanceTo(g.position) / 34, 0.3, 1.5); lb.position.set(p.pos.x, 2.45, p.pos.z); lb.scale.set(3.4 * s, 0.85 * s, 1); lb.material.opacity = main ? 1 : 0.6; }
 }
 /* user marker ring + chevron, and the pass-target marker */
 const userRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.64, 26), new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
@@ -1500,10 +1529,19 @@ function skyTex(stops, stars) {
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 const SKY = { day: skyTex(['#2f7fd6', '#6fb0ea', '#b9dcf5', '#e8f3fb']), night: skyTex(['#02040c', '#060b1c', '#0e1838', '#1a2550'], true) };
+const pmrem = new THREE.PMREMGenerator(renderer), ENV = {};
+function envFor(night) {
+  const k = night ? 'night' : 'day'; if (ENV[k]) return ENV[k];
+  const es = new THREE.Scene();
+  es.add(new THREE.Mesh(new THREE.SphereGeometry(50, 24, 16), new THREE.MeshBasicMaterial({ map: night ? SKY.night : SKY.day, side: THREE.BackSide })));
+  const gr = new THREE.Mesh(new THREE.CircleGeometry(50, 24), new THREE.MeshBasicMaterial({ color: night ? 0x0c1a10 : 0x3f7a3a })); gr.rotation.x = -Math.PI / 2; gr.position.y = -2; es.add(gr);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(night ? 3 : 6, 12, 8), new THREE.MeshBasicMaterial({ color: night ? 0xdfe8ff : 0xfff0c8 })); lamp.position.set(22, 36, 16); es.add(lamp);
+  return (ENV[k] = pmrem.fromScene(es, 0.04).texture);
+}
 function setNight(n) {
   G.night = n;
-  scene.background = n ? SKY.night : SKY.day; scene.fog.color.setHex(n ? 0x0a1022 : 0x9fc8e8);
-  sun.color.setHex(n ? 0xe6eeff : 0xfff2d6); sun.intensity = n ? 2.1 : 2.5; hemi.intensity = n ? 0.42 : 0.75; hemi.color.setHex(n ? 0x8fa6d8 : 0xbfe0ff);
+  scene.background = n ? SKY.night : SKY.day; scene.environment = envFor(n); scene.fog.color.setHex(n ? 0x0a1022 : 0x9fc8e8);
+  sun.color.setHex(n ? 0xe6eeff : 0xfff2d6); sun.intensity = n ? 2.2 : 2.7; hemi.intensity = n ? 0.3 : 0.38; hemi.color.setHex(n ? 0x8fa6d8 : 0xbfe0ff);
   for (const m of floodPanels) m.material.emissiveIntensity = n ? 3 : 0.9;
   for (const ab of adBoards) ab.m.material.emissiveIntensity = n ? 0.95 : 0.55;
   baseExposure = n ? 1.12 : 1.05;
@@ -1511,10 +1549,12 @@ function setNight(n) {
 let baseExposure = 1.05;
 
 /* ============================== camera ============================== */
-let camMode = 0, camSnap = true;
+let camMode = 0, camSnap = true, fpYaw = 0, fpWho = null, fpOn = false;
+const CAMS = ['BEHIND THE PLAY', 'BROADCAST', 'TOP-DOWN', 'GROUND LEVEL', 'FIRST PERSON', 'FRONT DRONE'];
+function setCam(i) { camMode = (i + CAMS.length) % CAMS.length; showToast(CAMS[camMode], 0.9, 'sm'); document.querySelectorAll('#camRow .opt').forEach(o => o.classList.toggle('on', +o.dataset.c === camMode)); }
 const camLook = V3(0, 2, 0), _tp = V3(), _tl = V3();
 function updateCamera(dt) {
-  const bx = ball.pos.x, bz = ball.pos.z; let rp = 3, rl = 4;
+  const bx = ball.pos.x, bz = ball.pos.z; let rp = 3, rl = 4, fov = 42;
   if (G.state === 'menu' || G.state === 'halftime' || G.state === 'full' || G.paused) {      // slow stadium orbit behind the menus
     const a = performance.now() * 0.00006; _tp.set(Math.sin(a) * 74, 26, Math.cos(a) * 62); _tl.set(0, 0, 0); rp = rl = 1.5;
   } else if (G.state === 'replay') {
@@ -1523,12 +1563,24 @@ function updateCamera(dt) {
     const sc = G.scorer, d = Math.hypot(sc.pos.x, sc.pos.z) || 1; _tp.set(sc.pos.x - sc.pos.x / d * 9, 2.6, sc.pos.z - sc.pos.z / d * 9); _tl.set(sc.pos.x, 1.4, sc.pos.z); rp = 2.2; rl = 5;
   } else if (G.restart && G.restart.type === 'penalty' && (G.state === 'deadball' || G.penHold || G.so)) {
     const gx = targetGoalX(G.restart.team), s = Math.sign(gx); _tp.set(gx - s * (PEN_SPOT + 10), 4.6, 0); _tl.set(gx, 0.1, 0); rp = 4; rl = 6;
-  } else if (camMode === 0) {                                     // behind the play
-    const dir = G.attackingDir.home;
-    _tp.set(bx - dir * 17.5, 10.5, clamp(bz, -30, 30) * 0.8); _tl.set(bx + dir * 15, 1.6, clamp(bz, -32, 32) * 0.88);
-  } else if (camMode === 1) {                                     // side-on broadcast, tightens near goal
-    _tp.set(bx * 0.72, 29 - clamp(Math.abs(bx) / HL, 0, 1) * 8, 44 + bz * 0.12); _tl.set(bx * 0.84, 2, bz * 0.4);
-  } else { _tp.set(bx * 0.5, 62, 30); _tl.set(bx * 0.7, 0, bz * 0.4); }
+  } else {
+    const dir = G.attackingDir.home, u = userPlayer, T = G.time;
+    if (camMode === 0) { _tp.set(bx - dir * 17.5, 10.5, clamp(bz, -30, 30) * 0.8); _tl.set(bx + dir * 15, 1.6, clamp(bz, -32, 32) * 0.88); }                    // behind the play
+    else if (camMode === 1) { _tp.set(bx * 0.72, 29 - clamp(Math.abs(bx) / HL, 0, 1) * 8, 44 + bz * 0.12); _tl.set(bx * 0.84, 2, bz * 0.4); }                // side-on broadcast
+    else if (camMode === 2) { _tp.set(bx - dir * 5, 44, bz); _tl.set(bx + dir * 2, 0, bz); rp = 4; rl = 5; }                                               // straight down from above
+    else if (camMode === 3) { _tp.set(bx - dir * 12, 1.0, clamp(bz, -32, 32) * 0.94 + 1.5); _tl.set(bx + dir * 8, 1.3, bz); }                               // on the grass
+    else if (camMode === 4 && u) {                                                                                                                     // through the player's eyes
+      fpYaw = camSnap || fpWho !== u ? u.facing : aimDamp(fpYaw, u.facing, 5.5, dt); fpWho = u; fov = 72; rp = rl = 28;
+      const hx = Math.sin(fpYaw), hz = Math.cos(fpYaw), bob = Math.abs(Math.sin(u.gait)) * 0.035 * clamp(u.speed / 6, 0, 1);
+      _tp.set(u.pos.x + hx * 0.13, 1.69 * u.mesh.scale.y + bob + u.mesh.position.y, u.pos.z + hz * 0.13);
+      _tl.set(lerp(_tp.x + hx * 12, bx, 0.22), lerp(0.9, ball.pos.y, 0.3), lerp(_tp.z + hz * 12, bz, 0.22));
+    } else {                                                                                                                                           // drone flying ahead of the play, looking back
+      _tp.set(bx + dir * (15 + Math.sin(T * 0.31) * 3.5), 7.5 + Math.sin(T * 0.47) * 1.8, bz + Math.sin(T * 0.23) * 8); _tl.set(bx - dir * 3, 1.2, bz); rp = 2.2; fov = 50;
+    }
+  }
+  fpOn = camMode === 4 && !!userPlayer && (G.state === 'play' || G.state === 'kickoff' || G.state === 'deadball') && !G.penHold && !(G.restart && G.restart.type === 'penalty' && G.state === 'deadball');
+  for (const p of allPlayers) p.parts.head.visible = !(fpOn && p === userPlayer);
+  if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = camSnap ? fov : damp(camera.fov, fov, 6, dt); camera.updateProjectionMatrix(); }
   if (camSnap) { camera.position.copy(_tp); camLook.copy(_tl); camSnap = false; }
   else { camera.position.x = damp(camera.position.x, _tp.x, rp, dt); camera.position.y = damp(camera.position.y, _tp.y, rp, dt); camera.position.z = damp(camera.position.z, _tp.z, rp, dt);
     camLook.x = damp(camLook.x, _tl.x, rl, dt); camLook.y = damp(camLook.y, _tl.y, rl, dt); camLook.z = damp(camLook.z, _tl.z, rl, dt); }
@@ -1576,7 +1628,7 @@ function update(dt) {
   // integrate, slide momentum, keep bodies apart
   for (const p of players) {
     if (p.slide > 0) { const v = 9.5 * Math.pow(clamp(p.slide / 0.8, 0, 1), 0.7); p.vel.x = Math.sin(p.slideDir) * v; p.vel.z = Math.cos(p.slideDir) * v; }
-    p.pos.x = clamp(p.pos.x + p.vel.x * dt, -HL - 6, HL + 6); p.pos.z = clamp(p.pos.z + p.vel.z * dt, -HW - 5, HW + 5);
+    p.pos.x = clamp(p.pos.x + p.vel.x * dt, -HL - 1.2, HL + 1.2); p.pos.z = clamp(p.pos.z + p.vel.z * dt, -HW - 1.2, HW + 1.2);      // the advertising boards are solid
   }
   for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
     const a = players[i], b = players[j], dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, d = Math.hypot(dx, dz);
@@ -1591,7 +1643,7 @@ function update(dt) {
   userRing.visible = chevron.visible = !!live; passMark.visible = false;
   if (live) {
     userRing.position.x = userPlayer.pos.x; userRing.position.z = userPlayer.pos.z;
-    chevron.position.set(userPlayer.pos.x, 2.95 + Math.sin(G.time * 4) * 0.1, userPlayer.pos.z); chevron.rotation.y += dt * 2; chevron.scale.setScalar(clamp(camera.position.distanceTo(chevron.position) / 30, 0.35, 1.4)); chevron.visible = !G.penHold;
+    chevron.position.set(userPlayer.pos.x, 2.95 + Math.sin(G.time * 4) * 0.1, userPlayer.pos.z); chevron.rotation.y += dt * 2; chevron.scale.setScalar(clamp(camera.position.distanceTo(chevron.position) / 30, 0.35, 1.4)); chevron.visible = !G.penHold && !fpOn;
     if (ball.owner === userPlayer && G.state === 'play') { const t = nearestTeammate(userPlayer, false, inp.ang); if (t) { passMark.visible = true; passMark.position.x = t.pos.x; passMark.position.z = t.pos.z; } }
   }
   for (const g of goals) if (g.ripple > 0) { g.ripple -= dt; const r = Math.max(0, g.ripple); g.back.position.x = g.bx0 + g.side * Math.sin(r * 26) * 0.22 * r; g.back.scale.y = 1 + Math.sin(r * 30) * 0.03 * r; }
@@ -1615,8 +1667,9 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-$('ctrlBtn').addEventListener('click', () => { camMode = (camMode + 1) % 3; showToast(['BEHIND THE PLAY', 'BROADCAST', 'TACTICAL'][camMode], 0.8, 'sm'); });
-addEventListener('keydown', e => { if (e.code === 'KeyC' && !e.repeat) $('ctrlBtn').click(); });
+$('ctrlBtn').addEventListener('click', () => setCam(camMode + 1));
+addEventListener('keydown', e => { if (e.repeat) return; if (e.code === 'KeyC') setCam(camMode + 1); else if (/^Digit[1-6]$/.test(e.code)) setCam(+e.code[5] - 1); });
+$('camRow').addEventListener('click', e => { const b = e.target.closest('.opt'); if (b) setCam(+b.dataset.c); });
 $('pauseBtn').addEventListener('click', () => togglePause());
 
 /* ============================== panels: stats, pause, results, cup ============================== */
