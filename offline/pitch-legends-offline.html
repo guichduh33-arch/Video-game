@@ -209,7 +209,7 @@
     </div>
     <div class="mut" id="cupNote" style="display:none">8 clubs · knockout · draws go to golden-goal extra time, then penalties</div>
     <div class="row" id="diffRow">
-      <button class="opt" data-d="0">Amateur</button><button class="opt on" data-d="1">Pro</button><button class="opt" data-d="2">Legend</button>
+      <button class="opt on" data-d="-1">Beginner</button><button class="opt" data-d="0">Amateur</button><button class="opt" data-d="1">Pro</button><button class="opt" data-d="2">Legend</button>
     </div>
     <div class="row">
       <span id="lenRow" class="row" style="margin:0"><button class="opt on" data-l="120">2 min halves</button><button class="opt" data-l="240">4 min</button><button class="opt" data-l="360">6 min</button></span>
@@ -751,7 +751,7 @@ function loadSquads(hi, ai) {
   for (const p of allPlayers) {
     const ci = p.team === 'home' ? hi : ai, c = CLUBS[ci], s = squadFor(ci)[lineupFor(ci)[p.idx]], slot = FORMATIONS[c.f][p.idx];
     p.form = slot; p.role = slot.role; p.number = s.num; setNumber(p.parts, s.num); setLook(p.parts, s.skin, s.hair, s.style);
-    p.name = s.name; p.at = s; p.maxRun = p.isGK ? 5.7 : 5.9 + (s.pace - 55) / 44 * 1.85; p.yellow = 0; p.st = { goals: 0, tackles: 0, passes: 0, saves: 0 };
+    p.name = s.name; p.at = s; p.maxRun = (p.isGK ? 5.7 : 5.9 + (Math.min(s.pace, 99) - 55) / 44 * 1.85) * (G.easy && p.team === 'away' ? 0.82 : 1); p.yellow = 0; p.st = { goals: 0, tackles: 0, passes: 0, saves: 0 };
     resetPlayerState(p); p.mesh.visible = true; drawLabel(p);
     players.push(p); teamList(p.team).push(p);
   }
@@ -834,8 +834,8 @@ const AudioSys = (() => {
 /* ============================== match state ============================== */
 const G = {
   state: 'menu',          // menu, kickoff, play, deadball, celebrate, replay, halftime, sowait, full
-  paused: false, mode: 'quick', night: false,
-  score: { home: 0, away: 0 }, clock: 0, half: 1, halfLen: 120, difficulty: 1,
+  paused: false, mode: 'quick', night: false, easy: true,          // easy = Beginner: slower, gentler opponents and extra help for you
+  score: { home: 0, away: 0 }, clock: 0, half: 1, halfLen: 120, difficulty: 0,
   attackingDir: { home: 1, away: -1 }, lastTouch: null, restart: null, keepOff: null, setPlay: null, penHold: false,
   celebrateT: 0, flash: 0, possTeam: null, scorer: null, celeSpot: { x: 0, z: 0 }, concede: 'home', goals: [],
   clubs: { home: 0, away: 1 }, stats: null, near: { home: [], away: [] }, offLine: { home: 0, away: 0 }, so: null, cup: null, time: 0,
@@ -880,6 +880,7 @@ function offsideLine(team) {
   return Math.max(b, 0, ball.pos.x * dir);
 }
 function markOffside(p) {
+  if (G.easy && p.team === 'home') { ball.offside = null; return; }                  // Beginner: you are never flagged offside
   const dir = G.attackingDir[p.team], line = offsideLine(p.team); ball.offside = new Set();
   for (const q of teamList(p.team)) if (q !== p && q.pos.x * dir > line + 0.35) ball.offside.add(q);
 }
@@ -934,8 +935,8 @@ function doShoot(p, power, aimZ) {
   aimZ = clamp(aimZ, -GHW + 0.35, GHW - 0.35);
   const dx = gx - ball.pos.x, dz = aimZ - ball.pos.z, d = Math.hypot(dx, dz) || 1;
   let press = 1e9; for (const o of teamList(otherTeam(p.team))) press = Math.min(press, dist2(o.pos.x, o.pos.z, p.pos.x, p.pos.z));
-  const mod = p.team === 'away' ? [-10, 0, 6][G.difficulty] : 0;
-  const sig = (0.022 + (99 - clamp(p.at.sho + mod, 40, 99)) * 0.0021) * (1 + power * 0.55) * (press < 1.6 ? 1.35 : 1) * (p.setPiece === 'penalty' ? 0.6 : 1);
+  const mod = p.team === 'away' ? (G.easy ? -22 : [-10, 0, 6][G.difficulty]) : 0;
+  const sig = (0.022 + (99 - clamp(p.at.sho + mod, 40, 99)) * 0.0021) * (1 + power * 0.55) * (press < 1.6 ? 1.35 : 1) * (p.setPiece === 'penalty' ? 0.6 : 1) * (G.easy && p.team === 'home' ? 0.45 : 1);
   const ang = Math.atan2(dx, dz) + (Math.random() + Math.random() + Math.random() - 1.5) * sig * 1.3;
   const sp = lerp(17, 32, power);
   let vy = lerp(1.0, 4.2, power) + d0 * 0.11 * power + rand(-0.5, 0.5) * (1 + power);
@@ -975,9 +976,10 @@ function tackleStep(p) {
     p.tackleDone = true;
     const ofx = Math.sin(o.facing), ofz = Math.cos(o.facing);
     const behind = ((o.pos.x - p.pos.x) * ofx + (o.pos.z - p.pos.z) * ofz) > 0.3 && (Math.sin(p.facing) * ofx + Math.cos(p.facing) * ofz) > 0.55;
-    const skill = (p.at.def - 70) / 100 - (o.at.pas - 70) / 250 + (p.team === 'away' ? [-0.14, 0, 0.1][G.difficulty] : p.user ? 0.08 : -0.08);
+    const skill = (p.at.def - 70) / 100 - (o.at.pas - 70) / 250 + (p.team === 'away' ? (G.easy ? -0.3 : [-0.14, 0, 0.1][G.difficulty]) : p.user ? (G.easy ? 0.3 : 0.08) : -0.08);
     let win = (sl ? 0.7 : 0.56) + skill, foulP = sl ? 0.13 : 0.025;
     if (behind) { win *= 0.5; foulP = sl ? 0.7 : 0.28; }
+    if (G.easy && p.team === 'home') foulP *= 0.3;
     if (Math.random() < foulP) { foul(p, o, behind); return; }
     if (Math.random() < win) {
       ball.owner = null; ball.loose = 0.25; ball.kicker = o; ball.lastBy = p; G.lastTouch = p.team; clearPass(); ball.shot = null;
@@ -1043,7 +1045,7 @@ function ballContacts() {
 function gkTouch(p) { if (ball.shot && ball.shot.team !== p.team) { shotOnTarget(); p.st.saves++; } }
 function updateGK(p, dt) {
   const dirUp = G.attackingDir[p.team], goalX = ownGoalX(p.team), sgn = Math.sign(goalX);
-  const skill = clamp(p.at.gk + (p.team === 'away' ? [-12, 0, 6][G.difficulty] : 0), 40, 99);
+  const skill = clamp(p.at.gk + (p.team === 'away' ? (G.easy ? -30 : [-12, 0, 6][G.difficulty]) : G.easy ? 10 : 0), 40, 99);
   if (ball.owner === p) {
     if (p.setPiece) { setPieceAI(p, dt); return; }
     p.vel.x = damp(p.vel.x, 0, 10, dt); p.vel.z = damp(p.vel.z, 0, 10, dt);
@@ -1148,7 +1150,7 @@ function aiPlayer(p, dt) {
       seekTo(p, ball.pos.x + ball.vel.x * 0.2, ball.pos.z + ball.vel.z * 0.2, dt, p.maxRun);
       if (theyOwn && myd < 1.2) p.facing = aimDamp(p.facing, Math.atan2(o.pos.x - p.pos.x, o.pos.z - p.pos.z), 12, dt);
       if (theyOwn && !o.setPiece && !o.isGK && p.cool <= 0 && p.lunge <= 0) {
-        const rate = p.team === 'away' ? [0.9, 1.7, 2.6][G.difficulty] : 0.8;
+        const rate = p.team === 'away' ? [0.9, 1.7, 2.6][G.difficulty] * (G.easy ? 0.4 : 1) : 0.8;
         if (myd < 1.6 && Math.random() < rate * dt) tryTackle(p, false);
         else if (myd > 2 && myd < 3.3 && p.team === 'away' && Math.abs(angDiff(Math.atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z), p.facing)) < 0.4 && Math.random() < 0.045 * G.difficulty * dt) tryTackle(p, true);
       }
@@ -1187,7 +1189,7 @@ function dribbleAI(p, dt) {
   const dir = G.attackingDir[p.team], goalX = targetGoalX(p.team), distGoal = Math.hypot(goalX - p.pos.x, p.pos.z), D = G.difficulty;
   let press = 1e9, presser = null; for (const o of teamList(otherTeam(p.team))) { if (o.isGK) continue; const d = dist2(o.pos.x, o.pos.z, p.pos.x, p.pos.z); if (d < press) { press = d; presser = o; } }
   if (distGoal < 31 && Math.abs(p.pos.z) < 19) {
-    const rate = (distGoal < 12 ? 7 : distGoal < 21 ? (press < 4 ? 3.2 : 1.8) : 0.5) * (0.75 + 0.25 * D);
+    const rate = (distGoal < 12 ? 7 : distGoal < 21 ? (press < 4 ? 3.2 : 1.8) : 0.5) * (0.75 + 0.25 * D) * (G.easy ? 0.45 : 1);
     if (Math.random() < rate * dt) {
       const gk = teamList(otherTeam(p.team)).find(q => q.isGK);
       doShoot(p, clamp(0.55 + distGoal / 60, 0.55, 0.95), (gk && gk.pos.z > 0 ? -1 : 1) * rand(GHW * 0.45, GHW - 0.5)); return;
@@ -1260,7 +1262,7 @@ function userControl(p, dt) {
       p.facing = aimDamp(p.facing, Math.atan2(inp.x, inp.z), haveBall ? 11 : 14, dt);
     } else if (!haveBall && !ball.owner && ball.target === p) { const md = dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z), lead = clamp(md / (ball.vel.length() + 6), 0, 0.7); seekTo(p, ball.pos.x + ball.vel.x * lead, ball.pos.z + ball.vel.z * lead, dt, p.maxRun * 0.9); }
     else { p.vel.x = damp(p.vel.x, 0, 11, dt); p.vel.z = damp(p.vel.z, 0, 11, dt); }
-    p.stamina = clamp(p.stamina - (sprint && inp.mag > 0.05 ? 0.075 : -0.05) * dt, 0, 1);
+    p.stamina = clamp(p.stamina - (sprint && inp.mag > 0.05 && !G.easy ? 0.075 : -0.05) * dt, 0, 1);
     if (haveBall) carryBall(p, dt);
   }
   if (keys.gesture) {                                              // touch skill moves
@@ -2001,7 +2003,7 @@ for (const [id, k] of [['pickH', 'home'], ['pickA', 'away']]) $(id).addEventList
 });
 function optRow(id, attr, fn) { $(id).addEventListener('click', e => { const b = e.target.closest('.opt'); if (!b) return; $(id).querySelectorAll('.opt').forEach(o => o.classList.remove('on')); b.classList.add('on'); fn(b.dataset[attr]); }); }
 optRow('modeRow', 'm', v => { G.mode = v; refreshMenu(); });
-optRow('diffRow', 'd', v => { G.difficulty = +v; });
+optRow('diffRow', 'd', v => { G.easy = +v < 0; G.difficulty = Math.max(0, +v); });
 optRow('lenRow', 'l', v => { G.halfLen = +v; });
 optRow('todRow', 't', v => setNight(v === 'night'));
 $('play').addEventListener('click', () => { AudioSys.resume(); if (G.mode === 'cup') cupStart(sel.home); else startMatch(sel.home, sel.away); });
