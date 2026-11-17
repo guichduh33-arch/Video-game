@@ -132,6 +132,7 @@
   .abtn { position: absolute; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 900; color: #fff; letter-spacing: .5px; pointer-events: auto; cursor: pointer; touch-action: none;
           box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.25) inset; text-shadow: 0 2px 4px rgba(0,0,0,.4); transition: transform .06s, filter .06s; }
   .abtn:active { transform: scale(.92); filter: brightness(1.15); }
+  .abtn.sprint.on { box-shadow: 0 0 0 4px #fff, 0 0 22px 6px rgba(111,240,176,.9); filter: brightness(1.15); }
   .abtn .sub { font-size: 9px; font-weight: 700; opacity: .85; margin-top: 1px; }
   .abtn.shoot { right: 0; bottom: 18px; width: 92px; height: 92px; font-size: 17px; background: radial-gradient(120% 120% at 35% 30%, #ff6a7a, #e31e2c); }
   .abtn.pass { right: 96px; bottom: 2px; width: 78px; height: 78px; font-size: 15px; background: radial-gradient(120% 120% at 35% 30%, #58a6ff, #1e78e3); }
@@ -171,7 +172,7 @@
 <div id="joyZone"><div id="joyHint">TOUCH &amp;<br>DRAG<br>TO MOVE</div></div>
 <div id="joyBase" style="display:none"></div><div id="joyKnob" style="display:none"></div>
 <div id="btns">
-  <div class="abtn sprint" data-b="sprint">SPRINT</div>
+  <div class="abtn sprint" data-b="sprint">SPRINT<span class="sub" id="bSprintS">OFF</span></div>
   <div class="abtn thru" data-b="thru"><span id="bThru">THRU</span><span class="sub" id="bThruS">BALL</span></div>
   <div class="abtn pass" data-b="pass"><span id="bPass">PASS</span><span class="sub" id="bPassS">hold=lob</span></div>
   <div class="abtn shoot" data-b="shoot"><span id="bShoot">SHOOT</span><span class="sub" id="bShootS">hold</span></div>
@@ -788,16 +789,17 @@ function detectSwipe(e) {
   if (dt > 300 || d < 48) return;
   keys.gesture = Math.abs(dy) > Math.abs(dx) ? (dy < 0 ? 'knock' : 'turn') : (dx < 0 ? 'stepL' : 'stepR');
 }
-let passDownT = 0;
+let passDownT = 0, sprintLock = false;        // on touch, SPRINT is a switch: tap once to keep sprinting, tap again to stop
+function setSprintLock(v) { sprintLock = v; const el = document.querySelector('.abtn.sprint'); el.classList.toggle('on', v); document.getElementById('bSprintS').textContent = v ? 'ON' : 'OFF'; }
 document.querySelectorAll('#btns .abtn').forEach(btn => {
   const b = btn.dataset.b;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); AudioSys.resume();
-    if (b === 'sprint') keys.sprint = true; else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); });
+    if (b === 'sprint') setSprintLock(!sprintLock); else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); });
   const up = e => { e.preventDefault();
-    if (b === 'sprint') keys.sprint = false; else if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through');
+    if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through');
     else if (b === 'pass' && passDownT) { keys[(performance.now() - passDownT > 280 && ball.owner === userPlayer) ? 'lob_p' : 'pass_p'] = true; passDownT = 0; } };
   btn.addEventListener('pointerup', up);
-  btn.addEventListener('pointercancel', () => { if (b === 'sprint') keys.sprint = false; if (b === 'shoot') unpress('shoot'); passDownT = 0; });
+  btn.addEventListener('pointercancel', () => { if (b === 'shoot') unpress('shoot'); if (b === 'thru') unpress('through'); passDownT = 0; });
 });
 /* gamepad: stick to move, A pass, B shoot, X through/slide, Y lob, LB switch, RB/RT sprint, Start pause */
 const pad = { dx: 0, dy: 0, prev: [] };
@@ -1254,10 +1256,11 @@ function userControl(p, dt) {
     carryBall(p, dt);
     if (p.setT > 10) { if (sp === 'penalty') doShoot(p, 0.75, aimShotZ()); else doPass(p, sp === 'corner' || sp === 'goalkick', false); return; }
   } else {
-    const sprint = keys.sprint && p.stamina > 0.05;
-    const maxS = (sprint ? p.maxRun : p.maxRun * 0.74) * (p.knock > 0 ? 1.16 : 1) * (haveBall ? 0.94 : 1) * (0.86 + 0.14 * p.stamina);
+    const wantSprint = keys.sprint || sprintLock || (joy.active && Math.hypot(joy.dx, joy.dy) > 0.93);      // key, the SPRINT switch, or the stick pushed right to its edge
+    const sprint = wantSprint && p.stamina > 0.05;
+    const maxS = (sprint ? p.maxRun : p.maxRun * 0.7) * (p.knock > 0 ? 1.16 : 1) * (haveBall ? 0.94 : 1) * (0.86 + 0.14 * p.stamina);
     if (inp.mag > 0.05) {
-      const target = maxS * Math.max(inp.mag, keys.sprint ? 0.7 : 0.55);
+      const target = maxS * Math.max(inp.mag, wantSprint ? 0.7 : 0.55);
       p.vel.x = damp(p.vel.x, inp.x * target, 9, dt); p.vel.z = damp(p.vel.z, inp.z * target, 9, dt);
       p.facing = aimDamp(p.facing, Math.atan2(inp.x, inp.z), haveBall ? 11 : 14, dt);
     } else if (!haveBall && !ball.owner && ball.target === p) { const md = dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z), lead = clamp(md / (ball.vel.length() + 6), 0, 0.7); seekTo(p, ball.pos.x + ball.vel.x * lead, ball.pos.z + ball.vel.z * lead, dt, p.maxRun * 0.9); }
