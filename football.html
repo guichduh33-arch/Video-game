@@ -670,22 +670,24 @@ function makePlayer(km) {
     add(head, geo('nose', () => new THREE.ConeGeometry(0.016, 0.045, 6)), skin, 0, -0.012, 0.112).rotation.x = -0.35;
     for (const sx of [-1, 1]) {
       add(head, geo('ear', () => new THREE.SphereGeometry(0.024, 6, 6)), skin, sx * 0.098, -0.005, 0).scale.set(0.5, 1, 0.8);
-      // eye: almond white set into the face, brown iris, small pupil, a glint, and a lid so it does not stare
-      add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 14, 10)), mat(0xf4f1ea, 0.3), sx * 0.04, 0.012, 0.095).scale.set(1.1, 0.6, 0.5);
-      add(head, geo('iris', () => new THREE.SphereGeometry(0.0062, 12, 8)), mat(0x4a2f1a, 0.3), sx * 0.04, 0.012, 0.1025).scale.set(1, 1, 0.35);
-      add(head, geo('pupil2', () => new THREE.SphereGeometry(0.0036, 8, 6)), dark, sx * 0.04, 0.012, 0.1043).scale.set(1, 1, 0.35);
-      add(head, geo('glint', () => new THREE.SphereGeometry(0.0015, 6, 4)), new THREE.MeshBasicMaterial({ color: 0xffffff }), sx * 0.04 + 0.003, 0.0152, 0.1056);
-      add(head, geo('lid', () => new THREE.SphereGeometry(0.018, 12, 8)), skin, sx * 0.04, 0.0245, 0.0948).scale.set(1.3, 0.4, 0.55);
-      const br = add(head, geo('brow', () => new THREE.BoxGeometry(0.046, 0.0095, 0.012)), hm, sx * 0.04, 0.037, 0.099); br.rotation.z = sx * 0.06;
+      // eye: small and plain — a narrow white with a dark iris, under a straight brow
+      add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 14, 10)), mat(0xe9e5dc, 0.6), sx * 0.04, 0.012, 0.0945).scale.set(0.86, 0.42, 0.5);
+      add(head, geo('iris', () => new THREE.SphereGeometry(0.0062, 12, 8)), mat(0x24160d, 0.85), sx * 0.04, 0.012, 0.1018).scale.set(1, 1, 0.35);
+      const br = add(head, geo('brow', () => new THREE.BoxGeometry(0.046, 0.0095, 0.012)), hm, sx * 0.04, 0.03, 0.099); br.rotation.z = sx * 0.06;
     }
   }
   const lip = new THREE.MeshStandardMaterial({ roughness: 0.6 });
   add(head, geo('mouth', () => new THREE.BoxGeometry(0.036, 0.0055, 0.008)), lip, 0, -0.072, 0.0905);
   for (const sx of [-1, 1]) add(head, geo('mouthC', () => new THREE.BoxGeometry(0.009, 0.005, 0.007)), lip, sx * 0.021, -0.0705, 0.0885).rotation.z = sx * 0.45;   // corners turn up a little
   if (LOW) for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
-  const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [] };                     // every hairstyle is built once; setLook shows one
+  const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [], long: [], pony: [] };                     // every hairstyle is built once; setLook shows one
   const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
   for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.32; }
+  hs.long.push(capL); hs.pony.push(capL);
+  const lh = add(head, geo('longHair', () => new THREE.SphereGeometry(0.1, 14, 10)), hm, 0, -0.07, -0.062); lh.scale.set(1.08, 1.75, 0.5); hs.long.push(lh);       // hangs to the shoulders
+  for (const sx of [-1, 1]) { const sl = add(head, geo('sideHair', () => new THREE.SphereGeometry(0.03, 8, 8)), hm, sx * 0.092, -0.05, -0.01); sl.scale.set(0.6, 3.2, 1.3); hs.long.push(sl); }
+  hs.pony.push(add(head, geo('ponyKnot', () => new THREE.SphereGeometry(0.034, 8, 6)), hm, 0, 0.05, -0.118));
+  const pt = add(head, geo('ponyTail', () => new THREE.SphereGeometry(0.036, 10, 8)), hm, 0, -0.06, -0.15); pt.scale.set(0.8, 3.3, 0.8); pt.rotation.x = 0.22; hs.pony.push(pt);
   hs.short.push(capS); hs.crop.push(capL); hs.afro.push(capL); hs.bun.push(capL);
   hs.afro.push(add(head, geo('afro', () => new THREE.SphereGeometry(0.135, 12, 10)), hm, 0, 0.055, -0.02));
   hs.bun.push(add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085));
@@ -1954,11 +1956,12 @@ const shirtBg = c => 'linear-gradient(90deg,' + hexCss(c.shirt) + ' 0 42%,' + he
 let tsSel = -1;
 function faceSVG(s, c) {
   const sk = hexCss(s.skin), h = hexCss(s.hair), cap = '<path d="M11.4 16 Q11 5.5 20 5.5 Q29 5.5 28.6 16 Q25 10.5 20 10.5 Q15 10.5 11.4 16Z" fill="' + h + '"/>';
-  const hair = { bald: '', buzz: '<path d="M11.9 14.2 Q11.6 6.5 20 6.5 Q28.4 6.5 28.1 14.2 Q25.6 7.9 20 7.9 Q14.4 7.9 11.9 14.2Z" fill="' + h + '" opacity=".8"/>', short: cap, crop: cap + '<path d="M14 9 Q20 3 27 8 Q21 6.5 14 9Z" fill="' + h + '"/>', bun: cap + '<circle cx="20" cy="4.6" r="3.2" fill="' + h + '"/>', afro: '' }[s.style] || cap;
+  const side = '<path d="M11.6 13 Q9.6 24 12 31 L15.2 31 Q12.6 22 13.4 13Z" fill="' + h + '"/><path d="M28.4 13 Q30.4 24 28 31 L24.8 31 Q27.4 22 26.6 13Z" fill="' + h + '"/>';
+  const hair = { bald: '', long: cap + side, pony: cap + '<path d="M27.5 8 Q34 9 33 20 Q32.5 25 30.5 27 Q31 18 28 13Z" fill="' + h + '"/>', buzz: '<path d="M11.9 14.2 Q11.6 6.5 20 6.5 Q28.4 6.5 28.1 14.2 Q25.6 7.9 20 7.9 Q14.4 7.9 11.9 14.2Z" fill="' + h + '" opacity=".8"/>', short: cap, crop: cap + '<path d="M14 9 Q20 3 27 8 Q21 6.5 14 9Z" fill="' + h + '"/>', bun: cap + '<circle cx="20" cy="4.6" r="3.2" fill="' + h + '"/>', afro: '' }[s.style] || cap;
   return '<svg viewBox="0 0 40 40" aria-hidden="true">' + (s.style === 'afro' ? '<circle cx="20" cy="12" r="11.5" fill="' + h + '"/>' : '') +
     '<path d="M3 40 Q5 28.5 20 28.5 Q35 28.5 37 40Z" fill="' + hexCss(c.shirt) + '"/><path d="M15 29 Q20 33 25 29 L24 27.5 L16 27.5Z" fill="' + hexCss(c.trim) + '"/>' +
     '<rect x="16.6" y="22" width="6.8" height="8" rx="2.5" fill="' + sk + '"/><ellipse cx="20" cy="16.5" rx="8.2" ry="9.8" fill="' + sk + '"/>' + hair +
-    [16.6, 23.4].map((x, n) => '<ellipse cx="' + x + '" cy="17.1" rx="1.4" ry=".8" fill="#f1ede4"/><circle cx="' + x + '" cy="17.1" r=".78" fill="#3d2616"/><circle cx="' + (x + .3) + '" cy="16.85" r=".17" fill="#fff"/><path d="M' + (x - 2.1) + ' ' + (n ? 15.3 : 14.9) + ' L' + (x + 2.1) + ' ' + (n ? 14.9 : 15.3) + '" stroke="' + (s.style === 'bald' ? '#3a2a1e' : h) + '" stroke-width="1.05" fill="none" stroke-linecap="round"/>').join('') + '<path d="M17 22 Q20 23.8 23 22" stroke="#5a2420" stroke-width="1" fill="none" stroke-linecap="round" opacity=".9"/></svg>';
+    [16.6, 23.4].map((x, n) => '<ellipse cx="' + x + '" cy="17.2" rx="1.15" ry=".7" fill="#e9e5dc"/><circle cx="' + x + '" cy="17.2" r=".68" fill="#24160d"/><path d="M' + (x - 2) + ' ' + (n ? 15.6 : 15.2) + ' L' + (x + 2) + ' ' + (n ? 15.2 : 15.6) + '" stroke="' + (s.style === 'bald' ? '#3a2a1e' : h) + '" stroke-width="1.05" fill="none" stroke-linecap="round"/>').join('') + '<path d="M17 22 Q20 23.8 23 22" stroke="#5a2420" stroke-width="1" fill="none" stroke-linecap="round" opacity=".9"/></svg>';
 }
 function cardHTML(s, i, c, slot, style) {
   const tier = (s.star ? 't6' : s.ovr >= 100 ? 't5' : s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1') + (s.ovr >= 100 ? ' d3' : '');
@@ -2030,7 +2033,7 @@ function openStars() {
   const sq = squadFor(sel.home);
   openPanel('<h1>SIGN A STAR</h1><h2>Invented superstars for ' + esc(CLUBS[sel.home].n) + '</h2><div class="card"><div class="cgrid">' + Object.keys(STARS).map(r => { const has = sq.find(p => p.star === r);
     return '<button class="cb' + (has ? ' on' : '') + '" data-star="' + r + '"><span style="font-size:26px">★</span><span>' + STARS[r].t + '</span><small>' + (has ? esc(has.name) + ' · signed' : r === 'FW' ? 'Tap to add you' : STARS[r].o + ' OVR') + '</small></button>'; }).join('') +
-    '</div><div class="mut">Each star takes the middle spot in his line. Rename any of them with Edit Player.</div></div><button class="cta" data-act="allStars">SIGN ALL FOUR</button><button class="cta alt" data-act="closeP">BACK</button>');
+    '</div><div class="mut">Each star takes the middle spot in his line. Rename any of them with Edit Player.</div></div><button class="cta" data-act="friends">ADD MY FRIENDS</button><button class="cta alt" data-act="allStars">SIGN ALL FOUR</button><button class="cta alt" data-act="closeP">BACK</button>');
 }
 function openEdit() {
   if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
@@ -2038,7 +2041,7 @@ function openEdit() {
     '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px;word-break:break-all">' + (sp.max ? BIG_OVR : sp.ovr) + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
     '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
     lookRow('Skin', 'k', ED_SKIN, sp.skin) + lookRow('Hair colour', 'h', ED_HAIR, sp.hair) +
-    '<div class="fld">Hair style<div class="sw">' + ['buzz', 'short', 'crop', 'afro', 'bun', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
+    '<div class="fld">Hair style<div class="sw">' + ['buzz', 'short', 'crop', 'afro', 'bun', 'long', 'pony', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
     '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
   $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
   edLook = {};
@@ -2054,6 +2057,20 @@ function lookRow(label, k, cols, cur) { return '<div class="fld">' + label + '<d
 ACT.doEdit = () => {
   const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value, ...edLook };
   (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
+};
+const FRIENDS = [
+  { n: 'BRADY', k: 0xf0c8a0, h: 0x7a4a22, s: 'short' }, { n: 'EZRA', k: 0xe0a878, h: 0x111111, s: 'crop' },
+  { n: 'LUANA', k: 0xd09664, h: 0x2b1a0e, s: 'long' }, { n: 'LIV', k: 0xf7d9bc, h: 0xf0d77a, s: 'pony' },
+];
+ACT.friends = () => {                                                                   // Nolan's friends join the starting eleven, next to him
+  const ci = sel.home, c = CLUBS[ci], sq = squadFor(ci), l = lineupFor(ci), E = c.edits || (c.edits = {});
+  for (const fr of FRIENDS) {
+    if (sq.some(p => p.name === fr.n)) continue;
+    let slot = -1; for (let i = 10; i >= 1; i--) { const p = sq[l[i]]; if (!p.star && !p.max && !FRIENDS.some(q => q.n === p.name)) { slot = i; break; } }
+    if (slot < 0) break; const si = l[slot], e = { ...fr, o: 120, p: sq[si].pos };
+    E[si] = e; applyEdit(sq[si], e);
+  }
+  tsSel = -1; closePanel(); refreshMenu(); saveAll(); AudioSys.goal();
 };
 ACT.allStars = () => { for (const r of ['GK', 'DF', 'MF', 'FW']) signStar(r); closePanel(); };
 ACT.closeP = () => closePanel();
