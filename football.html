@@ -572,7 +572,8 @@ function applyEdit(sp, e) {
   if (e.k != null) sp.skin = e.k;
   const o = clamp(Math.round(+e.o) || sp.ovr, 40, 130), d = o - sp.ovr;
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
-  sp.max = /nolan/i.test(sp.name);                                                       // Nolan is off the scale: every skill at the top
+  sp.max = /nolan/i.test(sp.name);
+  if (sp.max && e.k == null && !e.s) { sp.skin = 0xc78b5c; sp.style = 'buzz'; }   // his own look until he picks another                                                       // Nolan is off the scale: every skill at the top
   if (sp.max) { sp.ovr = 130; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = 99; if (sp.pos === 'GK') sp.gk = 130; }
 }
 const BIG_OVR = '1,' + '0'.repeat(32), ovrTxt = s => s.max ? '10³²' : s.ovr;
@@ -674,7 +675,7 @@ function makePlayer(km) {
     }
   }
   for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
-  const hs = { short: [], crop: [], afro: [], bun: [], bald: [] };                     // every hairstyle is built once; setLook shows one
+  const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [] };                     // every hairstyle is built once; setLook shows one
   const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
   for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.32; }
   hs.short.push(capS); hs.crop.push(capL); hs.afro.push(capL); hs.bun.push(capL);
@@ -682,6 +683,7 @@ function makePlayer(km) {
   hs.bun.push(add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085));
   const qf = add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045); qf.scale.set(1.2, 0.5, 1); hs.crop.push(qf);
   const sb = add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), stub, 0, 0.016, -0.004); sb.scale.set(0.91, 1.1, 1.02); hs.bald.push(sb);
+  const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.1105, 18, 10, 0, TAU, 0, Math.PI * 0.56)), hm, 0, 0.014, -0.004); bz.scale.set(0.915, 1.11, 1.03); bz.rotation.x = -0.3; hs.buzz.push(bz);   // round and thin, close to the head
   p.look = { skin, hair: hm, stub, hs };
   // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
@@ -1941,7 +1943,7 @@ const shirtBg = c => 'linear-gradient(90deg,' + hexCss(c.shirt) + ' 0 42%,' + he
 let tsSel = -1;
 function faceSVG(s, c) {
   const sk = hexCss(s.skin), h = hexCss(s.hair), cap = '<path d="M11.4 16 Q11 5.5 20 5.5 Q29 5.5 28.6 16 Q25 10.5 20 10.5 Q15 10.5 11.4 16Z" fill="' + h + '"/>';
-  const hair = { bald: '', short: cap, crop: cap + '<path d="M14 9 Q20 3 27 8 Q21 6.5 14 9Z" fill="' + h + '"/>', bun: cap + '<circle cx="20" cy="4.6" r="3.2" fill="' + h + '"/>', afro: '' }[s.style] || cap;
+  const hair = { bald: '', buzz: '<path d="M11.9 15 Q11.5 6.3 20 6.3 Q28.5 6.3 28.1 15 Q25.5 8.8 20 8.8 Q14.5 8.8 11.9 15Z" fill="' + h + '"/>', short: cap, crop: cap + '<path d="M14 9 Q20 3 27 8 Q21 6.5 14 9Z" fill="' + h + '"/>', bun: cap + '<circle cx="20" cy="4.6" r="3.2" fill="' + h + '"/>', afro: '' }[s.style] || cap;
   return '<svg viewBox="0 0 40 40" aria-hidden="true">' + (s.style === 'afro' ? '<circle cx="20" cy="12" r="11.5" fill="' + h + '"/>' : '') +
     '<path d="M3 40 Q5 28.5 20 28.5 Q35 28.5 37 40Z" fill="' + hexCss(c.shirt) + '"/><path d="M15 29 Q20 33 25 29 L24 27.5 L16 27.5Z" fill="' + hexCss(c.trim) + '"/>' +
     '<rect x="16.6" y="22" width="6.8" height="8" rx="2.5" fill="' + sk + '"/><ellipse cx="20" cy="16.5" rx="8.2" ry="9.8" fill="' + sk + '"/>' + hair +
@@ -2021,10 +2023,10 @@ function openEdit() {
     '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px;word-break:break-all">' + (sp.max ? BIG_OVR : sp.ovr) + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
     '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
     lookRow('Skin', 'k', ED_SKIN, sp.skin) + lookRow('Hair colour', 'h', ED_HAIR, sp.hair) +
-    '<div class="fld">Hair style<div class="sw">' + ['short', 'crop', 'afro', 'bun', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
+    '<div class="fld">Hair style<div class="sw">' + ['buzz', 'short', 'crop', 'afro', 'bun', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
     '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
   $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
-  edLook = { k: sp.skin, h: sp.hair, s: sp.style };
+  edLook = {};
   for (const b of document.querySelectorAll('[data-lk]')) b.addEventListener('click', () => {
     const k = b.dataset.lk; edLook[k] = k === 's' ? b.dataset.v : +b.dataset.v;
     for (const o of document.querySelectorAll('[data-lk="' + k + '"]')) o.classList.toggle('on', o === b);
