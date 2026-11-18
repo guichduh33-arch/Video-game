@@ -682,7 +682,7 @@ function makePlayer(km) {
   if (LOW) for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
   const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [], long: [], pony: [] };                     // every hairstyle is built once; setLook shows one
   const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
-  for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.32; }
+  for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.5; }
   hs.long.push(capL); hs.pony.push(capL);
   const lh = add(head, geo('longHair', () => new THREE.SphereGeometry(0.1, 14, 10)), hm, 0, -0.07, -0.062); lh.scale.set(1.08, 1.75, 0.5); hs.long.push(lh);       // hangs to the shoulders
   for (const sx of [-1, 1]) { const sl = add(head, geo('sideHair', () => new THREE.SphereGeometry(0.03, 8, 8)), hm, sx * 0.092, -0.05, -0.01); sl.scale.set(0.6, 3.2, 1.3); hs.long.push(sl); }
@@ -694,8 +694,8 @@ function makePlayer(km) {
   const qf = add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045); qf.scale.set(1.2, 0.5, 1); hs.crop.push(qf);
   const sb = add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), stub, 0, 0.016, -0.004); sb.scale.set(0.91, 1.1, 1.02); hs.bald.push(sb);
   const bzm = new THREE.MeshStandardMaterial({ roughness: 0.85 }), bztm = new THREE.MeshStandardMaterial({ roughness: 0.9 });                      // a thin cut lets some skin show through
-  const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.5)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.28; hs.buzz.push(bz);
-  const bzt = add(head, geo('buzzTop', () => new THREE.SphereGeometry(0.1138, 20, 10, 0, TAU, 0, Math.PI * 0.3)), bztm, 0, 0.011, -0.002); bzt.scale.set(0.905, 1.104, 1.022); bzt.rotation.x = -0.12; hs.buzz.push(bzt);   // a little more hair on top, faded to almost nothing at the sides   // round and thin, close to the head
+  const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.43)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.42; hs.buzz.push(bz);
+  const bzt = add(head, geo('buzzTop', () => new THREE.SphereGeometry(0.1138, 20, 10, 0, TAU, 0, Math.PI * 0.26)), bztm, 0, 0.011, -0.002); bzt.scale.set(0.905, 1.104, 1.022); bzt.rotation.x = -0.2; hs.buzz.push(bzt);   // a little more hair on top, faded to almost nothing at the sides   // round and thin, close to the head
   p.look = { skin, hair: hm, stub, hs, bz: bzm, bzt: bztm, lip };
   // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
