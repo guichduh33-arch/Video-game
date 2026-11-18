@@ -1213,9 +1213,20 @@ function dribbleAI(p, dt) {
 function celebrateAI(p, dt) {
   const sc = G.scorer;
   if (sc && p.team === sc.team && !p.isGK) {
+    const R = G.siu ? 4.2 : 1.7;                                                         // team-mates give the big jump some room
+    if (p === sc && G.siu) {
+      const t = G.time - G.goalT, away = Math.atan2(sc.pos.x, sc.pos.z);                 // run out, then jump, turn in the air to face the pitch, and land wide
+      if (t < 1.5) { seekTo(p, G.celeSpot.x, G.celeSpot.z, dt, p.maxRun * 0.8); p.celebrate = 1; }
+      else {
+        const u = clamp((t - 1.5) / 0.75, 0, 1); p.vel.set(0, 0, 0);
+        p.facing = away + Math.PI * u * u * (3 - 2 * u); p.celebrate = 2 + u;
+        if (u >= 1 && !G.siuDone) { G.siuDone = true; showToast('SIUUUUUUU!', 2.2, 'big'); AudioSys.goal(); }
+      }
+      return;
+    }
     if (p === sc) seekTo(p, G.celeSpot.x, G.celeSpot.z, dt, p.maxRun * 0.7);
-    else { const a = p.idx * 1.9; seekTo(p, sc.pos.x + Math.sin(a) * 1.7, sc.pos.z + Math.cos(a) * 1.7, dt, p.maxRun * 0.85); }
-    p.celebrate = p === sc || dist2(p.pos.x, p.pos.z, sc.pos.x, sc.pos.z) < 5 ? 1 : 0;
+    else { const a = p.idx * 1.9; seekTo(p, sc.pos.x + Math.sin(a) * R, sc.pos.z + Math.cos(a) * R, dt, p.maxRun * 0.85); }
+    p.celebrate = p === sc || dist2(p.pos.x, p.pos.z, sc.pos.x, sc.pos.z) < R * R + 2 ? 1 : 0;
   } else seekTo(p, p.base.x, p.base.z, dt, 2.4);
 }
 function carryBall(p, dt) {
@@ -1454,7 +1465,8 @@ function onGoal(team, g) {
   G.goals.push({ team, name, min });
   G.scorer = og ? null : scorer; G.concede = otherTeam(team); G.goalT = G.time; G.goalTeam = team;
   if (scorer) G.celeSpot = { x: g.side * (HL - 7), z: (Math.sign(scorer.pos.z) || 1) * (HW - 7) };
-  G.state = 'celebrate'; G.celebrateT = 3.2; g.ripple = 1; ball.inNet = true; ball.netSide = g.side; G.flash = 0.5;
+  G.siu = !!scorer && !og && (/nolan/i.test(scorer.name) || /nolan/i.test(CLUBS[G.clubs[team]].n || '')); G.siuDone = false;   // a scorer (or club) named Nolan gets his own jump-spin celebration
+  G.state = 'celebrate'; G.celebrateT = G.siu ? 4.6 : 3.2; g.ripple = 1; ball.inNet = true; ball.netSide = g.side; G.flash = 0.5;
   AudioSys.goal(); AudioSys.whistle(false); showToast('GOAL!', 2.2, 'big');
   const c = CLUBS[G.clubs[team]];
   banL.style.background = kitCol[team]; banL.style.color = lum(kitCol[team + 'Hex']) > 0.6 ? '#111' : '#fff'; banL.textContent = c.a;
@@ -1588,6 +1600,12 @@ function animatePlayer(p, dt) {
     SZ[i] = side * (0.08 + run * 0.1); EL[i] = -(0.3 + run * 0.9);
   }
   if (p.celebrate > 0 && p.down <= 0) { for (let i = 0; i < 2; i++) { UX[i] = -2.75 + Math.sin(T * 9 + i) * 0.15; SZ[i] = (i ? 1 : -1) * 0.38; EL[i] = -0.2; } if (sp < 1.5) rootY = Math.abs(Math.sin(T * 7 + p.idx)) * 0.14; torsoX = -0.05; }
+  let legSpread = 0;
+  if (p.celebrate >= 2 && p.down <= 0) {                                                // jump-spin celebration: 2..3 in the air, 3 landed
+    const u = p.celebrate - 2, air = Math.sin(Math.min(u, 1) * Math.PI); rate = 22;
+    if (u < 1) { rootY = air * 0.8; for (let i = 0; i < 2; i++) { HA[i] = -0.35 * air; KA[i] = 0.2 + 0.9 * air; UX[i] = lerp(-2.7, 0.2, u); SZ[i] = (i ? 1 : -1) * 0.35; EL[i] = -0.15; } torsoX = -0.1; }
+    else { rootY = 0; legSpread = 0.3; hipsY = 0.93; for (let i = 0; i < 2; i++) { HA[i] = 0; KA[i] = 0.1; AA[i] = 0; UX[i] = 0.4; SZ[i] = (i ? 1 : -1) * 0.8; EL[i] = -0.05; } torsoX = -0.2; torsoY = 0; }
+  }
   if (p.setPiece === 'throw' || p.throwT > 0) { const fw = p.throwT > 0 ? 1 - p.throwT / 0.35 : 0; for (let i = 0; i < 2; i++) { UX[i] = -3.0 + fw * 1.5; SZ[i] = (i ? -1 : 1) * 0.12; EL[i] = -0.25; } torsoX = -0.18 + fw * 0.5; rate = 26; }
   if (p.kickAnim > 0) {                                                                 // strike: snap through, then recover
     const u = 1 - clamp(p.kickAnim, 0, 1); rate = 34;
@@ -1613,7 +1631,7 @@ function animatePlayer(p, dt) {
   pr.torso.rotation.x += (torsoX - pr.torso.rotation.x) * ks; pr.torso.rotation.y += (torsoY - hipsYaw - pr.torso.rotation.y) * k;
   for (let i = 0; i < 2; i++) {
     const L = pr.legs[i], A = pr.arms[i];
-    L.hip.rotation.x += (HA[i] - L.hip.rotation.x) * k; L.knee.rotation.x += (KA[i] - L.knee.rotation.x) * k; L.ankle.rotation.x += (AA[i] - L.ankle.rotation.x) * k;
+    L.hip.rotation.x += (HA[i] - L.hip.rotation.x) * k; L.knee.rotation.x += (KA[i] - L.knee.rotation.x) * k; L.ankle.rotation.x += (AA[i] - L.ankle.rotation.x) * k; L.hip.rotation.z += ((i ? 1 : -1) * legSpread - L.hip.rotation.z) * k;
     A.upper.rotation.x += (UX[i] - A.upper.rotation.x) * k; A.sh.rotation.z += (SZ[i] - A.sh.rotation.z) * ks; A.elbow.rotation.x += (EL[i] - A.elbow.rotation.x) * ks;
   }
   const toBall = Math.atan2(ball.pos.x - p.pos.x, ball.pos.z - p.pos.z);                 // eyes on the ball
