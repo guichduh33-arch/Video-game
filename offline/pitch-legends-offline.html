@@ -634,7 +634,7 @@ function setNumber(parts, n) {
   parts.num.tex.needsUpdate = true; parts.num.mesh.visible = n !== '';
 }
 function setLook(parts, skinHex, hairHex, style) {
-  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.18); L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
+  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.5); L.bzt.color.setHex(hairHex).lerp(L.skin.color, 0.12); L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
   for (const k in L.hs) for (const m of L.hs[k]) m.visible = false;
   for (const m of L.hs[style] || L.hs.short) m.visible = true;
 }
@@ -680,8 +680,8 @@ function makePlayer(km) {
     }
   }
   const lip = new THREE.MeshStandardMaterial({ roughness: 0.6 });
-  add(head, geo('mouth', () => new THREE.BoxGeometry(0.036, 0.0055, 0.008)), lip, 0, -0.072, 0.0935);
-  for (const sx of [-1, 1]) add(head, geo('mouthC', () => new THREE.BoxGeometry(0.009, 0.005, 0.007)), lip, sx * 0.021, -0.0705, 0.0905).rotation.z = sx * 0.45;   // corners turn up a little
+  add(head, geo('mouth', () => new THREE.BoxGeometry(0.036, 0.0055, 0.008)), lip, 0, -0.072, 0.0905);
+  for (const sx of [-1, 1]) add(head, geo('mouthC', () => new THREE.BoxGeometry(0.009, 0.005, 0.007)), lip, sx * 0.021, -0.0705, 0.0885).rotation.z = sx * 0.45;   // corners turn up a little
   if (LOW) for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
   const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [] };                     // every hairstyle is built once; setLook shows one
   const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
@@ -691,9 +691,10 @@ function makePlayer(km) {
   hs.bun.push(add(head, geo('bun', () => new THREE.SphereGeometry(0.045, 8, 6)), hm, 0, 0.12, -0.085));
   const qf = add(head, geo('quiff', () => new THREE.SphereGeometry(0.06, 8, 6)), hm, 0, 0.1, 0.045); qf.scale.set(1.2, 0.5, 1); hs.crop.push(qf);
   const sb = add(head, geo('stubble', () => new THREE.SphereGeometry(0.11, 14, 8, 0, TAU, 0, Math.PI * 0.42)), stub, 0, 0.016, -0.004); sb.scale.set(0.91, 1.1, 1.02); hs.bald.push(sb);
-  const bzm = new THREE.MeshStandardMaterial({ roughness: 0.85 });                      // a thin cut lets some skin show through
-  const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.5)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.28; hs.buzz.push(bz);   // round and thin, close to the head
-  p.look = { skin, hair: hm, stub, hs, bz: bzm, lip };
+  const bzm = new THREE.MeshStandardMaterial({ roughness: 0.85 }), bztm = new THREE.MeshStandardMaterial({ roughness: 0.9 });                      // a thin cut lets some skin show through
+  const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.5)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.28; hs.buzz.push(bz);
+  const bzt = add(head, geo('buzzTop', () => new THREE.SphereGeometry(0.1138, 20, 10, 0, TAU, 0, Math.PI * 0.3)), bztm, 0, 0.011, -0.002); bzt.scale.set(0.905, 1.104, 1.022); bzt.rotation.x = -0.12; hs.buzz.push(bzt);   // a little more hair on top, faded to almost nothing at the sides   // round and thin, close to the head
+  p.look = { skin, hair: hm, stub, hs, bz: bzm, bzt: bztm, lip };
   // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
   for (const sx of [-1, 1]) {
