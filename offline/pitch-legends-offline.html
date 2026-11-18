@@ -108,6 +108,7 @@
   @keyframes sheen { 0%, 55% { background-position: 130% 0; } 100% { background-position: -130% 0; } }
   @media (prefers-reduced-motion: reduce) { .pc::after { animation: none !important; opacity: 0; } }
   .cgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; margin: 6px 0 12px; }
+  .sw { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; } .swc { width: 38px; height: 38px; border-radius: 50%; border: 3px solid rgba(255,255,255,.25); cursor: pointer; padding: 0; } .swt { padding: 8px 12px; border-radius: 9px; border: 2px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #fff; font: 800 13px system-ui; cursor: pointer; } .swc.on, .swt.on { border-color: #9fe870; box-shadow: 0 0 0 2px #9fe870; }
   .cb { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 9px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: #fff; font: 800 13px system-ui; cursor: pointer; } .cb.on { border-color: #9fe870; background: rgba(159,232,112,.12); } .cb small { color: #ffd23f; font-weight: 700; } .cb .shirt { width: 40px; height: 37px; clip-path: polygon(22% 0, 38% 0, 50% 10%, 62% 0, 78% 0, 100% 20%, 86% 38%, 78% 30%, 78% 100%, 22% 100%, 22% 30%, 14% 38%, 0 20%); }
   .card h4 { margin: 4px 0 0; font-size: 10px; letter-spacing: 2px; color: #8fb8d6; text-align: left; } .card.wide { max-width: 760px; }
   .fld { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 700; color: #cfe; text-align: left; } .fld input[type=text] { font: 700 16px system-ui; padding: 9px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); color: #fff; } .fld input[type=color] { width: 64px; height: 38px; border: none; background: none; padding: 0; }
@@ -567,6 +568,8 @@ function applyEdit(sp, e) {
   if (typeof e.n === 'string' && e.n.trim()) sp.name = e.n.trim().slice(0, 14).toUpperCase();
   if (['GK', 'DF', 'MF', 'FW'].includes(e.p)) { sp.pos = e.p; sp.gk = e.p === 'GK' ? sp.ovr : 30; }
   if (e.star) { sp.star = e.star === true ? 'FW' : e.star; if (e.h != null) sp.hair = e.h; if (e.s) sp.style = e.s; }
+  if (!e.star) { if (e.h != null) sp.hair = e.h; if (e.s) sp.style = e.s; }
+  if (e.k != null) sp.skin = e.k;
   const o = clamp(Math.round(+e.o) || sp.ovr, 40, 130), d = o - sp.ovr;
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
   sp.max = /nolan/i.test(sp.name);                                                       // Nolan is off the scale: every skill at the top
@@ -2016,12 +2019,23 @@ function openEdit() {
   if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
   openPanel('<h1>EDIT PLAYER</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><label class="fld">Name<input type="text" id="edName" maxlength="14" autocomplete="off" value="' + esc(sp.name) + '"></label>' +
     '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px;word-break:break-all">' + (sp.max ? BIG_OVR : sp.ovr) + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
-    '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label></div>' +
+    '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
+    lookRow('Skin', 'k', ED_SKIN, sp.skin) + lookRow('Hair colour', 'h', ED_HAIR, sp.hair) +
+    '<div class="fld">Hair style<div class="sw">' + ['short', 'crop', 'afro', 'bun', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
     '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
   $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
+  edLook = { k: sp.skin, h: sp.hair, s: sp.style };
+  for (const b of document.querySelectorAll('[data-lk]')) b.addEventListener('click', () => {
+    const k = b.dataset.lk; edLook[k] = k === 's' ? b.dataset.v : +b.dataset.v;
+    for (const o of document.querySelectorAll('[data-lk="' + k + '"]')) o.classList.toggle('on', o === b);
+  });
 }
+let edLook = {};
+const ED_SKIN = [0xf7d9bc, 0xf0c8a0, 0xe0a878, 0xc78b5c, 0x9c6b43, 0x6e4a2f, 0x4a3020];
+const ED_HAIR = [0x111111, 0x2b1a0e, 0x4a2f18, 0x7a4a22, 0xb5521e, 0xc9a25a, 0xf0d77a, 0x9a9a9a];
+function lookRow(label, k, cols, cur) { return '<div class="fld">' + label + '<div class="sw">' + cols.map(c => '<button class="swc' + (c === cur ? ' on' : '') + '" data-lk="' + k + '" data-v="' + c + '" style="background:#' + c.toString(16).padStart(6, '0') + '"></button>').join('') + '</div></div>'; }
 ACT.doEdit = () => {
-  const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value };
+  const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value, ...edLook };
   (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
 };
 ACT.allStars = () => { for (const r of ['GK', 'DF', 'MF', 'FW']) signStar(r); closePanel(); };
