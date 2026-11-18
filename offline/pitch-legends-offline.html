@@ -634,7 +634,7 @@ function setNumber(parts, n) {
   parts.num.tex.needsUpdate = true; parts.num.mesh.visible = n !== '';
 }
 function setLook(parts, skinHex, hairHex, style) {
-  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.5); L.bzt.color.setHex(hairHex).lerp(L.skin.color, 0.12); L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
+  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.5); L.bzt.color.setHex(hairHex).multiplyScalar(0.45); L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
   for (const k in L.hs) for (const m of L.hs[k]) m.visible = false;
   for (const m of L.hs[style] || L.hs.short) m.visible = true;
 }
@@ -2001,7 +2001,7 @@ function openCreate() {
 }
 // invented superstars, one per line of the team: each has his own name, look, rating and card
 const STARS = {
-  FW: { t: 'Star striker', o: 110, h: 0xe9e1c4, s: 'crop', n: ['ZEPHYR VALE', 'NICO STARLING', 'RIO BLAZE', 'KAI THUNDER', 'LEO COMET', 'JETT NOVA', 'MILO STORM', 'DASH ORION'] },
+  FW: { t: 'Nolan · super striker', o: 130, h: 0xe9e1c4, s: 'crop', n: ['ZEPHYR VALE', 'NICO STARLING', 'RIO BLAZE', 'KAI THUNDER', 'LEO COMET', 'JETT NOVA', 'MILO STORM', 'DASH ORION'] },
   MF: { t: 'Star midfielder', o: 108, h: 0xd9552b, s: 'bun', n: ['ARLO QUILL', 'FINN MAESTRO', 'TEO PRISM', 'LUCA EMBER', 'REMY ATLAS', 'ZANE LYRIC', 'OTIS COMPASS', 'IAN METRONOME'] },
   DF: { t: 'Star defender', o: 107, h: 0x2b1a0e, s: 'afro', n: ['BRUNO GRANITE', 'MAGNUS WALL', 'IVO BASTION', 'TOR IRONSIDE', 'GUS BOULDER', 'ODIN KEEP', 'ROCCO ANVIL', 'HANK RAMPART'] },
   GK: { t: 'Star goalkeeper', o: 106, h: 0x3a6fd8, s: 'short', n: ['PAX GUARDIAN', 'NED SAFEHANDS', 'OLLIE FORTRESS', 'HUGO TITAN', 'SAM SENTINEL', 'WES LOCKDOWN', 'ABE GATEKEEPER', 'CY VAULT'] },
@@ -2018,6 +2018,10 @@ function signStar(role) {
   if (si < 0) { si = l[slot]; if (sq[si].star) si = l.find(k => !sq[k].star && sq[k].pos === role); if (si == null) si = l.find(k => !sq[k].star); }
   let h = 0; for (const ch of c.n + role) h = (h * 31 + ch.codePointAt(0)) >>> 0;
   const had = sq[si].star === role, e = { n: had ? sq[si].name : d.n[h % d.n.length], o: had ? Math.max(sq[si].ovr, d.o) : d.o, p: role, star: role, h: d.h, s: d.s };      // re-signing keeps the name and rating you gave him
+  if (role === 'FW') {                                                                 // the super striker is Nolan, with his own look
+    const old = (c.edits || {})[si] || {}, mine = /nolan/i.test(old.n || '');
+    Object.assign(e, { n: 'NOLAN', o: 130, k: mine && old.k != null ? old.k : 0xd09664, h: mine && old.h != null ? old.h : 0x1a1008, s: mine && old.s ? old.s : 'buzz' });
+  }
   (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e);
   const at = l.indexOf(si); if (at !== slot) [l[at], l[slot]] = [l[slot], l[at]];
   tsSel = -1; refreshMenu(); saveAll(); AudioSys.goal();
@@ -2025,7 +2029,7 @@ function signStar(role) {
 function openStars() {
   const sq = squadFor(sel.home);
   openPanel('<h1>SIGN A STAR</h1><h2>Invented superstars for ' + esc(CLUBS[sel.home].n) + '</h2><div class="card"><div class="cgrid">' + Object.keys(STARS).map(r => { const has = sq.find(p => p.star === r);
-    return '<button class="cb' + (has ? ' on' : '') + '" data-star="' + r + '"><span style="font-size:26px">★</span><span>' + STARS[r].t + '</span><small>' + (has ? esc(has.name) + ' · signed' : STARS[r].o + ' OVR') + '</small></button>'; }).join('') +
+    return '<button class="cb' + (has ? ' on' : '') + '" data-star="' + r + '"><span style="font-size:26px">★</span><span>' + STARS[r].t + '</span><small>' + (has ? esc(has.name) + ' · signed' : r === 'FW' ? 'Tap to add you' : STARS[r].o + ' OVR') + '</small></button>'; }).join('') +
     '</div><div class="mut">Each star takes the middle spot in his line. Rename any of them with Edit Player.</div></div><button class="cta" data-act="allStars">SIGN ALL FOUR</button><button class="cta alt" data-act="closeP">BACK</button>');
 }
 function openEdit() {
