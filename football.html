@@ -890,7 +890,7 @@ function resetFormation(kickTeam) {
 ball.kickId = 0; ball.kicker = null; ball.lastBy = null;
 function clearPass() { ball.target = null; ball.passFrom = null; ball.offside = null; }
 function releaseBall(vx, vy, vz, who) {
-  ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
+  ball.curl = null; ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
   ball.vel.set(vx, vy, vz); who.cool = 0.25; who.setPiece = null; G.keepOff = null; G.penHold = false; G.setPlay = null;
 }
 function registerShot(p) { S(p.team).shots++; ball.shot = { team: p.team, by: p, counted: false }; }
@@ -963,7 +963,12 @@ function doShoot(p, power, aimZ) {
   const sp = lerp(17, 32, power);
   let vy = lerp(1.0, 4.2, power) + d0 * 0.11 * power + rand(-0.5, 0.5) * (1 + power);
   if (power > 0.93) vy += rand(0, 3.6);                    // leaning back on a full-blooded hit
-  releaseBall(Math.sin(ang) * sp, Math.max(0.4, vy), Math.cos(ang) * sp, p);
+  if (p.at && p.at.max && p.setPiece !== 'penalty') {                                   // only Nolan bends it: the ball starts wide of the post and swings back in
+    const th = clamp(0.16 + d * 0.006, 0.2, 0.34), side = (Math.sign(aimZ) || 1) * (Math.sign(dx) || 1), T = d / (sp * Math.cos(th)), a = 2 * sp * Math.sin(th) / T;
+    const fx = Math.sin(ang), fz = Math.cos(ang), qx = -fz * side, qz = fx * side;         // q points out toward the side the ball starts on
+    releaseBall((fx * Math.cos(th) + qx * Math.sin(th)) * sp, Math.max(0.4, vy), (fz * Math.cos(th) + qz * Math.sin(th)) * sp, p);
+    ball.curl = { x: -qx * a, z: -qz * a, t: T * 1.1, fx, fz };
+  } else releaseBall(Math.sin(ang) * sp, Math.max(0.4, vy), Math.cos(ang) * sp, p);
   clearPass(); registerShot(p);
   p.facing = Math.atan2(dx, dz); p.kickAnim = 1; AudioSys.kick();
 }
@@ -1341,6 +1346,7 @@ function updateBall(dt) {
   if (ball.loose > 0) ball.loose -= dt;
   if (ball.owner) return;
   const px = ball.pos.x;
+  if (ball.curl) { const c = ball.curl; c.t -= dt; if (c.t <= 0 || ball.vel.x * c.fx + ball.vel.z * c.fz < 2) ball.curl = null; else { ball.vel.x += c.x * dt; ball.vel.z += c.z * dt; } }   // swerve stops once the ball is blocked or arrives
   ball.vel.y -= 16 * dt; ball.pos.addScaledVector(ball.vel, dt);
   if (ball.pos.y < BALL_R) {
     ball.pos.y = BALL_R;
