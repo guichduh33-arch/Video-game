@@ -138,6 +138,7 @@
   .abtn.shoot { right: 0; bottom: 18px; width: 92px; height: 92px; font-size: 17px; background: radial-gradient(120% 120% at 35% 30%, #ff6a7a, #e31e2c); }
   .abtn.pass { right: 96px; bottom: 2px; width: 78px; height: 78px; font-size: 15px; background: radial-gradient(120% 120% at 35% 30%, #58a6ff, #1e78e3); }
   .abtn.thru { right: 20px; bottom: 112px; width: 74px; height: 74px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #ffe27a, #f0b400); color: #3a2a00; text-shadow: none; }
+  .abtn.flick { right: 196px; bottom: 26px; width: 68px; height: 68px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #c08bff, #7a3fd0); }
   .abtn.sprint { right: 120px; bottom: 104px; width: 72px; height: 72px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #6ff0b0, #19b874); color: #04210f; text-shadow: none; }
   body.touch #radar { bottom: 6px; width: 132px; height: 84px; opacity: .8; }
   body.touch #say { bottom: auto; top: 64px; left: 14px; max-width: 34vw; font-size: 11px; }
@@ -173,6 +174,7 @@
 <div id="joyZone"><div id="joyHint">TOUCH &amp;<br>DRAG<br>TO MOVE</div></div>
 <div id="joyBase" style="display:none"></div><div id="joyKnob" style="display:none"></div>
 <div id="btns">
+  <div class="abtn flick" data-b="flick">FLICK<span class="sub" id="bFlickS">UP</span></div>
   <div class="abtn sprint" data-b="sprint">SPRINT<span class="sub" id="bSprintS">OFF</span></div>
   <div class="abtn thru" data-b="thru"><span id="bThru">THRU</span><span class="sub" id="bThruS">BALL</span></div>
   <div class="abtn pass" data-b="pass"><span id="bPass">PASS</span><span class="sub" id="bPassS">hold=lob</span></div>
@@ -789,7 +791,7 @@ const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 if (IS_TOUCH) document.body.classList.add('touch');
 const keys = {};
 const KEYMAP = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyJ: 'pass', Space: 'pass', KeyK: 'through', KeyL: 'shoot', KeyI: 'lob', KeyQ: 'switch', KeyE: 'tackle', KeyF: 'slide', Escape: 'pause', KeyP: 'pause' };
+  ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyJ: 'pass', Space: 'pass', KeyK: 'through', KeyL: 'shoot', KeyI: 'lob', KeyQ: 'switch', KeyE: 'tackle', KeyF: 'slide', KeyO: 'flick', Escape: 'pause', KeyP: 'pause' };
 function press(k) { if (!keys[k]) keys[k + '_p'] = true; keys[k] = true; }
 function unpress(k) { keys[k] = false; }
 const typing = e => e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
@@ -820,9 +822,9 @@ function setSprintLock(v) { sprintLock = v; const el = document.querySelector('.
 document.querySelectorAll('#btns .abtn').forEach(btn => {
   const b = btn.dataset.b;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); AudioSys.resume();
-    if (b === 'sprint') setSprintLock(!sprintLock); else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); });
+    if (b === 'sprint') setSprintLock(!sprintLock); else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); else if (b === 'flick') press('flick'); });
   const up = e => { e.preventDefault();
-    if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through');
+    if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through'); else if (b === 'flick') unpress('flick');
     else if (b === 'pass' && passDownT) { keys[(performance.now() - passDownT > 280 && ball.owner === userPlayer) ? 'lob_p' : 'pass_p'] = true; passDownT = 0; } };
   btn.addEventListener('pointerup', up);
   btn.addEventListener('pointercancel', () => { if (b === 'shoot') unpress('shoot'); if (b === 'thru') unpress('through'); passDownT = 0; });
@@ -896,7 +898,7 @@ function resetFormation(kickTeam) {
 ball.kickId = 0; ball.kicker = null; ball.lastBy = null;
 function clearPass() { ball.target = null; ball.passFrom = null; ball.offside = null; }
 function releaseBall(vx, vy, vz, who) {
-  ball.curl = null; ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
+  ball.curl = null; ball.flickBy = null; ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
   ball.vel.set(vx, vy, vz); who.cool = 0.25; who.setPiece = null; G.keepOff = null; G.penHold = false; G.setPlay = null;
 }
 function registerShot(p) { S(p.team).shots++; ball.shot = { team: p.team, by: p, counted: false }; }
@@ -995,8 +997,10 @@ function doShoot(p, power, aimZ) {
   p.facing = Math.atan2(dx, dz); p.kickAnim = 1; AudioSys.kick();
 }
 
+let lastFlick = '';
 function gainPossession(p) {
   if (ball.owner) return;
+  ball.flickBy = null;
   if (ball.offside && ball.offside.has(p) && ball.passFrom && ball.passFrom.team === p.team) { callOffside(p); return; }
   const from = ball.passFrom;
   if (from && from !== p) {
@@ -1089,11 +1093,15 @@ function header(p) {
   else { const t = nearestTeammate(p, false); if (t) { const dx = t.pos.x - p.pos.x, dz = t.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1; ball.vel.set(dx / d * 9, 1.5, dz / d * 9); ball.target = t; ball.passFrom = p; } else ball.vel.set(dir * 8, 3, rand(-3, 3)); }
 }
 // Nolan meets a ball in the air: bicycle kick, diving header or volley. The ball is struck a beat after he takes off, so the move reads properly.
+function flick(p) {                                                                     // pop the ball up to set up a bicycle kick (press SHOOT while it is high) or a volley (wait until it drops)
+  releaseBall(p.vel.x * 0.92, 7.6, p.vel.z * 0.92, p); ball.pos.y = 0.3; ball.flickBy = p; clearPass(); ball.shot = null; startMove(p, 6); AudioSys.pass();
+  showToast('FLICK!', 0.6, 'sm');
+}
 function aerialStrike(p, forceAim) {
   if (G.strike) return;
   if (ball.offside && ball.offside.has(p) && ball.passFrom && ball.passFrom.team === p.team) { callOffside(p); return; }
   const gx = targetGoalX(p.team), y = ball.pos.y, dxg = gx - p.pos.x, dg = Math.hypot(dxg, p.pos.z) || 1, fd = (Math.sin(p.facing) * dxg - Math.cos(p.facing) * p.pos.z) / dg;
-  const k = y < 1.2 ? 3 : (fd > 0.35 && Math.random() < 0.45 ? 2 : 1), aimZ = forceAim != null ? forceAim : rand(-1, 1) * (GHW - 0.6);
+  const fl = ball.flickBy === p, k = fl ? (ball.vel.y > -2 ? 1 : 3) : y < 1.2 ? 3 : (fd > 0.35 && Math.random() < 0.45 ? 2 : 1), aimZ = forceAim != null ? forceAim : rand(-1, 1) * (GHW - 0.6);
   startMove(p, k, Math.random() < 0.5 ? -1 : 1); p.cool = MOVE_DUR[k]; p.jump = 0;
   if (k === 1) p.facing = Math.atan2(-dxg, p.pos.z); else p.facing = Math.atan2(dxg, -p.pos.z);      // a bicycle kick is hit with his back to goal
   if (k === 2) { p.vel.x = dxg / dg * 6.5; p.vel.z = -p.pos.z / dg * 6.5; } else { p.vel.x *= 0.3; p.vel.z *= 0.3; }
@@ -1122,6 +1130,7 @@ function ballContacts() {
   }
   if (!p) return;
   const sp = ball.vel.length(), y = ball.pos.y;
+  if (ball.flickBy === p && y > 0.3) return;                                          // his own flick: he chooses when to hit it
   if (y < 1.05) {
     const mine = p === ball.target || (ball.kicker && ball.kicker.team === p.team);
     if (bd < 0.6 && sp > 17 && !mine) {                  // a body in the way: block / deflection
@@ -1391,6 +1400,7 @@ function userControl(p, dt) {
   if (haveBall) {
     pressed('switch'); pressed('tackle'); pressed('slide');
     const aim = inp.ang != null ? inp.ang : sp ? p.facing : null;
+    if (pressed('flick') && !sp) { flick(p); powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; return; }
     if (pressed('pass')) doPass(p, false, false, aim);
     else if (pressed('through')) doPass(p, false, true, aim);
     else if (pressed('lob')) doPass(p, true, false, aim);
@@ -1401,7 +1411,8 @@ function userControl(p, dt) {
   } else {
     powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; pressed('lob');
     const sh = pressed('shoot'), tk = pressed('tackle');
-    if (sh && p.at.max && !ball.owner && ball.pos.y > 0.45 && ball.pos.y < 2.8 && dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < 2.4 * 2.4 && G.state === 'play' && !G.so) aerialStrike(p, aimShotZ());
+    pressed('flick');
+    if (sh && (p.at.max || ball.flickBy === p) && !ball.owner && (ball.flickBy === p || ball.pos.y > 0.45) && ball.pos.y < 2.8 && dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < 2.4 * 2.4 && G.state === 'play' && !G.so) aerialStrike(p, aimShotZ());
     else if (sh || tk) { if (!shoulder(p)) tryTackle(p, false); }
     if (pressed('through') || pressed('slide')) tryTackle(p, true);
     if (pressed('pass') || pressed('switch')) { const w = pickUserPlayer(); if (w && w !== p) setUser(w); }
@@ -1654,11 +1665,12 @@ function updateHUD(dt) {
     const have = ball.owner === userPlayer;
     if (have !== lastHave) {
       lastHave = have;
-      hintEl.innerHTML = have ? '<b>J</b> pass · <b>K</b> through · <b>I</b> lob<br><b>L</b> hold to shoot · <b>Shift</b> sprint' : '<b>J</b> switch · <b>L</b> tackle · <b>K</b> slide<br><b>Shift</b> sprint';
+      hintEl.innerHTML = have ? '<b>J</b> pass · <b>K</b> through · <b>I</b> lob<br><b>L</b> hold to shoot · <b>O</b> flick · <b>Shift</b> sprint' : '<b>J</b> switch · <b>L</b> tackle · <b>K</b> slide<br><b>Shift</b> sprint';
       $('bPass').textContent = have ? 'PASS' : 'SWITCH'; $('bPassS').textContent = have ? 'hold=lob' : 'player';
       $('bShoot').textContent = have ? 'SHOOT' : 'TACKLE'; $('bShootS').textContent = have ? 'hold' : '';
       $('bThru').textContent = have ? 'THRU' : 'SLIDE'; $('bThruS').textContent = have ? 'BALL' : 'TACKLE';
     }
+    { const fl = ball.flickBy === userPlayer && !ball.owner ? (ball.vel.y > -2 ? 'BIKE' : 'VOLLEY') : ''; const want = fl || (have ? 'SHOOT' : 'TACKLE'); if (want !== lastFlick) { lastFlick = want; $('bShoot').textContent = want; } }   // after a flick the SHOOT button says what it will do
   }
   drawRadar();
 }
