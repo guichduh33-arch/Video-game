@@ -1125,6 +1125,7 @@ function ballContacts() {
   let p = null, bd = 1e9;
   for (const q of players) {
     if (q.isGK || q.cool > 0 || q.slide > 0 || q.down > 0 || (q === ball.kicker && ball.loose > 0)) continue;
+    if (ball.flickBy && q !== ball.flickBy) continue;                                    // a flicked ball belongs to the player who flicked it until it lands
     const d = dist2(q.pos.x, q.pos.z, ball.pos.x, ball.pos.z); if (d < bd) { bd = d; p = q; }
   }
   if (!p) return;
