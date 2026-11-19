@@ -1113,7 +1113,7 @@ function strikeStep(dt) {
   st.t -= dt; ball.vel.set(0, 0, 0);
   ball.pos.x += (p.pos.x + Math.sin(p.facing) * ahead - ball.pos.x) * e; ball.pos.z += (p.pos.z + Math.cos(p.facing) * ahead - ball.pos.z) * e; ball.pos.y += (st.h - ball.pos.y) * e;
   if (st.t > 0) return;
-  G.strike = null;
+  G.strike = null; ball.flickBy = null;
   const gx = targetGoalX(p.team), dx = gx - ball.pos.x, dz = st.aimZ - ball.pos.z, d = Math.hypot(dx, dz) || 1, v = st.k === 1 ? 28 : st.k === 2 ? 22 : 33, T = d / v;
   ball.vel.set(dx / d * v, clamp((0.9 - ball.pos.y) / T + 8 * T, -6, 9), dz / d * v);
   ball.loose = 0.3; ball.kickId++; ball.kicker = p; ball.lastBy = p; registerShot(p); AudioSys.kick();
@@ -1428,7 +1428,7 @@ function updateBall(dt) {
   if (ball.curl) { const c = ball.curl; c.t -= dt; if (c.t <= 0 || ball.vel.x * c.fx + ball.vel.z * c.fz < 2) ball.curl = null; else { ball.vel.x += c.x * dt; ball.vel.z += c.z * dt; } }   // swerve stops once the ball is blocked or arrives
   ball.vel.y -= 16 * dt; ball.pos.addScaledVector(ball.vel, dt);
   if (ball.pos.y < BALL_R) {
-    ball.pos.y = BALL_R;
+    ball.pos.y = BALL_R; ball.flickBy = null;                                            // a flick is over once the ball lands
     if (ball.vel.y < -1.4) { ball.vel.y *= -0.55; ball.vel.x *= 0.84; ball.vel.z *= 0.84; AudioSys.bounce(); } else ball.vel.y = 0;
     const fr = Math.exp(-0.9 * dt); ball.vel.x *= fr; ball.vel.z *= fr;                    // rolling resistance
   } else { const air = Math.exp(-0.1 * dt); ball.vel.x *= air; ball.vel.z *= air; }
@@ -1888,7 +1888,8 @@ function updateCamera(dt) {
 const byBall = (a, b) => a._d - b._d;
 function update(dt) {
   dt = Math.min(dt, 0.05);
-  if (ball.flickBy && !ball.owner && G.state === 'play' && !G.strike) dt *= 0.3;         // slow motion while a flicked ball is in the air, so there is time to choose
+  if (ball.flickBy && !ball.owner && G.state === 'play' && !G.strike && ball.pos.y > 0.2 && ball.flickBy === userPlayer) dt *= 0.3;
+  else if (ball.flickBy && (ball.owner || G.state !== 'play')) ball.flickBy = null;         // slow motion while a flicked ball is in the air, so there is time to choose
   G.time += dt; pollPad();
   if (pressed('pause')) togglePause();
   const idle = G.state === 'menu' || G.state === 'halftime' || G.state === 'full' || G.paused;
