@@ -862,7 +862,29 @@ const AudioSys = (() => {
   function noise(d, g0, f) { const a = ready(); if (!a) return; const n = a.createBufferSource(); const buf = a.createBuffer(1, a.sampleRate * d, a.sampleRate); const ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1); n.buffer = buf; const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; const g = a.createGain(); g.gain.setValueAtTime(g0, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + d); n.connect(bp).connect(g).connect(a.destination); n.start(); }
   function startCrowd() { const a = ready(); if (!a || crowdSrc) return; const buf = a.createBuffer(1, a.sampleRate * 3, a.sampleRate); const ch = buf.getChannelData(0); let l = 0; for (let i = 0; i < ch.length; i++) { l = l * 0.97 + (Math.random() * 2 - 1) * 0.03; ch[i] = l * 6 * (0.8 + 0.2 * Math.sin(i / 9000)); } crowdSrc = a.createBufferSource(); crowdSrc.buffer = buf; crowdSrc.loop = true; const lp = a.createBiquadFilter(); lp.type = 'bandpass'; lp.frequency.value = 650; lp.Q.value = 0.5; crowdGain = a.createGain(); crowdGain.gain.value = BASE; crowdSrc.connect(lp).connect(crowdGain).connect(a.destination); crowdSrc.start(); }
   function crowdSwell(amt, hold = 1.6) { const a = ready(); if (!a || !crowdGain) return; crowdGain.gain.cancelScheduledValues(a.currentTime); crowdGain.gain.setValueAtTime(crowdGain.gain.value, a.currentTime); crowdGain.gain.linearRampToValueAtTime(clamp(BASE + amt, BASE, 0.3), a.currentTime + 0.15); crowdGain.gain.linearRampToValueAtTime(BASE, a.currentTime + hold); }
+  // a shouted "SIUUUU": a hiss for the S, then a crowd of voices whose vowel slides from "ee" to "oo"
+  function siu() {
+    const a = ready(); if (!a) return 0; const t0 = a.currentTime + 0.03, out = a.createGain(); out.gain.value = 1; out.connect(a.destination);
+    const nb = a.createBuffer(1, Math.floor(a.sampleRate * 0.34), a.sampleRate), ch = nb.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+    const ns = a.createBufferSource(), hp = a.createBiquadFilter(), ng = a.createGain(); ns.buffer = nb; hp.type = 'highpass'; hp.frequency.value = 4800;
+    ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.3, t0 + 0.06); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3); ns.connect(hp); hp.connect(ng); ng.connect(out); ns.start(t0);
+    const tv = t0 + 0.2, dur = 1.9; let n = 0;
+    for (const f0 of [118, 149, 152, 199, 226, 301]) {
+      const o = a.createOscillator(), vg = a.createGain(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(f0 * 0.86, tv); o.frequency.linearRampToValueAtTime(f0 * 1.14, tv + 0.3); o.frequency.linearRampToValueAtTime(f0 * 1.02, tv + dur * 0.7); o.frequency.linearRampToValueAtTime(f0 * 0.8, tv + dur);
+      vg.gain.setValueAtTime(0.0001, tv); vg.gain.exponentialRampToValueAtTime(0.5, tv + 0.08); vg.gain.setValueAtTime(0.5, tv + dur * 0.6); vg.gain.exponentialRampToValueAtTime(0.0001, tv + dur);
+      o.connect(vg);
+      for (const [fa, fb, q, g] of [[290, 340, 7, 1], [2250, 760, 10, 0.75], [3000, 2300, 9, 0.2]]) {      // formants: "ee" -> "oo"
+        const bp = a.createBiquadFilter(), fg = a.createGain(); bp.type = 'bandpass'; bp.Q.value = q; fg.gain.value = g;
+        bp.frequency.setValueAtTime(fa, tv); bp.frequency.setValueAtTime(fa, tv + 0.12); bp.frequency.exponentialRampToValueAtTime(fb, tv + 0.42);
+        vg.connect(bp); bp.connect(fg); fg.connect(out);
+      }
+      o.start(tv + n * 0.012); o.stop(tv + dur + 0.1); n++;
+    }
+    return 1;
+  }
   return {
+    siu,
     kick: () => { tone(150, 0, 'triangle', 0.3, 0.09); noise(0.06, 0.3, 500); },
     pass: () => { tone(210, 0, 'triangle', 0.14, 0.07); noise(0.03, 0.1, 700); },
     bounce: () => tone(120, 0, 'sine', 0.06, 0.06),
@@ -1346,7 +1368,7 @@ function celebrateAI(p, dt) {
       else {
         const u = clamp((t - 1.5) / 0.75, 0, 1); p.vel.set(0, 0, 0);
         p.facing = away + Math.PI * u * u * (3 - 2 * u); p.celebrate = 2 + u;
-        if (u >= 1 && !G.siuDone) { G.siuDone = true; showToast('SIUUUUUUU!', 2.2, 'big'); AudioSys.goal(); }
+        if (u >= 1 && !G.siuDone) { G.siuDone = true; showToast('SIUUUUUUU!', 2.2, 'big'); AudioSys.siu(); AudioSys.cheer(0.2, 2.5); }
       }
       return;
     }
@@ -2260,7 +2282,7 @@ refreshMenu(); setNight(false);
 window.__game = {
   tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt); },
   start: (hi = 0, ai = 1) => startMatch(hi, ai),
-  G, ball, players, allPlayers, keys, CLUBS, ACT, deadBall, startShootout, endMatch, periodEnd, doShoot, doPass, tryTackle, foul, cupStart, setUser, gainPossession, aerialStrike, shoulder,
+  G, ball, players, allPlayers, keys, CLUBS, ACT, AudioSys, deadBall, startShootout, endMatch, periodEnd, doShoot, doPass, tryTackle, foul, cupStart, setUser, gainPossession, aerialStrike, shoulder,
   user: () => userPlayer,
   setBall: (x, y, z, vx, vy, vz) => { ball.owner = null; ball.pos.set(x, y, z); ball.vel.set(vx || 0, vy || 0, vz || 0); G.lastTouch = 'home'; ball.kickId++; },
   info: () => ({ n: players.length, state: G.state, half: G.half, clock: +G.clock.toFixed(1), score: { ...G.score }, ball: ball.pos.toArray().map(v => +v.toFixed(1)), owner: ball.owner ? ball.owner.team + ball.owner.number : null, user: userPlayer ? userPlayer.number : null, stats: G.stats }),
