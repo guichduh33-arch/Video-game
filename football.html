@@ -864,7 +864,7 @@ const AudioSys = (() => {
   function crowdSwell(amt, hold = 1.6) { const a = ready(); if (!a || !crowdGain) return; crowdGain.gain.cancelScheduledValues(a.currentTime); crowdGain.gain.setValueAtTime(crowdGain.gain.value, a.currentTime); crowdGain.gain.linearRampToValueAtTime(clamp(BASE + amt, BASE, 0.3), a.currentTime + 0.15); crowdGain.gain.linearRampToValueAtTime(BASE, a.currentTime + hold); }
   // "SIUUUU": spoken by the device's own voice (a real voice, in Spanish so it is said "see-oooo"); if the device will not speak, a clean rising whoop instead
   let spOk = false;
-  function unlockSpeech() { if (spOk || !window.speechSynthesis) return; spOk = true; try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
+  function unlockSpeech() { if (spOk || !window.speechSynthesis) return; spOk = true; try { speechSynthesis.getVoices(); const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch (e) {} }
   function whoop() { for (const [f, g] of [[1, 0.22], [2, 0.07], [3, 0.03]]) { const a = ready(); if (!a) return; const o = a.createOscillator(), v = a.createGain(), t = a.currentTime + 0.02; o.type = 'sine';
     o.frequency.setValueAtTime(420 * f, t); o.frequency.exponentialRampToValueAtTime(760 * f, t + 0.25); o.frequency.exponentialRampToValueAtTime(520 * f, t + 1.1);
     v.gain.setValueAtTime(0.0001, t); v.gain.exponentialRampToValueAtTime(g, t + 0.06); v.gain.exponentialRampToValueAtTime(0.0001, t + 1.15); o.connect(v); v.connect(a.destination); o.start(t); o.stop(t + 1.2); } }
@@ -872,8 +872,12 @@ const AudioSys = (() => {
     let started = false;
     try {
       if (window.speechSynthesis) {
-        const u = new SpeechSynthesisUtterance('¡Siiiuuuuuuuu!'); u.lang = 'es-ES'; u.rate = 0.75; u.pitch = 1.15; u.volume = 1;
-        const vs = speechSynthesis.getVoices(), v = vs.find(x => /^es/i.test(x.lang)); if (v) u.voice = v;
+        // a man's voice: the Spanish one if the device has it, else any male voice; the pitch is dropped either way so it is never a high voice
+        const MALE = /Jorge|Juan|Diego|Carlos|Daniel|Thomas|Aaron|Arthur|Gordon|Rishi|Alex|Fred|Albert|Reed|Rocko|Eddy|Ralph|Jacques|Nicolas|Luca|Martin|Oliver|Tom\b|Male/i;
+        const vs = speechSynthesis.getVoices(), v = vs.find(x => /^es/i.test(x.lang) && MALE.test(x.name)) || vs.find(x => MALE.test(x.name)) || vs.find(x => /^es/i.test(x.lang));
+        const latin = !v || /^(es|it|pt|fr)/i.test(v.lang), u = new SpeechSynthesisUtterance(latin ? '¡Siiiuuuuuuuu!' : 'Seeeyoooooooo!');
+        if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'es-ES';
+        u.rate = 0.75; u.pitch = v && MALE.test(v.name) ? 0.8 : 0.35; u.volume = 1;
         u.onstart = () => { started = true; }; speechSynthesis.cancel(); speechSynthesis.speak(u);
       }
     } catch (e) {}
