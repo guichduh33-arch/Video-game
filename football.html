@@ -974,18 +974,18 @@ function doShoot(p, power, aimZ) {
   if (nol && fd < -0.2) {                                                               // goal behind him: backheel
     releaseBall(dx / d * 21, 1.4, dz / d * 21, p); startMove(p, 4); clearPass(); registerShot(p); AudioSys.kick(); showToast('BACKHEEL!', 0.9, 'sm'); return;
   }
-  if (nol && power >= 0.9) {                                                            // full power: a straight rocket
+  if (nol && power >= 0.98) {                                                            // full power: a straight rocket
     const a2 = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.03, v = 40;
     releaseBall(Math.sin(a2) * v, 1.3 + d0 * 0.085, Math.cos(a2) * v, p); startMove(p, 5); clearPass(); registerShot(p); p.facing = a2; p.kickAnim = 1; AudioSys.kick(); G.flash = 0.25; showToast('ROCKET!', 0.9, 'sm'); return;
   }
-  if (nol && power <= 0.36 && d < 26 && gkOut > 2.2) {                                  // a tap with the keeper off his line: chip him
+  if (nol && power <= 0.3 && d < 26 && gkOut > 4) {                                  // a tap with the keeper off his line: chip him
     const v = clamp(d * 0.62 + 5, 10, 19), T = d / v;
     releaseBall(dx / d * v, (1.0 + 8 * T * T) / T, dz / d * v, p); startMove(p, 6); clearPass(); registerShot(p); p.facing = Math.atan2(dx, dz); p.kickAnim = 1; AudioSys.pass(); showToast('CHIP!', 0.9, 'sm'); return;
   }
   if (p.at && p.at.max && p.setPiece !== 'penalty') {                                   // only Nolan bends it: the ball starts wide of the post and swings back in
-    const th = clamp(0.16 + d * 0.006, 0.2, 0.34), side = (Math.sign(aimZ) || 1) * (Math.sign(dx) || 1), T = d / (sp * Math.cos(th)), a = 2 * sp * Math.sin(th) / T;
+    const th = clamp(0.2 + d * 0.006, 0.26, 0.4), side = (Math.sign(aimZ) || 1) * (Math.sign(dx) || 1), T = d / (sp * Math.cos(th)), a = 2 * sp * Math.sin(th) / T;
     const fx = Math.sin(ang), fz = Math.cos(ang), qx = -fz * side, qz = fx * side;         // q points out toward the side the ball starts on
-    releaseBall((fx * Math.cos(th) + qx * Math.sin(th)) * sp, Math.max(0.4, vy), (fz * Math.cos(th) + qz * Math.sin(th)) * sp, p);
+    releaseBall((fx * Math.cos(th) + qx * Math.sin(th)) * sp, clamp(8 * T + 0.8 / T, 2.5, 11), (fz * Math.cos(th) + qz * Math.sin(th)) * sp, p);   // stays in the air the whole way, so the grass never spoils the bend, and dips in under the bar
     ball.curl = { x: -qx * a, z: -qz * a, t: T * 1.1, fx, fz };
   } else releaseBall(Math.sin(ang) * sp, Math.max(0.4, vy), Math.cos(ang) * sp, p);
   clearPass(); registerShot(p);
