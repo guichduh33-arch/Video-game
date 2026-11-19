@@ -1047,20 +1047,25 @@ function shoulder(p) {
 }
 function tryTackle(p, slide) {
   if (p.lunge > 0 || p.slide > 0 || p.down > 0 || p.isGK) return;
-  p.tackleSlide = slide; p.tackleDone = false;
-  if (slide) { p.slide = 0.8; p.tackleLive = 0.5; p.slideDir = p.facing; p.cool = 0.9; } else { p.lunge = 0.35; p.tackleLive = 0.22; }
+  p.tackleSlide = slide; p.tackleDone = false; p.dash = 0;
+  if (p.user) {                                                                         // the player's tackles aim themselves: turn to the man on the ball and step in
+    const o = ball.owner && ball.owner.team !== p.team ? ball.owner : null, tx = o ? o.pos.x : ball.pos.x, tz = o ? o.pos.z : ball.pos.z, d = Math.hypot(tx - p.pos.x, tz - p.pos.z);
+    if (d < (slide ? 7 : 4.2) && d > 0.05) { p.facing = Math.atan2(tx - p.pos.x, tz - p.pos.z); if (!slide) p.dash = clamp(d * 4.5, 4, 9.5); }
+  }
+  if (slide) { p.slide = 0.8; p.tackleLive = 0.5; p.slideDir = p.facing; p.cool = 0.9; } else { p.lunge = 0.35; p.tackleLive = p.user ? 0.33 : 0.22; }
 }
 function tackleStep(p) {
   if (p.tackleLive <= 0 || p.tackleDone) return;
   const fx = p.pos.x + Math.sin(p.facing) * 0.5, fz = p.pos.z + Math.cos(p.facing) * 0.5, o = ball.owner, sl = p.tackleSlide;
   if (o && o.team !== p.team) {
-    if (o.setPiece || o.isGK || Math.min(dist2(fx, fz, o.pos.x, o.pos.z), dist2(p.pos.x, p.pos.z, o.pos.x, o.pos.z), dist2(fx, fz, ball.pos.x, ball.pos.z)) > (sl ? 1.3 : 1.1)) return;
+    if (o.setPiece || o.isGK || Math.min(dist2(fx, fz, o.pos.x, o.pos.z), dist2(p.pos.x, p.pos.z, o.pos.x, o.pos.z), dist2(fx, fz, ball.pos.x, ball.pos.z)) > (sl ? 1.3 : 1.1) + (p.user ? 0.45 : 0)) return;
     p.tackleDone = true;
     const ofx = Math.sin(o.facing), ofz = Math.cos(o.facing);
     const behind = ((o.pos.x - p.pos.x) * ofx + (o.pos.z - p.pos.z) * ofz) > 0.3 && (Math.sin(p.facing) * ofx + Math.cos(p.facing) * ofz) > 0.55;
     const skill = (p.at.def - 70) / 100 - (o.at.pas - 70) / 250 + (p.team === 'away' ? (G.easy ? -0.3 : [-0.14, 0, 0.1][G.difficulty]) : p.user ? (G.easy ? 0.3 : 0.08) : -0.08);
     let win = (sl ? 0.7 : 0.56) + skill, foulP = sl ? 0.13 : 0.025;
     if (behind) { win *= 0.5; foulP = sl ? 0.7 : 0.28; }
+    if (p.user && !behind) win = Math.max(win, G.easy ? 0.88 : 0.72);
     if (p.at.max) { win = Math.max(win, 0.93); foulP *= 0.1; }                              // Nolan times every kind of tackle
     if (G.easy && p.team === 'home') foulP *= 0.3;
     if (Math.random() < foulP) { foul(p, o, behind); return; }
@@ -1401,7 +1406,8 @@ function userControl(p, dt) {
     const wantSprint = keys.sprint || sprintLock || (joy.active && Math.hypot(joy.dx, joy.dy) > 0.93);      // key, the SPRINT switch, or the stick pushed right to its edge
     const sprint = wantSprint && p.stamina > 0.05;
     const maxS = (sprint ? p.maxRun : p.maxRun * 0.7) * (p.knock > 0 ? 1.16 : 1) * (haveBall ? 0.94 : 1) * (0.86 + 0.14 * p.stamina);
-    if (inp.mag > 0.05) {
+    if (p.lunge > 0.08 && p.dash) { p.vel.x = Math.sin(p.facing) * p.dash; p.vel.z = Math.cos(p.facing) * p.dash; }      // committed to the tackle
+    else if (inp.mag > 0.05) {
       const target = maxS * Math.max(inp.mag, wantSprint ? 0.7 : 0.55);
       p.vel.x = damp(p.vel.x, inp.x * target, 9, dt); p.vel.z = damp(p.vel.z, inp.z * target, 9, dt);
       p.facing = aimDamp(p.facing, Math.atan2(inp.x, inp.z), haveBall ? 11 : 14, dt);
