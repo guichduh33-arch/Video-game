@@ -248,7 +248,7 @@ const dist2 = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
 const angDiff = (a, b) => { let d = (a - b) % TAU; if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU; return d; };
 const damp = (cur, tgt, rate, dt) => lerp(cur, tgt, 1 - Math.exp(-rate * dt));
 const Q = new URLSearchParams(location.search);
-const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));   // iPads call themselves Macs
 const LOW = Q.get('quality') === 'low' || IS_MOBILE;
 
 /* ============================== pitch metrics (metres) ============================== */
@@ -264,7 +264,7 @@ const BALL_R = 0.112;
 /* ============================== renderer / scene ============================== */
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: !LOW, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW ? 1.3 : 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW ? 1.5 : 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = LOW ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
@@ -666,7 +666,7 @@ function makePlayer(km) {
   const head = new THREE.Group(); head.position.y = 0.655; torso.add(head); p.head = head;
   add(head, geo('skull', () => new THREE.SphereGeometry(0.108, 18, 14)), skin, 0, -0.002, 0, true).scale.set(0.9, 1.21, 1.02);   // one smooth egg shape, so the face shades evenly
   add(head, geo('jaw', () => new THREE.SphereGeometry(0.085, 12, 10)), skin, 0, -0.07, 0).scale.set(0.8, 0.7, 0.9);
-  if (!LOW) {
+  {                                                                                    // faces keep their detail on every device
     add(head, geo('nose', () => new THREE.ConeGeometry(0.016, 0.045, 6)), skin, 0, -0.012, 0.112).rotation.x = -0.35;
     for (const sx of [-1, 1]) {
       add(head, geo('ear', () => new THREE.SphereGeometry(0.024, 6, 6)), skin, sx * 0.098, -0.005, 0).scale.set(0.5, 1, 0.8);
@@ -679,7 +679,6 @@ function makePlayer(km) {
   const lip = new THREE.MeshStandardMaterial({ roughness: 0.6 });
   add(head, geo('mouth', () => new THREE.BoxGeometry(0.036, 0.0055, 0.008)), lip, 0, -0.072, 0.0905);
   for (const sx of [-1, 1]) add(head, geo('mouthC', () => new THREE.BoxGeometry(0.009, 0.005, 0.007)), lip, sx * 0.021, -0.0705, 0.0885).rotation.z = sx * 0.45;   // corners turn up a little
-  if (LOW) for (const sx of [-1, 1]) add(head, geo('pupil', () => new THREE.SphereGeometry(0.0085, 6, 6)), dark, sx * 0.04, 0.012, 0.105);
   const hs = { short: [], crop: [], afro: [], bun: [], bald: [], buzz: [], long: [], pony: [] };                     // every hairstyle is built once; setLook shows one
   const capS = add(head, geo('cap0.5', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.5)), hm, 0, 0.018, -0.006), capL = add(head, geo('cap0.6', () => new THREE.SphereGeometry(0.113, 16, 10, 0, TAU, 0, Math.PI * 0.6)), hm, 0, 0.018, -0.006);
   for (const cp of [capS, capL]) { cp.scale.set(0.93, 1.12, 1.04); cp.rotation.x = -0.5; }
