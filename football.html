@@ -868,19 +868,21 @@ const AudioSys = (() => {
     const nb = a.createBuffer(1, Math.floor(a.sampleRate * 0.34), a.sampleRate), ch = nb.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
     const ns = a.createBufferSource(), hp = a.createBiquadFilter(), ng = a.createGain(); ns.buffer = nb; hp.type = 'highpass'; hp.frequency.value = 4800;
     ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.3, t0 + 0.06); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3); ns.connect(hp); hp.connect(ng); ng.connect(out); ns.start(t0);
-    const tv = t0 + 0.2, dur = 1.9; let n = 0;
-    for (const f0 of [118, 149, 152, 199, 226, 301]) {
-      const o = a.createOscillator(), vg = a.createGain(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(f0 * 0.86, tv); o.frequency.linearRampToValueAtTime(f0 * 1.14, tv + 0.3); o.frequency.linearRampToValueAtTime(f0 * 1.02, tv + dur * 0.7); o.frequency.linearRampToValueAtTime(f0 * 0.8, tv + dur);
-      vg.gain.setValueAtTime(0.0001, tv); vg.gain.exponentialRampToValueAtTime(0.5, tv + 0.08); vg.gain.setValueAtTime(0.5, tv + dur * 0.6); vg.gain.exponentialRampToValueAtTime(0.0001, tv + dur);
-      o.connect(vg);
-      for (const [fa, fb, q, g] of [[290, 340, 7, 1], [2250, 760, 10, 0.75], [3000, 2300, 9, 0.2]]) {      // formants: "ee" -> "oo"
-        const bp = a.createBiquadFilter(), fg = a.createGain(); bp.type = 'bandpass'; bp.Q.value = q; fg.gain.value = g;
-        bp.frequency.setValueAtTime(fa, tv); bp.frequency.setValueAtTime(fa, tv + 0.12); bp.frequency.exponentialRampToValueAtTime(fb, tv + 0.42);
-        vg.connect(bp); bp.connect(fg); fg.connect(out);
-      }
-      o.start(tv + n * 0.012); o.stop(tv + dur + 0.1); n++;
+    // a small crowd shouting together, at a normal speaking-shout pitch: voices close to each other (not a deep chord), softened, with breath mixed in
+    const tv = t0 + 0.18, dur = 1.6, mix = a.createGain(); mix.gain.value = 0.55;
+    const F = [[300, 360, 4.5, 1.0], [2300, 880, 6, 0.8], [3000, 2400, 6, 0.15]], bands = F.map(([fa, fb, q, g]) => {
+      const bp = a.createBiquadFilter(), fg = a.createGain(); bp.type = 'bandpass'; bp.Q.value = q; fg.gain.value = g;
+      bp.frequency.setValueAtTime(fa, tv); bp.frequency.setValueAtTime(fa, tv + 0.1); bp.frequency.exponentialRampToValueAtTime(fb, tv + 0.34);
+      mix.connect(bp); bp.connect(fg); fg.connect(out); return bp; });
+    const body = a.createBiquadFilter(); body.type = 'lowpass'; body.frequency.value = 700; const bg = a.createGain(); bg.gain.value = 0.22; mix.connect(body); body.connect(bg); bg.connect(out);
+    for (const f0 of [236, 248, 255, 263, 274, 322]) {
+      const o = a.createOscillator(), lp = a.createBiquadFilter(), vg = a.createGain(), st = tv + Math.random() * 0.05, k = 1 + (Math.random() - 0.5) * 0.02; o.type = 'sawtooth'; lp.type = 'lowpass'; lp.frequency.value = 2600;
+      o.frequency.setValueAtTime(f0 * 0.84 * k, st); o.frequency.linearRampToValueAtTime(f0 * 1.12 * k, st + 0.22); o.frequency.linearRampToValueAtTime(f0 * 1.04 * k, st + dur * 0.7); o.frequency.linearRampToValueAtTime(f0 * 0.9 * k, st + dur);
+      vg.gain.setValueAtTime(0.0001, st); vg.gain.exponentialRampToValueAtTime(0.42, st + 0.07); vg.gain.setValueAtTime(0.42, st + dur * 0.55); vg.gain.exponentialRampToValueAtTime(0.0001, st + dur);
+      o.connect(lp); lp.connect(vg); vg.connect(mix); o.start(st); o.stop(st + dur + 0.1);
     }
+    const br = a.createBufferSource(), bb = a.createBuffer(1, Math.floor(a.sampleRate * (dur + 0.2)), a.sampleRate), bc = bb.getChannelData(0), brg = a.createGain(); for (let i = 0; i < bc.length; i++) bc[i] = Math.random() * 2 - 1;
+    br.buffer = bb; brg.gain.setValueAtTime(0.0001, tv); brg.gain.exponentialRampToValueAtTime(0.5, tv + 0.1); brg.gain.exponentialRampToValueAtTime(0.0001, tv + dur); br.connect(brg); brg.connect(mix); br.start(tv);
     return 1;
   }
   return {
