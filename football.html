@@ -974,9 +974,12 @@ function doShoot(p, power, aimZ) {
   if (nol && fd < -0.2) {                                                               // goal behind him: backheel
     releaseBall(dx / d * 21, 1.4, dz / d * 21, p); startMove(p, 4); clearPass(); registerShot(p); AudioSys.kick(); showToast('BACKHEEL!', 0.9, 'sm'); return;
   }
-  if (nol && power >= 0.98) {                                                            // full power: a straight rocket
+  if (nol && power >= 0.98) {                                                            // full power: a rocket
     const a2 = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.03, v = 40;
-    releaseBall(Math.sin(a2) * v, 1.3 + d0 * 0.085, Math.cos(a2) * v, p); startMove(p, 5); clearPass(); registerShot(p); p.facing = a2; p.kickAnim = 1; AudioSys.kick(); G.flash = 0.25; showToast('ROCKET!', 0.9, 'sm'); return;
+    const th = clamp(0.14 + d * 0.004, 0.18, 0.28), side = (Math.sign(aimZ) || 1) * (Math.sign(dx) || 1), T = d / (v * Math.cos(th)), ac = 2 * v * Math.sin(th) / T;
+    const fx = Math.sin(a2), fz = Math.cos(a2), qx = -fz * side, qz = fx * side;           // the rocket bends too: out, then back in at full speed
+    releaseBall((fx * Math.cos(th) + qx * Math.sin(th)) * v, clamp(8 * T + 0.8 / T, 2, 9), (fz * Math.cos(th) + qz * Math.sin(th)) * v, p);
+    ball.curl = { x: -qx * ac, z: -qz * ac, t: T * 1.1, fx, fz }; startMove(p, 5); clearPass(); registerShot(p); p.facing = a2; p.kickAnim = 1; AudioSys.kick(); G.flash = 0.25; showToast('ROCKET!', 0.9, 'sm'); return;
   }
   if (nol && power <= 0.3 && d < 26 && gkOut > 4) {                                  // a tap with the keeper off his line: chip him
     const v = clamp(d * 0.62 + 5, 10, 19), T = d / v;
