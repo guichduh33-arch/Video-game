@@ -651,21 +651,23 @@ function limb(len, rTop, rBot, m) {
 // rotation.x sign convention on every limb pivot: positive swings the limb BACK (-Z), negative swings it FORWARD (+Z).
 function makePlayer(km) {
   const g = new THREE.Group(); const p = {}; g.rotation.order = 'YXZ';      // yaw first, so lean (x) and roll (z) stay in the player's own frame
-  const skin = new THREE.MeshStandardMaterial({ roughness: 0.62 }), hm = new THREE.MeshStandardMaterial({ roughness: 0.9 }), stub = new THREE.MeshStandardMaterial({ roughness: 0.7 }), boot = mat(pick(BOOTS), 0.38), sole = mat(0x0c0c0e, 0.6), dark = mat(0x141210, 0.4);
+  const skin = new THREE.MeshStandardMaterial({ roughness: 0.62 }), hm = new THREE.MeshStandardMaterial({ roughness: 0.9 }), stub = new THREE.MeshStandardMaterial({ roughness: 0.7 }), boot = mat(pick(BOOTS), 0.38), sole = mat(0x0c0c0e, 0.6), laces = mat(0xf2f2f2, 0.6), dark = mat(0x141210, 0.4);
   const add = (parent, geom, m, x, y, z, shadow) => { const o = new THREE.Mesh(geom, m); o.position.set(x, y, z); o.castShadow = !!shadow; parent.add(o); return o; };
   const lathe = (key, pts, seg = 14) => geo(key, () => new THREE.LatheGeometry(pts.map(q => new THREE.Vector2(q[0], q[1])), seg));
   // ----- hips and shorts
   const hips = new THREE.Group(); hips.position.y = 0.98; g.add(hips); p.hips = hips;
-  add(hips, lathe('shorts', [[0.001, 0.1], [0.156, 0.1], [0.166, 0.02], [0.17, -0.08], [0.166, -0.13], [0.001, -0.13]]), km.shorts, 0, 0, 0, true).scale.set(1.08, 1, 0.74);
+  add(hips, lathe('shorts', [[0.001, 0.1], [0.156, 0.1], [0.167, 0.02], [0.173, -0.08], [0.172, -0.125], [0.001, -0.125]], 30), km.shorts, 0, 0, 0, true).scale.set(1.08, 1, 0.74);
   // ----- torso: tapered from broad shoulders to the waist, flattened front to back
   const torso = new THREE.Group(); torso.position.y = 0.06; hips.add(torso); p.torso = torso;
-  add(torso, lathe('torso', [[0.001, -0.03], [0.162, -0.03], [0.164, 0.06], [0.17, 0.16], [0.186, 0.28], [0.204, 0.37], [0.2, 0.42], [0.15, 0.47], [0.075, 0.495], [0.001, 0.5]], 16), km.shirt, 0, 0, 0, true).scale.set(1.08, 1, 0.66);
+  add(torso, lathe('torso', [[0.001, -0.03], [0.162, -0.03], [0.164, 0.06], [0.17, 0.16], [0.186, 0.28], [0.204, 0.37], [0.2, 0.42], [0.15, 0.47], [0.075, 0.495], [0.001, 0.5]], 26), km.shirt, 0, 0, 0, true).scale.set(1.08, 1, 0.66);
+  add(torso, geo('trap', () => new THREE.SphereGeometry(0.1, 16, 10)), km.shirt, 0, 0.455, -0.012).scale.set(1.75, 0.42, 0.78);        // trapezius: no hard corner between neck and shoulder
+  for (const sx of [-1, 1]) add(torso, geo('blade', () => new THREE.SphereGeometry(0.075, 12, 10)), km.shirt, sx * 0.085, 0.33, -0.07).scale.set(1, 1.2, 0.5);   // shoulder blades shape the back
   add(torso, geo('pec', () => new THREE.SphereGeometry(0.15, 12, 8)), km.shirt, 0, 0.33, 0.02).scale.set(1.28, 0.62, 0.6);
-  const collar = add(torso, geo('collar', () => new THREE.TorusGeometry(0.068, 0.018, 6, 14)), km.trim, 0, 0.492, 0.004); collar.rotation.x = Math.PI / 2;
+  const collar = add(torso, geo('collar', () => new THREE.TorusGeometry(0.068, 0.016, 8, 24)), km.trim, 0, 0.492, 0.004); collar.rotation.x = Math.PI / 2;
   const ncv = document.createElement('canvas'); ncv.width = ncv.height = 64; const ntex = new THREE.CanvasTexture(ncv); ntex.colorSpace = THREE.SRGBColorSpace;
   const num = new THREE.Mesh(geo('num', () => new THREE.PlaneGeometry(0.24, 0.24)), new THREE.MeshStandardMaterial({ map: ntex, transparent: true, roughness: 0.8 }));
   num.position.set(0, 0.27, -0.137); num.rotation.y = Math.PI; torso.add(num); p.num = { cv: ncv, tex: ntex, mesh: num };
-  add(torso, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.062, 0.1, 10)), skin, 0, 0.53, 0);
+  add(torso, geo('neck', () => new THREE.CylinderGeometry(0.05, 0.064, 0.11, 18)), skin, 0, 0.53, 0);
   // ----- head: skull, jaw, nose, ears, eyes, brows, hair
   const head = new THREE.Group(); head.position.y = 0.655; torso.add(head); p.head = head;
   add(head, geo('skull', () => new THREE.SphereGeometry(0.108, 18, 14)), skin, 0, -0.002, 0, true).scale.set(0.9, 1.21, 1.02);   // one smooth egg shape, so the face shades evenly
@@ -701,34 +703,43 @@ function makePlayer(km) {
   const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.43)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.42; hs.buzz.push(bz);
   const bzt = add(head, geo('buzzTop', () => new THREE.SphereGeometry(0.1138, 20, 10, 0, TAU, 0, Math.PI * 0.26)), bztm, 0, 0.011, -0.002); bzt.scale.set(0.905, 1.104, 1.022); bzt.rotation.x = -0.2; hs.buzz.push(bzt);   // a little more hair on top, faded to almost nothing at the sides   // round and thin, close to the head
   p.look = { skin, hair: hm, stub, hs, bz: bzm, bzt: bztm, lip, teeth };
-  // ----- arms: sleeve, upper arm, elbow, forearm, hand
+  // ----- arms: deltoid, sleeve, upper arm with a biceps, elbow, forearm that swells below the elbow, wrist, hand with fingers and thumb
   p.arms = [];
   for (const sx of [-1, 1]) {
     const sh = new THREE.Group(); sh.position.set(sx * 0.218, 0.41, 0); torso.add(sh);
     const upper = new THREE.Group(); sh.add(upper);
-    add(upper, geo('shoulder', () => new THREE.SphereGeometry(0.074, 10, 8)), km.shirt, 0, 0, 0);
-    add(upper, geo('sleeve', () => new THREE.CylinderGeometry(0.07, 0.062, 0.17, 10)), km.shirt, 0, -0.085, 0, true);
-    if (!LOW) add(upper, geo('cuff', () => new THREE.CylinderGeometry(0.064, 0.064, 0.022, 10)), km.trim, 0, -0.17, 0);
-    add(upper, geo('uarm', () => new THREE.CylinderGeometry(0.052, 0.044, 0.16, 8)), skin, 0, -0.23, 0, true);
+    add(upper, geo('shoulder', () => new THREE.SphereGeometry(0.076, 18, 14)), km.shirt, 0, -0.004, 0).scale.set(1, 1.08, 1.06);
+    add(upper, lathe('sleeve', [[0.001, 0.03], [0.05, 0.022], [0.072, -0.01], [0.074, -0.07], [0.069, -0.15], [0.067, -0.172], [0.001, -0.172]], 18), km.shirt, 0, 0, 0, true);
+    add(upper, geo('cuff', () => new THREE.CylinderGeometry(0.0685, 0.0675, 0.02, 18)), km.trim, 0, -0.166, 0);
+    add(upper, lathe('uarm', [[0.001, -0.13], [0.05, -0.13], [0.054, -0.19], [0.052, -0.24], [0.045, -0.29], [0.041, -0.315], [0.001, -0.315]], 14), skin, 0, 0, 0.004, true).scale.set(0.96, 1, 1.1);
     const elbow = new THREE.Group(); elbow.position.y = -0.31; upper.add(elbow);
-    add(elbow, geo('elbowJ', () => new THREE.SphereGeometry(0.045, 8, 6)), skin, 0, 0, 0);
-    add(elbow, lathe('fore', [[0.001, 0], [0.044, 0], [0.048, -0.07], [0.04, -0.18], [0.031, -0.26], [0.001, -0.26]], 8), skin, 0, 0, 0, true);
-    add(elbow, geo('hand', () => new THREE.SphereGeometry(0.042, 8, 6)), skin, 0, -0.3, 0.005).scale.set(0.55, 1.25, 0.95);
+    add(elbow, geo('elbowJ', () => new THREE.SphereGeometry(0.042, 14, 10)), skin, 0, 0, -0.002);
+    add(elbow, lathe('fore', [[0.001, 0.01], [0.041, 0.005], [0.047, -0.05], [0.046, -0.1], [0.038, -0.18], [0.029, -0.245], [0.027, -0.265], [0.001, -0.265]], 14), skin, 0, 0, 0, true).scale.set(0.95, 1, 1.08);
+    add(elbow, geo('palm', () => new THREE.SphereGeometry(0.036, 12, 10)), skin, 0, -0.298, 0.004).scale.set(0.48, 1.05, 0.98);
+    const fg = add(elbow, geo('fingers', () => new THREE.CapsuleGeometry(0.02, 0.034, 4, 10)), skin, 0, -0.35, 0.012); fg.scale.set(0.42, 0.95, 1.3); fg.rotation.x = -0.25;       // loosely curled
+    const th = add(elbow, geo('thumb', () => new THREE.CapsuleGeometry(0.009, 0.022, 3, 8)), skin, -sx * 0.008, -0.312, 0.03); th.rotation.x = -0.5;
     p.arms.push({ sh, upper, elbow, side: sx });
   }
-  // ----- legs: shorts leg, thigh, knee, sock-covered calf, boot
+  // ----- legs: shorts leg, thigh with quad and hamstring, knee and kneecap, calf muscle, shin pad under the sock, ankle, boot
   p.legs = [];
   for (const sx of [-1, 1]) {
     const hip = new THREE.Group(); hip.position.set(sx * 0.095, -0.08, 0); hips.add(hip);
-    add(hip, geo('shortleg', () => new THREE.CylinderGeometry(0.098, 0.104, 0.2, 10)), km.shorts, 0, -0.1, 0, true);
-    add(hip, lathe('thigh', [[0.001, 0], [0.09, 0], [0.092, -0.12], [0.08, -0.3], [0.064, -0.45], [0.001, -0.45]], 10), skin, 0, 0, 0, true);
+    add(hip, lathe('shortleg', [[0.001, 0.0], [0.078, 0.0], [0.08, -0.04], [0.097, -0.075], [0.103, -0.13], [0.108, -0.2], [0.104, -0.205], [0.001, -0.205]], 20), km.shorts, 0, 0, 0, true);
+    add(hip, lathe('thigh', [[0.001, 0], [0.09, 0], [0.093, -0.1], [0.088, -0.2], [0.077, -0.32], [0.066, -0.4], [0.06, -0.45], [0.001, -0.45]], 16), skin, 0, 0, 0.004, true).scale.set(0.97, 1, 1.1);
     const knee = new THREE.Group(); knee.position.y = -0.45; hip.add(knee);
-    add(knee, geo('kneeJ', () => new THREE.SphereGeometry(0.064, 8, 6)), skin, 0, 0, 0.004);
-    const calf = add(knee, lathe('calf', [[0.001, -0.04], [0.06, -0.04], [0.068, -0.12], [0.07, -0.19], [0.058, -0.3], [0.044, -0.4], [0.042, -0.45], [0.001, -0.45]], 10), km.socks, 0, 0, -0.006, true); calf.scale.z = 1.08;
-    if (!LOW) add(knee, geo('sockband', () => new THREE.CylinderGeometry(0.063, 0.063, 0.03, 10)), km.trim, 0, -0.055, -0.004);
+    add(knee, geo('kneeJ', () => new THREE.SphereGeometry(0.06, 14, 10)), skin, 0, 0, 0.002);
+    add(knee, geo('kneecap', () => new THREE.SphereGeometry(0.034, 10, 8)), skin, 0, 0.004, 0.038).scale.set(1, 1.15, 0.5);
+    add(knee, lathe('calf', [[0.001, -0.03], [0.055, -0.03], [0.058, -0.08], [0.057, -0.2], [0.05, -0.3], [0.042, -0.4], [0.04, -0.45], [0.001, -0.45]], 16), km.socks, 0, 0, 0, true);
+    add(knee, geo('calfM', () => new THREE.SphereGeometry(0.052, 12, 10)), km.socks, 0, -0.15, -0.02).scale.set(1.02, 2.1, 0.8);       // the muscle sits high on the back of the leg
+    add(knee, geo('sockband', () => new THREE.CylinderGeometry(0.0605, 0.061, 0.03, 16)), km.trim, 0, -0.05, 0);
     const ankle = new THREE.Group(); ankle.position.y = -0.45; knee.add(ankle);
-    const bt = add(ankle, geo('boot', () => new THREE.CapsuleGeometry(0.047, 0.15, 4, 8)), boot, 0, -0.045, 0.062, true); bt.rotation.x = Math.PI / 2; bt.scale.set(1, 1, 0.78);
-    add(ankle, geo('sole', () => new THREE.BoxGeometry(0.086, 0.016, 0.235)), sole, 0, -0.084, 0.062);
+    add(ankle, geo('ankleJ', () => new THREE.SphereGeometry(0.043, 10, 8)), km.socks, 0, 0, 0);
+    add(ankle, geo('heel', () => new THREE.SphereGeometry(0.047, 12, 10)), boot, 0, -0.04, -0.004, true).scale.set(0.95, 0.92, 1.05);
+    const bt = add(ankle, geo('boot', () => new THREE.CapsuleGeometry(0.046, 0.1, 6, 12)), boot, 0, -0.046, 0.07, true); bt.rotation.x = Math.PI / 2 + 0.06; bt.scale.set(1, 1, 0.82);
+    add(ankle, geo('toe', () => new THREE.SphereGeometry(0.046, 12, 10)), boot, 0, -0.056, 0.148, true).scale.set(0.98, 0.6, 1.25);
+    const lc = add(ankle, geo('laces', () => new THREE.BoxGeometry(0.03, 0.005, 0.085)), laces, 0, -0.008, 0.082); lc.rotation.x = 0.32;
+    add(ankle, geo('sole', () => new THREE.CapsuleGeometry(0.041, 0.16, 3, 10)), sole, 0, -0.08, 0.064).rotation.x = Math.PI / 2; ankle.children[ankle.children.length - 1].scale.set(1, 1, 0.22);
+    for (const [zx, zz] of [[0.022, 0.0], [-0.022, 0.0], [0.024, 0.13], [-0.024, 0.13]]) add(ankle, geo('stud', () => new THREE.CylinderGeometry(0.007, 0.005, 0.014, 6)), sole, zx, -0.092, zz);
     p.legs.push({ hip, knee, ankle, side: sx });
   }
   g.userData.parts = p;
