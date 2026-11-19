@@ -563,8 +563,10 @@ function squadFor(ci) {
       skin: SKIN[Math.floor(r() * SKIN.length)], hair: HAIR[Math.floor(r() * HAIR.length)], style: STYLES[Math.floor(r() * STYLES.length)] });
   });
   for (const i in c.edits || {}) if (c.squad[i]) applyEdit(c.squad[i], c.edits[i]);
+  nolan7(c.squad);
   return c.squad;
 }
+function nolan7(sq) { const m = sq.find(p => p.max); if (!m || m.num === 7) return; const o = sq.find(p => p.num === 7); if (o) o.num = m.num; m.num = 7; }   // Nolan wears 7; whoever had it takes his old number
 function applyEdit(sp, e) {
   if (typeof e.n === 'string' && e.n.trim()) sp.name = e.n.trim().slice(0, 14).toUpperCase();
   if (['GK', 'DF', 'MF', 'FW'].includes(e.p)) { sp.pos = e.p; sp.gk = e.p === 'GK' ? sp.ovr : 30; }
@@ -2032,7 +2034,7 @@ function signStar(role) {
     const old = (c.edits || {})[si] || {}, mine = /nolan/i.test(old.n || '');
     Object.assign(e, { n: 'NOLAN', o: 130, k: mine && old.k != null ? old.k : 0xd8a074, h: mine && old.h != null ? old.h : 0x0c0a08, s: mine && old.s ? old.s : 'buzz' });
   }
-  (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e);
+  (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e); nolan7(sq);
   const at = l.indexOf(si); if (at !== slot) [l[at], l[slot]] = [l[slot], l[at]];
   tsSel = -1; refreshMenu(); saveAll(); AudioSys.goal();
 }
@@ -2063,7 +2065,7 @@ const ED_HAIR = [0x111111, 0x2b1a0e, 0x4a2f18, 0x7a4a22, 0xb5521e, 0xc9a25a, 0xf
 function lookRow(label, k, cols, cur) { return '<div class="fld">' + label + '<div class="sw">' + cols.map(c => '<button class="swc' + (c === cur ? ' on' : '') + '" data-lk="' + k + '" data-v="' + c + '" style="background:#' + c.toString(16).padStart(6, '0') + '"></button>').join('') + '</div></div>'; }
 ACT.doEdit = () => {
   const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value, ...edLook };
-  (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); tsSel = -1; closePanel(); refreshMenu(); saveAll();
+  (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); nolan7(squadFor(sel.home)); tsSel = -1; closePanel(); refreshMenu(); saveAll();
 };
 const FRIENDS = [
   { n: 'BRADY', k: 0xf0c8a0, h: 0x7a4a22, s: 'short' }, { n: 'EZRA', k: 0xe0a878, h: 0x111111, s: 'crop' },
