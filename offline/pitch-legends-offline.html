@@ -1887,7 +1887,9 @@ function updateCamera(dt) {
 /* ============================== main update ============================== */
 const byBall = (a, b) => a._d - b._d;
 function update(dt) {
-  dt = Math.min(dt, 0.05); G.time += dt; pollPad();
+  dt = Math.min(dt, 0.05);
+  if (ball.flickBy && !ball.owner && G.state === 'play' && !G.strike) dt *= 0.3;         // slow motion while a flicked ball is in the air, so there is time to choose
+  G.time += dt; pollPad();
   if (pressed('pause')) togglePause();
   const idle = G.state === 'menu' || G.state === 'halftime' || G.state === 'full' || G.paused;
   if (idle) { for (const p of players) { stand(p, dt); animatePlayer(p, dt); } ballVisual(0); updateCamera(dt); for (const ab of adBoards) ab.t.offset.x += ab.speed * dt; clearPresses(); return; }
