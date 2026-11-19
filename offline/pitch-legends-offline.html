@@ -138,6 +138,7 @@
   .abtn.shoot { right: 0; bottom: 18px; width: 92px; height: 92px; font-size: 17px; background: radial-gradient(120% 120% at 35% 30%, #ff6a7a, #e31e2c); }
   .abtn.pass { right: 96px; bottom: 2px; width: 78px; height: 78px; font-size: 15px; background: radial-gradient(120% 120% at 35% 30%, #58a6ff, #1e78e3); }
   .abtn.thru { right: 20px; bottom: 112px; width: 74px; height: 74px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #ffe27a, #f0b400); color: #3a2a00; text-shadow: none; }
+  .abtn.rainbow { right: 200px; bottom: 100px; width: 66px; height: 66px; font-size: 10.5px; background: conic-gradient(from 200deg, #ff4d4d, #ffb020, #ffe84d, #4dd56a, #3fa7ff, #9b5cff, #ff4d4d); text-shadow: 0 1px 3px rgba(0,0,0,.8); }
   .abtn.flick { right: 196px; bottom: 26px; width: 68px; height: 68px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #c08bff, #7a3fd0); }
   .abtn.sprint { right: 120px; bottom: 104px; width: 72px; height: 72px; font-size: 13px; background: radial-gradient(120% 120% at 35% 30%, #6ff0b0, #19b874); color: #04210f; text-shadow: none; }
   body.touch #radar { bottom: 6px; width: 132px; height: 84px; opacity: .8; }
@@ -174,6 +175,7 @@
 <div id="joyZone"><div id="joyHint">TOUCH &amp;<br>DRAG<br>TO MOVE</div></div>
 <div id="joyBase" style="display:none"></div><div id="joyKnob" style="display:none"></div>
 <div id="btns">
+  <div class="abtn rainbow" data-b="rainbow">RAINBOW<span class="sub">OVER</span></div>
   <div class="abtn flick" data-b="flick">FLICK<span class="sub" id="bFlickS">UP</span></div>
   <div class="abtn sprint" data-b="sprint">SPRINT<span class="sub" id="bSprintS">OFF</span></div>
   <div class="abtn thru" data-b="thru"><span id="bThru">THRU</span><span class="sub" id="bThruS">BALL</span></div>
@@ -779,7 +781,7 @@ function buildTeams() {
   });
 }
 buildTeams();
-const TIMERS = ['lunge', 'slide', 'dive', 'cool', 'knock', 'jump', 'down', 'tackleLive', 'kickAnim', 'throwT', 'move'];
+const TIMERS = ['lunge', 'slide', 'dive', 'cool', 'knock', 'jump', 'down', 'tackleLive', 'kickAnim', 'throwT', 'move', 'wrong'];
 // special moves: 1 bicycle kick, 2 diving header, 3 volley, 4 backheel, 5 rocket, 6 chip, 7 shoulder charge
 const MOVE_DUR = [0, 1.0, 0.85, 0.6, 0.5, 0.7, 0.5, 0.42];
 function startMove(p, k, side) { p.moveK = k; p.moveSide = side || 1; p.move = MOVE_DUR[k]; }
@@ -801,7 +803,7 @@ const IS_TOUCH = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 if (IS_TOUCH) document.body.classList.add('touch');
 const keys = {};
 const KEYMAP = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right', ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-  ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyJ: 'pass', Space: 'pass', KeyK: 'through', KeyL: 'shoot', KeyI: 'lob', KeyQ: 'switch', KeyE: 'tackle', KeyF: 'slide', KeyO: 'flick', Escape: 'pause', KeyP: 'pause' };
+  ShiftLeft: 'sprint', ShiftRight: 'sprint', KeyJ: 'pass', Space: 'pass', KeyK: 'through', KeyL: 'shoot', KeyI: 'lob', KeyQ: 'switch', KeyE: 'tackle', KeyF: 'slide', KeyO: 'flick', KeyU: 'rainbow', Escape: 'pause', KeyP: 'pause' };
 function press(k) { if (!keys[k]) keys[k + '_p'] = true; keys[k] = true; }
 function unpress(k) { keys[k] = false; }
 const typing = e => e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
@@ -832,9 +834,9 @@ function setSprintLock(v) { sprintLock = v; const el = document.querySelector('.
 document.querySelectorAll('#btns .abtn').forEach(btn => {
   const b = btn.dataset.b;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); AudioSys.resume();
-    if (b === 'sprint') setSprintLock(!sprintLock); else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); else if (b === 'flick') press('flick'); });
+    if (b === 'sprint') setSprintLock(!sprintLock); else if (b === 'shoot') press('shoot'); else if (b === 'pass') passDownT = performance.now(); else if (b === 'thru') press('through'); else if (b === 'flick') press('flick'); else if (b === 'rainbow') press('rainbow'); });
   const up = e => { e.preventDefault();
-    if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through'); else if (b === 'flick') unpress('flick');
+    if (b === 'shoot') unpress('shoot'); else if (b === 'thru') unpress('through'); else if (b === 'flick') unpress('flick'); else if (b === 'rainbow') unpress('rainbow');
     else if (b === 'pass' && passDownT) { keys[(performance.now() - passDownT > 280 && ball.owner === userPlayer) ? 'lob_p' : 'pass_p'] = true; passDownT = 0; } };
   btn.addEventListener('pointerup', up);
   btn.addEventListener('pointercancel', () => { if (b === 'shoot') unpress('shoot'); if (b === 'thru') unpress('through'); passDownT = 0; });
@@ -908,7 +910,7 @@ function resetFormation(kickTeam) {
 ball.kickId = 0; ball.kicker = null; ball.lastBy = null;
 function clearPass() { ball.target = null; ball.passFrom = null; ball.offside = null; }
 function releaseBall(vx, vy, vz, who) {
-  ball.curl = null; ball.flickBy = null; ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
+  ball.curl = null; ball.flickBy = null; ball.rainbow = false; ball.owner = null; ball.loose = 0.3; ball.kicker = who; ball.lastBy = who; G.lastTouch = who.team; ball.kickId++;
   ball.vel.set(vx, vy, vz); who.cool = 0.25; who.setPiece = null; G.keepOff = null; G.penHold = false; G.setPlay = null;
 }
 function registerShot(p) { S(p.team).shots++; ball.shot = { team: p.team, by: p, counted: false }; }
@@ -1107,6 +1109,12 @@ function flick(p) {                                                             
   releaseBall(p.vel.x * 0.92, 7.6, p.vel.z * 0.92, p); ball.pos.y = 0.3; ball.flickBy = p; clearPass(); ball.shot = null; startMove(p, 6); AudioSys.pass();
   showToast('FLICK!', 0.6, 'sm');
 }
+function rainbow(p) {                                                                   // heel the ball up and over the defender, then run on to it
+  const fx = Math.sin(p.facing), fz = Math.cos(p.facing), v = Math.max(p.speed, 3.5) + 3.2;
+  releaseBall(fx * v, 8.6, fz * v, p); ball.pos.set(p.pos.x - fx * 0.25, 0.45, p.pos.z - fz * 0.25); ball.flickBy = p; ball.rainbow = true;
+  for (const o of teamList(otherTeam(p.team))) if (!o.isGK && dist2(o.pos.x, o.pos.z, p.pos.x + fx * 2.5, p.pos.z + fz * 2.5) < 4.5 * 4.5) o.wrong = 1.0;
+  clearPass(); ball.shot = null; startMove(p, 4); p.knock = 1.1; AudioSys.pass(); showToast('RAINBOW!', 0.8, 'sm');
+}
 function aerialStrike(p, forceAim) {
   if (G.strike) return;
   if (ball.offside && ball.offside.has(p) && ball.passFrom && ball.passFrom.team === p.team) { callOffside(p); return; }
@@ -1241,6 +1249,7 @@ function cornerSpot(p, sp) {
 function aiPlayer(p, dt) {
   if (p.down > 0 || p.slide > 0) { if (p.down > 0) stand(p, dt); return; }
   if (p.isGK) { updateGK(p, dt); return; }
+  if (p.wrong > 0) { stand(p, dt, true); return; }                                       // beaten by a rainbow: caught flat-footed, watching the ball go over
   if (ball.owner === p) { dribbleAI(p, dt); return; }
   if (G.penHold || (G.state === 'deadball' && G.restart && G.restart.type === 'penalty')) { stand(p, dt, true); return; }
   const dir = G.attackingDir[p.team], o = ball.owner, weOwn = o && o.team === p.team, theyOwn = o && o.team !== p.team;
@@ -1411,6 +1420,7 @@ function userControl(p, dt) {
   if (haveBall) {
     pressed('switch'); pressed('tackle'); pressed('slide');
     const aim = inp.ang != null ? inp.ang : sp ? p.facing : null;
+    if (pressed('rainbow') && !sp) { rainbow(p); powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; return; }
     if (pressed('flick') && !sp) { flick(p); powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; return; }
     if (pressed('pass')) doPass(p, false, false, aim);
     else if (pressed('through')) doPass(p, false, true, aim);
@@ -1422,7 +1432,7 @@ function userControl(p, dt) {
   } else {
     powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; pressed('lob');
     const sh = pressed('shoot'), tk = pressed('tackle');
-    pressed('flick');
+    pressed('flick'); pressed('rainbow');
     if (sh && (p.at.max || ball.flickBy === p) && !ball.owner && (ball.flickBy === p || ball.pos.y > 0.45) && ball.pos.y < 2.8 && dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < 2.4 * 2.4 && G.state === 'play' && !G.so) aerialStrike(p, aimShotZ());
     else if (sh || tk) { if (!shoulder(p)) tryTackle(p, false); }
     if (pressed('through') || pressed('slide')) tryTackle(p, true);
@@ -1676,7 +1686,7 @@ function updateHUD(dt) {
     const have = ball.owner === userPlayer;
     if (have !== lastHave) {
       lastHave = have;
-      hintEl.innerHTML = have ? '<b>J</b> pass · <b>K</b> through · <b>I</b> lob<br><b>L</b> hold to shoot · <b>O</b> flick · <b>Shift</b> sprint' : '<b>J</b> switch · <b>L</b> tackle · <b>K</b> slide<br><b>Shift</b> sprint';
+      hintEl.innerHTML = have ? '<b>J</b> pass · <b>K</b> through · <b>I</b> lob<br><b>L</b> hold to shoot · <b>O</b> flick · <b>U</b> rainbow · <b>Shift</b> sprint' : '<b>J</b> switch · <b>L</b> tackle · <b>K</b> slide<br><b>Shift</b> sprint';
       $('bPass').textContent = have ? 'PASS' : 'SWITCH'; $('bPassS').textContent = have ? 'hold=lob' : 'player';
       $('bShoot').textContent = have ? 'SHOOT' : 'TACKLE'; $('bShootS').textContent = have ? 'hold' : '';
       $('bThru').textContent = have ? 'THRU' : 'SLIDE'; $('bThruS').textContent = have ? 'BALL' : 'TACKLE';
@@ -1900,7 +1910,7 @@ function updateCamera(dt) {
 const byBall = (a, b) => a._d - b._d;
 function update(dt) {
   dt = Math.min(dt, 0.05);
-  if (ball.flickBy && !ball.owner && G.state === 'play' && !G.strike && ball.pos.y > 0.2 && ball.flickBy === userPlayer) dt *= 0.3;
+  if (ball.flickBy && !ball.owner && G.state === 'play' && !G.strike && ball.pos.y > 0.2 && ball.flickBy === userPlayer && !ball.rainbow) dt *= 0.3;
   else if (ball.flickBy && (ball.owner || G.state !== 'play')) ball.flickBy = null;         // slow motion while a flicked ball is in the air, so there is time to choose
   G.time += dt; pollPad();
   if (pressed('pause')) togglePause();
