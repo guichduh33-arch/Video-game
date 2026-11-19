@@ -218,7 +218,7 @@
       <button class="opt on" data-d="-1">Beginner</button><button class="opt" data-d="0">Amateur</button><button class="opt" data-d="1">Pro</button><button class="opt" data-d="2">Legend</button>
     </div>
     <div class="row">
-      <span id="lenRow" class="row" style="margin:0"><button class="opt on" data-l="120">2 min halves</button><button class="opt" data-l="240">4 min</button><button class="opt" data-l="360">6 min</button></span>
+      <span id="lenRow" class="row" style="margin:0"><button class="opt" data-l="120">2 min halves</button><button class="opt on" data-l="300">5 min</button><button class="opt" data-l="600">10 min</button></span>
       <span id="todRow" class="row" style="margin:0"><button class="opt on" data-t="day">☀ Day</button><button class="opt" data-t="night">☾ Night</button></span>
     </div>
     <div class="mut" style="margin-top:8px">Camera (C or 1–6 in a match)</div>
@@ -877,7 +877,7 @@ const AudioSys = (() => {
 const G = {
   state: 'menu',          // menu, kickoff, play, deadball, celebrate, replay, halftime, sowait, full
   paused: false, mode: 'quick', night: false, easy: true,          // easy = Beginner: slower, gentler opponents and extra help for you
-  score: { home: 0, away: 0 }, clock: 0, half: 1, halfLen: 120, difficulty: 0,
+  score: { home: 0, away: 0 }, clock: 0, half: 1, halfLen: 300, difficulty: 0,
   attackingDir: { home: 1, away: -1 }, lastTouch: null, restart: null, keepOff: null, setPlay: null, penHold: false,
   celebrateT: 0, flash: 0, possTeam: null, scorer: null, celeSpot: { x: 0, z: 0 }, concede: 'home', goals: [],
   clubs: { home: 0, away: 1 }, stats: null, near: { home: [], away: [] }, offLine: { home: 0, away: 0 }, so: null, cup: null, time: 0,
