@@ -766,8 +766,11 @@ function buildTeams() {
   });
 }
 buildTeams();
-const TIMERS = ['lunge', 'slide', 'dive', 'cool', 'knock', 'jump', 'down', 'tackleLive', 'kickAnim', 'throwT'];
-function resetPlayerState(p) { for (const k of TIMERS) p[k] = 0; p.celebrate = 0; p.setPiece = null; p.setT = 0; p.holdT = 0; p.gkClear = 0; p.react = 0; p.dived = false; p.diveSide = 1; p.tackleDone = true; p.vel.set(0, 0, 0); p.stamina = 1; }
+const TIMERS = ['lunge', 'slide', 'dive', 'cool', 'knock', 'jump', 'down', 'tackleLive', 'kickAnim', 'throwT', 'move'];
+// special moves: 1 bicycle kick, 2 diving header, 3 volley, 4 backheel, 5 rocket, 6 chip, 7 shoulder charge
+const MOVE_DUR = [0, 1.0, 0.85, 0.6, 0.5, 0.7, 0.5, 0.42];
+function startMove(p, k, side) { p.moveK = k; p.moveSide = side || 1; p.move = MOVE_DUR[k]; }
+function resetPlayerState(p) { for (const k of TIMERS) p[k] = 0; p.celebrate = 0; p.setPiece = null; p.setT = 0; p.holdT = 0; p.gkClear = 0; p.react = 0; p.dived = false; p.diveSide = 1; p.tackleDone = true; p.vel.set(0, 0, 0); p.stamina = 1; p.moveK = 0; p.moveSide = 1; }
 // put a club's squad onto the 11 bodies of a side
 function loadSquads(hi, ai) {
   players.length = homeTeam.length = awayTeam.length = 0;
@@ -965,6 +968,19 @@ function doShoot(p, power, aimZ) {
   const sp = lerp(17, 32, power);
   let vy = lerp(1.0, 4.2, power) + d0 * 0.11 * power + rand(-0.5, 0.5) * (1 + power);
   if (power > 0.93) vy += rand(0, 3.6);                    // leaning back on a full-blooded hit
+  const nol = p.at && p.at.max && !p.setPiece, fd = (Math.sin(p.facing) * dx + Math.cos(p.facing) * dz) / d;
+  const gk = nol && teamList(otherTeam(p.team)).find(q => q.isGK), gkOut = gk ? Math.abs(gx - gk.pos.x) : 0;
+  if (nol && fd < -0.2) {                                                               // goal behind him: backheel
+    releaseBall(dx / d * 21, 1.4, dz / d * 21, p); startMove(p, 4); clearPass(); registerShot(p); AudioSys.kick(); showToast('BACKHEEL!', 0.9, 'sm'); return;
+  }
+  if (nol && power >= 0.9) {                                                            // full power: a straight rocket
+    const a2 = Math.atan2(dx, dz) + (Math.random() - 0.5) * 0.03, v = 40;
+    releaseBall(Math.sin(a2) * v, 1.3 + d0 * 0.085, Math.cos(a2) * v, p); startMove(p, 5); clearPass(); registerShot(p); p.facing = a2; p.kickAnim = 1; AudioSys.kick(); G.flash = 0.25; showToast('ROCKET!', 0.9, 'sm'); return;
+  }
+  if (nol && power <= 0.36 && d < 26 && gkOut > 2.2) {                                  // a tap with the keeper off his line: chip him
+    const v = clamp(d * 0.62 + 5, 10, 19), T = d / v;
+    releaseBall(dx / d * v, (1.0 + 8 * T * T) / T, dz / d * v, p); startMove(p, 6); clearPass(); registerShot(p); p.facing = Math.atan2(dx, dz); p.kickAnim = 1; AudioSys.pass(); showToast('CHIP!', 0.9, 'sm'); return;
+  }
   if (p.at && p.at.max && p.setPiece !== 'penalty') {                                   // only Nolan bends it: the ball starts wide of the post and swings back in
     const th = clamp(0.16 + d * 0.006, 0.2, 0.34), side = (Math.sign(aimZ) || 1) * (Math.sign(dx) || 1), T = d / (sp * Math.cos(th)), a = 2 * sp * Math.sin(th) / T;
     const fx = Math.sin(ang), fz = Math.cos(ang), qx = -fz * side, qz = fx * side;         // q points out toward the side the ball starts on
@@ -992,6 +1008,22 @@ function callOffside(p) {
 }
 
 /* ---------- tackling, fouls and cards ---------- */
+// running side by side with the man on the ball: lean in and take it with the shoulder
+function shoulder(p) {
+  const o = ball.owner; if (!o || o.team === p.team || o.isGK || o.setPiece || p.move > 0 || p.lunge > 0) return false;
+  const dx = o.pos.x - p.pos.x, dz = o.pos.z - p.pos.z, d = Math.hypot(dx, dz);
+  if (d > 1.7 || Math.sin(p.facing) * Math.sin(o.facing) + Math.cos(p.facing) * Math.cos(o.facing) < 0.35 || p.speed < 2.5) return false;
+  const lat = dx * Math.cos(p.facing) - dz * Math.sin(p.facing); if (Math.abs(lat) < 0.25) return false;
+  startMove(p, 7, Math.sign(lat)); p.cool = 0.15;
+  const mine = p.at.max;
+  if (!mine && Math.random() < 0.07) { foul(p, o, false); return true; }
+  if (Math.random() < (mine ? 0.97 : 0.68)) {
+    ball.owner = null; ball.loose = 0.2; ball.kicker = o; ball.lastBy = p; G.lastTouch = p.team; clearPass(); ball.shot = null;
+    ball.vel.set(p.vel.x * 1.15, 0, p.vel.z * 1.15); o.cool = 0.9; o.lunge = 0.35; o.vel.multiplyScalar(0.35);
+    S(p.team).tackles++; p.st.tackles++; AudioSys.kick(); say(pick(['%s muscles him off the ball.', 'Shoulder to shoulder — %s wins it.']), p);
+  }
+  return true;
+}
 function tryTackle(p, slide) {
   if (p.lunge > 0 || p.slide > 0 || p.down > 0 || p.isGK) return;
   p.tackleSlide = slide; p.tackleDone = false;
@@ -1008,6 +1040,7 @@ function tackleStep(p) {
     const skill = (p.at.def - 70) / 100 - (o.at.pas - 70) / 250 + (p.team === 'away' ? (G.easy ? -0.3 : [-0.14, 0, 0.1][G.difficulty]) : p.user ? (G.easy ? 0.3 : 0.08) : -0.08);
     let win = (sl ? 0.7 : 0.56) + skill, foulP = sl ? 0.13 : 0.025;
     if (behind) { win *= 0.5; foulP = sl ? 0.7 : 0.28; }
+    if (p.at.max) { win = Math.max(win, 0.93); foulP *= 0.1; }                              // Nolan times every kind of tackle
     if (G.easy && p.team === 'home') foulP *= 0.3;
     if (Math.random() < foulP) { foul(p, o, behind); return; }
     if (Math.random() < win) {
@@ -1051,7 +1084,32 @@ function header(p) {
   } else if (dOwn < 26) ball.vel.set(dir * rand(9, 14), rand(4, 7), rand(-6, 6));
   else { const t = nearestTeammate(p, false); if (t) { const dx = t.pos.x - p.pos.x, dz = t.pos.z - p.pos.z, d = Math.hypot(dx, dz) || 1; ball.vel.set(dx / d * 9, 1.5, dz / d * 9); ball.target = t; ball.passFrom = p; } else ball.vel.set(dir * 8, 3, rand(-3, 3)); }
 }
+// Nolan meets a ball in the air: bicycle kick, diving header or volley. The ball is struck a beat after he takes off, so the move reads properly.
+function aerialStrike(p, forceAim) {
+  if (G.strike) return;
+  if (ball.offside && ball.offside.has(p) && ball.passFrom && ball.passFrom.team === p.team) { callOffside(p); return; }
+  const gx = targetGoalX(p.team), y = ball.pos.y, dxg = gx - p.pos.x, dg = Math.hypot(dxg, p.pos.z) || 1, fd = (Math.sin(p.facing) * dxg - Math.cos(p.facing) * p.pos.z) / dg;
+  const k = y < 1.2 ? 3 : (fd > 0.35 && Math.random() < 0.45 ? 2 : 1), aimZ = forceAim != null ? forceAim : rand(-1, 1) * (GHW - 0.6);
+  startMove(p, k, Math.random() < 0.5 ? -1 : 1); p.cool = MOVE_DUR[k]; p.jump = 0;
+  if (k === 1) p.facing = Math.atan2(-dxg, p.pos.z); else p.facing = Math.atan2(dxg, -p.pos.z);      // a bicycle kick is hit with his back to goal
+  if (k === 2) { p.vel.x = dxg / dg * 6.5; p.vel.z = -p.pos.z / dg * 6.5; } else { p.vel.x *= 0.3; p.vel.z *= 0.3; }
+  ball.kicker = p; ball.lastBy = p; G.lastTouch = p.team; clearPass(); ball.shot = null;
+  G.strike = { p, t: k === 1 ? 0.3 : k === 2 ? 0.22 : 0.16, h: k === 1 ? 1.75 : k === 2 ? 1.25 : 0.95, aimZ, k };
+  showToast(k === 1 ? 'BICYCLE KICK!' : k === 2 ? 'DIVING HEADER!' : 'VOLLEY!', 1.1, 'sm');
+}
+function strikeStep(dt) {
+  const st = G.strike, p = st.p, e = 1 - Math.exp(-16 * dt), ahead = st.k === 1 ? -0.25 : 0.55;
+  st.t -= dt; ball.vel.set(0, 0, 0);
+  ball.pos.x += (p.pos.x + Math.sin(p.facing) * ahead - ball.pos.x) * e; ball.pos.z += (p.pos.z + Math.cos(p.facing) * ahead - ball.pos.z) * e; ball.pos.y += (st.h - ball.pos.y) * e;
+  if (st.t > 0) return;
+  G.strike = null;
+  const gx = targetGoalX(p.team), dx = gx - ball.pos.x, dz = st.aimZ - ball.pos.z, d = Math.hypot(dx, dz) || 1, v = st.k === 1 ? 28 : st.k === 2 ? 22 : 33, T = d / v;
+  ball.vel.set(dx / d * v, clamp((0.9 - ball.pos.y) / T + 8 * T, -6, 9), dz / d * v);
+  ball.loose = 0.3; ball.kickId++; ball.kicker = p; ball.lastBy = p; registerShot(p); AudioSys.kick();
+  say(pick(st.k === 1 ? ['An overhead kick from %s!', '%s goes acrobatic!'] : st.k === 2 ? ['%s throws himself at it!', 'Diving header, %s!'] : ['%s catches it on the volley!', 'First time from %s!']), p);
+}
 function ballContacts() {
+  if (G.strike) return;
   if (ball.owner || G.state !== 'play' || G.so) return;
   let p = null, bd = 1e9;
   for (const q of players) {
@@ -1066,8 +1124,10 @@ function ballContacts() {
       ball.vel.x = -ball.vel.x * 0.25 + rand(-3, 3); ball.vel.z = -ball.vel.z * 0.25 + rand(-3, 3); ball.vel.y = rand(1, 4);
       G.lastTouch = p.team; ball.lastBy = p; ball.kicker = p; ball.loose = 0.25; clearPass(); p.cool = 0.3; AudioSys.kick();
       if (ball.shot) { say(pick(['Blocked by %s!', '%s throws himself in the way!']), p); ball.shot = null; }
+    } else if (p.at && p.at.max && y > 0.45 && sp > 6 && bd < 1.2 && ball.kicker !== p && Math.hypot(targetGoalX(p.team) - p.pos.x, p.pos.z) < 26) { aerialStrike(p, p.user ? aimShotZ() : null);   // a dropping ball near goal: he hits it first time
     } else if (bd < 0.9 && sp < (mine ? 30 : 17)) gainPossession(p);
-  } else if (y > 1.15 && y < 2.45 && bd < 0.85 && ball.vel.y < 3) header(p);
+  } else if (p.at && p.at.max && y > 1.05 && y < 2.6 && bd < 1.3 && ball.vel.y < 5 && Math.hypot(targetGoalX(p.team) - p.pos.x, p.pos.z) < 32) aerialStrike(p, p.user ? aimShotZ() : null);
+  else if (y > 1.15 && y < 2.45 && bd < 0.85 && ball.vel.y < 3) header(p);
 }
 
 /* ============================== goalkeeper ============================== */
@@ -1336,7 +1396,9 @@ function userControl(p, dt) {
     else if (shootArmed && powerCharge > 0.02) { doShoot(p, clamp(powerCharge, 0.25, 1), aimShotZ()); powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; }
   } else {
     powerCharge = 0; shootArmed = false; powEl.style.opacity = 0; pressed('lob');
-    if (pressed('shoot') || pressed('tackle')) tryTackle(p, false);
+    const sh = pressed('shoot'), tk = pressed('tackle');
+    if (sh && p.at.max && !ball.owner && ball.pos.y > 0.45 && ball.pos.y < 2.8 && dist2(p.pos.x, p.pos.z, ball.pos.x, ball.pos.z) < 2.4 * 2.4 && G.state === 'play' && !G.so) aerialStrike(p, aimShotZ());
+    else if (sh || tk) { if (!shoulder(p)) tryTackle(p, false); }
     if (pressed('through') || pressed('slide')) tryTackle(p, true);
     if (pressed('pass') || pressed('switch')) { const w = pickUserPlayer(); if (w && w !== p) setUser(w); }
   }
@@ -1347,6 +1409,7 @@ const _ax = V3();
 function updateBall(dt) {
   if (ball.loose > 0) ball.loose -= dt;
   if (ball.owner) return;
+  if (G.strike) { if (G.state === 'play') { strikeStep(dt); return; } G.strike = null; }
   const px = ball.pos.x;
   if (ball.curl) { const c = ball.curl; c.t -= dt; if (c.t <= 0 || ball.vel.x * c.fx + ball.vel.z * c.fz < 2) ball.curl = null; else { ball.vel.x += c.x * dt; ball.vel.z += c.z * dt; } }   // swerve stops once the ball is blocked or arrives
   ball.vel.y -= 16 * dt; ball.pos.addScaledVector(ball.vel, dt);
@@ -1514,12 +1577,12 @@ function onGoal(team, g) {
   else if (scorer) say(pick(['%s! What a finish for ' + c.n + '!', 'GOAL! %s makes no mistake!', 'It is in! %s wheels away in celebration!', 'Clinical from %s — the keeper had no chance.']), scorer);
   if (G.half === 3) G.golden = true;
 }
-const REC = { n: 240, f: [], i: 0, acc: 0 }, RSTR = 4 + 22 * 13;
+const REC = { n: 240, f: [], i: 0, acc: 0 }, RSTR = 4 + 22 * 15;
 function recFrame(dt) {
   REC.acc += dt; if (REC.acc < 1 / 30) return; REC.acc = 0;
   const a = REC.f[REC.i] || (REC.f[REC.i] = new Float32Array(RSTR)); REC.i = (REC.i + 1) % REC.n;
   a[0] = G.time; a[1] = ball.pos.x; a[2] = ball.pos.y; a[3] = ball.pos.z; let k = 4;
-  for (const p of allPlayers) { a[k++] = p.pos.x; a[k++] = p.pos.z; a[k++] = p.facing; a[k++] = p.vel.x; a[k++] = p.vel.z; a[k++] = p.kickAnim; a[k++] = p.dive; a[k++] = p.diveSide; a[k++] = p.slide; a[k++] = p.jump; a[k++] = p.celebrate; a[k++] = p.down; a[k++] = p.lunge; }
+  for (const p of allPlayers) { a[k++] = p.pos.x; a[k++] = p.pos.z; a[k++] = p.facing; a[k++] = p.vel.x; a[k++] = p.vel.z; a[k++] = p.kickAnim; a[k++] = p.dive; a[k++] = p.diveSide; a[k++] = p.slide; a[k++] = p.jump; a[k++] = p.celebrate; a[k++] = p.down; a[k++] = p.lunge; a[k++] = p.move || 0; a[k++] = (p.moveK || 0) * (p.moveSide || 1); }
 }
 function startReplay() {
   const fr = REC.f.filter(a => a && a[0] >= G.goalT - 4.6 && a[0] <= G.goalT + 1.3).sort((a, b) => a[0] - b[0]);
@@ -1534,7 +1597,7 @@ function updateReplay(dt) {
   let k = 4;
   for (const p of allPlayers) {
     p.pos.x = lerp(a[k], b[k], u); p.pos.z = lerp(a[k + 1], b[k + 1], u); p.facing = a[k + 2] + angDiff(b[k + 2], a[k + 2]) * u;
-    p.vel.x = a[k + 3]; p.vel.z = a[k + 4]; p.kickAnim = a[k + 5]; p.dive = a[k + 6]; p.diveSide = a[k + 7]; p.slide = a[k + 8]; p.jump = a[k + 9]; p.celebrate = a[k + 10]; p.down = a[k + 11]; p.lunge = a[k + 12]; k += 13;
+    p.vel.x = a[k + 3]; p.vel.z = a[k + 4]; p.kickAnim = a[k + 5]; p.dive = a[k + 6]; p.diveSide = a[k + 7]; p.slide = a[k + 8]; p.jump = a[k + 9]; p.celebrate = a[k + 10]; p.down = a[k + 11]; p.lunge = a[k + 12]; p.move = a[k + 13]; p.moveK = Math.abs(a[k + 14]); p.moveSide = Math.sign(a[k + 14]) || 1; k += 15;
   }
   if (rp.t >= fr[fr.length - 1][0] || pressed('pass') || pressed('shoot') || keys.gesture || tapSkip) { tapSkip = false; keys.gesture = null; endReplay(); }
 }
@@ -1625,9 +1688,12 @@ function animatePlayer(p, dt) {
   p.bank = damp(p.bank, clamp(-yawRate * 0.035 * run, -0.22, 0.22), 8, dt);           // lean into turns
   p.gait += sp * dt / lerp(0.9, 1.75, run) * Math.PI;                                  // phase advances with distance, so feet do not skate
   const ph = p.gait, amp = lerp(0.1, 1.05, run);
-  let rootX = 0, rootZ = p.bank, rootY = 0, rate = 18;
+  const acc = dt > 0 ? (sp - (p.prevSp == null ? sp : p.prevSp)) / dt : 0; p.prevSp = sp;
+  p.leanA = damp(p.leanA || 0, clamp(acc * 0.014, -0.22, 0.2), 6, dt);                   // drives forward when accelerating, sits back when braking
+  const idle = sp < 0.5 ? 1 - sp / 0.5 : 0;
+  let rootX = 0, rootZ = p.bank + Math.sin(ph) * 0.035 * amp + idle * Math.sin(T * 0.7 + p.idx * 1.3) * 0.022, rootY = 0, rate = 18;   // shoulders roll with the stride; weight shifts when standing
   let hipsY = 0.98 - run * 0.04 + Math.cos(ph * 2) * amp * 0.025;                       // pelvis bobs twice per stride
-  let torsoX = run * 0.26 + (sp < 0.6 ? Math.sin(T * 1.7 + p.idx) * 0.018 : 0), torsoY = -Math.sin(ph) * 0.2 * amp;
+  let torsoX = run * 0.26 + p.leanA + (sp < 0.6 ? Math.sin(T * 1.7 + p.idx) * 0.018 : 0), torsoY = -Math.sin(ph) * 0.2 * amp;
   const hipsYaw = Math.sin(ph) * 0.09 * amp;
   for (let i = 0; i < 2; i++) {
     const pl = ph + (i ? Math.PI : 0), side = i ? 1 : -1;
@@ -1659,7 +1725,8 @@ function animatePlayer(p, dt) {
   if (p.kickAnim > 0) {                                                                 // strike: snap through, then recover
     const u = 1 - clamp(p.kickAnim, 0, 1); rate = 34;
     HA[1] = u < 0.2 ? lerp(0.55, -1.2, u / 0.2) : lerp(-1.2, 0, ease((u - 0.2) / 0.8)); KA[1] = u < 0.2 ? lerp(1.0, 0.05, u / 0.2) : 0.15; HA[0] = 0.15; KA[0] = 0.25;
-    UX[0] = -0.8; UX[1] = 0.6; SZ[0] = -0.5; torsoX = -0.06; torsoY = 0.3 * (1 - u);
+    UX[0] = -0.95; UX[1] = 0.7; SZ[0] = -0.85; EL[0] = -0.35; KA[0] = 0.25 + 0.22 * Math.sin(u * Math.PI); rootY = Math.sin(clamp(u / 0.6, 0, 1) * Math.PI) * 0.05;   // opposite arm out for balance, standing knee gives
+    torsoX = lerp(0.18, -0.1, clamp(u / 0.25, 0, 1)); torsoY = 0.42 * (1 - u);
   }
   if (p.lunge > 0) { const w = Math.sin(clamp(p.lunge / 0.35, 0, 1) * Math.PI); HA[1] = -0.95 * w; KA[1] = 0.08; HA[0] = 0.4 * w; KA[0] = 0.5 * w; rootX = 0.22 * w; rate = 26; }
   if (p.slide > 0) {                                                                    // feet-first: the body reclines about the heels
@@ -1672,6 +1739,28 @@ function animatePlayer(p, dt) {
     for (let i = 0; i < 2; i++) { UX[i] = -2.9; SZ[i] = (i ? 1 : -1) * 0.22; EL[i] = -0.08; HA[i] = 0.1; KA[i] = 0.2; } torsoX = 0;
   }
   if (p.jump > 0) { const w = Math.sin(clamp(1 - p.jump / 0.55, 0, 1) * Math.PI); rootY = 0.5 * w; KA[0] = KA[1] = 0.25 + 0.5 * w; UX[0] = UX[1] = -0.45; SZ[0] = -0.55; SZ[1] = 0.55; torsoX = -0.12 + 0.3 * w; }
+  if (p.move > 0 && p.down <= 0 && p.moveK) {
+    const K = p.moveK, u = 1 - p.move / MOVE_DUR[K], sd = p.moveSide, PI = Math.PI; rate = 26;
+    if (K === 1) {                                                                      // bicycle kick: up and back, legs scissor, land on his back
+      const a = u < 0.7 ? clamp(u / 0.2, 0, 1) : clamp((1 - u) / 0.3, 0, 1), sc = clamp((u - 0.18) / 0.14, 0, 1), rl = u > 0.7 ? clamp((1 - u) / 0.3, 0, 1) : 1;
+      rootX = -1.5 * a; rootY = u < 0.62 ? Math.sin(u / 0.62 * PI) * 1.0 + 0.05 : 0.1 * rl;
+      HA[1] = lerp(0.3, -1.9, sc) * rl; KA[1] = lerp(1.2, 0.08, sc); HA[0] = lerp(-1.3, 0.25, sc) * rl; KA[0] = lerp(0.4, 0.9, sc) * rl;
+      for (let i = 0; i < 2; i++) { UX[i] = 0.6; SZ[i] = (i ? 1 : -1) * 1.1; EL[i] = -0.3; } torsoX = 0; torsoY = 0;
+    } else if (K === 2) {                                                               // diving header: full length, then down on his front
+      const a = u < 0.65 ? clamp(u / 0.18, 0, 1) : clamp((1 - u) / 0.35, 0, 1);
+      rootX = 1.3 * a; rootY = u < 0.6 ? Math.sin(u / 0.6 * PI) * 0.7 + 0.04 : 0.04;
+      for (let i = 0; i < 2; i++) { HA[i] = 0.15; KA[i] = 0.12; UX[i] = -0.5; SZ[i] = (i ? 1 : -1) * 1.0; EL[i] = -0.2; } torsoX = -0.18; torsoY = 0;
+    } else if (K === 3) {                                                               // volley: body falls away, striking leg comes through level
+      const w = Math.sin(clamp(u / 0.8, 0, 1) * PI);
+      rootZ = -sd * 0.7 * w; rootY = 0.22 * w; HA[1] = -1.55 * w; KA[1] = 0.15; HA[0] = 0.15; KA[0] = 0.3 * w;
+      for (let i = 0; i < 2; i++) { UX[i] = -0.1; SZ[i] = (i ? 1 : -1) * 1.0; EL[i] = -0.2; } torsoX = 0; torsoY = 0.3 * w;
+    } else if (K === 4) { const w = Math.sin(u * PI); HA[1] = 1.0 * w; KA[1] = 1.4 * w; KA[0] = 0.25; torsoX = 0.3 * w; }      // backheel
+    else if (K === 5) {                                                                 // rocket: big follow-through that lifts him off the ground
+      HA[1] = lerp(-1.65, 0.2, ease(clamp(u / 0.8, 0, 1))); KA[1] = 0.1 + 0.5 * Math.sin(u * PI); HA[0] = 0.5 * Math.sin(u * PI); KA[0] = 0.5 * Math.sin(u * PI);
+      rootY = Math.sin(clamp(u / 0.6, 0, 1) * PI) * 0.22; torsoX = lerp(0.35, 0, u); torsoY = 0.5 * (1 - u); UX[0] = -1.0; SZ[0] = -1.0; UX[1] = 0.8;
+    } else if (K === 6) { const w = Math.sin(u * PI); HA[1] = -0.75 * w; KA[1] = 0.6 * w; KA[0] = 0.3 * w; torsoX = -0.28 * w; UX[0] = -0.5; SZ[0] = -0.7; }   // chip: leans back and scoops
+    else if (K === 7) { const w = Math.sin(u * PI); rootZ += -sd * 0.42 * w; torsoY = -sd * 0.35 * w; const i = sd > 0 ? 1 : 0; UX[i] = 0.25; SZ[i] = (i ? 1 : -1) * 0.02; EL[i] = -1.3; }   // shoulder charge
+  }
   if (p.down > 0) { const w = clamp(Math.min((1.4 - p.down) / 0.22, p.down / 0.35), 0, 1); rootX = 1.42 * w; UX[0] = UX[1] = -2.2 * w; rate = 14; }
   const k = 1 - Math.exp(-rate * dt), ks = 1 - Math.exp(-12 * dt);
   g.position.set(p.pos.x, g.position.y + (rootY - g.position.y) * k, p.pos.z);
@@ -2124,7 +2213,7 @@ refreshMenu(); setNight(false);
 window.__game = {
   tick: (dt, n = 1) => { for (let i = 0; i < n; i++) update(dt); },
   start: (hi = 0, ai = 1) => startMatch(hi, ai),
-  G, ball, players, allPlayers, keys, CLUBS, ACT, deadBall, startShootout, endMatch, periodEnd, doShoot, doPass, tryTackle, foul, cupStart, setUser, gainPossession,
+  G, ball, players, allPlayers, keys, CLUBS, ACT, deadBall, startShootout, endMatch, periodEnd, doShoot, doPass, tryTackle, foul, cupStart, setUser, gainPossession, aerialStrike, shoulder,
   user: () => userPlayer,
   setBall: (x, y, z, vx, vy, vz) => { ball.owner = null; ball.pos.set(x, y, z); ball.vel.set(vx || 0, vy || 0, vz || 0); G.lastTouch = 'home'; ball.kickId++; },
   info: () => ({ n: players.length, state: G.state, half: G.half, clock: +G.clock.toFixed(1), score: { ...G.score }, ball: ball.pos.toArray().map(v => +v.toFixed(1)), owner: ball.owner ? ball.owner.team + ball.owner.number : null, user: userPlayer ? userPlayer.number : null, stats: G.stats }),
