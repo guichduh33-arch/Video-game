@@ -574,7 +574,7 @@ function applyEdit(sp, e) {
   const o = clamp(Math.round(+e.o) || sp.ovr, 40, 130), d = o - sp.ovr;
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
   sp.max = /nolan/i.test(sp.name);
-  if (sp.max) { if (e.k == null) sp.skin = 0xd09664; if (!e.s) sp.style = 'buzz'; if (e.h == null) sp.hair = 0x2b1a0e; }   // his own look until he picks another                                                       // Nolan is off the scale: every skill at the top
+  if (sp.max) { if (e.k == null || e.k === 0xd09664) sp.skin = 0xd8a074; if (!e.s) sp.style = 'buzz'; if (e.h == null || e.h === 0x1a1008 || e.h === 0x2b1a0e) sp.hair = 0x14100c; }   // his own look until he picks another                                                       // Nolan is off the scale: every skill at the top
   if (sp.max) { sp.ovr = 130; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = 99; if (sp.pos === 'GK') sp.gk = 130; }
 }
 const BIG_OVR = '1,' + '0'.repeat(32), ovrTxt = s => s.max ? '10³²' : s.ovr;
@@ -634,8 +634,8 @@ function setNumber(parts, n) {
   g.font = '900 46px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 7; g.strokeStyle = 'rgba(10,12,16,.9)'; g.strokeText(String(n), 32, 36); g.fillStyle = '#fff'; g.fillText(String(n), 32, 36);
   parts.num.tex.needsUpdate = true; parts.num.mesh.visible = n !== '';
 }
-function setLook(parts, skinHex, hairHex, style) {
-  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.5); L.bzt.color.setHex(hairHex).multiplyScalar(0.45); L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
+function setLook(parts, skinHex, hairHex, style, smile) {
+  const L = parts.look; L.skin.color.setHex(skinHex); L.bz.color.setHex(hairHex).lerp(L.skin.color, 0.14); L.bzt.color.setHex(hairHex).multiplyScalar(0.8); L.teeth.visible = !!smile; L.lip.color.setHex(0x6e2a26).lerp(L.skin.color, 0.4); L.hair.color.setHex(hairHex); L.stub.color.setHex(skinHex).multiplyScalar(0.8);
   for (const k in L.hs) for (const m of L.hs[k]) m.visible = false;
   for (const m of L.hs[style] || L.hs.short) m.visible = true;
 }
@@ -672,11 +672,12 @@ function makePlayer(km) {
     for (const sx of [-1, 1]) {
       add(head, geo('ear', () => new THREE.SphereGeometry(0.024, 6, 6)), skin, sx * 0.098, -0.005, 0).scale.set(0.5, 1, 0.8);
       // eye: small and plain — a narrow white with a dark iris, under a straight brow
-      add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 14, 10)), mat(0xe9e5dc, 0.6), sx * 0.04, 0.012, 0.0945).scale.set(0.86, 0.42, 0.5);
-      add(head, geo('iris', () => new THREE.SphereGeometry(0.0062, 12, 8)), mat(0x24160d, 0.85), sx * 0.04, 0.012, 0.1018).scale.set(1, 1, 0.35);
+      add(head, geo('eyeW', () => new THREE.SphereGeometry(0.017, 14, 10)), mat(0xe9e5dc, 0.6), sx * 0.04, 0.012, 0.0945).scale.set(0.95, 0.58, 0.5);
+      add(head, geo('iris', () => new THREE.SphereGeometry(0.0078, 12, 8)), mat(0x1c110a, 0.85), sx * 0.04, 0.012, 0.1018).scale.set(1, 1, 0.35);
       const br = add(head, geo('brow', () => new THREE.BoxGeometry(0.046, 0.0095, 0.012)), hm, sx * 0.04, 0.03, 0.099); br.rotation.z = sx * 0.06;
     }
   }
+  const teeth = add(head, geo('teeth', () => new THREE.BoxGeometry(0.03, 0.0085, 0.006)), mat(0xf4f1e8, 0.4), 0, -0.0665, 0.0915); teeth.visible = false;   // a big grin, for players who have one
   const lip = new THREE.MeshStandardMaterial({ roughness: 0.6 });
   add(head, geo('mouth', () => new THREE.BoxGeometry(0.036, 0.0055, 0.008)), lip, 0, -0.072, 0.0905);
   for (const sx of [-1, 1]) add(head, geo('mouthC', () => new THREE.BoxGeometry(0.009, 0.005, 0.007)), lip, sx * 0.021, -0.0705, 0.0885).rotation.z = sx * 0.45;   // corners turn up a little
@@ -696,7 +697,7 @@ function makePlayer(km) {
   const bzm = new THREE.MeshStandardMaterial({ roughness: 0.85 }), bztm = new THREE.MeshStandardMaterial({ roughness: 0.9 });                      // a thin cut lets some skin show through
   const bz = add(head, geo('buzz', () => new THREE.SphereGeometry(0.112, 20, 12, 0, TAU, 0, Math.PI * 0.43)), bzm, 0, 0.011, -0.002); bz.scale.set(0.905, 1.104, 1.022); bz.rotation.x = -0.42; hs.buzz.push(bz);
   const bzt = add(head, geo('buzzTop', () => new THREE.SphereGeometry(0.1138, 20, 10, 0, TAU, 0, Math.PI * 0.26)), bztm, 0, 0.011, -0.002); bzt.scale.set(0.905, 1.104, 1.022); bzt.rotation.x = -0.2; hs.buzz.push(bzt);   // a little more hair on top, faded to almost nothing at the sides   // round and thin, close to the head
-  p.look = { skin, hair: hm, stub, hs, bz: bzm, bzt: bztm, lip };
+  p.look = { skin, hair: hm, stub, hs, bz: bzm, bzt: bztm, lip, teeth };
   // ----- arms: sleeve, upper arm, elbow, forearm, hand
   p.arms = [];
   for (const sx of [-1, 1]) {
@@ -771,7 +772,7 @@ function loadSquads(hi, ai) {
   players.length = homeTeam.length = awayTeam.length = 0;
   for (const p of allPlayers) {
     const ci = p.team === 'home' ? hi : ai, c = CLUBS[ci], s = squadFor(ci)[lineupFor(ci)[p.idx]], slot = FORMATIONS[c.f][p.idx];
-    p.form = slot; p.role = slot.role; p.number = s.num; setNumber(p.parts, s.num); setLook(p.parts, s.skin, s.hair, s.style);
+    p.form = slot; p.role = slot.role; p.number = s.num; setNumber(p.parts, s.num); setLook(p.parts, s.skin, s.hair, s.style, s.max);
     p.name = s.name; p.at = s; p.maxRun = (p.isGK ? 5.7 : 5.9 + (Math.min(s.pace, 99) - 55) / 44 * 1.85) * (G.easy && p.team === 'away' ? 0.82 : 1); p.yellow = 0; p.st = { goals: 0, tackles: 0, passes: 0, saves: 0 };
     resetPlayerState(p); p.mesh.visible = true; drawLabel(p);
     players.push(p); teamList(p.team).push(p);
@@ -1967,7 +1968,7 @@ function faceSVG(s, c) {
   return '<svg viewBox="0 0 40 40" aria-hidden="true">' + (s.style === 'afro' ? '<circle cx="20" cy="12" r="11.5" fill="' + h + '"/>' : '') +
     '<path d="M3 40 Q5 28.5 20 28.5 Q35 28.5 37 40Z" fill="' + hexCss(c.shirt) + '"/><path d="M15 29 Q20 33 25 29 L24 27.5 L16 27.5Z" fill="' + hexCss(c.trim) + '"/>' +
     '<rect x="16.6" y="22" width="6.8" height="8" rx="2.5" fill="' + sk + '"/><ellipse cx="20" cy="16.5" rx="8.2" ry="9.8" fill="' + sk + '"/>' + hair +
-    [16.6, 23.4].map((x, n) => '<ellipse cx="' + x + '" cy="17.2" rx="1.15" ry=".7" fill="#e9e5dc"/><circle cx="' + x + '" cy="17.2" r=".68" fill="#24160d"/><path d="M' + (x - 2) + ' ' + (n ? 15.6 : 15.2) + ' L' + (x + 2) + ' ' + (n ? 15.2 : 15.6) + '" stroke="' + (s.style === 'bald' ? '#3a2a1e' : h) + '" stroke-width="1.05" fill="none" stroke-linecap="round"/>').join('') + '<path d="M17 22 Q20 23.8 23 22" stroke="#5a2420" stroke-width="1" fill="none" stroke-linecap="round" opacity=".9"/></svg>';
+    [16.6, 23.4].map((x, n) => '<ellipse cx="' + x + '" cy="17.2" rx="1.3" ry=".95" fill="#e9e5dc"/><circle cx="' + x + '" cy="17.2" r=".85" fill="#1c110a"/><path d="M' + (x - 2) + ' ' + (n ? 15.6 : 15.2) + ' L' + (x + 2) + ' ' + (n ? 15.2 : 15.6) + '" stroke="' + (s.style === 'bald' ? '#3a2a1e' : h) + '" stroke-width="1.05" fill="none" stroke-linecap="round"/>').join('') + '' + (s.max ? '<path d="M16.3 21.4 Q20 22.3 23.7 21.4 Q20 25.6 16.3 21.4Z" fill="#f4f1e8" stroke="#5a2420" stroke-width=".7" stroke-linejoin="round"/>' : '<path d="M17 22 Q20 23.8 23 22" stroke="#5a2420" stroke-width="1" fill="none" stroke-linecap="round" opacity=".9"/>') + '</svg>';
 }
 function cardHTML(s, i, c, slot, style) {
   const tier = (s.star ? 't6' : s.ovr >= 100 ? 't5' : s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1') + (s.ovr >= 100 ? ' d3' : '');
@@ -2029,7 +2030,7 @@ function signStar(role) {
   const had = sq[si].star === role, e = { n: had ? sq[si].name : d.n[h % d.n.length], o: had ? Math.max(sq[si].ovr, d.o) : d.o, p: role, star: role, h: d.h, s: d.s };      // re-signing keeps the name and rating you gave him
   if (role === 'FW') {                                                                 // the super striker is Nolan, with his own look
     const old = (c.edits || {})[si] || {}, mine = /nolan/i.test(old.n || '');
-    Object.assign(e, { n: 'NOLAN', o: 130, k: mine && old.k != null ? old.k : 0xd09664, h: mine && old.h != null ? old.h : 0x1a1008, s: mine && old.s ? old.s : 'buzz' });
+    Object.assign(e, { n: 'NOLAN', o: 130, k: mine && old.k != null ? old.k : 0xd8a074, h: mine && old.h != null ? old.h : 0x14100c, s: mine && old.s ? old.s : 'buzz' });
   }
   (c.edits || (c.edits = {}))[si] = e; applyEdit(sq[si], e);
   const at = l.indexOf(si); if (at !== slot) [l[at], l[slot]] = [l[slot], l[at]];
@@ -2057,7 +2058,7 @@ function openEdit() {
   });
 }
 let edLook = {};
-const ED_SKIN = [0xf7d9bc, 0xf0c8a0, 0xe0a878, 0xd09664, 0xc78b5c, 0x9c6b43, 0x6e4a2f, 0x4a3020];
+const ED_SKIN = [0xf7d9bc, 0xf0c8a0, 0xe0a878, 0xd8a074, 0xd09664, 0xc78b5c, 0x9c6b43, 0x6e4a2f, 0x4a3020];
 const ED_HAIR = [0x111111, 0x2b1a0e, 0x4a2f18, 0x7a4a22, 0xb5521e, 0xc9a25a, 0xf0d77a, 0x9a9a9a];
 function lookRow(label, k, cols, cur) { return '<div class="fld">' + label + '<div class="sw">' + cols.map(c => '<button class="swc' + (c === cur ? ' on' : '') + '" data-lk="' + k + '" data-v="' + c + '" style="background:#' + c.toString(16).padStart(6, '0') + '"></button>').join('') + '</div></div>'; }
 ACT.doEdit = () => {
