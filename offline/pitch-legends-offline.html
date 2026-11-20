@@ -876,8 +876,8 @@ const AudioSys = (() => {
         const vs = speechSynthesis.getVoices(), v = vs.find(x => /^es/i.test(x.lang) && MALE.test(x.name)) || vs.find(x => MALE.test(x.name)) || vs.find(x => /^es/i.test(x.lang));
         const latin = !v || /^(es|it|pt|fr)/i.test(v.lang), u = new SpeechSynthesisUtterance(latin ? '¡Siiiuuuuuuuu!' : 'Seeeyoooooooo!');
         if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'es-ES';
-        u.rate = 0.75; u.pitch = v && MALE.test(v.name) ? 0.8 : 0.35; u.volume = 1;
-        u.onstart = () => { started = true; }; speechSynthesis.cancel(); speechSynthesis.speak(u);
+        u.rate = 0.95; u.pitch = v && MALE.test(v.name) ? 0.9 : 0.7; u.volume = 1;      // a very low pitch setting makes some voices stutter
+        u.onstart = () => { started = true; }; speechSynthesis.speak(u);
       }
     } catch (e) {}
     setTimeout(() => { if (!started && !(window.speechSynthesis && speechSynthesis.speaking)) whoop(); }, 700);
@@ -1367,8 +1367,9 @@ function celebrateAI(p, dt) {
       if (t < 1.5) { seekTo(p, G.celeSpot.x, G.celeSpot.z, dt, p.maxRun * 0.8); p.celebrate = 1; }
       else {
         const u = clamp((t - 1.5) / 0.75, 0, 1); p.vel.set(0, 0, 0);
+        if (!G.siuSaid) { G.siuSaid = true; AudioSys.siu(); }                               // a device voice takes a moment to start, so it is asked as he takes off and lands with him
         p.facing = away + Math.PI * u * u * (3 - 2 * u); p.celebrate = 2 + u;
-        if (u >= 1 && !G.siuDone) { G.siuDone = true; showToast('SIUUUUUUU!', 2.2, 'big'); AudioSys.siu(); AudioSys.cheer(0.2, 2.5); }
+        if (u >= 1 && !G.siuDone) { G.siuDone = true; showToast('SIUUUUUUU!', 2.2, 'big'); AudioSys.cheer(0.2, 2.5); }
       }
       return;
     }
@@ -1631,7 +1632,7 @@ function onGoal(team, g) {
   G.goals.push({ team, name, min });
   G.scorer = og ? null : scorer; G.concede = otherTeam(team); G.goalT = G.time; G.goalTeam = team;
   if (scorer) G.celeSpot = { x: g.side * (HL - 7), z: (Math.sign(scorer.pos.z) || 1) * (HW - 7) };
-  G.siu = !!scorer && !og && (/nolan/i.test(scorer.name) || /nolan/i.test(CLUBS[G.clubs[team]].n || '')); G.siuDone = false; G.cele = G.siu ? 2 : pick([1, 4, 5, 7, 8, 9]);   // a scorer (or club) named Nolan gets his own jump-spin celebration
+  G.siu = !!scorer && !og && (/nolan/i.test(scorer.name) || /nolan/i.test(CLUBS[G.clubs[team]].n || '')); G.siuDone = false; G.siuSaid = false; G.cele = G.siu ? 2 : pick([1, 4, 5, 7, 8, 9]);   // a scorer (or club) named Nolan gets his own jump-spin celebration
   G.state = 'celebrate'; G.celebrateT = G.cele === 1 ? 3.2 : 4.6; g.ripple = 1; ball.inNet = true; ball.netSide = g.side; G.flash = 0.5;
   AudioSys.goal(); AudioSys.whistle(false); showToast('GOAL!', 2.2, 'big');
   const c = CLUBS[G.clubs[team]];
