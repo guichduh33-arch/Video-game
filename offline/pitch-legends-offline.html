@@ -597,9 +597,9 @@ function applyEdit(sp, e) {
   if (d) { sp.ovr = o; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = clamp(sp[k] + d, 30, 99); if (sp.pos === 'GK') sp.gk = o; }
   sp.max = /nolan/i.test(sp.name);
   if (sp.max) { if (e.k == null || e.k === 0xd09664) sp.skin = 0xd8a074; if (!e.s) sp.style = 'buzz'; if (e.h == null || e.h === 0x1a1008 || e.h === 0x2b1a0e) sp.hair = 0x0c0a08; }   // his own look until he picks another                                                       // Nolan is off the scale: every skill at the top
-  if (sp.max) { sp.ovr = 130; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = 99; if (sp.pos === 'GK') sp.gk = 130; }
+  if (sp.max && (e.o == null || +e.o >= 130)) { sp.ovr = 130; for (const k of ['pace', 'sho', 'pas', 'def']) sp[k] = 99; if (sp.pos === 'GK') sp.gk = 130; }
 }
-const BIG_OVR = '1,' + '0'.repeat(32), ovrTxt = s => s.max ? '10³²' : s.ovr;
+const BIG_OVR = '1,' + '0'.repeat(32), isBig = s => s.max && s.ovr >= 130, ovrTxt = s => isBig(s) ? '10³²' : s.ovr;
 // line-up = 18 squad indices: the first 11 fill the formation's slots in order, the rest sit on the bench
 function autoLineup(ci) {
   const c = CLUBS[ci], sq = squadFor(ci), used = new Set(), out = [];
@@ -2150,7 +2150,7 @@ function faceSVG(s, c) {
 }
 function cardHTML(s, i, c, slot, style) {
   const tier = (s.star ? 't6' : s.ovr >= 100 ? 't5' : s.ovr >= 88 ? 't4' : s.ovr >= 82 ? 't3' : s.ovr >= 75 ? 't2' : 't1') + (s.ovr >= 100 ? ' d3' : '');
-  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b' + (s.max ? ' style="font-size:calc(var(--w) * .19)"' : '') + '>' + ovrTxt(s) + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span title="' + esc(s.name) + '">' + esc(s.name.split('. ')[1] || (s.name.length > 9 ? s.name.split(' ').pop() : s.name)) + '</span>' +
+  return '<div class="pc ' + tier + (tsSel === i ? ' sel' : '') + '" data-i="' + i + '"' + (style ? ' style="' + style + '"' : '') + '><b' + (isBig(s) ? ' style="font-size:calc(var(--w) * .19)"' : '') + '>' + ovrTxt(s) + '</b><i>' + s.pos + '</i>' + faceSVG(s, c) + '<span title="' + esc(s.name) + '">' + esc(s.name.split('. ')[1] || (s.name.length > 9 ? s.name.split(' ').pop() : s.name)) + '</span>' +
     (slot ? '<em class="' + (slot.role === s.pos ? '' : 'bad') + '">' + slot.pos + '</em>' : '') + (s.star ? '<u>★</u>' : '') + '</div>';
 }
 function drawTeam() {
@@ -2223,12 +2223,13 @@ function openStars() {
 function openEdit() {
   if (tsSel < 0) return; const sp = squadFor(sel.home)[lineupFor(sel.home)[tsSel]];
   openPanel('<h1>EDIT PLAYER</h1><div class="card" style="display:flex;flex-direction:column;gap:12px"><label class="fld">Name<input type="text" id="edName" maxlength="14" autocomplete="off" value="' + esc(sp.name) + '"></label>' +
-    '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px;word-break:break-all">' + (sp.max ? BIG_OVR : sp.ovr) + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
+    '<label class="fld">Rating: <b id="edOvrV" style="color:#ffd23f;font-size:18px;word-break:break-all">' + (isBig(sp) ? BIG_OVR : sp.ovr) + '</b><input type="range" id="edOvr" min="40" max="130" value="' + sp.ovr + '"></label>' +
     '<label class="fld">Position<select id="edPos" style="font:700 16px system-ui;padding:8px;border-radius:8px;background:#0c1218;color:#fff;border:1px solid rgba(255,255,255,.25)">' + [['GK', 'Goalkeeper'], ['DF', 'Defender'], ['MF', 'Midfielder'], ['FW', 'Forward']].map(o => '<option value="' + o[0] + '"' + (o[0] === sp.pos ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select></label>' +
     lookRow('Skin', 'k', ED_SKIN, sp.skin) + lookRow('Hair colour', 'h', ED_HAIR, sp.hair) +
     '<div class="fld">Hair style<div class="sw">' + ['buzz', 'short', 'crop', 'afro', 'bun', 'long', 'pony', 'bald'].map(v => '<button class="swt' + (v === sp.style ? ' on' : '') + '" data-lk="s" data-v="' + v + '">' + v[0].toUpperCase() + v.slice(1) + '</button>').join('') + '</div></div></div>' +
     '<button class="cta" data-act="doEdit">SAVE</button><button class="cta alt" data-act="closeP">CANCEL</button>');
-  $('edOvr').addEventListener('input', e => { $('edOvrV').textContent = e.target.value; });
+  const showOvr = () => { $('edOvrV').textContent = +$('edOvr').value >= 130 && /nolan/i.test($('edName').value) ? BIG_OVR : $('edOvr').value; };   // for Nolan the top of the slider is the giant rating
+  $('edOvr').addEventListener('input', showOvr); $('edName').addEventListener('input', showOvr);
   edLook = {};
   for (const b of document.querySelectorAll('[data-lk]')) b.addEventListener('click', () => {
     const k = b.dataset.lk; edLook[k] = k === 's' ? b.dataset.v : +b.dataset.v;
@@ -2241,6 +2242,7 @@ const ED_HAIR = [0x111111, 0x2b1a0e, 0x4a2f18, 0x7a4a22, 0xb5521e, 0xc9a25a, 0xf
 function lookRow(label, k, cols, cur) { return '<div class="fld">' + label + '<div class="sw">' + cols.map(c => '<button class="swc' + (c === cur ? ' on' : '') + '" data-lk="' + k + '" data-v="' + c + '" style="background:#' + c.toString(16).padStart(6, '0') + '"></button>').join('') + '</div></div>'; }
 ACT.doEdit = () => {
   const c = CLUBS[sel.home], si = lineupFor(sel.home)[tsSel], old = (c.edits || {})[si] || {}, e = { ...old, n: $('edName').value, o: +$('edOvr').value, p: $('edPos').value, ...edLook };
+  if (/nolan/i.test(e.n) && !/nolan/i.test(old.n || squadFor(sel.home)[si].name)) e.o = 130;        // a player newly named Nolan starts at the top
   (c.edits || (c.edits = {}))[si] = e; applyEdit(squadFor(sel.home)[si], e); nolan7(squadFor(sel.home)); tsSel = -1; closePanel(); refreshMenu(); saveAll();
 };
 const FRIENDS = [
